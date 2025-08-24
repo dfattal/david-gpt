@@ -1,0 +1,322 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9'
+
+jobs:
+  e2e-tests:
+    name: End-to-End Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      # Add PostgreSQL for Supabase local development if needed
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: david_gpt_test
+        options: >
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+        # Test key responsive breakpoints
+        viewport:
+          - { width: 375, height: 667, name: 'mobile' }
+          - { width: 1024, height: 768, name: 'desktop' }
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup test environment variables
+        run: |
+          cp .env.example .env.local
+          echo "NEXTAUTH_URL=http://localhost:3000" >> .env.local
+          echo "NEXTAUTH_SECRET=test-secret-key-for-ci" >> .env.local
+          echo "NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321" >> .env.local
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=test-anon-key" >> .env.local
+          echo "OPENAI_API_KEY=sk-test-key-for-ci" >> .env.local
+
+      - name: Build application
+        run: pnpm build
+        env:
+          NODE_ENV: production
+
+      - name: Install Playwright browsers
+        run: pnpm playwright install ${{ matrix.browser }} --with-deps
+
+      - name: Start application
+        run: |
+          pnpm start &
+          sleep 10
+        env:
+          PORT: 3000
+
+      - name: Wait for application to be ready
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:3000/api/health 2>/dev/null || curl -f http://localhost:3000 2>/dev/null; do sleep 1; done'
+
+      - name: Run E2E tests
+        run: pnpm playwright test --project=${{ matrix.browser }}
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:3000
+          CI: true
+          # Set viewport for this test run
+          PLAYWRIGHT_VIEWPORT_WIDTH: ${{ matrix.viewport.width }}
+          PLAYWRIGHT_VIEWPORT_HEIGHT: ${{ matrix.viewport.height }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results-${{ matrix.browser }}-${{ matrix.viewport.name }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 30
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots-${{ matrix.browser }}-${{ matrix.viewport.name }}
+          path: test-results/**/*.png
+          retention-days: 30
+
+  accessibility-audit:
+    name: Accessibility Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup test environment
+        run: |
+          cp .env.example .env.local
+          echo "OPENAI_API_KEY=sk-test-key-for-ci" >> .env.local
+
+      - name: Build and start application
+        run: |
+          pnpm build
+          pnpm start &
+          sleep 10
+
+      - name: Install Playwright browsers
+        run: pnpm playwright install chromium --with-deps
+
+      - name: Run accessibility tests
+        run: pnpm playwright test accessibility.spec.ts
+        env:
+          CI: true
+
+      - name: Upload accessibility results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: accessibility-results
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 30
+
+  performance-audit:
+    name: Performance Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build application
+        run: pnpm build
+
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli@0.12.x
+
+      - name: Start application
+        run: |
+          pnpm start &
+          sleep 10
+
+      - name: Run Lighthouse CI
+        run: |
+          lhci autorun
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+
+      - name: Upload Lighthouse results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-results
+          path: .lighthouseci
+          retention-days: 30
+
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [e2e-tests, accessibility-audit, performance-audit]
+    if: always()
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create test summary
+        run: |
+          echo "# E2E Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.e2e-tests.result }}" == "success" ]; then
+            echo "✅ **E2E Tests**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **E2E Tests**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.accessibility-audit.result }}" == "success" ]; then
+            echo "✅ **Accessibility**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Accessibility**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.performance-audit.result }}" == "success" ]; then
+            echo "✅ **Performance**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Performance**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Test Coverage" >> $GITHUB_STEP_SUMMARY
+          echo "- Authentication flows" >> $GITHUB_STEP_SUMMARY
+          echo "- Chat streaming functionality" >> $GITHUB_STEP_SUMMARY
+          echo "- Conversation CRUD operations" >> $GITHUB_STEP_SUMMARY
+          echo "- Title generation" >> $GITHUB_STEP_SUMMARY
+          echo "- Accessibility compliance (WCAG 2.1 AA)" >> $GITHUB_STEP_SUMMARY
+          echo "- Responsive design (Mobile + Desktop)" >> $GITHUB_STEP_SUMMARY
+          echo "- Performance metrics" >> $GITHUB_STEP_SUMMARY
+          echo "- Cross-browser compatibility" >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.login === 'github-actions[bot]' && 
+              comment.body.includes('E2E Test Results')
+            );
+            
+            const results = {
+              e2e: '${{ needs.e2e-tests.result }}' === 'success' ? '✅ Passed' : '❌ Failed',
+              a11y: '${{ needs.accessibility-audit.result }}' === 'success' ? '✅ Passed' : '❌ Failed',
+              perf: '${{ needs.performance-audit.result }}' === 'success' ? '✅ Passed' : '❌ Failed'
+            };
+            
+            const body = `## 🤖 E2E Test Results
+            
+            | Test Suite | Status |
+            |------------|--------|
+            | E2E Tests | ${results.e2e} |
+            | Accessibility | ${results.a11y} |
+            | Performance | ${results.perf} |
+            
+            **Test Coverage:**
+            - ✅ Authentication flows
+            - ✅ Chat streaming
+            - ✅ Conversation management
+            - ✅ Title generation
+            - ✅ Accessibility (WCAG 2.1 AA)
+            - ✅ Responsive design
+            - ✅ Cross-browser compatibility
+            
+            <details>
+            <summary>View detailed results</summary>
+            
+            Download test artifacts from the Actions tab for detailed reports, screenshots, and performance metrics.
+            </details>`;
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
