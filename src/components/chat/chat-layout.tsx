@@ -38,13 +38,15 @@ export function ChatLayout({ className }: ChatLayoutProps) {
     await renameConversation(id, title)
   }, [renameConversation])
 
-  const handleDeleteConversation = React.useCallback(async (id: string) => {
-    await deleteConversation(id)
+  const handleDeleteConversation = React.useCallback(async (id: string): Promise<boolean> => {
+    const success = await deleteConversation(id)
     
     // If we deleted the active conversation, clear selection
-    if (id === activeConversationId) {
+    if (success && id === activeConversationId) {
       setActiveConversationId(undefined)
     }
+    
+    return success
   }, [deleteConversation, activeConversationId])
 
   return (

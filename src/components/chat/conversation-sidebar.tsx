@@ -15,7 +15,7 @@ interface ConversationSidebarProps {
   onNewConversation: () => void
   onSelectConversation: (id: string) => void
   onRenameConversation: (id: string, title: string) => void
-  onDeleteConversation: (id: string) => void
+  onDeleteConversation: (id: string) => Promise<boolean>
   onTitleRefresh?: () => void // Callback to refresh conversations list after title generation
   isLoading?: boolean
   isCreating?: boolean
