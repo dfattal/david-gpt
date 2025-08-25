@@ -76,8 +76,8 @@ export function VirtualMessageList({
                 Welcome to David-GPT
               </h1>
               <p className="text-muted-foreground mb-8">
-                I&apos;m David Fattal, a technology entrepreneur and AI enthusiast. 
-                Ask me anything about AI, startups, product development, or just chat!
+                I&apos;m David Fattal, a technology entrepreneur and Spatial AI enthusiast. 
+                Ask me anything about AI, Immersive Tech, or just chat!
               </p>
               <div className="text-sm text-muted-foreground">
                 Start a conversation by typing a message below.
