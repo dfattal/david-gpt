@@ -29,8 +29,6 @@ export function measureWebVitals() {
 
 // Memory leak detection
 export function useMemoryMonitor() {
-  const memoryRef = useRef<number>(0);
-  
   useEffect(() => {
     if (typeof window === 'undefined') return;
     console.log('[Performance] Memory monitoring initialized');
@@ -57,13 +55,19 @@ export function useStreamingPerformance() {
   return { trackStreamStart, trackFirstToken };
 }
 
-// Component render optimization
+// Component render optimization - throttled logging
 export function useRenderOptimization(componentName: string) {
   const renderCountRef = useRef(0);
+  const lastLoggedRef = useRef(0);
   
   useEffect(() => {
     renderCountRef.current += 1;
-    console.log(`[Performance] ${componentName} render #${renderCountRef.current}`);
+    
+    // Only log every 10 renders during streaming to reduce console overhead
+    if (renderCountRef.current - lastLoggedRef.current >= 10 || renderCountRef.current <= 5) {
+      console.log(`[Performance] ${componentName} render #${renderCountRef.current}`);
+      lastLoggedRef.current = renderCountRef.current;
+    }
   });
 }
 
@@ -88,15 +92,24 @@ export function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useThrottle<T extends (...args: any[]) => any>(fn: T, delay: number): T {
   const throttling = useRef(false);
+  const latestArgs = useRef<Parameters<T> | null>(null);
   
   return useCallback((...args: Parameters<T>) => {
+    latestArgs.current = args;
+    
     if (!throttling.current) {
       throttling.current = true;
       fn(...args);
+      
       setTimeout(() => {
         throttling.current = false;
+        // Execute with latest args if they changed during throttle period
+        if (latestArgs.current && latestArgs.current !== args) {
+          fn(...latestArgs.current);
+        }
       }, delay);
     }
   }, [fn, delay]) as T;

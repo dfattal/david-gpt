@@ -1,22 +1,23 @@
 import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { supabase, type StoredMessage, type UIMessage } from '@/lib/supabase'
+import { type StoredMessage, type UIMessage } from '@/lib/supabase'
 
 function getMessagesQueryKey(conversationId?: string) {
   return ['messages', conversationId]
 }
 
 async function fetchMessages(conversationId: string): Promise<UIMessage[]> {
-  const { data, error } = await supabase
-    .from('messages')
-    .select('*')
-    .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true })
+  const response = await fetch(`/api/messages?conversationId=${conversationId}`)
   
-  if (error) throw error
+  if (!response.ok) {
+    throw new Error(`Failed to fetch messages: ${response.statusText}`)
+  }
+  
+  const data = await response.json()
+  const messages = data.messages as StoredMessage[] || []
   
   // Convert StoredMessage[] to UIMessage[]
-  return (data as StoredMessage[]).map(msg => ({
+  return messages.map(msg => ({
     id: msg.provider_message_id || msg.id.toString(),
     role: msg.role,
     parts: msg.parts,
@@ -45,6 +46,10 @@ export function useMessages(conversationId?: string) {
       
       const lastMessage = old[old.length - 1]
       if (lastMessage.role !== 'assistant') return old
+      
+      // Only update if content actually changed to prevent unnecessary re-renders
+      const currentContent = lastMessage.parts[0]?.text || ''
+      if (currentContent === content) return old
       
       const updatedMessage: UIMessage = {
         ...lastMessage,

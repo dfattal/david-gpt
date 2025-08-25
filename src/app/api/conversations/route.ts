@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 
-export const runtime = 'edge'
+// export const runtime = 'edge' // Disabled due to cookie handling issues
 
 // GET /api/conversations - List user's conversations
 export async function GET(): Promise<Response> {
@@ -50,7 +50,7 @@ export async function POST(): Promise<Response> {
         title_status: 'pending',
         owner: user.id
       })
-      .select('id, title')
+      .select('id, title, title_status, created_at, updated_at')
       .single()
 
     if (error) {

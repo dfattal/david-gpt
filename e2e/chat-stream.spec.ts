@@ -36,7 +36,7 @@ test.describe('Chat Streaming', () => {
     const testMessage = TEST_DATA.TEST_MESSAGE
     
     // Mock streaming response
-    let streamedContent = ''
+    const streamedContent = ''
     await page.route('**/api/chat', async route => {
       // Simulate streaming response
       const mockResponse = MOCK_RESPONSES.DAVID_TECH_RESPONSE

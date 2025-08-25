@@ -1,5 +1,6 @@
 
 // Query optimization utilities
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function optimizeQuery(queryBuilder: any, options: {
   useIndex?: string;
   limit?: number;
@@ -8,12 +9,12 @@ export function optimizeQuery(queryBuilder: any, options: {
   let query = queryBuilder;
   
   // Apply limit to prevent large result sets
-  if (options.limit) {
+  if (options.limit && query.limit) {
     query = query.limit(options.limit);
   }
   
   // Add query timeout
-  if (options.timeout) {
+  if (options.timeout && query.abortSignal) {
     query = query.abortSignal(AbortSignal.timeout(options.timeout));
   }
   
@@ -21,6 +22,7 @@ export function optimizeQuery(queryBuilder: any, options: {
 }
 
 // Database health monitoring
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function monitorDatabaseHealth(client: any) {
   if (typeof window === 'undefined') return;
   
@@ -28,7 +30,7 @@ export function monitorDatabaseHealth(client: any) {
   const interval = setInterval(async () => {
     try {
       const startTime = performance.now();
-      await client.from('conversations').select('id').limit(1).single();
+      await client?.from?.('conversations')?.select?.('id')?.limit?.(1)?.single?.();
       const latency = performance.now() - startTime;
       
       console.log('[DB Health] Connection latency:', latency.toFixed(2), 'ms');

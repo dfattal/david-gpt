@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { VirtualMessageListWithMonitoring } from './virtual-message-list'
 import { MessageInput } from './message-input'
 import { StreamingIndicator } from './streaming-indicator'
@@ -9,14 +8,14 @@ import { useMessages } from '@/lib/hooks/use-messages'
 import { useChat } from '@/lib/hooks/use-chat'
 import { type UIMessage } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
-import { useStreamingPerformance, useRenderOptimization, useMemoryMonitor } from '@/lib/performance-client'
+import { useStreamingPerformance, useRenderOptimization, useMemoryMonitor, useThrottle } from '@/lib/performance-client'
 
 interface ChatInterfaceProps {
   conversationId?: string
   className?: string
 }
 
-export function ChatInterface({ conversationId, className }: ChatInterfaceProps) {
+export const ChatInterface = React.memo(function ChatInterface({ conversationId, className }: ChatInterfaceProps) {
   useRenderOptimization('ChatInterface')
   useMemoryMonitor()
   
@@ -25,6 +24,14 @@ export function ChatInterface({ conversationId, className }: ChatInterfaceProps)
   const [isAssistantTyping, setIsAssistantTyping] = React.useState(false)
   
   const { trackStreamStart, trackFirstToken } = useStreamingPerformance()
+
+  // Throttle streaming message updates to reduce render frequency
+  const streamingUpdateRef = React.useRef<string>('')
+  const throttledSetStreamingMessage = useThrottle((message: string) => {
+    streamingUpdateRef.current = message
+    setStreamingMessage(message)
+  }, 50)
+  const throttledUpdateLastMessage = useThrottle(updateLastMessage, 100)
 
   const chat = useChat({
     onResponse: () => {
@@ -83,15 +90,17 @@ export function ChatInterface({ conversationId, className }: ChatInterfaceProps)
           }
           
           fullResponse += chunk
-          setStreamingMessage(fullResponse)
-          updateLastMessage(fullResponse)
+          
+          // Throttle UI updates to reduce render frequency
+          throttledSetStreamingMessage(fullResponse)
+          throttledUpdateLastMessage(fullResponse)
         }
       )
     } catch (error) {
       console.error('Failed to send message:', error)
       // TODO: Show error state in UI
     }
-  }, [messages, addMessage, updateLastMessage, conversationId, chat, trackStreamStart, trackFirstToken])
+  }, [messages, addMessage, conversationId, chat, trackStreamStart, trackFirstToken, throttledSetStreamingMessage, throttledUpdateLastMessage])
 
 
   // Clear messages when conversation changes
@@ -144,4 +153,4 @@ export function ChatInterface({ conversationId, className }: ChatInterfaceProps)
       />
     </div>
   )
-}
+})

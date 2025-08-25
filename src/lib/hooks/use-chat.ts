@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { type UIMessage } from '@/lib/supabase'
+import { refreshConversationsFromOutside } from './use-conversations'
 
 interface UseChatOptions {
   onResponse?: (response: string) => void
@@ -63,6 +64,12 @@ export function useChat(options: UseChatOptions = {}) {
       if (options.onResponse) {
         options.onResponse(fullResponse)
       }
+
+      // Trigger conversation refresh after streaming completes
+      // Use a delay to allow backend title generation to finish
+      setTimeout(() => {
+        refreshConversationsFromOutside()
+      }, 2000) // 2 second delay for title generation to complete
 
       return fullResponse
     } catch (err) {

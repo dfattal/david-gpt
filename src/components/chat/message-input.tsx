@@ -3,7 +3,7 @@ import { Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
-import { useDebounce, useThrottle, useRenderOptimization } from '@/lib/performance-client'
+import { useThrottle, useRenderOptimization } from '@/lib/performance-client'
 
 interface MessageInputProps {
   onSend: (message: string) => void
@@ -11,7 +11,7 @@ interface MessageInputProps {
   placeholder?: string
 }
 
-export function MessageInput({ 
+export const MessageInput = React.memo(function MessageInput({ 
   onSend, 
   disabled = false,
   placeholder = "Message David..." 
@@ -22,8 +22,6 @@ export function MessageInput({
   const [isTyping, setIsTyping] = React.useState(false)
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
   
-  // Debounce typing indicator for better performance
-  const debouncedMessage = useDebounce(message, 300)
   const throttledOnChange = useThrottle((value: string) => {
     setMessage(value)
   }, 50)
@@ -85,7 +83,7 @@ export function MessageInput({
             onClick={handleSubmit}
             disabled={disabled || !message.trim()}
             size="icon"
-            className="absolute right-2 bottom-2 size-8"
+            className="absolute right-2 top-1/2 -translate-y-1/2 size-8"
           >
             <Send className="size-4" />
           </Button>
@@ -97,4 +95,8 @@ export function MessageInput({
       </div>
     </div>
   )
-}
+}, (prevProps, nextProps) => {
+  // Only re-render if disabled state or placeholder changes
+  return prevProps.disabled === nextProps.disabled && 
+         prevProps.placeholder === nextProps.placeholder
+})

@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest } from 'next/server'
 
-export const runtime = 'edge'
+// export const runtime = 'edge' // Disabled due to cookie handling issues
 
 export async function GET(request: NextRequest): Promise<Response> {
   try {

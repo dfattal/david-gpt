@@ -316,7 +316,7 @@ test.describe('Conversation CRUD Operations', () => {
     await page.keyboard.press('Tab')
     
     // Should navigate through conversation items
-    let focusedElement = await page.evaluate(() => document.activeElement?.getAttribute('data-testid'))
+    const focusedElement = await page.evaluate(() => document.activeElement?.getAttribute('data-testid'))
     
     // Keep tabbing through sidebar elements
     for (let i = 0; i < 5; i++) {

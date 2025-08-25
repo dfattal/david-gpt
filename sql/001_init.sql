@@ -72,7 +72,8 @@ with check (owner = auth.uid());
 drop policy if exists conv_update_owner on public.conversations;
 create policy conv_update_owner
 on public.conversations for update
-using (owner = auth.uid());
+using (owner = auth.uid())
+with check (owner = auth.uid());
 
 -- RLS Policy: messages - SELECT (users can only see messages from their own non-deleted conversations)
 drop policy if exists msg_select_by_owner on public.messages;

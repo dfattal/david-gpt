@@ -1,19 +1,29 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase, type Conversation } from '@/lib/supabase'
+import { type Conversation } from '@/lib/supabase'
 import { needsTitleGeneration } from '@/lib/title-generation'
 
 const CONVERSATIONS_QUERY_KEY = ['conversations']
 
 async function fetchConversations(): Promise<Conversation[]> {
-  const { data, error } = await supabase
-    .from('conversations')
-    .select('*')
-    .is('deleted_at', null)
-    .order('updated_at', { ascending: false })
+  const response = await fetch('/api/conversations')
   
-  if (error) throw error
-  return data || []
+  if (!response.ok) {
+    throw new Error(`Failed to fetch conversations: ${response.statusText}`)
+  }
+  
+  const data = await response.json()
+  return data.conversations || []
+}
+
+// Global function to refresh conversations from anywhere
+let globalRefreshConversations: (() => void) | null = null
+
+export function refreshConversationsFromOutside() {
+  if (globalRefreshConversations) {
+    console.log('[use-conversations] External refresh triggered')
+    globalRefreshConversations()
+  }
 }
 
 export function useConversations() {
@@ -22,20 +32,28 @@ export function useConversations() {
   const { data: conversations = [], isLoading, error } = useQuery({
     queryKey: CONVERSATIONS_QUERY_KEY,
     queryFn: fetchConversations,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchInterval: false, // Disable automatic refetching - we control it manually
   })
 
   const createMutation = useMutation({
     mutationFn: async (): Promise<Conversation> => {
-      const { data, error } = await supabase
-        .from('conversations')
-        .insert({
-          title: 'New chat',
-          title_status: 'pending'
-        })
-        .select()
-        .single()
+      const response = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
       
-      if (error) throw error
+      if (!response.ok) {
+        throw new Error(`Failed to create conversation: ${response.statusText}`)
+      }
+      
+      const data = await response.json()
       return data as Conversation
     },
     onSuccess: (newConversation) => {
@@ -55,15 +73,25 @@ export function useConversations() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string, updates: Partial<Conversation> }) => {
-      const { data, error } = await supabase
-        .from('conversations')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single()
+      // For now, only support title updates (rename functionality)
+      if ('title' in updates && updates.title) {
+        const response = await fetch(`/api/conversations/${id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ title: updates.title }),
+        })
+        
+        if (!response.ok) {
+          throw new Error(`Failed to update conversation: ${response.statusText}`)
+        }
+        
+        const data = await response.json()
+        return data as Conversation
+      }
       
-      if (error) throw error
-      return data as Conversation
+      throw new Error('Unsupported update operation')
     },
     onSuccess: (updatedConversation) => {
       queryClient.setQueryData<Conversation[]>(CONVERSATIONS_QUERY_KEY, (old) =>
@@ -82,12 +110,14 @@ export function useConversations() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('conversations')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', id)
+      const response = await fetch(`/api/conversations/${id}`, {
+        method: 'DELETE',
+      })
       
-      if (error) throw error
+      if (!response.ok) {
+        throw new Error(`Failed to delete conversation: ${response.statusText}`)
+      }
+      
       return id
     },
     onSuccess: (deletedId) => {
@@ -100,8 +130,10 @@ export function useConversations() {
   const deleteConversation = React.useCallback(async (id: string) => {
     try {
       await deleteMutation.mutateAsync(id)
-    } catch {
-      // Error handled by React Query
+      return true
+    } catch (error) {
+      console.error('Delete conversation failed:', error)
+      return false
     }
   }, [deleteMutation])
 
@@ -109,32 +141,35 @@ export function useConversations() {
     return updateConversation(id, { title })
   }, [updateConversation])
 
-  // Auto-refresh conversations when title generation might be in progress
-  React.useEffect(() => {
-    const hasPendingTitles = conversations.some(conv => needsTitleGeneration(conv.title_status))
-    
-    if (hasPendingTitles) {
-      // Poll for title updates every 5 seconds when there are pending titles
-      const interval = setInterval(() => {
-        queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
-      }, 5000)
-      
-      return () => clearInterval(interval)
-    }
-  }, [conversations, queryClient])
+  // No polling needed - title generation triggers UI updates via mutations
 
   // Check if any conversations have pending title generation
   const pendingTitleCount = conversations.filter(conv => needsTitleGeneration(conv.title_status)).length
 
+  // Set up global refresh function
+  const refetch = React.useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
+  }, [queryClient])
+
+  React.useEffect(() => {
+    globalRefreshConversations = refetch
+    return () => {
+      globalRefreshConversations = null
+    }
+  }, [refetch])
+
   return {
     conversations,
     isLoading,
+    isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
+    isDeleting: deleteMutation.isPending,
     error: error?.message || null,
     createConversation,
     updateConversation,
     deleteConversation,
     renameConversation,
     pendingTitleCount, // Expose count of conversations awaiting title generation
-    refetch: () => queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
+    refetch
   }
 }

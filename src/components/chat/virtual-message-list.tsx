@@ -4,7 +4,7 @@ import * as React from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { MessageBubble } from './message-bubble'
 import { type UIMessage } from '@/lib/supabase'
-import { useVirtualScrolling, useRenderOptimization } from '@/lib/performance-client'
+import { useRenderOptimization } from '@/lib/performance-client'
 import { cn } from '@/lib/utils'
 
 interface VirtualMessageListProps {
@@ -12,42 +12,18 @@ interface VirtualMessageListProps {
   isStreaming?: boolean
   streamingMessage?: string
   className?: string
-  onScroll?: (scrollTop: number) => void
 }
 
-const ITEM_HEIGHT = 120 // Approximate height per message
-const CONTAINER_HEIGHT = 600 // Default container height
 
 export function VirtualMessageList({
   messages,
   isStreaming = false,
   streamingMessage = '',
-  className,
-  onScroll
+  className
 }: VirtualMessageListProps) {
   useRenderOptimization('VirtualMessageList')
   
   const scrollAreaRef = React.useRef<HTMLDivElement>(null)
-  const [scrollTop, setScrollTop] = React.useState(0)
-  const [containerHeight, setContainerHeight] = React.useState(CONTAINER_HEIGHT)
-  
-  // Use virtual scrolling for large message lists
-  const shouldVirtualize = messages.length > 50
-  
-  const virtualScrolling = useVirtualScrolling({
-    itemCount: messages.length,
-    itemHeight: ITEM_HEIGHT,
-    containerHeight
-  })
-  
-  // Handle scroll events
-  const handleScroll = React.useCallback((event: React.UIEvent<HTMLDivElement>) => {
-    const target = event.target as HTMLDivElement
-    const newScrollTop = target.scrollTop
-    setScrollTop(newScrollTop)
-    virtualScrolling.setScrollTop(newScrollTop)
-    onScroll?.(newScrollTop)
-  }, [virtualScrolling, onScroll])
   
   // Auto-scroll to bottom for new messages
   const scrollToBottom = React.useCallback(() => {
@@ -57,7 +33,9 @@ export function VirtualMessageList({
     }
   }, [])
   
-  // Auto-scroll when messages change (only if near bottom)
+  // Auto-scroll when messages change (only if near bottom) - throttled for performance
+  const streamingMessageChunkCount = React.useMemo(() => Math.floor(streamingMessage.length / 50), [streamingMessage.length])
+  
   React.useEffect(() => {
     if (messages.length === 0) return
     
@@ -67,23 +45,23 @@ export function VirtualMessageList({
     const isNearBottom = scrollArea.scrollTop + scrollArea.clientHeight >= scrollArea.scrollHeight - 100
     
     if (isNearBottom) {
-      const timer = setTimeout(scrollToBottom, 50)
+      const timer = setTimeout(scrollToBottom, 100) // Increased delay to reduce scroll frequency
       return () => clearTimeout(timer)
     }
-  }, [messages.length, streamingMessage, scrollToBottom])
+  }, [messages.length, streamingMessageChunkCount, scrollToBottom])
   
-  // Render normal messages for small lists
-  const renderNormalMessages = () => (
+  // Render normal messages for small lists - memoized
+  const renderNormalMessages = React.useMemo(() => (
     <div className="space-y-0">
       {messages.map((message, index) => (
         <MessageBubble
-          key={`${message.id}-${index}`}
+          key={message.id}
           message={message}
           isStreaming={isStreaming && index === messages.length - 1 && message.role === 'assistant'}
         />
       ))}
     </div>
-  )
+  ), [messages, isStreaming])
   
   return (
     <ScrollArea 
@@ -98,7 +76,7 @@ export function VirtualMessageList({
                 Welcome to David-GPT
               </h1>
               <p className="text-muted-foreground mb-8">
-                I'm David Fattal, a technology entrepreneur and AI enthusiast. 
+                I&apos;m David Fattal, a technology entrepreneur and AI enthusiast. 
                 Ask me anything about AI, startups, product development, or just chat!
               </p>
               <div className="text-sm text-muted-foreground">
@@ -107,15 +85,31 @@ export function VirtualMessageList({
             </div>
           </div>
         ) : (
-          renderNormalMessages()
+          renderNormalMessages
         )}
       </div>
     </ScrollArea>
   )
 }
 
-// Performance monitoring wrapper
+// Performance monitoring wrapper - optimized comparison
 export const VirtualMessageListWithMonitoring = React.memo(VirtualMessageList, (prevProps, nextProps) => {
+  // Fast shallow comparison first
+  if (prevProps.messages === nextProps.messages &&
+      prevProps.isStreaming === nextProps.isStreaming &&
+      prevProps.streamingMessage === nextProps.streamingMessage) {
+    return true;
+  }
+  
+  // If streaming and only the streaming message changed, allow limited re-renders
+  if (prevProps.isStreaming && nextProps.isStreaming &&
+      prevProps.messages === nextProps.messages) {
+    // Only update if streaming message changed significantly (every ~10 chars)
+    const prevLength = prevProps.streamingMessage?.length || 0;
+    const nextLength = nextProps.streamingMessage?.length || 0;
+    return Math.floor(prevLength / 10) === Math.floor(nextLength / 10);
+  }
+  
   // Custom memoization logic for better performance
   const messagesEqual = 
     prevProps.messages.length === nextProps.messages.length &&

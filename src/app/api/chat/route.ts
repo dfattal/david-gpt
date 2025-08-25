@@ -3,15 +3,15 @@ import { openai } from '@ai-sdk/openai'
 import { createClient } from '@/lib/supabase/server'
 import { type UIMessage } from '@/lib/supabase'
 import { DAVID_FATTAL_SYSTEM_PROMPT } from '@/lib/persona'
-import { triggerTitleGeneration } from '@/lib/title-generation'
 import { trackDatabaseQuery } from '@/lib/performance'
 import { NextRequest } from 'next/server'
 
-export const runtime = 'edge'
+// export const runtime = 'edge' // Disabled due to cookie handling issues
 
 interface ChatRequest {
   conversationId?: string
   uiMessages: UIMessage[]
+  clientRequestId?: string // For idempotency
 }
 
 
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     }
 
     const body = await request.json() as ChatRequest
-    const { conversationId, uiMessages } = body
+    const { conversationId, uiMessages, clientRequestId } = body
 
     if (!uiMessages || !Array.isArray(uiMessages)) {
       return Response.json({ error: 'Invalid uiMessages format' }, { status: 400 })
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest): Promise<Response> {
           text: result.text,
           id: result.response?.id,
           usage: result.usage
-        }, user.id)
+        }, user.id, clientRequestId)
       }
     })
 
@@ -95,7 +95,8 @@ async function persistMessagesAfterStreaming(
   conversationId: string | undefined, 
   userMessages: UIMessage[], 
   aiResult: { text: string; id?: string; usage?: unknown },
-  userId: string
+  userId: string,
+  clientRequestId?: string
 ) {
   try {
     let actualConversationId = conversationId
@@ -132,7 +133,7 @@ async function persistMessagesAfterStreaming(
         conversation_id: actualConversationId,
         role: msg.role,
         parts: msg.parts,
-        provider_message_id: msg.id
+        provider_message_id: msg.id || clientRequestId
       }))
 
       const supabaseForMessages = await createClient()
@@ -145,7 +146,12 @@ async function persistMessagesAfterStreaming(
       trackDatabaseQuery('message-insert', startTime)
       
       if (userMsgError) {
-        console.error('Failed to save user messages:', userMsgError)
+        // Check if it's a duplicate key error (idempotency)
+        if (userMsgError.code === '23505' && userMsgError.message?.includes('provider_message_id')) {
+          console.log('User message already exists (idempotency check passed)')
+        } else {
+          console.error('Failed to save user messages:', userMsgError)
+        }
       }
     }
 
@@ -168,10 +174,19 @@ async function persistMessagesAfterStreaming(
       trackDatabaseQuery('message-insert', startTime)
       
       if (assistantMsgError) {
-        console.error('Failed to save assistant message:', assistantMsgError)
+        // Check if it's a duplicate key error (idempotency)
+        if (assistantMsgError.code === '23505' && assistantMsgError.message?.includes('provider_message_id')) {
+          console.log('Assistant message already exists (idempotency check passed)')
+          // Still try title generation since this might be a retry
+          if (actualConversationId) {
+            await generateTitleInline(actualConversationId)
+          }
+        } else {
+          console.error('Failed to save assistant message:', assistantMsgError)
+        }
       } else if (actualConversationId) {
-        // Check if we should trigger title generation after first assistant response
-        await checkAndTriggerTitleGeneration(actualConversationId)
+        // Generate title inline after assistant message is persisted
+        await generateTitleInline(actualConversationId)
       }
     }
 
@@ -181,13 +196,13 @@ async function persistMessagesAfterStreaming(
   }
 }
 
-// Check if title generation should be triggered and do so in background
-async function checkAndTriggerTitleGeneration(conversationId: string) {
+// Generate title inline after first assistant response
+async function generateTitleInline(conversationId: string) {
   try {
     const supabase = await createClient()
     
-    // Get conversation and message count
-    const [conversationResult, messageCountResult] = await Promise.all([
+    // Check if this is the first exchange (exactly 1 user message) and title is still pending
+    const [conversationResult, userMessageCountResult] = await Promise.all([
       supabase
         .from('conversations')
         .select('title_status')
@@ -197,24 +212,122 @@ async function checkAndTriggerTitleGeneration(conversationId: string) {
         .from('messages')
         .select('id', { count: 'exact' })
         .eq('conversation_id', conversationId)
+        .eq('role', 'user')
     ])
     
-    if (conversationResult.error || messageCountResult.error) {
+    if (conversationResult.error || userMessageCountResult.error) {
       return // Silently fail title generation checks
     }
     
     const conversation = conversationResult.data
-    const messageCount = messageCountResult.count || 0
+    const userMessageCount = userMessageCountResult.count || 0
     
-    // Trigger title generation if:
+    console.log(`[Title Generation Check] Conversation ${conversationId}: status=${conversation.title_status}, userMessageCount=${userMessageCount}`)
+    
+    // Only generate title if:
     // 1. Title status is 'pending'
-    // 2. We have exactly 2 messages (first user message + first assistant response)
-    if (conversation.title_status === 'pending' && messageCount === 2) {
-      // Fire and forget - don't block the response
-      triggerTitleGeneration(conversationId)
+    // 2. We have exactly 1 user message (first exchange)
+    if (conversation.title_status === 'pending' && userMessageCount === 1) {
+      console.log(`[Title Generation] Generating title inline for conversation ${conversationId}`)
+      await generateAndSaveTitle(conversationId)
+    } else {
+      console.log(`[Title Generation] Skipping title generation: status=${conversation.title_status}, userMessageCount=${userMessageCount} (need pending status and exactly 1 user message)`)
     }
   } catch (error) {
     // Silently fail title generation - it's not critical for user experience
-    console.warn('Title generation check failed:', error)
+    console.warn('Inline title generation failed:', error)
+  }
+}
+
+// Generate and save title using the first exchange
+async function generateAndSaveTitle(conversationId: string) {
+  try {
+    const supabase = await createClient()
+    
+    // Get the first user message for context
+    const { data: messages, error: messagesError } = await supabase
+      .from('messages')
+      .select('role, parts')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true })
+      .limit(2) // User + assistant messages
+
+    if (messagesError || !messages || messages.length === 0) {
+      console.warn(`[Title Generation] No messages found for conversation ${conversationId}`)
+      return
+    }
+
+    // Build conversation context
+    const conversationContext = messages
+      .map(msg => {
+        const textContent = msg.parts
+          .filter((part: { type: string; text?: string }) => part.type === 'text')
+          .map((part: { text?: string }) => part.text || '')
+          .join(' ')
+        return `${msg.role}: ${textContent}`
+      })
+      .join('\n\n')
+
+    // Import the title generation utilities
+    const { DAVID_FATTAL_TITLE_PROMPT } = await import('@/lib/title-generation')
+    
+    // Generate title using AI
+    const result = await streamText({
+      model: openai('gpt-4o'),
+      system: DAVID_FATTAL_TITLE_PROMPT,
+      messages: [{ role: 'user' as const, content: conversationContext }],
+      temperature: 0.2 // Low temperature for consistent titles
+    })
+
+    let generatedTitle = ''
+    for await (const chunk of result.textStream) {
+      generatedTitle += chunk
+    }
+
+    // Clean up the generated title
+    generatedTitle = generatedTitle.trim().replace(/["'`]/g, '')
+    generatedTitle = generatedTitle.replace(/^Title:\s*/i, '')
+    generatedTitle = generatedTitle.replace(/\.$/, '') // Remove trailing period
+    
+    // Validate title
+    const wordCount = generatedTitle.split(/\s+/).filter(word => word.length > 0).length
+    if (wordCount < 2 || wordCount > 8 || generatedTitle.length < 5) {
+      generatedTitle = 'New Chat'
+    }
+    
+    if (generatedTitle.length > 50) {
+      generatedTitle = generatedTitle.substring(0, 50).trim()
+    }
+
+    // Race-safe update: only update if title_status is still 'pending'
+    const { error: updateError } = await supabase
+      .from('conversations')
+      .update({ 
+        title: generatedTitle,
+        title_status: 'ready'
+      })
+      .eq('id', conversationId)
+      .eq('title_status', 'pending') // Race-safe: only update if still pending
+
+    if (updateError) {
+      console.warn(`[Title Generation] Failed to update title for conversation ${conversationId}:`, updateError)
+    } else {
+      console.log(`[Title Generation] Successfully generated title for conversation ${conversationId}: "${generatedTitle}"`)
+    }
+
+  } catch (error) {
+    console.warn('Title generation failed:', error)
+    
+    // Mark as error only if it's still pending
+    try {
+      const errorSupabase = await createClient()
+      await errorSupabase
+        .from('conversations')
+        .update({ title_status: 'error' })
+        .eq('id', conversationId)
+        .eq('title_status', 'pending')
+    } catch (cleanupError) {
+      console.warn('Failed to update error status:', cleanupError)
+    }
   }
 }

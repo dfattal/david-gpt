@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest } from 'next/server'
 
-export const runtime = 'edge'
+// export const runtime = 'edge' // Disabled due to cookie handling issues
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -33,6 +33,7 @@ export async function PATCH(
       .from('conversations')
       .update({ title })
       .eq('id', id)
+      .eq('owner', user.id)
       .select('id, title')
       .single()
 
@@ -65,10 +66,24 @@ export async function DELETE(
 
     const { id } = await params
     
-    const { error } = await supabase
+    // First verify the conversation exists and belongs to the user
+    const { data: existingConversation, error: fetchError } = await supabase
       .from('conversations')
-      .update({ deleted_at: new Date().toISOString() })
+      .select('id, owner, title')
       .eq('id', id)
+      .eq('owner', user.id)
+      .single()
+
+    if (fetchError || !existingConversation) {
+      return Response.json({ error: 'Conversation not found or unauthorized' }, { status: 404 })
+    }
+    
+    // Use database function to avoid Supabase client RLS conflicts
+    const { error } = await supabase
+      .rpc('soft_delete_conversation', {
+        conversation_id: id,
+        user_id: user.id
+      })
 
     if (error) {
       console.error('Failed to delete conversation:', error)

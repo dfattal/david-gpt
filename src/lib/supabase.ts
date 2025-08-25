@@ -1,10 +1,8 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/client'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-// Legacy client-side Supabase client (for compatibility with existing hooks)
-export const supabase = createSupabaseClient(supabaseUrl, supabaseKey)
+// Client-side Supabase client using SSR-compatible client
+// This is kept for backward compatibility but should be replaced with API calls
+export const supabase = createClient()
 
 // Types for our database schema
 export interface Conversation {

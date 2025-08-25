@@ -14,9 +14,11 @@ export function ChatLayout({ className }: ChatLayoutProps) {
   const {
     conversations,
     isLoading,
+    isCreating,
     createConversation,
     renameConversation,
-    deleteConversation
+    deleteConversation,
+    refetch
   } = useConversations()
 
   const [activeConversationId, setActiveConversationId] = React.useState<string>()
@@ -46,7 +48,7 @@ export function ChatLayout({ className }: ChatLayoutProps) {
   }, [deleteConversation, activeConversationId])
 
   return (
-    <div className={cn('flex h-screen bg-background', className)}>
+    <div className={cn('relative flex h-screen bg-background', className)}>
       {/* Sidebar */}
       <ConversationSidebar
         conversations={conversations}
@@ -55,14 +57,22 @@ export function ChatLayout({ className }: ChatLayoutProps) {
         onSelectConversation={handleSelectConversation}
         onRenameConversation={handleRenameConversation}
         onDeleteConversation={handleDeleteConversation}
+        onTitleRefresh={refetch}
         isLoading={isLoading}
+        isCreating={isCreating}
       />
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Mobile Header - only visible on mobile, provides space for hamburger menu */}
+        <div className="md:hidden h-16 flex items-center justify-center border-b bg-background relative">
+          <h1 className="text-lg font-semibold text-foreground">David-GPT</h1>
+          <div className="absolute left-4 top-4 w-11 h-11" /> {/* Space reserved for hamburger menu */}
+        </div>
+        
         <ChatInterface
           conversationId={activeConversationId}
-          className="h-full"
+          className="flex-1"
         />
       </div>
     </div>

@@ -1,11 +1,20 @@
 'use client'
 
+import * as React from 'react'
+import { Settings, LogOut, ChevronUp } from 'lucide-react'
 import { useAuth } from '@/lib/auth/auth-provider'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { SignOutButton } from './sign-out-button'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 export function UserProfile() {
-  const { user } = useAuth()
+  const { user, signOut } = useAuth()
 
   if (!user) return null
 
@@ -15,28 +24,61 @@ export function UserProfile() {
     .join('')
     .toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'
 
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+    } catch (error) {
+      console.error('Sign out failed:', error)
+    }
+  }
+
+  const handleSettings = () => {
+    // TODO: Implement settings dialog/page
+    console.log('Settings clicked')
+  }
+
   return (
-    <div className="flex items-center justify-between gap-2">
-      <div className="flex items-center gap-2 min-w-0">
-        <Avatar className="h-8 w-8">
-          <AvatarImage 
-            src={user.user_metadata?.avatar_url} 
-            alt={user.user_metadata?.full_name || user.email || ''}
-          />
-          <AvatarFallback className="text-xs">
-            {userInitials}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex flex-col min-w-0">
-          <div className="text-xs font-medium truncate">
-            {user.user_metadata?.full_name || 'User'}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          className="w-full h-auto p-2 justify-start gap-3 hover:bg-accent/50 transition-colors min-h-[44px]"
+        >
+          <Avatar className="h-8 w-8 flex-shrink-0">
+            <AvatarImage 
+              src={user.user_metadata?.avatar_url} 
+              alt={user.user_metadata?.full_name || user.email || ''}
+            />
+            <AvatarFallback className="text-xs">
+              {userInitials}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col min-w-0 flex-1 text-left">
+            <div className="text-sm font-medium truncate max-w-full">
+              {user.user_metadata?.full_name || 'User'}
+            </div>
           </div>
-          <div className="text-xs text-muted-foreground truncate">
-            {user.email}
-          </div>
+          <ChevronUp className="h-4 w-4 flex-shrink-0 opacity-50" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        side="top"
+        className="w-64 mb-2"
+        sideOffset={8}
+      >
+        <div className="px-2 py-1.5 text-sm text-muted-foreground border-b">
+          {user.email}
         </div>
-      </div>
-      <SignOutButton />
-    </div>
+        <DropdownMenuItem onClick={handleSettings} className="gap-2 cursor-pointer">
+          <Settings className="h-4 w-4" />
+          Settings
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
+          <LogOut className="h-4 w-4" />
+          Log Out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

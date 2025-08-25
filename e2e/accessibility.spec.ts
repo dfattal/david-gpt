@@ -263,7 +263,7 @@ test.describe('Accessibility (WCAG 2.1 AA)', () => {
       '[data-testid="send-button"]'
     ]
     
-    let currentFocusIndex = -1
+    const currentFocusIndex = -1
     
     // Navigate through focusable elements
     for (let i = 0; i < 10; i++) { // Limit iterations
