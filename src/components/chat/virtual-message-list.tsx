@@ -74,7 +74,7 @@ export function VirtualMessageList({
             <div className="text-center max-w-md mx-auto p-8">
               <div className="mb-6">
                 <img 
-                  src="/David_smaller_pic.jpg" 
+                  src="/David_pic_128.jpg" 
                   alt="David Fattal" 
                   className="w-32 h-32 rounded-full mx-auto mb-4 object-cover shadow-lg ring-2 ring-border"
                 />
