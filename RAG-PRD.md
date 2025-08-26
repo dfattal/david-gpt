@@ -219,5 +219,5 @@ CREATE TABLE rag_ingest_jobs (
 - doc_date is mandatory at ingestion, falling back to ingestion timestamp if source date not found.
 - Internal products remain Product nodes with subtype=internal. No separate Technology node required.
 - Admins do not need to approve all KG edges before queryable use; provisional edges with low confidence are allowed and can be curated later.
-
+- use text-embedding-3-small as embedding model and gpt-4-mini as cross-encoder (via prompt)
 

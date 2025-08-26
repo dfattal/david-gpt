@@ -322,9 +322,9 @@ NEXT_PUBLIC_SUPABASE_URL=<supabase-url>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-anon-key>
 OPENAI_API_KEY=<openai-api-key>
 
-# RAG Extensions (future)
-# EMBEDDING_MODEL=text-embedding-3-small
-# RERANK_MODEL=cross-encoder/ms-marco-MiniLM-L-12-v2
+# RAG Extensions
+EMBEDDING_MODEL=text-embedding-3-small
+RERANK_MODEL=gpt-4-mini # as cross-encoder
 ```
 
 ---
