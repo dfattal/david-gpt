@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:e2e": "playwright test",
+    "test:smoke": "playwright test tests/smoke.spec.ts",
     "perf:analyze": "node scripts/performance-test.js",
     "perf:lighthouse": "lhci autorun",
     "perf:bundle": "npx @next/bundle-analyzer",
