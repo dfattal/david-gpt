@@ -73,7 +73,7 @@ export const MessageInput = React.memo(function MessageInput({
             placeholder={placeholder}
             disabled={disabled}
             className={cn(
-              'min-h-12 max-h-48 resize-none pr-12',
+              'min-h-12 max-h-48 resize-none pr-10',
               'focus:ring-1 focus:ring-ring focus:border-ring'
             )}
             rows={1}
@@ -83,7 +83,7 @@ export const MessageInput = React.memo(function MessageInput({
             onClick={handleSubmit}
             disabled={disabled || !message.trim()}
             size="icon"
-            className="absolute right-2 top-1/2 -translate-y-1/2 size-8"
+            className="absolute right-1 top-1/2 -translate-y-1/2 size-8"
           >
             <Send className="size-4" />
           </Button>

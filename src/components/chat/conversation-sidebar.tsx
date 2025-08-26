@@ -98,7 +98,7 @@ export function ConversationSidebar({
 
       {/* Footer */}
       <Separator className="flex-shrink-0" />
-      <div className="p-4 space-y-3 flex-shrink-0 min-h-0">
+      <div className="p-4 space-y-1.5 flex-shrink-0 min-h-0">
         <div className="min-w-0">
           <UserProfile />
         </div>
@@ -182,7 +182,7 @@ export function ConversationSidebar({
 
             {/* Footer */}
             <Separator className="flex-shrink-0" />
-            <div className="p-4 space-y-3 flex-shrink-0 min-h-0">
+            <div className="p-4 space-y-1.5 flex-shrink-0 min-h-0">
               <div className="min-w-0">
                 <UserProfile />
               </div>

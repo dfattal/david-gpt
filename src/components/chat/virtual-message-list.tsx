@@ -72,9 +72,16 @@ export function VirtualMessageList({
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center max-w-md mx-auto p-8">
-              <h1 className="text-3xl font-bold mb-2">
-                Welcome to David-GPT
-              </h1>
+              <div className="mb-6">
+                <img 
+                  src="/David_smaller_pic.jpg" 
+                  alt="David Fattal" 
+                  className="w-24 h-24 rounded-full mx-auto mb-4 object-cover shadow-lg"
+                />
+                <h1 className="text-3xl font-bold mb-2">
+                  Welcome to David-GPT
+                </h1>
+              </div>
               <p className="text-muted-foreground mb-8">
                 I&apos;m David Fattal, a technology entrepreneur and Spatial AI enthusiast. 
                 Ask me anything about AI, Immersive Tech, or just chat!

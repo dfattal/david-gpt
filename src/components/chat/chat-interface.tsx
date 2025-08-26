@@ -146,7 +146,7 @@ export const ChatInterface = React.memo(function ChatInterface({ conversationId,
         onSend={handleSendMessage}
         disabled={chat.isLoading}
         placeholder={
-          conversationId 
+          conversationId && messages.length > 0
             ? "Continue the conversation..." 
             : "Start a new conversation with David..."
         }
