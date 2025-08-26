@@ -76,7 +76,7 @@ export function VirtualMessageList({
                 <img 
                   src="/David_smaller_pic.jpg" 
                   alt="David Fattal" 
-                  className="w-24 h-24 rounded-full mx-auto mb-4 object-cover shadow-lg"
+                  className="w-32 h-32 rounded-full mx-auto mb-4 object-cover shadow-lg ring-2 ring-border"
                 />
                 <h1 className="text-3xl font-bold mb-2">
                   Welcome to David-GPT
