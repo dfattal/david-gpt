@@ -1,186 +1,214 @@
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { NextRequest } from 'next/server'
-import { processDocumentJob } from '@/lib/rag/processor'
+import { triggerDocumentProcessing } from '@/lib/rag/processing-queue'
 
-interface ProcessJobRequest {
-  job_id: string
-}
-
-interface ProcessDocumentRequest {
-  title: string
-  content: string
-  source_type: 'text' | 'url' | 'pdf' | 'docx'
-  source_uri?: string
-  doc_date?: string
-  tags?: string[]
-  labels?: Record<string, unknown>
-  auto_process?: boolean
-}
-
-export async function POST(request: NextRequest): Promise<Response> {
+export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
     
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
     }
 
     const body = await request.json()
-    
-    // Check if this is a job processing request or document upload request
-    if ('job_id' in body) {
-      // Process existing job
-      const { job_id } = body as ProcessJobRequest
-      
-      if (!job_id) {
-        return Response.json({ 
-          error: 'Missing required field: job_id' 
-        }, { status: 400 })
-      }
-      
-      // Verify user owns the job
-      const { data: job, error: jobError } = await supabase
-        .from('rag_ingest_jobs')
-        .select('id, owner, status')
-        .eq('id', job_id)
-        .eq('owner', user.id)
-        .single()
-      
-      if (jobError || !job) {
-        return Response.json({ 
-          error: 'Job not found or access denied' 
-        }, { status: 404 })
-      }
-      
-      if (job.status !== 'queued') {
-        return Response.json({ 
-          error: `Job is not in queued status: ${job.status}` 
-        }, { status: 400 })
-      }
-      
-      // Process the job
-      const result = await processDocumentJob(job_id)
-      
-      return Response.json({
-        success: result.success,
-        result,
-        message: result.success 
-          ? `Document processed successfully: ${result.chunksCreated} chunks created`
-          : `Processing failed: ${result.error}`
-      })
-      
-    } else {
-      // Upload and optionally process document
-      const { 
-        title, 
-        content, 
-        source_type, 
-        source_uri, 
-        doc_date, 
-        tags = [], 
-        labels = {},
-        auto_process = false
-      } = body as ProcessDocumentRequest
-      
-      // Validate required fields
-      if (!title || !content || !source_type) {
-        return Response.json({ 
-          error: 'Missing required fields: title, content, source_type' 
-        }, { status: 400 })
-      }
-      
-      if (!['text', 'url', 'pdf', 'docx'].includes(source_type)) {
-        return Response.json({ 
-          error: 'Invalid source_type. Must be one of: text, url, pdf, docx' 
-        }, { status: 400 })
-      }
-      
-      // Parse and validate doc_date
-      let documentDate: Date
-      if (doc_date) {
-        documentDate = new Date(doc_date)
-        if (isNaN(documentDate.getTime())) {
-          return Response.json({ 
-            error: 'Invalid doc_date format. Use ISO date string (YYYY-MM-DD)' 
-          }, { status: 400 })
-        }
-      } else {
-        documentDate = new Date()
-      }
-      
-      // Insert document
-      const startTime = performance.now()
-      const { data: document, error: insertError } = await supabase
-        .from('rag_documents')
-        .insert({
-          owner: user.id,
-          title,
-          source_type,
-          source_uri,
-          doc_date: documentDate.toISOString().split('T')[0],
-          tags,
-          labels
-        })
-        .select('*')
-        .single()
-      
-      if (insertError) {
-        console.error('Error inserting document:', insertError)
-        return Response.json({ 
-          error: 'Failed to create document' 
-        }, { status: 500 })
-      }
-      
-      // Create processing job
-      const jobPayload = {
-        document_id: document.id,
-        operation: 'chunk_and_embed',
-        user_id: user.id,
-        content // Store content in job for processing
-      }
-      
-      const { data: job, error: jobError } = await supabase
-        .from('rag_ingest_jobs')
-        .insert({
-          owner: user.id,
-          payload: jobPayload,
-          status: 'queued'
-        })
-        .select('*')
-        .single()
-      
-      if (jobError) {
-        console.error('Error creating job:', jobError)
-        return Response.json({ 
-          error: 'Failed to create processing job' 
-        }, { status: 500 })
-      }
-      
-      let processingResult = null
-      
-      // If auto_process is enabled, process immediately
-      if (auto_process) {
-        processingResult = await processDocumentJob(job.id)
-      }
-      
-      return Response.json({
-        document,
-        job,
-        processing_result: processingResult,
-        message: auto_process 
-          ? (processingResult?.success 
-              ? `Document uploaded and processed: ${processingResult.chunksCreated} chunks created`
-              : `Document uploaded but processing failed: ${processingResult?.error}`)
-          : 'Document uploaded successfully. Use job_id to process or call with auto_process=true'
-      })
+    const { document_id } = body
+
+    if (!document_id) {
+      return NextResponse.json(
+        { error: 'document_id is required' },
+        { status: 400 }
+      )
     }
 
+    const { data: document, error: docError } = await supabase
+      .from('rag_documents')
+      .select('id, title, labels, owner')
+      .eq('id', document_id)
+      .single()
+
+    if (docError || !document) {
+      return NextResponse.json(
+        { error: 'Document not found' },
+        { status: 404 }
+      )
+    }
+
+    if (document.owner !== user.id) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      )
+    }
+
+    const processing_status = document.labels?.processing_status
+
+    if (processing_status === 'processing') {
+      return NextResponse.json(
+        { error: 'Document is already being processed' },
+        { status: 409 }
+      )
+    }
+
+    if (processing_status === 'completed') {
+      return NextResponse.json(
+        { 
+          message: 'Document has already been processed successfully',
+          document_id,
+          status: 'completed'
+        }
+      )
+    }
+
+    await supabase
+      .from('rag_documents')
+      .update({ 
+        labels: {
+          ...document.labels,
+          processing_status: 'queued'
+        },
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', document_id)
+
+    const jobId = await triggerDocumentProcessing(document_id)
+
+    return NextResponse.json({
+      success: true,
+      message: 'Document processing initiated',
+      document_id,
+      job_id: jobId,
+      status: 'queued'
+    })
+
   } catch (error) {
-    console.error('Unexpected error in document processing:', error)
-    return Response.json({ 
-      error: 'Internal server error' 
-    }, { status: 500 })
+    console.error('Document processing trigger failed:', error)
+    
+    return NextResponse.json(
+      { 
+        error: 'Failed to trigger document processing',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    )
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+    
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+
+    const { searchParams } = new URL(request.url)
+    const documentId = searchParams.get('document_id')
+
+    if (!documentId) {
+      return NextResponse.json(
+        { error: 'document_id parameter is required' },
+        { status: 400 }
+      )
+    }
+
+    const { data: document, error: docError } = await supabase
+      .from('rag_documents')
+      .select('id, title, labels, owner, updated_at')
+      .eq('id', documentId)
+      .single()
+
+    if (docError || !document) {
+      return NextResponse.json(
+        { error: 'Document not found' },
+        { status: 404 }
+      )
+    }
+
+    if (document.owner !== user.id) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      )
+    }
+
+    const { data: jobs, error: jobsError } = await supabase
+      .from('processing_jobs')
+      .select('*')
+      .eq('document_id', documentId)
+      .order('created_at', { ascending: false })
+
+    if (jobsError) {
+      console.error('Failed to fetch processing jobs:', jobsError)
+    }
+
+    let chunks = null
+    let entities = null
+    let relationships = null
+
+    const processing_status = document.labels?.processing_status
+
+    if (processing_status === 'completed') {
+      const [chunksResult, entitiesResult, relationshipsResult] = await Promise.all([
+        supabase
+          .from('rag_chunks')
+          .select('id, chunk_index, labels')
+          .eq('doc_id', documentId)
+          .order('chunk_index'),
+        
+        supabase
+          .from('rag_entities')
+          .select('id, canonical_name, entity_type, description')
+          .limit(50), // Global entities, not document-specific
+        
+        supabase
+          .from('rag_relations')
+          .select('id, relation_type, confidence')
+          .limit(50) // Global relations, not document-specific
+      ])
+
+      chunks = chunksResult.data
+      entities = entitiesResult.data
+      relationships = relationshipsResult.data
+    }
+
+    return NextResponse.json({
+      document: {
+        id: document.id,
+        title: document.title,
+        processing_status: processing_status,
+        processed_at: document.labels?.processed_at,
+        chunk_count: document.labels?.chunk_count
+      },
+      jobs: jobs || [],
+      processing_results: processing_status === 'completed' ? {
+        chunks: chunks || [],
+        entities: entities || [],
+        relationships: relationships || [],
+        stats: {
+          total_chunks: chunks?.length || 0,
+          total_entities: entities?.length || 0,
+          total_relationships: relationships?.length || 0
+        }
+      } : null
+    })
+
+  } catch (error) {
+    console.error('Failed to get processing status:', error)
+    
+    return NextResponse.json(
+      { 
+        error: 'Failed to get processing status',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    )
   }
 }

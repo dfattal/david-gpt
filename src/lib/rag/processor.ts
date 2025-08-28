@@ -3,13 +3,13 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { chunkText, ChunkingOptions, CHUNKING_PRESETS } from './chunking'
-import { generateBatchEmbeddings, EmbeddingOptions } from './embeddings'
+import { EmbeddingService, EmbeddingResult } from './embeddings'
 import { trackDatabaseQuery } from '@/lib/performance'
 import { RAGDocument, RAGChunk, RAGIngestJob } from './types'
 
 export interface ProcessingOptions {
   chunkingOptions?: ChunkingOptions
-  embeddingOptions?: EmbeddingOptions
+  embeddingModel?: string
   updateJobStatus?: boolean
 }
 
@@ -52,20 +52,19 @@ export async function processDocument(
     }
     
     // Step 2: Generate embeddings for all chunks
+    const embeddingService = new EmbeddingService(options.embeddingModel)
     const chunkContents = chunkingResult.chunks.map(chunk => chunk.content)
-    const embeddingResult = await generateBatchEmbeddings(chunkContents, options.embeddingOptions)
+    const embeddingResults = await embeddingService.generateBatchEmbeddings(chunkContents)
     
-    console.log(
-      `Generated embeddings: ${embeddingResult.successful} successful, ${embeddingResult.failed} failed`
-    )
+    console.log(`Generated embeddings for ${embeddingResults.length} chunks`)
     
-    if (embeddingResult.successful === 0) {
+    if (embeddingResults.length === 0) {
       throw new Error('Failed to generate any embeddings for document chunks')
     }
     
     // Step 3: Prepare chunk records for database insertion
     const chunkRecords = chunkingResult.chunks.map((chunk, index) => {
-      const embedding = embeddingResult.embeddings.find(e => e.index === index)
+      const embedding = embeddingResults[index]
       
       if (!embedding) {
         console.warn(`No embedding found for chunk ${index}, skipping`)
@@ -108,7 +107,7 @@ export async function processDocument(
       success: true,
       documentId,
       chunksCreated: chunkRecords.length,
-      totalTokens: embeddingResult.totalTokens,
+      totalTokens: embeddingResults.reduce((sum, result) => sum + result.tokens, 0),
       processingTimeMs: processingTime
     }
     

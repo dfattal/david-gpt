@@ -1,8 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import { Settings, LogOut, ChevronUp } from 'lucide-react'
+import { Settings, LogOut, ChevronUp, Shield } from 'lucide-react'
 import { useAuth } from '@/lib/auth/auth-provider'
+import { useAdmin } from '@/lib/hooks/use-admin'
+import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,6 +17,8 @@ import {
 
 export function UserProfile() {
   const { user, signOut } = useAuth()
+  const { isAdmin } = useAdmin()
+  const router = useRouter()
 
   if (!user) return null
 
@@ -35,6 +39,10 @@ export function UserProfile() {
   const handleSettings = () => {
     // TODO: Implement settings dialog/page
     console.log('Settings clicked')
+  }
+
+  const handleAdminAccess = () => {
+    router.push('/admin')
   }
 
   return (
@@ -70,6 +78,15 @@ export function UserProfile() {
         <div className="px-2 py-1.5 text-sm text-muted-foreground border-b">
           {user.email}
         </div>
+        {isAdmin && (
+          <>
+            <DropdownMenuItem onClick={handleAdminAccess} className="gap-2 cursor-pointer">
+              <Shield className="h-4 w-4" />
+              Admin Dashboard
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuItem onClick={handleSettings} className="gap-2 cursor-pointer">
           <Settings className="h-4 w-4" />
           Settings

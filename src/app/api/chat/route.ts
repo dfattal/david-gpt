@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { type UIMessage } from '@/lib/supabase'
 import { DAVID_FATTAL_SYSTEM_PROMPT } from '@/lib/persona'
 import { trackDatabaseQuery } from '@/lib/performance'
+import { buildRAGContext, buildEnhancedSystemPrompt, shouldUseRAG, formatCitations } from '@/lib/rag/context'
 import { NextRequest } from 'next/server'
 
 // export const runtime = 'edge' // Disabled due to cookie handling issues
@@ -55,16 +56,57 @@ export async function POST(request: NextRequest): Promise<Response> {
       }
     })
 
+    // Get the latest user message for RAG context
+    const latestUserMessage = messages.filter(m => m.role === 'user').slice(-1)[0]
+    let enhancedSystemPrompt = DAVID_FATTAL_SYSTEM_PROMPT
+    let ragCitations = ''
+
+    // Check if we should use RAG for this query
+    if (latestUserMessage && shouldUseRAG(latestUserMessage.content)) {
+      try {
+        console.log('Building RAG context for user query:', latestUserMessage.content.substring(0, 100))
+        
+        // Build RAG context
+        const ragContext = await buildRAGContext(
+          latestUserMessage.content,
+          user.id,
+          {
+            maxChunks: 5,
+            minSimilarity: 0.3,
+            includeDates: true,
+            includeMetadata: true,
+            deduplicate: true
+          }
+        )
+
+        console.log(`RAG context built: ${ragContext.chunks.length} chunks, avg similarity: ${ragContext.stats.averageSimilarity.toFixed(2)}`)
+
+        // Enhance system prompt with RAG context
+        if (ragContext.hasRelevantContent) {
+          enhancedSystemPrompt = buildEnhancedSystemPrompt(DAVID_FATTAL_SYSTEM_PROMPT, ragContext)
+          ragCitations = formatCitations(ragContext.chunks)
+          
+          console.log(`Enhanced system prompt with ${ragContext.chunks.length} chunks from ${ragContext.stats.sources.length} sources`)
+        }
+      } catch (ragError) {
+        // Don't fail the entire request if RAG fails - just log and continue
+        console.warn('RAG context building failed, continuing without RAG:', ragError)
+      }
+    }
+
     // Create streaming response
     const result = streamText({
       model: openai('gpt-4o'),
-      system: DAVID_FATTAL_SYSTEM_PROMPT,
+      system: enhancedSystemPrompt,
       messages,
       temperature: 0.7,
       onFinish: async (result) => {
+        // Add citations to response if we have them
+        const finalResponseText = ragCitations ? result.text + ragCitations : result.text
+        
         // Persist messages to database after streaming completes
         await persistMessagesAfterStreaming(conversationId, uiMessages, {
-          text: result.text,
+          text: finalResponseText,
           id: result.response?.id,
           usage: result.usage
         }, user.id, clientRequestId)
