@@ -659,7 +659,8 @@ Consider these entities when formulating your response and reference them approp
 
 ## Citation Guidelines
 ${ragContext.citedContext.citationGroups.length} sources are available for citation. When referencing information from the context:
-- Use numbered citations like [1], [2], etc. 
+- Include numbered citations like [1], [2], etc. directly in your response text when making claims or referencing facts
+- Multiple sources can be cited together like [1,2] when they support the same point
 - Each source has been deduplicated - different chunks from the same source share the same citation number
 - ${ragContext.citedContext.dateRange ? `Date range: ${ragContext.citedContext.dateRange.earliest} to ${ragContext.citedContext.dateRange.latest}` : 'Some sources may not have dates available'}
 ${ragContext.citedContext.conflictingDates?.length ? `- Note: ${ragContext.citedContext.conflictingDates.length} sources have conflicting dates that have been resolved` : ''}
@@ -669,7 +670,7 @@ ${ragContext.citedContext.citationGroups.map(group =>
   `[${group.citationNumber}] ${group.sourceTitle}${group.datePublished ? ` (${group.datePublished})` : ''}`
 ).join('\n')}
 
-Always cite your sources when using information from the context above.
+IMPORTANT: Include citation numbers [1,2] within your response text when referencing information. The sources list will be automatically appended at the end.
 `
     enhancedPrompt += citationInfo
   }
@@ -715,10 +716,10 @@ export function formatCitations(chunks: RAGContext['chunks'], ragContext?: RAGCo
       return `[${group.citationNumber}] ${group.sourceTitle}${dateInfo}`
     }).join('\n')
 
-    return `\n\n**Sources:**\n${citations}`
+    return `\n\n<div style="font-size: 0.85em; color: #666; margin-top: 1rem;">\n\n${citations}\n\n</div>`
   }
 
-  // Fallback to legacy formatting
+  // Fallback to legacy formatting with small font
   if (chunks.length === 0) {
     return ''
   }
@@ -728,7 +729,7 @@ export function formatCitations(chunks: RAGContext['chunks'], ragContext?: RAGCo
     return `[${index + 1}] ${chunk.source}${dateInfo}`
   }).join('\n')
 
-  return `\n\n**Sources:**\n${citations}`
+  return `\n\n<div style="font-size: 0.85em; color: #666; margin-top: 1rem;">\n\n${citations}\n\n</div>`
 }
 
 // Validate RAG context for quality assurance

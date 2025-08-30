@@ -115,8 +115,7 @@ export class PDFProcessor implements DocumentProcessor {
 
       // Parse PDF
       const pdfData = await pdf.default(pdfBuffer, {
-        max: config.maxPages,
-        version: 'v1.10.88'
+        max: config.maxPages
       })
 
       const processingTime = performance.now() - startTime

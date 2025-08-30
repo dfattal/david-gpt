@@ -140,9 +140,9 @@ export async function GET(request: NextRequest) {
     }
 
     const { data: jobs, error: jobsError } = await supabase
-      .from('processing_jobs')
+      .from('rag_ingest_jobs')
       .select('*')
-      .eq('document_id', documentId)
+      .eq('payload->document_id', `"${documentId}"`)
       .order('created_at', { ascending: false })
 
     if (jobsError) {

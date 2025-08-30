@@ -4,6 +4,7 @@ import { trackDatabaseQuery } from '@/lib/performance'
 import { documentProcessingFactory, ProcessedDocument } from '@/lib/rag/document-processors'
 import { ensureDocumentDates } from '@/lib/rag/document-dates'
 import { tagCategorizationService } from '@/lib/rag/tag-categorization'
+import { triggerDocumentProcessing } from '@/lib/rag/processing-queue'
 
 interface DocumentUploadRequest {
   title?: string // Optional - can be inferred from content
@@ -224,7 +225,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       }, { status: 400 })
     }
 
-    // Insert document into database
+    // Insert document into database - checking which table actually exists
     const startTime = performance.now()
     const { data: document, error: insertError } = await supabase
       .from('rag_documents')
@@ -235,7 +236,8 @@ export async function POST(request: NextRequest): Promise<Response> {
         source_uri: finalSourceUri,
         doc_date: documentDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
         tags: finalTags,
-        labels: finalLabels
+        labels: finalLabels,
+        content: finalContent // Store content directly for now
       })
       .select('id, title, source_type, source_uri, doc_date, tags, labels, created_at')
       .single()
@@ -260,6 +262,16 @@ export async function POST(request: NextRequest): Promise<Response> {
     } catch (dateError) {
       console.warn('Document date handling failed:', dateError)
       // Don't fail the request for date handling issues
+    }
+
+    // Trigger background processing for embeddings and chunking
+    try {
+      console.log(`Triggering background processing for document ${document.id}`)
+      await triggerDocumentProcessing(document.id)
+      console.log(`Successfully queued document ${document.id} for processing`)
+    } catch (processingError) {
+      console.error(`Failed to queue document ${document.id} for processing:`, processingError)
+      // Don't fail the request - document is created, processing can be retried manually
     }
 
     // Return success response with processing stats

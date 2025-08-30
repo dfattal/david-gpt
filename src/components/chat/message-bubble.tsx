@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import rehypeHighlight from 'rehype-highlight'
+import rehypeRaw from 'rehype-raw'
 
 interface MessageBubbleProps {
   message: UIMessage
@@ -42,7 +43,7 @@ export const MessageBubble = React.memo(function MessageBubble({ message, isStre
         <div className="prose prose-sm max-w-none break-words text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-code:text-foreground prose-pre:bg-muted prose-pre:text-foreground">
           <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkMath]}
-            rehypePlugins={[rehypeKatex, rehypeHighlight]}
+            rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
             components={{
               // Custom components for better styling
               // eslint-disable-next-line @typescript-eslint/no-explicit-any

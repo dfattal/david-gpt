@@ -58,6 +58,13 @@ export async function processDocument(
     
     console.log(`Generated embeddings for ${embeddingResults.length} chunks`)
     
+    // Debug: Check embedding quality
+    embeddingResults.forEach((result, i) => {
+      if (i < 2) { // Debug first 2 embeddings
+        console.log(`Embedding ${i}: length=${result.embedding?.length}, tokens=${result.tokens}, first5=[${result.embedding?.slice(0,5).join(',') || 'null'}]`)
+      }
+    })
+    
     if (embeddingResults.length === 0) {
       throw new Error('Failed to generate any embeddings for document chunks')
     }
@@ -86,13 +93,32 @@ export async function processDocument(
       throw new Error('No valid chunk records to insert')
     }
     
+    // Debug: Check prepared records before insertion
+    console.log(`Prepared ${chunkRecords.length} chunk records for insertion`)
+    chunkRecords.forEach((record, i) => {
+      if (i < 2 && record) {
+        console.log(`Record ${i}: embedding length=${record.embedding?.length || 'null'}, first5=[${record.embedding?.slice(0,5)?.join(',') || 'null'}]`)
+      }
+    })
+    
     // Step 4: Insert chunks into database
     const dbStartTime = performance.now()
-    const { error: insertError } = await supabase
+    const { data: insertedData, error: insertError } = await supabase
       .from('rag_chunks')
       .insert(chunkRecords)
+      .select('id, embedding')
     
     trackDatabaseQuery('rag_chunks_insert', dbStartTime)
+    
+    // Debug: Check what was actually inserted
+    if (insertedData && insertedData.length > 0) {
+      console.log(`Successfully inserted ${insertedData.length} chunks`)
+      insertedData.forEach((inserted, i) => {
+        if (i < 2) {
+          console.log(`Inserted ${i}: id=${inserted.id}, embedding type=${typeof inserted.embedding}, isArray=${Array.isArray(inserted.embedding)}`)
+        }
+      })
+    }
     
     if (insertError) {
       console.error('Failed to insert chunks:', insertError)

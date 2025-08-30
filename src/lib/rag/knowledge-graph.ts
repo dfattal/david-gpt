@@ -449,8 +449,8 @@ export async function buildKnowledgeGraphForDocument(
   chunksProcessed: number
   error?: string
 }> {
-  const { createClient } = await import('@/lib/supabase/server')
-  const supabase = await createClient()
+  const { createServiceClient } = await import('@/lib/supabase/service')
+  const supabase = createServiceClient()
 
   try {
     // Get document chunks
@@ -642,8 +642,8 @@ export async function getKnowledgeGraphStats(userId: string): Promise<{
   relationTypes: Array<{ type: string; count: number }>
   topEntities: Array<{ name: string; type: string; connections: number }>
 }> {
-  const { createClient } = await import('@/lib/supabase/server')
-  const supabase = await createClient()
+  const { createServiceClient } = await import('@/lib/supabase/service')
+  const supabase = createServiceClient()
 
   try {
     // Get user's documents to filter entities
@@ -785,8 +785,8 @@ export async function searchEntities(
   }>
   total: number
 }> {
-  const { createClient } = await import('@/lib/supabase/server')
-  const supabase = await createClient()
+  const { createServiceClient } = await import('@/lib/supabase/service')
+  const supabase = createServiceClient()
   const { limit = 20, exactMatch = false, entityType } = options
 
   try {
@@ -882,8 +882,8 @@ export async function findRelatedEntities(
   }>
   total: number
 }> {
-  const { createClient } = await import('@/lib/supabase/server')
-  const supabase = await createClient()
+  const { createServiceClient } = await import('@/lib/supabase/service')
+  const supabase = createServiceClient()
   const { maxDepth = 1, limit = 20, relationTypes } = options
 
   try {

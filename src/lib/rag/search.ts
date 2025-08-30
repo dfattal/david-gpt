@@ -66,8 +66,11 @@ export async function vectorSearch(
 
   if (error) {
     console.error('Vector search error:', error)
+    console.error('Query details:', { userId, includeMetadata, limit, threshold })
     throw new Error(`Vector search failed: ${error.message}`)
   }
+  
+  console.log(`Vector search found ${allChunks?.length || 0} chunks for user ${userId}`)
 
   if (!allChunks || allChunks.length === 0) {
     return {
@@ -83,13 +86,73 @@ export async function vectorSearch(
 
   // Calculate similarities in-memory using cosine similarity
   const { cosineSimilarity } = await import('./embeddings')
+  console.log(`Query embedding length: ${queryEmbedding.embedding?.length || 'null'}, tokens: ${queryEmbedding.tokens}`)
+  
+  let validEmbeddings = 0
+  let nullEmbeddings = 0
   const chunkSimilarities = allChunks.map((rawChunk: unknown, index) => {
     let similarity = 0
     
     try {
       const chunk = rawChunk as Record<string, unknown>
-      if (chunk.embedding && Array.isArray(chunk.embedding)) {
-        similarity = cosineSimilarity(queryEmbedding.embedding, chunk.embedding)
+      let embedding: number[] | null = null
+      
+      // Handle different embedding storage formats
+      if (chunk.embedding) {
+        if (Array.isArray(chunk.embedding)) {
+          embedding = chunk.embedding
+        } else if (typeof chunk.embedding === 'string') {
+          // Handle JSON string format: "[1,2,3]"
+          try {
+            embedding = JSON.parse(chunk.embedding)
+          } catch {
+            // Handle PostgreSQL vector format: "vector([1,2,3])"
+            const vectorMatch = chunk.embedding.match(/vector\(\[(.*?)\]\)/)
+            if (vectorMatch) {
+              embedding = vectorMatch[1].split(',').map(x => parseFloat(x.trim()))
+            }
+          }
+        } else if (typeof chunk.embedding === 'object' && chunk.embedding !== null) {
+          // Handle various object formats
+          const embObj = chunk.embedding as any
+          
+          // PostgreSQL vector object format
+          if (embObj.data && Array.isArray(embObj.data)) {
+            embedding = embObj.data
+          } 
+          // Raw object with numeric properties
+          else if (typeof embObj === 'object') {
+            const values = Object.values(embObj)
+            if (values.length > 0 && typeof values[0] === 'number') {
+              embedding = values as number[]
+            }
+            // PostgreSQL array format: {0: 1.2, 1: 3.4, ...}
+            else if (values.length > 1000 && typeof Object.keys(embObj)[0] === 'string') {
+              const sortedKeys = Object.keys(embObj).sort((a, b) => parseInt(a) - parseInt(b))
+              embedding = sortedKeys.map(key => embObj[key]).filter(val => typeof val === 'number')
+            }
+          }
+        }
+      }
+      
+      if (embedding && Array.isArray(embedding) && embedding.length > 0) {
+        validEmbeddings++
+        const nonZeroCount = embedding.filter(x => x !== 0).length
+        if (index < 2) {
+          console.log(`Chunk ${chunk.id}: embedding length=${embedding.length}, nonZeroValues=${nonZeroCount}, first5=[${embedding.slice(0,5).join(',')}]`)
+        }
+        similarity = cosineSimilarity(queryEmbedding.embedding, embedding)
+      } else {
+        nullEmbeddings++
+        if (index < 2) {
+          console.log(`Chunk ${chunk.id}: embedding debug:`, {
+            type: typeof chunk.embedding,
+            constructor: chunk.embedding?.constructor?.name,
+            isArray: Array.isArray(chunk.embedding),
+            keys: chunk.embedding ? Object.keys(chunk.embedding).slice(0, 5) : 'null',
+            sampleValue: chunk.embedding ? JSON.stringify(chunk.embedding).substring(0, 100) : 'null'
+          })
+        }
       }
     } catch (error) {
       console.warn(`Failed to calculate similarity for chunk ${(rawChunk as Record<string, unknown>)?.id}:`, error)
@@ -100,6 +163,11 @@ export async function vectorSearch(
   })
 
   // Filter by threshold and sort by similarity (descending)
+  const maxSimilarity = Math.max(...chunkSimilarities.map(item => item.similarity))
+  const aboveThreshold = chunkSimilarities.filter(item => item.similarity >= threshold).length
+  console.log(`Embedding stats: valid=${validEmbeddings}, null=${nullEmbeddings}, total=${allChunks.length}`)
+  console.log(`Similarity calculation: max=${maxSimilarity.toFixed(4)}, threshold=${threshold}, aboveThreshold=${aboveThreshold}`)
+  
   const filteredResults = chunkSimilarities
     .filter(item => item.similarity >= threshold)
     .sort((a, b) => b.similarity - a.similarity)

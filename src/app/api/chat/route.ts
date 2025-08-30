@@ -60,6 +60,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     const latestUserMessage = messages.filter(m => m.role === 'user').slice(-1)[0]
     let enhancedSystemPrompt = DAVID_FATTAL_SYSTEM_PROMPT
     let ragCitations = ''
+    let ragContext: any = null
 
     // Check if we should use RAG for this query
     if (latestUserMessage && shouldUseRAG(latestUserMessage.content)) {
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         console.log('Building RAG context for user query:', latestUserMessage.content.substring(0, 100))
         
         // Build RAG context
-        const ragContext = await buildRAGContext(
+        ragContext = await buildRAGContext(
           latestUserMessage.content,
           user.id,
           {
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         // Enhance system prompt with RAG context
         if (ragContext.hasRelevantContent) {
           enhancedSystemPrompt = buildEnhancedSystemPrompt(DAVID_FATTAL_SYSTEM_PROMPT, ragContext)
-          ragCitations = formatCitations(ragContext.chunks)
+          ragCitations = formatCitations(ragContext.chunks, ragContext)
           
           console.log(`Enhanced system prompt with ${ragContext.chunks.length} chunks from ${ragContext.stats.sources.length} sources`)
         }
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       messages,
       temperature: 0.7,
       onFinish: async (result) => {
-        // Add citations to response if we have them
+        // Add citations list to response if we have them
         const finalResponseText = ragCitations ? result.text + ragCitations : result.text
         
         // Persist messages to database after streaming completes
