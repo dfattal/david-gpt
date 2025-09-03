@@ -1,457 +1,427 @@
-// Citations & Metadata System
-// Phase 8: Source attribution, streaming citations, and document date handling
+/**
+ * Citation Generation System
+ * 
+ * Handles the generation of transparent citations for RAG responses with
+ * stable identifiers [A1], [B2] format and accurate fact summaries.
+ */
 
-import type { RAGChunk, RAGDocument } from './types'
+import { supabase } from '@/lib/supabase';
+import type { 
+  SearchResult, 
+  MessageCitation, 
+  ResponseMode,
+  DocumentMetadata 
+} from './types';
 
-export interface Citation {
-  id: string
-  sourceTitle: string
-  sourceUrl?: string
-  documentId: string
-  chunkIndex: number
-  chunkId: number
-  relevanceScore: number
-  datePublished?: string
-  dateAccessed?: string
-  contentSnippet: string
-  citationNumber: number
+// =======================
+// Citation Generation
+// =======================
+
+export interface CitationMarker {
+  id: string;
+  marker: string; // e.g., "A1", "B2"
+  documentId: string;
+  chunkId?: string;
+  title: string;
+  docType: string;
+  pageRange?: string;
+  factSummary?: string;
+  relevanceScore: number;
+  sourceMetadata: DocumentMetadata;
 }
 
-export interface CitationGroup {
-  sourceTitle: string
-  documentId: string
-  datePublished?: string
-  chunks: Array<{
-    chunkId: number
-    chunkIndex: number
-    contentSnippet: string
-    relevanceScore: number
-  }>
-  citationNumber: number
-  combinedRelevance: number
-}
-
-export interface CitedRAGContext {
-  chunks: Array<{
-    content: string
-    citation: Citation
-    similarity: number
-    bm25Score?: number
-    rrfScore?: number
-    finalScore?: number
-    metadata?: Record<string, unknown>
-  }>
-  citationGroups: CitationGroup[]
-  citationMap: Map<string, Citation>
-  totalSources: number
-  dateRange?: {
-    earliest: string
-    latest: string
-  }
-  conflictingDates?: Array<{
-    sourceTitle: string
-    dates: string[]
-    resolution: 'newest' | 'most_common' | 'user_specified'
-  }>
-}
-
-export interface CitationOptions {
-  maxSources?: number
-  dedupeBySources?: boolean
-  preferNewerSources?: boolean
-  includeDateRange?: boolean
-  includeContentSnippets?: boolean
-  snippetLength?: number
-  citationFormat?: 'numbered' | 'author-date' | 'footnotes'
-  groupBySource?: boolean
-}
-
-const DEFAULT_CITATION_OPTIONS: Required<CitationOptions> = {
-  maxSources: 8,
-  dedupeBySources: true,
-  preferNewerSources: true,
-  includeDateRange: true,
-  includeContentSnippets: true,
-  snippetLength: 150,
-  citationFormat: 'numbered',
-  groupBySource: true
+export interface CitationContext {
+  conversationId?: string;
+  messageId?: string;
+  responseMode: ResponseMode;
+  userRole: 'admin' | 'member' | 'guest';
 }
 
 /**
- * Build citations from RAG chunks with source deduplication
+ * Generate citations from search results with stable identifiers
  */
-export function buildCitations(
-  chunks: Array<{
-    content: string
-    source?: string
-    similarity: number
-    bm25Score?: number
-    rrfScore?: number
-    finalScore?: number
-    date?: string
-    metadata?: Record<string, unknown>
-    chunk?: RAGChunk
-  }>,
-  options: CitationOptions = {}
-): CitedRAGContext {
-  const config = { ...DEFAULT_CITATION_OPTIONS, ...options }
-  
-  console.log(`Building citations for ${chunks.length} chunks with source deduplication`)
+export class CitationGenerator {
+  private citationCounter = 0;
+  private usedMarkers = new Set<string>();
 
-  // Group chunks by source document to avoid multiple citations from same document
-  const sourceGroups = new Map<string, Array<typeof chunks[0]>>()
-  const documentMetadata = new Map<string, { title: string, date?: string, url?: string }>()
-  
-  for (const chunk of chunks) {
-    const docId = chunk.chunk?.doc_id || chunk.metadata?.doc_id as string || 'unknown'
-    const sourceTitle = chunk.source || chunk.metadata?.title as string || `Document ${docId}`
+  /**
+   * Generate citation markers for search results
+   */
+  generateCitations(
+    searchResults: SearchResult[], 
+    context: CitationContext
+  ): CitationMarker[] {
+    const citations: CitationMarker[] = [];
+    const documentGroups = this.groupResultsByDocument(searchResults);
+
+    // Generate document-level citations (A, B, C, etc.)
+    let documentIndex = 0;
     
-    if (!sourceGroups.has(docId)) {
-      sourceGroups.set(docId, [])
-      documentMetadata.set(docId, {
-        title: sourceTitle,
-        date: chunk.date || chunk.metadata?.date as string,
-        url: chunk.metadata?.url as string
-      })
-    }
-    
-    sourceGroups.get(docId)!.push(chunk)
-  }
-
-  console.log(`Grouped chunks into ${sourceGroups.size} unique sources`)
-
-  // Process each source group and select best representative chunk(s)
-  const citationGroups: CitationGroup[] = []
-  const citations: Citation[] = []
-  const citationMap = new Map<string, Citation>()
-  const allDates: string[] = []
-  
-  let citationNumber = 1
-
-  for (const [docId, docChunks] of sourceGroups.entries()) {
-    const metadata = documentMetadata.get(docId)!
-    
-    // Sort chunks by relevance (final score > similarity > bm25)
-    const sortedChunks = docChunks.sort((a, b) => {
-      const scoreA = a.finalScore || a.similarity || a.bm25Score || 0
-      const scoreB = b.finalScore || b.similarity || b.bm25Score || 0
-      return scoreB - scoreA
-    })
-
-    // For source deduplication, take only the best chunk(s) from each source
-    const selectedChunks = config.groupBySource 
-      ? [sortedChunks[0]] // Single best chunk per source
-      : sortedChunks.slice(0, Math.min(3, sortedChunks.length)) // Up to 3 chunks per source
-
-    // Calculate combined relevance for the source
-    const combinedRelevance = selectedChunks.reduce((sum, chunk) => {
-      const score = chunk.finalScore || chunk.similarity || chunk.bm25Score || 0
-      return sum + score
-    }, 0) / selectedChunks.length
-
-    // Create citation group
-    const citationGroup: CitationGroup = {
-      sourceTitle: metadata.title,
-      documentId: docId,
-      datePublished: metadata.date,
-      chunks: selectedChunks.map(chunk => ({
-        chunkId: chunk.chunk?.id || 0,
-        chunkIndex: chunk.chunk?.chunk_index || 0,
-        contentSnippet: extractSnippet(chunk.content, config.snippetLength),
-        relevanceScore: chunk.finalScore || chunk.similarity || 0
-      })),
-      citationNumber,
-      combinedRelevance
-    }
-
-    citationGroups.push(citationGroup)
-
-    // Create individual citations for each chunk in the group
-    for (const chunk of selectedChunks) {
-      const citation: Citation = {
-        id: `cite-${docId}-${chunk.chunk?.id || citationNumber}`,
-        sourceTitle: metadata.title,
-        sourceUrl: metadata.url,
-        documentId: docId,
-        chunkIndex: chunk.chunk?.chunk_index || 0,
-        chunkId: chunk.chunk?.id || 0,
-        relevanceScore: chunk.finalScore || chunk.similarity || 0,
-        datePublished: metadata.date,
-        dateAccessed: new Date().toISOString().split('T')[0],
-        contentSnippet: extractSnippet(chunk.content, config.snippetLength),
-        citationNumber
-      }
-
-      citations.push(citation)
-      citationMap.set(citation.id, citation)
+    for (const [documentId, chunks] of documentGroups.entries()) {
+      const letter = String.fromCharCode(65 + documentIndex); // A, B, C...
       
-      if (citation.datePublished) {
-        allDates.push(citation.datePublished)
-      }
-    }
-
-    citationNumber++
-    
-    // Respect max sources limit
-    if (citationGroups.length >= config.maxSources) {
-      break
-    }
-  }
-
-  // Sort citation groups by relevance if preferring newer sources
-  if (config.preferNewerSources) {
-    citationGroups.sort((a, b) => {
-      // First sort by date (newer first), then by relevance
-      if (a.datePublished && b.datePublished) {
-        const dateComparison = new Date(b.datePublished).getTime() - new Date(a.datePublished).getTime()
-        if (Math.abs(dateComparison) > 86400000) { // More than 1 day difference
-          return dateComparison
-        }
-      }
-      return b.combinedRelevance - a.combinedRelevance
-    })
-    
-    // Reassign citation numbers after sorting
-    citationGroups.forEach((group, index) => {
-      group.citationNumber = index + 1
-      group.chunks.forEach(chunk => {
-        const citation = citations.find(c => c.chunkId === chunk.chunkId)
-        if (citation) {
-          citation.citationNumber = index + 1
-        }
-      })
-    })
-  }
-
-  // Build cited chunks array
-  const citedChunks = []
-  for (const group of citationGroups) {
-    for (const groupChunk of group.chunks) {
-      const citation = citations.find(c => c.chunkId === groupChunk.chunkId)!
-      const originalChunk = chunks.find(c => c.chunk?.id === groupChunk.chunkId)!
+      // Sort chunks by relevance score (highest first)
+      const sortedChunks = chunks.sort((a, b) => b.score - a.score);
       
-      citedChunks.push({
-        content: originalChunk.content,
-        citation,
-        similarity: originalChunk.similarity,
-        bm25Score: originalChunk.bm25Score,
-        rrfScore: originalChunk.rrfScore,
-        finalScore: originalChunk.finalScore,
-        metadata: originalChunk.metadata
-      })
-    }
-  }
-
-  // Calculate date range
-  const dateRange = config.includeDateRange && allDates.length > 0 ? {
-    earliest: allDates.reduce((earliest, date) => date < earliest ? date : earliest),
-    latest: allDates.reduce((latest, date) => date > latest ? date : latest)
-  } : undefined
-
-  // Detect conflicting dates (same source with different dates)
-  const conflictingDates = detectDateConflicts(citationGroups)
-
-  console.log(`Citations built: ${citationGroups.length} sources, ${citations.length} total chunks`)
-
-  return {
-    chunks: citedChunks,
-    citationGroups,
-    citationMap,
-    totalSources: citationGroups.length,
-    dateRange,
-    conflictingDates: conflictingDates.length > 0 ? conflictingDates : undefined
-  }
-}
-
-/**
- * Extract content snippet for citation
- */
-function extractSnippet(content: string, maxLength: number): string {
-  if (content.length <= maxLength) {
-    return content.trim()
-  }
-  
-  // Try to break at sentence boundary
-  const truncated = content.substring(0, maxLength)
-  const lastSentenceEnd = Math.max(
-    truncated.lastIndexOf('.'),
-    truncated.lastIndexOf('!'),
-    truncated.lastIndexOf('?')
-  )
-  
-  if (lastSentenceEnd > maxLength * 0.7) {
-    return truncated.substring(0, lastSentenceEnd + 1).trim()
-  }
-  
-  // Break at word boundary
-  const lastSpace = truncated.lastIndexOf(' ')
-  if (lastSpace > maxLength * 0.8) {
-    return truncated.substring(0, lastSpace).trim() + '...'
-  }
-  
-  return truncated.trim() + '...'
-}
-
-/**
- * Detect conflicting dates for the same source
- */
-function detectDateConflicts(citationGroups: CitationGroup[]): Array<{
-  sourceTitle: string
-  dates: string[]
-  resolution: 'newest' | 'most_common' | 'user_specified'
-}> {
-  const sourceToDate = new Map<string, string[]>()
-  
-  for (const group of citationGroups) {
-    if (group.datePublished) {
-      const dates = sourceToDate.get(group.sourceTitle) || []
-      if (!dates.includes(group.datePublished)) {
-        dates.push(group.datePublished)
+      // Take top chunks per document (limit based on response mode)
+      const maxChunksPerDoc = context.responseMode === 'FACT' ? 2 : 
+                              context.responseMode === 'EXPLAIN' ? 3 : 4;
+      const selectedChunks = sortedChunks.slice(0, maxChunksPerDoc);
+      
+      for (let chunkIndex = 0; chunkIndex < selectedChunks.length; chunkIndex++) {
+        const chunk = selectedChunks[chunkIndex];
+        const chunkNumber = chunkIndex + 1;
+        const marker = `${letter}${chunkNumber}`;
+        
+        // Skip if marker already used (shouldn't happen, but safety check)
+        if (this.usedMarkers.has(marker)) {
+          continue;
+        }
+        
+        this.usedMarkers.add(marker);
+        
+        citations.push({
+          id: `citation_${documentId}_${chunk.chunkId || 'doc'}`,
+          marker,
+          documentId: chunk.documentId,
+          chunkId: chunk.chunkId,
+          title: chunk.title,
+          docType: chunk.docType || 'document',
+          pageRange: chunk.pageRange,
+          factSummary: this.generateFactSummary(chunk.content, context.responseMode),
+          relevanceScore: chunk.score,
+          sourceMetadata: chunk.metadata,
+        });
       }
-      sourceToDate.set(group.sourceTitle, dates)
+      
+      documentIndex++;
+    }
+
+    return citations;
+  }
+
+  /**
+   * Group search results by document ID
+   */
+  private groupResultsByDocument(results: SearchResult[]): Map<string, SearchResult[]> {
+    const groups = new Map<string, SearchResult[]>();
+    
+    for (const result of results) {
+      const existing = groups.get(result.documentId) || [];
+      existing.push(result);
+      groups.set(result.documentId, existing);
+    }
+    
+    return groups;
+  }
+
+  /**
+   * Generate concise fact summary from chunk content
+   */
+  private generateFactSummary(content: string, responseMode: ResponseMode): string {
+    // Clean up content and extract key fact
+    const cleanContent = content
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    // Different summarization strategies based on response mode
+    switch (responseMode) {
+      case 'FACT':
+        // Extract the most direct factual statement (first sentence usually)
+        const firstSentence = cleanContent.split(/[.!?]/)[0];
+        return firstSentence.length > 200 ? 
+          firstSentence.slice(0, 200) + '...' : 
+          firstSentence + '.';
+      
+      case 'EXPLAIN':
+        // Take a broader context snippet
+        return cleanContent.length > 300 ? 
+          cleanContent.slice(0, 300) + '...' : 
+          cleanContent;
+      
+      case 'CONFLICTS':
+        // Focus on conflicting information or key claims
+        const keyClaim = this.extractKeyClaim(cleanContent);
+        return keyClaim;
+      
+      default:
+        return cleanContent.slice(0, 200) + '...';
     }
   }
-  
-  const conflicts = []
-  for (const [sourceTitle, dates] of sourceToDate.entries()) {
-    if (dates.length > 1) {
-      conflicts.push({
-        sourceTitle,
-        dates: dates.sort(),
-        resolution: 'newest' as const // Default to newest date
-      })
+
+  /**
+   * Extract key claim for conflict resolution
+   */
+  private extractKeyClaim(content: string): string {
+    // Look for definitive statements, numbers, dates, conclusions
+    const patterns = [
+      /([A-Z][^.!?]*(?:shows?|proves?|demonstrates?|indicates?|suggests?)[^.!?]*[.!?])/i,
+      /([A-Z][^.!?]*(?:\d+(?:,\d+)*(?:\.\d+)?)[^.!?]*[.!?])/i,
+      /([A-Z][^.!?]*(?:found|discovered|observed|concluded)[^.!?]*[.!?])/i,
+    ];
+    
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match) {
+        const claim = match[1].trim();
+        return claim.length > 250 ? claim.slice(0, 250) + '...' : claim;
+      }
     }
+    
+    // Fallback to first sentence
+    const firstSentence = content.split(/[.!?]/)[0];
+    return firstSentence.length > 200 ? 
+      firstSentence.slice(0, 200) + '...' : 
+      firstSentence + '.';
   }
-  
-  return conflicts
+
+  /**
+   * Reset citation counters for new conversation
+   */
+  reset(): void {
+    this.citationCounter = 0;
+    this.usedMarkers.clear();
+  }
+}
+
+// =======================
+// Citation Storage
+// =======================
+
+/**
+ * Save citations to database for persistence and tracking
+ */
+export async function saveCitations(
+  messageId: string,
+  citations: CitationMarker[]
+): Promise<void> {
+  if (!citations.length) return;
+
+  const citationRecords = citations.map((citation, index) => ({
+    message_id: messageId,
+    document_id: citation.documentId,
+    chunk_id: citation.chunkId,
+    marker: `[${citation.marker}]`,
+    fact_summary: citation.factSummary,
+    page_range: citation.pageRange,
+    relevance_score: citation.relevanceScore,
+    citation_order: index + 1,
+  }));
+
+  const { error } = await supabase
+    .from('message_citations')
+    .insert(citationRecords);
+
+  if (error) {
+    console.error('Error saving citations:', error);
+    throw new Error(`Failed to save citations: ${error.message}`);
+  }
 }
 
 /**
- * Format citations for different citation styles
+ * Retrieve citations for a message
  */
-export function formatCitations(
-  citationGroups: CitationGroup[],
-  format: 'numbered' | 'author-date' | 'footnotes' = 'numbered'
-): string {
-  if (citationGroups.length === 0) {
-    return ''
+export async function getCitations(messageId: string): Promise<MessageCitation[]> {
+  const { data, error } = await supabase
+    .from('message_citations')
+    .select(`
+      id,
+      message_id,
+      document_id,
+      chunk_id,
+      marker,
+      fact_summary,
+      page_range,
+      relevance_score,
+      citation_order,
+      created_at,
+      documents (
+        title,
+        doc_type,
+        doi,
+        arxiv_id,
+        patent_no,
+        url,
+        published_date
+      )
+    `)
+    .eq('message_id', messageId)
+    .order('citation_order');
+
+  if (error) {
+    console.error('Error retrieving citations:', error);
+    throw new Error(`Failed to retrieve citations: ${error.message}`);
   }
 
-  switch (format) {
-    case 'numbered':
-      return formatNumberedCitations(citationGroups)
-    case 'author-date':
-      return formatAuthorDateCitations(citationGroups)
-    case 'footnotes':
-      return formatFootnoteCitations(citationGroups)
-    default:
-      return formatNumberedCitations(citationGroups)
-  }
+  return data || [];
 }
 
-function formatNumberedCitations(citationGroups: CitationGroup[]): string {
-  const citations = citationGroups.map(group => {
-    const dateStr = group.datePublished ? ` (${group.datePublished})` : ''
-    return `[${group.citationNumber}] ${group.sourceTitle}${dateStr}`
-  })
-  
-  return `\n\n**Sources:**\n${citations.join('\n')}`
-}
-
-function formatAuthorDateCitations(citationGroups: CitationGroup[]): string {
-  const citations = citationGroups.map(group => {
-    const dateStr = group.datePublished || 'n.d.'
-    return `${group.sourceTitle} (${dateStr})`
-  })
-  
-  return `\n\n**References:**\n${citations.join(', ')}`
-}
-
-function formatFootnoteCitations(citationGroups: CitationGroup[]): string {
-  const citations = citationGroups.map(group => {
-    const dateStr = group.datePublished ? `, ${group.datePublished}` : ''
-    return `${group.citationNumber}. ${group.sourceTitle}${dateStr}`
-  })
-  
-  return `\n\n**Footnotes:**\n${citations.join('\n')}`
-}
+// =======================
+// Citation Formatting
+// =======================
 
 /**
- * Generate inline citation markers for streaming responses
+ * Insert citations into response text
  */
-export function generateInlineCitations(
-  content: string,
-  citations: Citation[]
+export function insertCitationsIntoText(
+  text: string, 
+  citations: CitationMarker[]
 ): string {
-  // Simple approach: add citations at the end of sentences that likely reference the sources
-  // This is a basic implementation - more sophisticated approaches would use NLP to determine
-  // which sentences reference which sources
+  let citedText = text;
   
-  let citedContent = content
-  
-  // Add citation numbers after relevant sentences
+  // Create a citation map for quick lookup
+  const citationMap = new Map<string, string>();
   citations.forEach(citation => {
-    const snippet = citation.contentSnippet.replace(/\.\.\.$/, '')
-    const words = snippet.split(' ').slice(0, 3) // First 3 words as potential matches
-    
-    for (const word of words) {
-      if (word.length > 3 && citedContent.toLowerCase().includes(word.toLowerCase())) {
-        const regex = new RegExp(`(${escapeRegExp(word)}[^.!?]*[.!?])`, 'gi')
-        citedContent = citedContent.replace(regex, `$1 [${citation.citationNumber}]`)
-        break // Only cite once per citation
-      }
-    }
-  })
-  
-  return citedContent
-}
+    citationMap.set(citation.factSummary || '', `[${citation.marker}]`);
+  });
 
-function escapeRegExp(string: string): string {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  // Sort citations by fact summary length (longest first) to avoid substring issues
+  const sortedCitations = citations.sort((a, b) => 
+    (b.factSummary?.length || 0) - (a.factSummary?.length || 0)
+  );
+
+  // Insert citations at appropriate points
+  for (const citation of sortedCitations) {
+    if (!citation.factSummary) continue;
+    
+    // Look for related content in the response
+    const factContent = citation.factSummary.toLowerCase();
+    const responseContent = citedText.toLowerCase();
+    
+    // Find best insertion point
+    const insertionPoint = this.findBestInsertionPoint(responseContent, factContent);
+    
+    if (insertionPoint > -1) {
+      // Insert citation marker
+      const beforeInsertion = citedText.slice(0, insertionPoint);
+      const afterInsertion = citedText.slice(insertionPoint);
+      
+      citedText = beforeInsertion + ` [${citation.marker}]` + afterInsertion;
+    }
+  }
+
+  return citedText;
 }
 
 /**
- * Validate citations for completeness and accuracy
+ * Find the best position to insert a citation
  */
-export function validateCitations(citations: Citation[]): {
-  isValid: boolean
-  issues: string[]
-  completeness: number
-} {
-  const issues: string[] = []
-  let validCitations = 0
+function findBestInsertionPoint(responseText: string, factContent: string): number {
+  // Try to find exact matches first
+  const exactMatch = responseText.indexOf(factContent);
+  if (exactMatch > -1) {
+    return exactMatch + factContent.length;
+  }
+  
+  // Try to find partial matches
+  const words = factContent.split(/\s+/).slice(0, 5); // First 5 words
+  for (let i = words.length; i >= 2; i--) {
+    const phrase = words.slice(0, i).join(' ');
+    const match = responseText.indexOf(phrase);
+    if (match > -1) {
+      return match + phrase.length;
+    }
+  }
+  
+  return -1; // No good insertion point found
+}
 
+/**
+ * Generate citation list for display
+ */
+export function formatCitationList(citations: CitationMarker[]): string {
+  if (!citations.length) return '';
+
+  let citationList = '\n\n**Sources:**\n';
+  
   for (const citation of citations) {
-    let citationIssues = 0
-
-    if (!citation.sourceTitle || citation.sourceTitle.trim().length === 0) {
-      issues.push(`Citation ${citation.citationNumber}: Missing source title`)
-      citationIssues++
-    }
-
-    if (!citation.contentSnippet || citation.contentSnippet.trim().length === 0) {
-      issues.push(`Citation ${citation.citationNumber}: Missing content snippet`)
-      citationIssues++
-    }
-
-    if (!citation.dateAccessed) {
-      issues.push(`Citation ${citation.citationNumber}: Missing access date`)
-      citationIssues++
-    }
-
-    if (citation.relevanceScore < 0.1) {
-      issues.push(`Citation ${citation.citationNumber}: Very low relevance score (${citation.relevanceScore.toFixed(3)})`)
-      citationIssues++
-    }
-
-    if (citationIssues === 0) {
-      validCitations++
-    }
+    const docInfo = this.formatDocumentInfo(citation);
+    const pageInfo = citation.pageRange ? ` (${citation.pageRange})` : '';
+    
+    citationList += `[${citation.marker}] ${docInfo}${pageInfo}\n`;
   }
 
+  return citationList;
+}
+
+/**
+ * Format document information for citation
+ */
+function formatDocumentInfo(citation: CitationMarker): string {
+  const metadata = citation.sourceMetadata;
+  
+  switch (citation.docType) {
+    case 'paper':
+      if (metadata.doi) {
+        return `${citation.title}. DOI: ${metadata.doi}`;
+      }
+      if (metadata.arxivId) {
+        return `${citation.title}. arXiv: ${metadata.arxivId}`;
+      }
+      return citation.title;
+      
+    case 'patent':
+      if (metadata.patentNo) {
+        return `${citation.title}. Patent ${metadata.patentNo}`;
+      }
+      return citation.title;
+      
+    case 'url':
+      if (metadata.url) {
+        return `${citation.title}. ${metadata.url}`;
+      }
+      return citation.title;
+      
+    default:
+      return citation.title;
+  }
+}
+
+// =======================
+// Export Default Instance
+// =======================
+
+export const citationGenerator = new CitationGenerator();
+
+// =======================
+// Convenience Functions
+// =======================
+
+/**
+ * Complete citation workflow: generate, insert, and format
+ */
+export async function processCitations(
+  searchResults: SearchResult[],
+  responseText: string,
+  context: CitationContext,
+  messageId?: string
+): Promise<{ 
+  citedText: string; 
+  citations: CitationMarker[]; 
+  citationList: string 
+}> {
+  // Generate citations
+  const citations = citationGenerator.generateCitations(searchResults, context);
+  
+  // Insert citations into text
+  const citedText = insertCitationsIntoText(responseText, citations);
+  
+  // Format citation list
+  const citationList = formatCitationList(citations);
+  
+  // Save to database if messageId provided
+  if (messageId && citations.length > 0) {
+    try {
+      await saveCitations(messageId, citations);
+    } catch (error) {
+      console.error('Failed to save citations:', error);
+      // Don't fail the entire request if citation saving fails
+    }
+  }
+  
   return {
-    isValid: issues.length === 0,
-    issues,
-    completeness: citations.length > 0 ? validCitations / citations.length : 0
-  }
+    citedText,
+    citations,
+    citationList,
+  };
 }

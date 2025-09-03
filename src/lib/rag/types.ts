@@ -1,191 +1,474 @@
-// RAG Type Definitions for David-GPT
-// Phase 1: Foundation types for documents, chunks, entities, and jobs
+/**
+ * RAG System Type Definitions
+ * 
+ * Comprehensive type definitions for the citation-first RAG system
+ * including document processing, hybrid search, and mini-KG structures.
+ */
 
-export interface RAGDocument {
-  id: string
-  owner: string
-  source_type: 'text' | 'url' | 'pdf' | 'docx'
-  source_uri?: string
-  title: string
-  doc_date: string // ISO date string (YYYY-MM-DD)
-  tags: string[]
-  labels: Record<string, unknown>
-  created_at: string
-  updated_at: string
+import { z } from 'zod';
+
+// =======================
+// Document Types
+// =======================
+
+export const DocumentTypeSchema = z.enum([
+  'pdf', 'paper', 'patent', 'note', 'url', 'book'
+]);
+
+export const DocumentStatusSchema = z.enum([
+  'draft', 'published', 'granted', 'expired', 'superseded'
+]);
+
+export type DocumentType = z.infer<typeof DocumentTypeSchema>;
+export type DocumentStatus = z.infer<typeof DocumentStatusSchema>;
+
+export interface DocumentMetadata {
+  id: string;
+  title: string;
+  docType: DocumentType;
+  status?: DocumentStatus;
+  filePath?: string;
+  fileSize?: number;
+  fileHash?: string;
+  
+  // Academic identifiers
+  doi?: string;
+  arxivId?: string;
+  pubmedId?: string;
+  
+  // Patent identifiers
+  patentNo?: string;
+  publicationNo?: string;
+  applicationNo?: string;
+  grantNo?: string;
+  fundingAgency?: string;
+  
+  // Web identifiers
+  url?: string;
+  canonicalUrl?: string;
+  
+  // Date fields
+  rawDate?: string;
+  isoDate?: Date;
+  filedDate?: Date;
+  grantedDate?: Date;
+  publishedDate?: Date;
+  
+  // Relationship fields
+  canonicalOf?: string;
+  supersededBy?: string;
+  
+  // Processing status
+  processingStatus: 'pending' | 'processing' | 'completed' | 'failed';
+  processedAt?: Date;
+  errorMessage?: string;
+  
+  createdBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface RAGChunk {
-  id: number
-  doc_id: string
-  chunk_index: number
-  content: string
-  embedding?: number[] // Vector embedding (1536 dimensions for OpenAI)
-  fts?: string // Full-text search vector (internal PostgreSQL format)
-  chunk_date?: string // Optional override date
-  tags: string[]
-  labels: Record<string, unknown>
-  created_at: string
+export interface DocumentChunk {
+  id: string;
+  documentId: string;
+  content: string;
+  contentHash: string;
+  tokenCount: number;
+  chunkIndex: number;
+  pageStart?: number;
+  pageEnd?: number;
+  sectionTitle?: string;
+  overlapStart: number;
+  overlapEnd: number;
+  embedding?: number[];
+  tsvectorContent?: string;
+  createdAt: Date;
 }
 
-export interface RAGEntity {
-  id: number
-  canonical_name: string
-  type: 'company' | 'product' | 'tech' | 'team' | 'person' | 'event' | 'publication'
-  aliases: string[]
-  metadata: Record<string, unknown>
-  created_at: string
+// =======================
+// Mini-KG Types
+// =======================
+
+export const EntityKindSchema = z.enum([
+  'person', 'org', 'product', 'algorithm', 'material', 'concept'
+]);
+
+export const RelationTypeSchema = z.enum([
+  'author_of', 'inventor_of', 'assignee_of', 'implements', 'used_in', 
+  'supersedes', 'cites', 'similar_to'
+]);
+
+export const EventTypeSchema = z.enum([
+  'filed', 'published', 'granted', 'expires', 'product_launch', 'acquired', 'founded'
+]);
+
+export type EntityKind = z.infer<typeof EntityKindSchema>;
+export type RelationType = z.infer<typeof RelationTypeSchema>;
+export type EventType = z.infer<typeof EventTypeSchema>;
+
+export interface Entity {
+  id: string;
+  name: string;
+  kind: EntityKind;
+  description?: string;
+  authorityScore: number;
+  mentionCount: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface RAGRelation {
-  id: number
-  head_id: number
-  relation: 'partnered_with' | 'developed_by' | 'developed' | 'launched_by' | 
-           'launched' | 'uses_technology' | 'funded_by' | 'led_by' | 
-           'competitor_of' | 'acquired'
-  tail_id: number
-  evidence_chunk_id?: number
-  confidence: number // 0.0 to 1.0
-  created_at: string
+export interface EntityAlias {
+  id: string;
+  entityId: string;
+  alias: string;
+  isPrimary: boolean;
+  confidence: number;
+  createdAt: Date;
 }
 
-export interface RAGChunkEntity {
-  chunk_id: number
-  entity_id: number
-  mention: string // How entity appears in the chunk
-  confidence: number // 0.0 to 1.0
-  created_at: string
+export interface KnowledgeEdge {
+  id: string;
+  srcId: string;
+  srcType: 'entity' | 'document';
+  rel: RelationType;
+  dstId: string;
+  dstType: 'entity' | 'document';
+  weight: number;
+  evidenceText?: string;
+  evidenceDocId?: string;
+  createdAt: Date;
 }
 
-export interface RAGIngestJob {
-  id: string
-  owner: string
-  payload: Record<string, unknown>
-  status: 'queued' | 'processing' | 'completed' | 'error'
-  error?: string
-  created_at: string
-  updated_at: string
+export interface KnowledgeEvent {
+  id: string;
+  documentId?: string;
+  entityId?: string;
+  type: EventType;
+  eventDate: Date;
+  authority?: string;
+  description?: string;
+  createdAt: Date;
 }
 
-// Request/Response types for API endpoints
-export interface DocumentUploadRequest {
-  title: string
-  content: string
-  source_type: 'text' | 'url' | 'pdf' | 'docx'
-  source_uri?: string
-  doc_date?: string
-  tags?: string[]
-  labels?: Record<string, unknown>
+// =======================
+// Search & Retrieval Types
+// =======================
+
+export interface SearchQuery {
+  query: string;
+  limit?: number;
+  threshold?: number;
+  filters?: SearchFilters;
+  mode?: SearchMode;
 }
 
-export interface DocumentListResponse {
-  documents: RAGDocument[]
-  pagination: {
-    limit: number
-    offset: number
-    count: number
-  }
+export interface SearchFilters {
+  documentTypes?: DocumentType[];
+  dateRange?: {
+    start?: Date;
+    end?: Date;
+  };
+  entities?: string[];
+  authors?: string[];
+  patents?: boolean;
+  papers?: boolean;
 }
 
-export interface JobCreateRequest {
-  document_id: string
-  operation: 'chunk_and_embed' | 'extract_entities' | 'reprocess'
-  payload?: Record<string, unknown>
+export const SearchModeSchema = z.enum(['semantic', 'keyword', 'hybrid']);
+export type SearchMode = z.infer<typeof SearchModeSchema>;
+
+export interface SearchResult {
+  documentId: string;
+  chunkId?: string;
+  score: number;
+  rerankedScore?: number;
+  content: string;
+  title: string;
+  docType: DocumentType;
+  pageRange?: string;
+  sectionTitle?: string;
+  metadata: DocumentMetadata;
 }
 
-export interface JobListResponse {
-  jobs: RAGIngestJob[]
-  pagination: {
-    limit: number
-    offset: number
-    count: number
-  }
+export interface HybridSearchResult {
+  results: SearchResult[];
+  totalCount: number;
+  semanticResults: SearchResult[];
+  keywordResults: SearchResult[];
+  rerankedResults: SearchResult[];
+  query: SearchQuery;
+  executionTime: number;
 }
 
-// Retrieval types (for future phases)
-export interface RetrievalQuery {
-  text: string
-  filters?: {
-    tags?: string[]
-    labels?: Record<string, unknown>
-    doc_date_from?: string
-    doc_date_to?: string
-    source_types?: string[]
-  }
-  limit?: number
-  hybrid_alpha?: number // Weight for vector vs BM25 (0.0 = BM25 only, 1.0 = vector only)
+// =======================
+// Multi-turn Context Types
+// =======================
+
+export const TurnTypeSchema = z.enum([
+  'new-topic', 'drill-down', 'compare', 'same-sources'
+]);
+
+export const ResponseModeSchema = z.enum([
+  'FACT', 'EXPLAIN', 'CONFLICTS'
+]);
+
+export type TurnType = z.infer<typeof TurnTypeSchema>;
+export type ResponseMode = z.infer<typeof ResponseModeSchema>;
+
+export interface ConversationContext {
+  id: string;
+  userId: string;
+  title?: string;
+  lastMessageAt: Date;
+  contextSummary?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface RetrievalResult {
-  chunk: RAGChunk
-  document: RAGDocument
-  score: number
-  rank: number
-  source: 'vector' | 'bm25' | 'hybrid'
+export interface ConversationMessage {
+  id: string;
+  conversationId: string;
+  role: 'user' | 'assistant';
+  content: string;
+  turnType?: TurnType;
+  responseMode?: ResponseMode;
+  processingTime?: number;
+  sourcesUsed?: number;
+  createdAt: Date;
 }
 
-export interface RAGContext {
-  query: string
-  results: RetrievalResult[]
-  total_results: number
-  retrieval_time_ms: number
+export interface ConversationSource {
+  id: string;
+  conversationId: string;
+  documentId: string;
+  lastUsedAt: Date;
+  carryScore: number;
+  pinned: boolean;
+  turnsInactive: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// Knowledge Graph types (for future phases)
-export interface EntityMatch {
-  entity: RAGEntity
-  mention: string
-  confidence: number
+export interface MessageCitation {
+  id: string;
+  messageId: string;
+  documentId: string;
+  chunkId?: string;
+  marker: string; // e.g., "[1]", "[A1]", "[B2]"
+  factSummary?: string;
+  pageRange?: string;
+  relevanceScore?: number;
+  citationOrder?: number;
+  createdAt: Date;
 }
 
-export interface RelationPath {
-  entities: RAGEntity[]
-  relations: RAGRelation[]
-  path_length: number
-  confidence: number
+// =======================
+// Processing Types
+// =======================
+
+export const JobTypeSchema = z.enum([
+  'document_ingest', 'entity_extraction', 'embedding_generation', 
+  'kg_processing', 'reindexing'
+]);
+
+export const JobStatusSchema = z.enum([
+  'pending', 'processing', 'completed', 'failed', 'cancelled'
+]);
+
+export type JobType = z.infer<typeof JobTypeSchema>;
+export type JobStatus = z.infer<typeof JobStatusSchema>;
+
+export interface ProcessingJob {
+  id: string;
+  type: JobType;
+  status: JobStatus;
+  documentId?: string;
+  userId?: string;
+  priority: number;
+  attempts: number;
+  maxAttempts: number;
+  progress: number;
+  progressMessage?: string;
+  startedAt?: Date;
+  completedAt?: Date;
+  errorMessage?: string;
+  config: Record<string, unknown>;
+  results: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface KGExpansionResult {
-  original_entities: EntityMatch[]
-  expanded_entities: RAGEntity[]
-  relation_paths: RelationPath[]
-  additional_chunks: RAGChunk[]
+// =======================
+// External API Types
+// =======================
+
+export interface DOIMetadata {
+  doi: string;
+  title: string;
+  authors: string[];
+  journal?: string;
+  volume?: string;
+  issue?: string;
+  pages?: string;
+  year?: number;
+  publishedDate?: Date;
+  abstract?: string;
+  url?: string;
 }
 
-// Error types
-export interface RAGError {
-  code: string
-  message: string
-  details?: Record<string, unknown>
+export interface PatentMetadata {
+  patentNumber: string;
+  title: string;
+  inventors: string[];
+  assignee?: string;
+  applicationNumber?: string;
+  publicationNumber?: string;
+  filedDate?: Date;
+  publishedDate?: Date;
+  grantedDate?: Date;
+  abstract?: string;
+  claims?: string[];
+  description?: string;
 }
 
-// Constants
-export const RAG_CONSTANTS = {
-  EMBEDDING_DIMENSIONS: 1536, // OpenAI text-embedding-3-small
-  CHUNK_SIZE_MIN: 200,
-  CHUNK_SIZE_MAX: 300,
-  CHUNK_OVERLAP: 50,
-  MAX_RETRIEVAL_RESULTS: 100,
-  DEFAULT_RETRIEVAL_LIMIT: 20,
-  DEFAULT_HYBRID_ALPHA: 0.6, // Slight preference for vector search
-  CONFIDENCE_THRESHOLD: 0.1,
-  HIGH_CONFIDENCE_THRESHOLD: 0.8
-} as const
-
-// Utility type guards
-export function isRAGDocument(obj: unknown): obj is RAGDocument {
-  if (!obj || typeof obj !== 'object') return false
-  const record = obj as Record<string, unknown>
-  return typeof record.id === 'string' && typeof record.title === 'string'
+export interface GROBIDResponse {
+  title?: string;
+  authors?: Array<{
+    firstName?: string;
+    middleName?: string;
+    surname?: string;
+    fullName?: string;
+  }>;
+  abstract?: string;
+  keywords?: string[];
+  sections?: Array<{
+    title?: string;
+    content?: string;
+    level?: number;
+  }>;
+  references?: Array<{
+    title?: string;
+    authors?: string[];
+    year?: number;
+    venue?: string;
+  }>;
+  figures?: Array<{
+    caption?: string;
+    coordinates?: string;
+  }>;
 }
 
-export function isRAGChunk(obj: unknown): obj is RAGChunk {
-  if (!obj || typeof obj !== 'object') return false
-  const record = obj as Record<string, unknown>
-  return typeof record.id === 'number' && typeof record.content === 'string'
+// =======================
+// Response Generation Types
+// =======================
+
+export interface FactResponse {
+  answer: string;
+  sources: SearchResult[];
+  citations: MessageCitation[];
+  confidence: number;
+  structuredFields?: Record<string, unknown>;
 }
 
-export function isRAGEntity(obj: unknown): obj is RAGEntity {
-  if (!obj || typeof obj !== 'object') return false
-  const record = obj as Record<string, unknown>
-  return typeof record.id === 'number' && typeof record.canonical_name === 'string'
+export interface ExplainResponse {
+  answer: string;
+  context: string;
+  sources: SearchResult[];
+  citations: MessageCitation[];
+  relatedEntities: Entity[];
+  supportingEvidence: KnowledgeEdge[];
 }
+
+export interface ConflictsResponse {
+  answer: string;
+  primarySource: SearchResult;
+  conflictingSources: SearchResult[];
+  resolution: string;
+  citations: MessageCitation[];
+  authorityRanking: Array<{
+    source: SearchResult;
+    authorityScore: number;
+    reason: string;
+  }>;
+}
+
+export type RAGResponse = FactResponse | ExplainResponse | ConflictsResponse;
+
+// =======================
+// Configuration Types
+// =======================
+
+export interface ChunkingConfig {
+  targetTokens: number; // 800-1200
+  overlapPercent: number; // 15-20%
+  minChunkTokens: number;
+  maxChunkTokens: number;
+  sectionAware: boolean;
+}
+
+export interface EmbeddingConfig {
+  model: string; // 'text-embedding-3-small'
+  dimensions: number; // 1536
+  batchSize: number;
+  maxRetries: number;
+}
+
+export interface SearchConfig {
+  semanticWeight: number; // 0.7
+  keywordWeight: number; // 0.3
+  rerank: boolean;
+  rerankModel?: string; // 'rerank-english-v3.0'
+  maxResults: number; // 50
+  finalLimit: number; // 10
+  threshold: number; // 0.7
+}
+
+export interface ContextConfig {
+  maxTurns: number; // 10
+  decayFactor: number; // 0.7
+  maxCarryOverSources: number; // 5
+  turnTTL: number; // 3 turns
+}
+
+export interface RAGConfig {
+  chunking: ChunkingConfig;
+  embedding: EmbeddingConfig;
+  search: SearchConfig;
+  context: ContextConfig;
+  ingestionTimeout: number; // 300000ms (5 min)
+  responseTimeout: number; // 30000ms (30s)
+}
+
+// Default configuration
+export const DEFAULT_RAG_CONFIG: RAGConfig = {
+  chunking: {
+    targetTokens: 1000,
+    overlapPercent: 17.5,
+    minChunkTokens: 800,
+    maxChunkTokens: 1200,
+    sectionAware: true,
+  },
+  embedding: {
+    model: 'text-embedding-3-small',
+    dimensions: 1536,
+    batchSize: 100,
+    maxRetries: 3,
+  },
+  search: {
+    semanticWeight: 0.7,
+    keywordWeight: 0.3,
+    rerank: true,
+    rerankModel: 'rerank-english-v3.0',
+    maxResults: 50,
+    finalLimit: 10,
+    threshold: 0.7,
+  },
+  context: {
+    maxTurns: 10,
+    decayFactor: 0.7,
+    maxCarryOverSources: 5,
+    turnTTL: 3,
+  },
+  ingestionTimeout: 300000, // 5 minutes
+  responseTimeout: 30000, // 30 seconds
+};

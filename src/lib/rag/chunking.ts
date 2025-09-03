@@ -1,327 +1,473 @@
-// Text chunking utilities for RAG system
-// Phase 2: Chunking & Embeddings
+/**
+ * Document Chunking System
+ * 
+ * Handles intelligent text chunking with 800-1200 tokens, 15-20% overlap,
+ * and section awareness for optimal retrieval performance.
+ */
 
-import { RAG_CONSTANTS } from './types'
+import { createHash } from 'crypto';
+import type { DocumentChunk, ChunkingConfig } from './types';
+import { DEFAULT_RAG_CONFIG } from './types';
 
-export interface ChunkingOptions {
-  chunkSize?: number // Target tokens per chunk (200-300)
-  overlap?: number   // Token overlap between chunks (50)
-  preserveParagraphs?: boolean // Try to keep paragraphs intact
-  preserveSentences?: boolean  // Try to keep sentences intact
-}
+// =======================
+// Token Estimation
+// =======================
 
-export interface TextChunk {
-  content: string
-  index: number
-  startOffset: number
-  endOffset: number
-  tokenCount: number
-}
-
-export interface ChunkingResult {
-  chunks: TextChunk[]
-  totalTokens: number
-  averageChunkSize: number
-}
-
-// Simple token estimation (approximation: 1 token ≈ 4 characters for English)
-export function estimateTokenCount(text: string): number {
-  // More accurate estimation based on whitespace and punctuation
-  // GPT models roughly: 1 token = 0.75 words, 1 word ≈ 5.3 chars including spaces
-  return Math.ceil(text.length / 4)
-}
-
-// Split text into sentences using basic punctuation rules
-export function splitIntoSentences(text: string): string[] {
-  // Handle common abbreviations that shouldn't trigger sentence breaks
-  const abbreviations = ['Dr.', 'Mr.', 'Mrs.', 'Ms.', 'Prof.', 'Inc.', 'Corp.', 'Ltd.', 'vs.', 'etc.', 'i.e.', 'e.g.']
-  let processedText = text
+/**
+ * Estimate token count using OpenAI's approximation (4 chars ≈ 1 token)
+ * More accurate than splitting by words, accounts for punctuation and spaces
+ */
+function estimateTokens(text: string): number {
+  // Remove extra whitespace and normalize
+  const normalized = text.trim().replace(/\s+/g, ' ');
   
-  // Temporarily replace abbreviations to avoid false sentence splits
-  const abbreviationPlaceholders: Record<string, string> = {}
-  abbreviations.forEach((abbr, index) => {
-    const placeholder = `__ABBR_${index}__`
-    abbreviationPlaceholders[placeholder] = abbr
-    processedText = processedText.replace(new RegExp(abbr.replace('.', '\\.'), 'g'), placeholder)
-  })
+  // OpenAI's approximation: ~4 characters per token for English text
+  // Adjust for punctuation and special characters
+  const baseCount = normalized.length / 4;
   
-  // Split on sentence endings: . ! ? followed by whitespace and capital letter
-  const sentences = processedText
-    .split(/[.!?]+\s+(?=[A-Z])/)
-    .map(sentence => {
-      // Restore abbreviations
-      let restored = sentence
-      Object.entries(abbreviationPlaceholders).forEach(([placeholder, abbr]) => {
-        restored = restored.replace(new RegExp(placeholder, 'g'), abbr)
-      })
-      return restored.trim()
-    })
-    .filter(sentence => sentence.length > 0)
+  // Account for punctuation (slightly increases token count)
+  const punctuationCount = (normalized.match(/[.!?,;:()\[\]{}'"]/g) || []).length;
   
-  return sentences
+  return Math.ceil(baseCount + (punctuationCount * 0.1));
 }
 
-// Split text into paragraphs
-export function splitIntoParagraphs(text: string): string[] {
-  return text
-    .split(/\n\s*\n/)
-    .map(paragraph => paragraph.trim())
-    .filter(paragraph => paragraph.length > 0)
-}
-
-// Core chunking algorithm with overlap and boundary preservation
-export function chunkText(
-  text: string, 
-  options: ChunkingOptions = {}
-): ChunkingResult {
-  const {
-    chunkSize = RAG_CONSTANTS.CHUNK_SIZE_MAX,
-    overlap = RAG_CONSTANTS.CHUNK_OVERLAP,
-    preserveParagraphs = true,
-    preserveSentences = true
-  } = options
-
-  const chunks: TextChunk[] = []
-  const currentOffset = 0
-  let chunkIndex = 0
-
-  // Clean and normalize text
-  const normalizedText = text
-    .replace(/\r\n/g, '\n') // Normalize line endings
-    .replace(/\s+/g, ' ')   // Normalize whitespace
-    .trim()
-
-  if (!normalizedText) {
-    return { chunks: [], totalTokens: 0, averageChunkSize: 0 }
+/**
+ * Split text at token boundary while preserving word integrity
+ */
+function splitAtTokenBoundary(text: string, maxTokens: number): string {
+  if (estimateTokens(text) <= maxTokens) {
+    return text;
   }
 
-  const totalTokens = estimateTokenCount(normalizedText)
+  const words = text.split(/\s+/);
+  let result = '';
+  let currentTokens = 0;
 
-  // If text is small enough, return as single chunk
-  if (totalTokens <= chunkSize) {
-    chunks.push({
-      content: normalizedText,
-      index: 0,
-      startOffset: 0,
-      endOffset: normalizedText.length,
-      tokenCount: totalTokens
-    })
+  for (const word of words) {
+    const wordTokens = estimateTokens(word + ' ');
+    if (currentTokens + wordTokens > maxTokens) {
+      break;
+    }
+    result += (result ? ' ' : '') + word;
+    currentTokens += wordTokens;
+  }
+
+  return result || text; // Fallback if single word exceeds limit
+}
+
+// =======================
+// Section Detection
+// =======================
+
+interface DocumentSection {
+  title: string;
+  content: string;
+  level: number;
+  startIndex: number;
+  endIndex: number;
+}
+
+/**
+ * Detect document sections based on formatting patterns
+ */
+function detectSections(text: string): DocumentSection[] {
+  const sections: DocumentSection[] = [];
+  const lines = text.split('\n');
+  
+  let currentSection: DocumentSection | null = null;
+  let lineIndex = 0;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    lineIndex += lines[i].length + 1; // +1 for newline
     
-    return {
-      chunks,
-      totalTokens,
-      averageChunkSize: totalTokens
-    }
-  }
-
-  // Split text into workable units based on preferences
-  let textUnits: string[]
-  
-  if (preserveParagraphs) {
-    textUnits = splitIntoParagraphs(normalizedText)
-  } else if (preserveSentences) {
-    textUnits = splitIntoSentences(normalizedText)
-  } else {
-    // Fallback: split by sentences anyway for better boundaries
-    textUnits = splitIntoSentences(normalizedText)
-  }
-
-  let currentChunk = ''
-  let currentChunkStartOffset = 0
-
-  for (let i = 0; i < textUnits.length; i++) {
-    const unit = textUnits[i]
-    const potentialChunk = currentChunk ? `${currentChunk} ${unit}` : unit
-    const potentialTokens = estimateTokenCount(potentialChunk)
-
-    // If adding this unit would exceed chunk size, finalize current chunk
-    if (potentialTokens > chunkSize && currentChunk) {
-      const chunkTokens = estimateTokenCount(currentChunk)
-      chunks.push({
-        content: currentChunk.trim(),
-        index: chunkIndex++,
-        startOffset: currentChunkStartOffset,
-        endOffset: currentChunkStartOffset + currentChunk.length,
-        tokenCount: chunkTokens
-      })
-
-      // Calculate overlap for next chunk
-      if (overlap > 0 && chunkTokens > overlap) {
-        const overlapText = getOverlapText(currentChunk, overlap)
-        currentChunk = `${overlapText} ${unit}`
-        // Adjust start offset to account for overlap
-        currentChunkStartOffset = findOverlapOffset(normalizedText, currentChunkStartOffset, overlapText)
-      } else {
-        currentChunk = unit
-        currentChunkStartOffset = normalizedText.indexOf(unit, currentChunkStartOffset)
-      }
-    } else {
-      // Add unit to current chunk
-      if (!currentChunk) {
-        currentChunkStartOffset = normalizedText.indexOf(unit, currentOffset)
-      }
-      currentChunk = potentialChunk
-    }
-
-    // Handle case where single unit is too large
-    if (estimateTokenCount(unit) > chunkSize) {
-      // Split large unit by character boundaries as fallback
-      const largeUnitChunks = chunkByCharacters(unit, chunkSize, overlap)
-      largeUnitChunks.forEach(largeChunk => {
-        chunks.push({
-          content: largeChunk.content,
-          index: chunkIndex++,
-          startOffset: currentChunkStartOffset + largeChunk.startOffset,
-          endOffset: currentChunkStartOffset + largeChunk.endOffset,
-          tokenCount: largeChunk.tokenCount
-        })
-      })
-      currentChunk = ''
-      currentChunkStartOffset = normalizedText.indexOf(unit, currentChunkStartOffset) + unit.length
-    }
-  }
-
-  // Add final chunk if there's remaining content
-  if (currentChunk.trim()) {
-    chunks.push({
-      content: currentChunk.trim(),
-      index: chunkIndex,
-      startOffset: currentChunkStartOffset,
-      endOffset: currentChunkStartOffset + currentChunk.length,
-      tokenCount: estimateTokenCount(currentChunk)
-    })
-  }
-
-  const averageChunkSize = chunks.length > 0 
-    ? chunks.reduce((sum, chunk) => sum + chunk.tokenCount, 0) / chunks.length 
-    : 0
-
-  return {
-    chunks,
-    totalTokens,
-    averageChunkSize
-  }
-}
-
-// Get overlap text from the end of a chunk
-function getOverlapText(text: string, overlapTokens: number): string {
-  const words = text.trim().split(/\s+/)
-  const estimatedOverlapWords = Math.ceil(overlapTokens * 0.75) // Rough token-to-word ratio
-  const overlapWords = words.slice(-estimatedOverlapWords)
-  return overlapWords.join(' ')
-}
-
-// Find the offset where overlap text begins in the original text
-function findOverlapOffset(fullText: string, searchStartOffset: number, overlapText: string): number {
-  const index = fullText.indexOf(overlapText, searchStartOffset)
-  return index !== -1 ? index : searchStartOffset
-}
-
-// Fallback chunking by character boundaries (for very long units)
-function chunkByCharacters(
-  text: string, 
-  maxTokens: number, 
-  overlap: number
-): TextChunk[] {
-  const chunks: TextChunk[] = []
-  const maxChars = maxTokens * 4 // Rough token-to-char ratio
-  const overlapChars = overlap * 4
-  
-  let start = 0
-  let index = 0
-
-  while (start < text.length) {
-    let end = start + maxChars
+    // Detect section headers (various patterns)
+    const sectionMatch = detectSectionHeader(line, i, lines);
     
-    // Adjust end to word boundary if possible
-    if (end < text.length) {
-      const nextSpace = text.indexOf(' ', end)
-      const prevSpace = text.lastIndexOf(' ', end)
+    if (sectionMatch) {
+      // Save previous section
+      if (currentSection) {
+        currentSection.endIndex = lineIndex - lines[i].length - 1;
+        currentSection.content = text.slice(
+          currentSection.startIndex, 
+          currentSection.endIndex
+        ).trim();
+        sections.push(currentSection);
+      }
       
-      // Prefer word boundary that's closer to target
-      if (nextSpace !== -1 && (prevSpace === -1 || nextSpace - end < end - prevSpace)) {
-        end = nextSpace
-      } else if (prevSpace !== -1 && prevSpace > start) {
-        end = prevSpace
+      // Start new section
+      currentSection = {
+        title: sectionMatch.title,
+        level: sectionMatch.level,
+        content: '',
+        startIndex: lineIndex,
+        endIndex: text.length,
+      };
+    }
+  }
+  
+  // Handle last section
+  if (currentSection) {
+    currentSection.content = text.slice(currentSection.startIndex).trim();
+    sections.push(currentSection);
+  }
+  
+  // If no sections detected, create a single section
+  if (sections.length === 0) {
+    sections.push({
+      title: 'Document',
+      content: text,
+      level: 1,
+      startIndex: 0,
+      endIndex: text.length,
+    });
+  }
+  
+  return sections;
+}
+
+/**
+ * Detect section headers using various patterns
+ */
+function detectSectionHeader(
+  line: string, 
+  index: number, 
+  allLines: string[]
+): { title: string; level: number } | null {
+  // Pattern 1: Markdown headers
+  const markdownMatch = line.match(/^(#{1,6})\s+(.+)$/);
+  if (markdownMatch) {
+    return {
+      title: markdownMatch[2],
+      level: markdownMatch[1].length,
+    };
+  }
+  
+  // Pattern 2: Numbered sections (1. 1.1. 1.1.1.)
+  const numberedMatch = line.match(/^(\d+(?:\.\d+)*\.?)\s+(.+)$/);
+  if (numberedMatch) {
+    const level = (numberedMatch[1].match(/\./g) || []).length + 1;
+    return {
+      title: numberedMatch[2],
+      level,
+    };
+  }
+  
+  // Pattern 3: ALL CAPS headers
+  if (line.length > 3 && line === line.toUpperCase() && /^[A-Z\s]+$/.test(line)) {
+    return {
+      title: line,
+      level: 2,
+    };
+  }
+  
+  // Pattern 4: Underlined headers (next line is ===== or -----)
+  if (index + 1 < allLines.length) {
+    const nextLine = allLines[index + 1].trim();
+    if (nextLine.length >= 3 && /^[=-]{3,}$/.test(nextLine)) {
+      const level = nextLine.startsWith('=') ? 1 : 2;
+      return {
+        title: line,
+        level,
+      };
+    }
+  }
+  
+  // Pattern 5: Roman numerals (I. II. III.)
+  const romanMatch = line.match(/^([IVX]+\.)\s+(.+)$/);
+  if (romanMatch) {
+    return {
+      title: romanMatch[2],
+      level: 2,
+    };
+  }
+  
+  return null;
+}
+
+// =======================
+// Smart Chunking Algorithm
+// =======================
+
+export class DocumentChunker {
+  private config: ChunkingConfig;
+
+  constructor(config: ChunkingConfig = DEFAULT_RAG_CONFIG.chunking) {
+    this.config = config;
+  }
+
+  /**
+   * Main chunking method - creates optimally sized chunks with overlap
+   */
+  async chunkDocument(
+    text: string, 
+    documentId: string, 
+    metadata?: {
+      title?: string;
+      sections?: DocumentSection[];
+    }
+  ): Promise<DocumentChunk[]> {
+    if (!text?.trim()) {
+      throw new Error('Text content is required for chunking');
+    }
+
+    const sections = metadata?.sections || (
+      this.config.sectionAware ? detectSections(text) : []
+    );
+
+    // If section-aware and we have sections, chunk by section
+    if (this.config.sectionAware && sections.length > 1) {
+      return this.chunkBySections(text, documentId, sections);
+    }
+
+    // Otherwise, use sliding window approach
+    return this.chunkByTokens(text, documentId);
+  }
+
+  /**
+   * Chunk by sections, respecting section boundaries
+   */
+  private async chunkBySections(
+    text: string, 
+    documentId: string, 
+    sections: DocumentSection[]
+  ): Promise<DocumentChunk[]> {
+    const chunks: DocumentChunk[] = [];
+    
+    for (const section of sections) {
+      const sectionChunks = await this.chunkByTokens(
+        section.content, 
+        documentId, 
+        section.title
+      );
+      
+      // Update chunk indices to be global
+      for (const chunk of sectionChunks) {
+        chunk.chunkIndex = chunks.length;
+        chunks.push(chunk);
       }
-    } else {
-      end = text.length
     }
-
-    const chunkContent = text.slice(start, end).trim()
-    if (chunkContent) {
-      chunks.push({
-        content: chunkContent,
-        index: index++,
-        startOffset: start,
-        endOffset: end,
-        tokenCount: estimateTokenCount(chunkContent)
-      })
-    }
-
-    // Move start position with overlap
-    start = Math.max(start + 1, end - overlapChars)
+    
+    // Apply overlap between section boundaries
+    this.applyInterSectionOverlap(chunks, text);
+    
+    return chunks;
   }
 
-  return chunks
+  /**
+   * Chunk by token count using sliding window with overlap
+   */
+  private async chunkByTokens(
+    text: string, 
+    documentId: string, 
+    sectionTitle?: string
+  ): Promise<DocumentChunk[]> {
+    const chunks: DocumentChunk[] = [];
+    const targetTokens = this.config.targetTokens;
+    const overlapPercent = this.config.overlapPercent / 100;
+    const overlapTokens = Math.floor(targetTokens * overlapPercent);
+    
+    let position = 0;
+    let chunkIndex = 0;
+    
+    while (position < text.length) {
+      const endPosition = this.findOptimalChunkEnd(text, position, targetTokens);
+      const chunkText = text.slice(position, endPosition);
+      
+      // Skip empty chunks
+      if (!chunkText.trim()) {
+        break;
+      }
+      
+      const tokenCount = estimateTokens(chunkText);
+      
+      // Create chunk
+      const chunk: DocumentChunk = {
+        id: '', // Will be set by database
+        documentId,
+        content: chunkText.trim(),
+        contentHash: createHash('sha256').update(chunkText.trim()).digest('hex'),
+        tokenCount,
+        chunkIndex,
+        sectionTitle,
+        overlapStart: position > 0 ? overlapTokens : 0,
+        overlapEnd: endPosition < text.length ? overlapTokens : 0,
+        createdAt: new Date(),
+      };
+      
+      chunks.push(chunk);
+      
+      // Calculate next position with overlap
+      if (endPosition >= text.length) {
+        break;
+      }
+      
+      const overlapStart = Math.max(
+        position, 
+        endPosition - this.getOverlapCharacters(chunkText, overlapTokens)
+      );
+      
+      position = overlapStart;
+      chunkIndex++;
+    }
+    
+    return chunks;
+  }
+
+  /**
+   * Find optimal chunk end position respecting sentence boundaries
+   */
+  private findOptimalChunkEnd(text: string, start: number, maxTokens: number): number {
+    const maxChars = maxTokens * 4; // Rough approximation
+    let end = Math.min(start + maxChars, text.length);
+    
+    // If we're at the end, return
+    if (end >= text.length) {
+      return text.length;
+    }
+    
+    // Try to end at sentence boundary
+    const sentenceEnd = this.findSentenceBoundary(text, start, end);
+    if (sentenceEnd > start) {
+      return sentenceEnd;
+    }
+    
+    // Try to end at paragraph boundary
+    const paragraphEnd = this.findParagraphBoundary(text, start, end);
+    if (paragraphEnd > start) {
+      return paragraphEnd;
+    }
+    
+    // Fall back to word boundary
+    return this.findWordBoundary(text, end);
+  }
+
+  /**
+   * Find sentence boundary near target position
+   */
+  private findSentenceBoundary(text: string, start: number, target: number): number {
+    // Look backwards from target for sentence endings
+    const searchStart = Math.max(start, target - 200); // Don't look too far back
+    const searchText = text.slice(searchStart, target + 100);
+    
+    // Sentence ending patterns
+    const sentenceEndings = /[.!?]+[\s\n]/g;
+    let match;
+    let lastMatch = -1;
+    
+    while ((match = sentenceEndings.exec(searchText)) !== null) {
+      const position = searchStart + match.index + match[0].length;
+      if (position <= target + 50) { // Allow some flexibility
+        lastMatch = position;
+      }
+    }
+    
+    return lastMatch > start ? lastMatch : -1;
+  }
+
+  /**
+   * Find paragraph boundary near target position
+   */
+  private findParagraphBoundary(text: string, start: number, target: number): number {
+    const searchStart = Math.max(start, target - 100);
+    
+    for (let i = target; i >= searchStart; i--) {
+      if (text[i] === '\n' && text[i + 1] === '\n') {
+        return i + 2;
+      }
+    }
+    
+    return -1;
+  }
+
+  /**
+   * Find word boundary near target position
+   */
+  private findWordBoundary(text: string, target: number): number {
+    for (let i = target; i >= Math.max(0, target - 50); i--) {
+      if (/\s/.test(text[i])) {
+        return i;
+      }
+    }
+    return target;
+  }
+
+  /**
+   * Calculate character count for token-based overlap
+   */
+  private getOverlapCharacters(text: string, overlapTokens: number): number {
+    if (overlapTokens <= 0) return 0;
+    
+    // Rough approximation: 4 chars per token
+    const targetChars = overlapTokens * 4;
+    
+    // Find word boundary near target
+    return this.findWordBoundary(text, Math.min(targetChars, text.length));
+  }
+
+  /**
+   * Apply overlap between section boundaries
+   */
+  private applyInterSectionOverlap(chunks: DocumentChunk[], text: string): void {
+    for (let i = 1; i < chunks.length; i++) {
+      const prevChunk = chunks[i - 1];
+      const currentChunk = chunks[i];
+      
+      // Add overlap from previous chunk to current chunk
+      if (prevChunk.content && currentChunk.content) {
+        const overlapTokens = Math.floor(this.config.targetTokens * (this.config.overlapPercent / 100));
+        const overlapChars = this.getOverlapCharacters(prevChunk.content, overlapTokens);
+        
+        if (overlapChars > 0) {
+          const overlapText = prevChunk.content.slice(-overlapChars);
+          currentChunk.content = overlapText + '\n\n' + currentChunk.content;
+          currentChunk.overlapStart = overlapTokens;
+          currentChunk.tokenCount = estimateTokens(currentChunk.content);
+          currentChunk.contentHash = createHash('sha256').update(currentChunk.content).digest('hex');
+        }
+      }
+    }
+  }
+
+  /**
+   * Validate chunk meets size requirements
+   */
+  private validateChunk(chunk: DocumentChunk): boolean {
+    const tokens = chunk.tokenCount;
+    return (
+      tokens >= this.config.minChunkTokens && 
+      tokens <= this.config.maxChunkTokens &&
+      chunk.content.trim().length > 0
+    );
+  }
+
+  /**
+   * Post-process chunks to ensure quality
+   */
+  postProcessChunks(chunks: DocumentChunk[]): DocumentChunk[] {
+    return chunks
+      .filter(chunk => this.validateChunk(chunk))
+      .map((chunk, index) => ({
+        ...chunk,
+        chunkIndex: index, // Ensure sequential indexing
+      }));
+  }
 }
 
-// Utility function to validate chunk quality
-export function validateChunks(chunks: TextChunk[]): {
-  isValid: boolean
-  issues: string[]
-} {
-  const issues: string[] = []
+/**
+ * Utility function for quick chunking with default config
+ */
+export async function chunkText(
+  text: string, 
+  documentId: string, 
+  config?: Partial<ChunkingConfig>
+): Promise<DocumentChunk[]> {
+  const chunker = new DocumentChunker(
+    config ? { ...DEFAULT_RAG_CONFIG.chunking, ...config } : undefined
+  );
   
-  chunks.forEach((chunk, index) => {
-    // Check token count bounds
-    if (chunk.tokenCount > RAG_CONSTANTS.CHUNK_SIZE_MAX + 50) { // Allow some tolerance
-      issues.push(`Chunk ${index} too large: ${chunk.tokenCount} tokens`)
-    }
-    
-    if (chunk.tokenCount < 10) { // Minimum meaningful chunk size
-      issues.push(`Chunk ${index} too small: ${chunk.tokenCount} tokens`)
-    }
-    
-    // Check content quality
-    if (!chunk.content.trim()) {
-      issues.push(`Chunk ${index} is empty`)
-    }
-    
-    if (chunk.content.length < 20) {
-      issues.push(`Chunk ${index} content too short: ${chunk.content.length} chars`)
-    }
-  })
-  
-  return {
-    isValid: issues.length === 0,
-    issues
-  }
+  const chunks = await chunker.chunkDocument(text, documentId);
+  return chunker.postProcessChunks(chunks);
 }
 
-// Export configuration for easy testing
-export const CHUNKING_PRESETS = {
-  // Conservative chunking - smaller chunks, more overlap
-  conservative: {
-    chunkSize: RAG_CONSTANTS.CHUNK_SIZE_MIN,
-    overlap: RAG_CONSTANTS.CHUNK_OVERLAP + 25,
-    preserveParagraphs: true,
-    preserveSentences: true
-  },
-  
-  // Balanced chunking - default settings
-  balanced: {
-    chunkSize: (RAG_CONSTANTS.CHUNK_SIZE_MIN + RAG_CONSTANTS.CHUNK_SIZE_MAX) / 2,
-    overlap: RAG_CONSTANTS.CHUNK_OVERLAP,
-    preserveParagraphs: true,
-    preserveSentences: true
-  },
-  
-  // Aggressive chunking - larger chunks, less overlap
-  aggressive: {
-    chunkSize: RAG_CONSTANTS.CHUNK_SIZE_MAX,
-    overlap: Math.max(25, RAG_CONSTANTS.CHUNK_OVERLAP - 25),
-    preserveParagraphs: false,
-    preserveSentences: true
-  }
-} as const
+export { estimateTokens, detectSections };

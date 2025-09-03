@@ -1,397 +1,586 @@
-// Hybrid Search: Vector + BM25 with Reciprocal Rank Fusion
-import { createClient } from '@/lib/supabase/server'
-import { vectorSearch, type VectorSearchResult } from './search'
-import { generateEmbedding } from './embeddings'
-import type { RAGChunk } from './types'
-
-// Hybrid search configuration
-export interface HybridSearchConfig {
-  maxResults?: number
-  vectorWeight?: number
-  bm25Weight?: number
-  minVectorSimilarity?: number
-  minBM25Score?: number
-  rrfK?: number // RRF parameter (typically 60)
-  enableFallback?: boolean
-}
-
-export interface HybridSearchResult extends VectorSearchResult {
-  bm25Score: number
-  rrfScore: number
-  source: 'vector' | 'bm25' | 'both'
-}
-
-export interface HybridSearchStats {
-  vectorResults: number
-  bm25Results: number
-  mergedResults: number
-  vectorAvgScore: number
-  bm25AvgScore: number
-  searchTimeMs: number
-  queryType: 'semantic' | 'keyword' | 'hybrid'
-}
-
-const DEFAULT_CONFIG: Required<HybridSearchConfig> = {
-  maxResults: 10,
-  vectorWeight: 0.7,
-  bm25Weight: 0.3,
-  minVectorSimilarity: 0.1,
-  minBM25Score: 0.01,
-  rrfK: 60,
-  enableFallback: true
-}
-
 /**
- * Determine query type based on content
+ * Hybrid Search System
+ * 
+ * Combines semantic search (embeddings) with keyword search (BM25) and
+ * Cohere reranking for optimal retrieval performance.
  */
-export function analyzeQuery(query: string): 'semantic' | 'keyword' | 'hybrid' {
-  const keywordIndicators = [
-    /\b(exact|specific|name|number|date|time|version)\b/i,
-    /\b(list|show|find|search)\s+\w+/i,
-    /[A-Z][A-Z_]+[A-Z]/,  // ALL_CAPS constants
-    /\b\d{4}-\d{2}-\d{2}\b/, // dates
-    /\bv?\d+\.\d+/,       // version numbers
-  ]
 
-  const semanticIndicators = [
-    /\b(explain|how|why|what|describe|understand|concept|idea)\b/i,
-    /\b(similar|like|related|compared|difference)\b/i,
-    /\b(process|workflow|approach|strategy)\b/i,
-  ]
+import { CohereApi, CohereClient } from 'cohere-ai';
+import { supabase, supabaseAdmin } from '@/lib/supabase';
+import { generateQueryEmbedding, cosineSimilarity } from './embeddings';
+import type { 
+  SearchQuery, 
+  SearchResult, 
+  HybridSearchResult, 
+  SearchFilters,
+  SearchConfig 
+} from './types';
+import { DEFAULT_RAG_CONFIG } from './types';
 
-  const keywordScore = keywordIndicators.reduce((score, pattern) => 
-    score + (pattern.test(query) ? 1 : 0), 0)
-  const semanticScore = semanticIndicators.reduce((score, pattern) => 
-    score + (pattern.test(query) ? 1 : 0), 0)
+// =======================
+// Cohere Client Setup
+// =======================
 
-  if (keywordScore > semanticScore && keywordScore > 0) return 'keyword'
-  if (semanticScore > keywordScore && semanticScore > 0) return 'semantic'
-  return 'hybrid'
+const cohereClient = new CohereClient({
+  token: process.env.COHERE_API_KEY || '',
+});
+
+if (!process.env.COHERE_API_KEY) {
+  console.warn('COHERE_API_KEY not found in environment variables');
 }
 
-/**
- * Perform BM25 full-text search
- */
-async function bm25Search(
-  query: string,
-  userId: string,
-  maxResults: number,
-  minScore: number
-): Promise<{ results: RAGChunk[], avgScore: number }> {
-  const supabase = await createClient()
-  
-  const { data, error } = await supabase
-    .from('rag_chunks')
-    .select(`
-      id,
-      doc_id,
-      content,
-      embedding,
-      chunk_index,
-      chunk_date,
-      tags,
-      labels,
-      created_at,
-      rag_documents!inner (
-        owner
-      )
-    `)
-    .eq('rag_documents.owner', userId)
-    .textSearch('content', query, { type: 'websearch' })
-    .limit(maxResults)
+// =======================
+// Search Implementation
+// =======================
 
-  if (error) {
-    console.error('BM25 search error:', error)
-    return { results: [], avgScore: 0 }
+export class HybridSearchEngine {
+  private config: SearchConfig;
+
+  constructor(config: SearchConfig = DEFAULT_RAG_CONFIG.search) {
+    this.config = config;
   }
 
-  const results = (data || []).map(item => ({
-    ...item,
-    bm25_score: 0.5 // Simple placeholder score for now
-  })) as (RAGChunk & { bm25_score: number })[]
-  
-  const avgScore = results.length > 0 ? 0.5 : 0
-
-  return { results, avgScore }
-}
-
-/**
- * Perform PostgreSQL full-text search as BM25 fallback
- */
-async function fallbackTextSearch(
-  query: string,
-  userId: string,
-  maxResults: number
-): Promise<{ results: RAGChunk[], avgScore: number }> {
-  const supabase = await createClient()
-  
-  const { data, error } = await supabase
-    .from('rag_chunks')
-    .select(`
-      *,
-      rag_documents!inner (
-        owner
-      )
-    `)
-    .eq('rag_documents.owner', userId)
-    .textSearch('content', query, { type: 'websearch', config: 'english' })
-    .limit(maxResults)
-
-  if (error) {
-    console.error('Fallback text search error:', error)
-    return { results: [], avgScore: 0 }
-  }
-
-  const results = (data || []) as RAGChunk[]
-  // Assign simple relevance scores based on position
-  const avgScore = results.length > 0 ? 0.5 : 0
-
-  return { results, avgScore }
-}
-
-/**
- * Reciprocal Rank Fusion (RRF) scoring
- */
-function calculateRRF(
-  vectorResults: VectorSearchResult[],
-  bm25Results: (RAGChunk & { bm25_score?: number })[],
-  k: number = 60
-): Map<string, number> {
-  const rrfScores = new Map<string, number>()
-
-  // Add RRF scores from vector results
-  vectorResults.forEach((result, index) => {
-    const chunkId = result.chunk.id.toString()
-    const currentScore = rrfScores.get(chunkId) || 0
-    rrfScores.set(chunkId, currentScore + (1 / (k + index + 1)))
-  })
-
-  // Add RRF scores from BM25 results
-  bm25Results.forEach((result, index) => {
-    const chunkId = result.id.toString()
-    const currentScore = rrfScores.get(chunkId) || 0
-    rrfScores.set(chunkId, currentScore + (1 / (k + index + 1)))
-  })
-
-  return rrfScores
-}
-
-/**
- * Merge and deduplicate results using RRF
- */
-function mergeResults(
-  vectorResults: VectorSearchResult[],
-  bm25Results: (RAGChunk & { bm25_score?: number })[],
-  rrfScores: Map<string, number>,
-  config: Required<HybridSearchConfig>
-): HybridSearchResult[] {
-  const resultMap = new Map<string, HybridSearchResult>()
-
-  // Add vector results
-  vectorResults.forEach(vResult => {
-    const chunkId = vResult.chunk.id.toString()
-    const rrfScore = rrfScores.get(chunkId) || 0
-
-    resultMap.set(chunkId, {
-      ...vResult,
-      bm25Score: 0,
-      rrfScore,
-      source: 'vector' as const
-    })
-  })
-
-  // Add or merge BM25 results
-  bm25Results.forEach(bResult => {
-    const chunkId = bResult.id.toString()
-    const rrfScore = rrfScores.get(chunkId) || 0
-    const bm25Score = bResult.bm25_score || 0
-
-    const existingResult = resultMap.get(chunkId)
-    if (existingResult) {
-      // Merge with existing vector result
-      existingResult.bm25Score = bm25Score
-      existingResult.rrfScore = rrfScore
-      existingResult.source = 'both'
-    } else {
-      // New BM25-only result - create VectorSearchResult format
-      resultMap.set(chunkId, {
-        chunk: bResult,
-        similarity: 0,
-        rank: 0,
-        bm25Score,
-        rrfScore,
-        source: 'bm25' as const
-      })
-    }
-  })
-
-  // Sort by RRF score and return top results
-  return Array.from(resultMap.values())
-    .sort((a, b) => b.rrfScore - a.rrfScore)
-    .slice(0, config.maxResults)
-}
-
-/**
- * Log search statistics for performance tuning
- */
-async function logSearchStats(
-  query: string,
-  userId: string,
-  stats: HybridSearchStats,
-  config: Required<HybridSearchConfig>
-): Promise<void> {
-  try {
-    const supabase = await createClient()
+  /**
+   * Main hybrid search method
+   */
+  async search(query: SearchQuery): Promise<HybridSearchResult> {
+    const startTime = Date.now();
     
-    await supabase
-      .from('rag_search_stats')
-      .insert({
-        user_id: userId,
-        query: query.substring(0, 500), // Limit query length
-        vector_results: stats.vectorResults,
-        bm25_results: stats.bm25Results,
-        merged_results: stats.mergedResults,
-        vector_weight: config.vectorWeight,
-        bm25_weight: config.bm25Weight,
-        avg_vector_score: stats.vectorAvgScore,
-        avg_bm25_score: stats.bm25AvgScore,
-        search_time_ms: stats.searchTimeMs
-      })
-  } catch (error) {
-    console.warn('Failed to log search stats:', error)
-  }
-}
+    try {
+      // Run semantic and keyword searches in parallel
+      const [semanticResults, keywordResults] = await Promise.all([
+        this.semanticSearch(query),
+        this.keywordSearch(query),
+      ]);
 
-/**
- * Perform hybrid search combining vector similarity and BM25 ranking
- */
-export async function hybridSearch(
-  query: string,
-  userId: string,
-  options: HybridSearchConfig = {}
-): Promise<{
-  results: HybridSearchResult[]
-  stats: HybridSearchStats
-  queryType: 'semantic' | 'keyword' | 'hybrid'
-}> {
-  const startTime = Date.now()
-  const config = { ...DEFAULT_CONFIG, ...options }
-  const queryType = analyzeQuery(query)
-
-  console.log(`Hybrid search: "${query}" (${queryType} query)`)
-
-  let vectorResults: VectorSearchResult[] = []
-  let bm25Results: (RAGChunk & { bm25_score?: number })[] = []
-  let vectorAvgScore = 0
-  let bm25AvgScore = 0
-
-  try {
-    // Decide search strategy based on query type
-    if (queryType === 'semantic' || queryType === 'hybrid') {
-      // Always do vector search for semantic queries
-      const vectorSearchResult = await vectorSearch(
-        query,
-        userId,
-        { 
-          limit: config.maxResults * 2, // Get more for merging
-          threshold: config.minVectorSimilarity 
-        }
-      )
-      vectorResults = vectorSearchResult.results
-      vectorAvgScore = vectorResults.length > 0 
-        ? vectorResults.reduce((sum, r) => sum + r.similarity, 0) / vectorResults.length 
-        : 0
-    }
-
-    if (queryType === 'keyword' || queryType === 'hybrid') {
-      // Try BM25 search first
-      try {
-        const bm25SearchResult = await bm25Search(
-          query,
-          userId,
-          config.maxResults * 2,
-          config.minBM25Score
-        )
-        bm25Results = bm25SearchResult.results
-        bm25AvgScore = bm25SearchResult.avgScore
-      } catch (error) {
-        console.warn('BM25 search failed, using fallback:', error)
-        
-        if (config.enableFallback) {
-          const fallbackResult = await fallbackTextSearch(
-            query,
-            userId,
-            config.maxResults
-          )
-          bm25Results = fallbackResult.results
-          bm25AvgScore = fallbackResult.avgScore
-        }
+      // Combine and deduplicate results
+      const combinedResults = this.combineResults(semanticResults, keywordResults);
+      
+      // Apply reranking if enabled
+      let finalResults = combinedResults;
+      if (this.config.rerank && combinedResults.length > 0) {
+        finalResults = await this.rerank(query.query, combinedResults);
       }
-    }
 
-    // Merge results using Reciprocal Rank Fusion
-    const rrfScores = calculateRRF(vectorResults, bm25Results, config.rrfK)
-    const mergedResults = mergeResults(vectorResults, bm25Results, rrfScores, config)
+      // Apply final limit
+      const limitedResults = finalResults.slice(0, query.limit || this.config.finalLimit);
 
-    const searchTime = Date.now() - startTime
-    const stats: HybridSearchStats = {
-      vectorResults: vectorResults.length,
-      bm25Results: bm25Results.length,
-      mergedResults: mergedResults.length,
-      vectorAvgScore,
-      bm25AvgScore,
-      searchTimeMs: searchTime,
-      queryType
-    }
+      const executionTime = Date.now() - startTime;
 
-    console.log(`Hybrid search completed: ${mergedResults.length} results in ${searchTime}ms`)
-    console.log(`Vector: ${stats.vectorResults} (avg: ${stats.vectorAvgScore.toFixed(3)}), BM25: ${stats.bm25Results} (avg: ${stats.bm25AvgScore.toFixed(3)})`)
-
-    // Log statistics for performance tuning
-    await logSearchStats(query, userId, stats, config)
-
-    return {
-      results: mergedResults,
-      stats,
-      queryType
-    }
-  } catch (error) {
-    console.error('Hybrid search error:', error)
-    
-    // Fallback to vector search only
-    if (vectorResults.length > 0) {
       return {
-        results: vectorResults.slice(0, config.maxResults).map(vr => ({
-          ...vr,
-          bm25Score: 0,
-          rrfScore: vr.similarity,
-          source: 'vector' as const
-        })),
-        stats: {
-          vectorResults: vectorResults.length,
-          bm25Results: 0,
-          mergedResults: vectorResults.length,
-          vectorAvgScore,
-          bm25AvgScore: 0,
-          searchTimeMs: Date.now() - startTime,
-          queryType
-        },
-        queryType
+        results: limitedResults,
+        totalCount: limitedResults.length,
+        semanticResults,
+        keywordResults,
+        rerankedResults: finalResults,
+        query,
+        executionTime,
+      };
+    } catch (error) {
+      console.error('Hybrid search error:', error);
+      throw new Error(`Search failed: ${error}`);
+    }
+  }
+
+  /**
+   * Semantic search using vector embeddings
+   */
+  private async semanticSearch(query: SearchQuery): Promise<SearchResult[]> {
+    try {
+      // Generate query embedding
+      const queryEmbedding = await generateQueryEmbedding(query.query);
+
+      // Build the query with filters
+      let supabaseQuery = supabase
+        .from('document_chunks')
+        .select(`
+          id,
+          document_id,
+          content,
+          token_count,
+          chunk_index,
+          page_start,
+          page_end,
+          section_title,
+          embedding,
+          documents (
+            id,
+            title,
+            doc_type,
+            doi,
+            arxiv_id,
+            patent_no,
+            url,
+            published_date,
+            created_at
+          )
+        `)
+        .not('embedding', 'is', null);
+
+      // Apply filters
+      supabaseQuery = this.applyFilters(supabaseQuery, query.filters);
+
+      // Execute query
+      const { data: chunks, error } = await supabaseQuery
+        .limit(this.config.maxResults);
+
+      if (error) {
+        console.error('Semantic search database error:', error);
+        throw error;
+      }
+
+      if (!chunks || chunks.length === 0) {
+        return [];
+      }
+
+      // Calculate cosine similarities and sort
+      const results: SearchResult[] = chunks
+        .map(chunk => {
+          const embedding = this.parseEmbedding(chunk.embedding);
+          if (!embedding) {
+            return null;
+          }
+
+          const similarity = cosineSimilarity(queryEmbedding, embedding);
+          
+          return {
+            documentId: chunk.document_id,
+            chunkId: chunk.id,
+            score: similarity,
+            content: chunk.content,
+            title: chunk.documents?.title || 'Untitled',
+            docType: chunk.documents?.doc_type,
+            pageRange: this.formatPageRange(chunk.page_start, chunk.page_end),
+            sectionTitle: chunk.section_title,
+            metadata: chunk.documents as any,
+          } as SearchResult;
+        })
+        .filter((result): result is SearchResult => result !== null)
+        .filter(result => result.score >= (query.threshold || this.config.threshold))
+        .sort((a, b) => b.score - a.score);
+
+      return results;
+    } catch (error) {
+      console.error('Semantic search error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Keyword search using PostgreSQL full-text search (BM25-like)
+   */
+  private async keywordSearch(query: SearchQuery): Promise<SearchResult[]> {
+    try {
+      // Clean and prepare search query for PostgreSQL
+      const searchQuery = this.prepareSearchQuery(query.query);
+
+      // Build the query with filters
+      let supabaseQuery = supabase
+        .from('document_chunks')
+        .select(`
+          id,
+          document_id,
+          content,
+          token_count,
+          chunk_index,
+          page_start,
+          page_end,
+          section_title,
+          tsvector_content,
+          documents (
+            id,
+            title,
+            doc_type,
+            doi,
+            arxiv_id,
+            patent_no,
+            url,
+            published_date,
+            created_at
+          )
+        `)
+        .textSearch('tsvector_content', searchQuery, {
+          type: 'websearch',
+          config: 'english',
+        });
+
+      // Apply filters
+      supabaseQuery = this.applyFilters(supabaseQuery, query.filters);
+
+      // Execute query
+      const { data: chunks, error } = await supabaseQuery
+        .limit(this.config.maxResults);
+
+      if (error) {
+        console.error('Keyword search database error:', error);
+        throw error;
+      }
+
+      if (!chunks || chunks.length === 0) {
+        return [];
+      }
+
+      // Calculate BM25-like scores
+      const results: SearchResult[] = chunks.map((chunk, index) => {
+        // PostgreSQL returns results sorted by relevance
+        // We use inverse rank as score (higher rank = higher score)
+        const score = Math.max(0.1, 1 - (index / chunks.length));
+
+        return {
+          documentId: chunk.document_id,
+          chunkId: chunk.id,
+          score,
+          content: chunk.content,
+          title: chunk.documents?.title || 'Untitled',
+          docType: chunk.documents?.doc_type,
+          pageRange: this.formatPageRange(chunk.page_start, chunk.page_end),
+          sectionTitle: chunk.section_title,
+          metadata: chunk.documents as any,
+        } as SearchResult;
+      });
+
+      return results;
+    } catch (error) {
+      console.error('Keyword search error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Combine semantic and keyword search results
+   */
+  private combineResults(
+    semanticResults: SearchResult[], 
+    keywordResults: SearchResult[]
+  ): SearchResult[] {
+    const combinedMap = new Map<string, SearchResult>();
+
+    // Add semantic results with weighted scores
+    for (const result of semanticResults) {
+      const key = this.getResultKey(result);
+      combinedMap.set(key, {
+        ...result,
+        score: result.score * this.config.semanticWeight,
+      });
+    }
+
+    // Add keyword results, combining scores if already exists
+    for (const result of keywordResults) {
+      const key = this.getResultKey(result);
+      const existing = combinedMap.get(key);
+      
+      if (existing) {
+        // Combine scores using weighted sum
+        combinedMap.set(key, {
+          ...existing,
+          score: existing.score + (result.score * this.config.keywordWeight),
+        });
+      } else {
+        combinedMap.set(key, {
+          ...result,
+          score: result.score * this.config.keywordWeight,
+        });
       }
     }
 
-    return {
-      results: [],
-      stats: {
-        vectorResults: 0,
-        bm25Results: 0,
-        mergedResults: 0,
-        vectorAvgScore: 0,
-        bm25AvgScore: 0,
-        searchTimeMs: Date.now() - startTime,
-        queryType
-      },
-      queryType
+    // Convert back to array and sort by combined score
+    return Array.from(combinedMap.values())
+      .sort((a, b) => b.score - a.score);
+  }
+
+  /**
+   * Rerank results using Cohere Rerank API
+   */
+  private async rerank(
+    query: string, 
+    results: SearchResult[]
+  ): Promise<SearchResult[]> {
+    if (!this.config.rerankModel) {
+      return results;
+    }
+
+    try {
+      const documents = results.map((result, index) => ({
+        id: index.toString(),
+        text: result.content,
+      }));
+
+      const rerankResponse = await cohereClient.rerank({
+        model: this.config.rerankModel,
+        query,
+        documents,
+        topN: Math.min(results.length, this.config.finalLimit * 2), // Get more than needed
+        returnDocuments: false,
+      });
+
+      // Map reranked results back to original results
+      const rerankedResults: SearchResult[] = [];
+      
+      for (const result of rerankResponse.results) {
+        const originalIndex = parseInt(result.index.toString());
+        const originalResult = results[originalIndex];
+        
+        if (originalResult) {
+          rerankedResults.push({
+            ...originalResult,
+            rerankedScore: result.relevanceScore,
+            score: result.relevanceScore, // Use rerank score as primary score
+          });
+        }
+      }
+
+      return rerankedResults;
+    } catch (error) {
+      console.error('Reranking error:', error);
+      // Fall back to original results if reranking fails
+      return results;
     }
   }
+
+  /**
+   * Apply search filters to Supabase query
+   */
+  private applyFilters(query: any, filters?: SearchFilters): any {
+    if (!filters) {
+      return query;
+    }
+
+    // Document type filter
+    if (filters.documentTypes && filters.documentTypes.length > 0) {
+      query = query.in('documents.doc_type', filters.documentTypes);
+    }
+
+    // Date range filter
+    if (filters.dateRange) {
+      if (filters.dateRange.start) {
+        query = query.gte('documents.published_date', filters.dateRange.start.toISOString());
+      }
+      if (filters.dateRange.end) {
+        query = query.lte('documents.published_date', filters.dateRange.end.toISOString());
+      }
+    }
+
+    // Authors filter (requires entity extraction to be implemented)
+    if (filters.authors && filters.authors.length > 0) {
+      // This would require joining with entities/edges tables
+      // Implementation depends on how author information is stored
+    }
+
+    // Patent-specific filter
+    if (filters.patents === true) {
+      query = query.eq('documents.doc_type', 'patent');
+    }
+
+    // Papers-specific filter
+    if (filters.papers === true) {
+      query = query.in('documents.doc_type', ['paper', 'pdf']);
+    }
+
+    return query;
+  }
+
+  /**
+   * Prepare search query for PostgreSQL full-text search
+   */
+  private prepareSearchQuery(query: string): string {
+    // Clean and prepare query for websearch syntax
+    return query
+      .trim()
+      .replace(/[^\w\s"'-]/g, ' ') // Remove special chars except quotes and hyphens
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim();
+  }
+
+  /**
+   * Generate unique key for search result deduplication
+   */
+  private getResultKey(result: SearchResult): string {
+    return `${result.documentId}_${result.chunkId || 'doc'}`;
+  }
+
+  /**
+   * Parse embedding from database format
+   */
+  private parseEmbedding(embeddingData: any): number[] | null {
+    if (!embeddingData) {
+      return null;
+    }
+
+    try {
+      if (typeof embeddingData === 'string') {
+        // Parse PostgreSQL vector format [1,2,3,...]
+        const cleanString = embeddingData.replace(/[\[\]]/g, '');
+        return cleanString.split(',').map(val => parseFloat(val.trim()));
+      } else if (Array.isArray(embeddingData)) {
+        return embeddingData.map(val => parseFloat(val));
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error parsing embedding:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Format page range for display
+   */
+  private formatPageRange(pageStart?: number, pageEnd?: number): string | undefined {
+    if (!pageStart && !pageEnd) {
+      return undefined;
+    }
+    
+    if (pageStart && pageEnd && pageStart !== pageEnd) {
+      return `pp. ${pageStart}-${pageEnd}`;
+    } else if (pageStart) {
+      return `p. ${pageStart}`;
+    }
+    
+    return undefined;
+  }
+}
+
+// =======================
+// Specialized Search Methods
+// =======================
+
+/**
+ * Search for specific entities (author, organization, etc.)
+ */
+export async function searchByEntity(
+  entityName: string, 
+  entityType: 'person' | 'org' | 'product' | 'algorithm' | 'material' | 'concept'
+): Promise<SearchResult[]> {
+  try {
+    // This would require the mini-KG to be populated
+    // For now, implement as a simple text search
+    const searchEngine = new HybridSearchEngine();
+    
+    const result = await searchEngine.search({
+      query: entityName,
+      limit: 20,
+      threshold: 0.7,
+    });
+
+    return result.results;
+  } catch (error) {
+    console.error('Entity search error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Search within a specific document
+ */
+export async function searchWithinDocument(
+  documentId: string, 
+  query: string, 
+  limit = 10
+): Promise<SearchResult[]> {
+  try {
+    const { data: chunks, error } = await supabase
+      .from('document_chunks')
+      .select(`
+        id,
+        document_id,
+        content,
+        chunk_index,
+        page_start,
+        page_end,
+        section_title,
+        embedding,
+        documents (
+          id,
+          title,
+          doc_type
+        )
+      `)
+      .eq('document_id', documentId)
+      .textSearch('tsvector_content', query, { type: 'websearch' })
+      .limit(limit);
+
+    if (error) {
+      throw error;
+    }
+
+    return (chunks || []).map((chunk, index) => ({
+      documentId: chunk.document_id,
+      chunkId: chunk.id,
+      score: Math.max(0.1, 1 - (index / chunks.length)),
+      content: chunk.content,
+      title: chunk.documents?.title || 'Untitled',
+      docType: chunk.documents?.doc_type,
+      pageRange: chunk.page_start ? `p. ${chunk.page_start}` : undefined,
+      sectionTitle: chunk.section_title,
+      metadata: chunk.documents as any,
+    }));
+  } catch (error) {
+    console.error('Document search error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Find similar documents based on content
+ */
+export async function findSimilarDocuments(
+  documentId: string, 
+  limit = 5
+): Promise<SearchResult[]> {
+  try {
+    // Get a representative chunk from the source document
+    const { data: sourceChunks, error: sourceError } = await supabase
+      .from('document_chunks')
+      .select('content, embedding')
+      .eq('document_id', documentId)
+      .not('embedding', 'is', null)
+      .limit(3);
+
+    if (sourceError || !sourceChunks || sourceChunks.length === 0) {
+      throw new Error('Could not find source document chunks');
+    }
+
+    // Use the first chunk's content as the similarity query
+    const searchEngine = new HybridSearchEngine();
+    const result = await searchEngine.search({
+      query: sourceChunks[0].content.slice(0, 500), // Use first 500 chars
+      limit: limit + 1, // +1 to account for source document
+      threshold: 0.6,
+    });
+
+    // Filter out the source document itself
+    return result.results.filter(r => r.documentId !== documentId);
+  } catch (error) {
+    console.error('Similar documents search error:', error);
+    throw error;
+  }
+}
+
+// =======================
+// Export Default Instance
+// =======================
+
+export const hybridSearchEngine = new HybridSearchEngine();
+
+// =======================
+// Convenience Functions
+// =======================
+
+/**
+ * Quick search with default configuration
+ */
+export async function search(query: string, limit = 10): Promise<SearchResult[]> {
+  const result = await hybridSearchEngine.search({
+    query,
+    limit,
+  });
+  
+  return result.results;
+}
+
+/**
+ * Advanced search with full options
+ */
+export async function advancedSearch(query: SearchQuery): Promise<HybridSearchResult> {
+  return hybridSearchEngine.search(query);
 }

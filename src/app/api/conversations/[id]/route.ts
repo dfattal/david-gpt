@@ -1,99 +1,139 @@
-import { createClient } from '@/lib/supabase/server'
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { AppError, handleApiError } from "@/lib/utils";
 
-// export const runtime = 'edge' // Disabled due to cookie handling issues
-
-interface RouteParams {
-  params: Promise<{ id: string }>
-}
-
-// PATCH /api/conversations/[id] - Rename conversation
-export async function PATCH(
-  request: NextRequest, 
-  { params }: RouteParams
-): Promise<Response> {
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const supabase = await createClient()
-    
-    // Check if user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const supabase = await createClient();
+
+    // Get the authenticated user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+      throw new AppError("Authentication required", 401);
     }
 
-    const body = await request.json()
-    const { title } = body
-    const { id } = await params
+    const { id: conversationId } = await params;
 
-    if (!title || typeof title !== 'string') {
-      return Response.json({ error: 'title is required and must be a string' }, { status: 400 })
+    // Fetch conversation with messages
+    const { data: conversation, error: convError } = await supabase
+      .from("conversations")
+      .select("*")
+      .eq("id", conversationId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (convError || !conversation) {
+      throw new AppError("Conversation not found", 404);
     }
 
-    const { data: conversation, error } = await supabase
-      .from('conversations')
-      .update({ title })
-      .eq('id', id)
-      .eq('owner', user.id)
-      .select('id, title')
-      .single()
+    // Fetch messages for this conversation
+    const { data: messages, error: msgError } = await supabase
+      .from("messages")
+      .select("*")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: true });
 
-    if (error) {
-      console.error('Failed to update conversation:', error)
-      return Response.json({ error: 'Failed to update conversation' }, { status: 500 })
+    if (msgError) {
+      console.error("Failed to fetch messages:", msgError);
+      throw new AppError("Failed to fetch messages", 500);
     }
 
-    return Response.json(conversation)
-
+    return NextResponse.json({
+      conversation,
+      messages,
+    });
   } catch (error) {
-    console.error('Conversation PATCH API error:', error)
-    return Response.json({ error: 'Internal server error' }, { status: 500 })
+    return handleApiError(error);
   }
 }
 
-// DELETE /api/conversations/[id] - Soft delete conversation
-export async function DELETE(
-  request: NextRequest, 
-  { params }: RouteParams
-): Promise<Response> {
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const supabase = await createClient()
-    
-    // Check if user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const supabase = await createClient();
+
+    // Get the authenticated user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+      throw new AppError("Authentication required", 401);
     }
 
-    const { id } = await params
-    
-    // First verify the conversation exists and belongs to the user
-    const { data: existingConversation, error: fetchError } = await supabase
-      .from('conversations')
-      .select('id, owner, title')
-      .eq('id', id)
-      .eq('owner', user.id)
-      .single()
+    const { id: conversationId } = await params;
+    const { title }: { title: string } = await req.json();
 
-    if (fetchError || !existingConversation) {
-      return Response.json({ error: 'Conversation not found or unauthorized' }, { status: 404 })
+    if (!title?.trim()) {
+      throw new AppError("Title is required", 400);
     }
-    
-    // Use database function to avoid Supabase client RLS conflicts
-    const { error } = await supabase
-      .rpc('soft_delete_conversation', {
-        conversation_id: id,
-        user_id: user.id
+
+    // Update conversation title
+    const { data: conversation, error } = await supabase
+      .from("conversations")
+      .update({
+        title: title.trim(),
+        updated_at: new Date().toISOString(),
       })
+      .eq("id", conversationId)
+      .eq("user_id", user.id)
+      .select()
+      .single();
+
+    if (error || !conversation) {
+      console.error("Failed to update conversation:", error);
+      throw new AppError("Failed to update conversation", 500);
+    }
+
+    return NextResponse.json({ conversation });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const supabase = await createClient();
+
+    // Get the authenticated user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      throw new AppError("Authentication required", 401);
+    }
+
+    const { id: conversationId } = await params;
+
+    // Delete conversation (messages will be deleted by cascade)
+    const { error } = await supabase
+      .from("conversations")
+      .delete()
+      .eq("id", conversationId)
+      .eq("user_id", user.id);
 
     if (error) {
-      console.error('Failed to delete conversation:', error)
-      return Response.json({ error: 'Failed to delete conversation' }, { status: 500 })
+      console.error("Failed to delete conversation:", error);
+      throw new AppError("Failed to delete conversation", 500);
     }
 
-    return Response.json({ success: true })
-
+    return NextResponse.json({ message: "Conversation deleted successfully" });
   } catch (error) {
-    console.error('Conversation DELETE API error:', error)
-    return Response.json({ error: 'Internal server error' }, { status: 500 })
+    return handleApiError(error);
   }
 }

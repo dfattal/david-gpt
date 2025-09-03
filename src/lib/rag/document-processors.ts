@@ -1,810 +1,552 @@
-// Multi-Format Document Processors
-// Phase 9: PDF, DOCX, URL, and text processing with metadata extraction
+/**
+ * Document Processing Pipeline
+ * 
+ * Handles ingestion and processing of various document types including
+ * PDFs, DOI/arXiv links, patents, and URLs with metadata extraction.
+ */
 
-import type { RAGDocument } from './types'
+import { createHash } from 'crypto';
+import pdfParse from 'pdf-parse';
+import type { 
+  DocumentMetadata, 
+  DOIMetadata, 
+  PatentMetadata, 
+  GROBIDResponse, 
+  DocumentType,
+  ProcessingJob 
+} from './types';
 
-export interface DocumentProcessingOptions {
-  extractMetadata?: boolean
-  preserveFormatting?: boolean
-  includeImages?: boolean
-  maxPages?: number
-  timeout?: number
-  userAgent?: string
-}
-
-export interface ProcessedDocument {
-  content: string
-  metadata: {
-    title?: string
-    author?: string
-    creator?: string
-    subject?: string
-    keywords?: string[]
-    creationDate?: string
-    modificationDate?: string
-    pageCount?: number
-    wordCount?: number
-    language?: string
-    format: 'pdf' | 'docx' | 'url' | 'text'
-    source: string
-    processingDate: string
-    fileSize?: number
-    url?: string
-    domain?: string
-    contentType?: string
-    encoding?: string
-  }
-  sections?: Array<{
-    title?: string
-    content: string
-    pageNumber?: number
-    sectionType?: 'header' | 'paragraph' | 'list' | 'table' | 'image'
-  }>
-  images?: Array<{
-    description?: string
-    pageNumber?: number
-    position?: { x: number, y: number }
-  }>
-  processingStats: {
-    processingTimeMs: number
-    extractedCharacters: number
-    sectionsFound: number
-    imagesFound: number
-    tablesFound: number
-    errors: string[]
-  }
-}
-
-export interface DocumentProcessor {
-  name: string
-  supportedFormats: string[]
-  canProcess(input: string | Buffer, contentType?: string): boolean
-  process(input: string | Buffer, options?: DocumentProcessingOptions): Promise<ProcessedDocument>
-}
-
-const DEFAULT_PROCESSING_OPTIONS: Required<DocumentProcessingOptions> = {
-  extractMetadata: true,
-  preserveFormatting: false,
-  includeImages: false,
-  maxPages: 1000,
-  timeout: 30000, // 30 seconds
-  userAgent: 'RAG Document Processor 1.0'
-}
+// =======================
+// External API Clients
+// =======================
 
 /**
- * PDF Document Processor using pdf-parse
+ * Crossref API client for DOI resolution
  */
-export class PDFProcessor implements DocumentProcessor {
-  name = 'PDF Processor'
-  supportedFormats = ['.pdf', 'application/pdf']
+export class CrossrefClient {
+  private readonly baseUrl = 'https://api.crossref.org/works';
+  private readonly userAgent = 'david-gpt/0.1.0 (mailto:david@example.com)';
 
-  canProcess(input: string | Buffer, contentType?: string): boolean {
-    if (contentType) {
-      return contentType.includes('pdf')
-    }
-    
-    if (typeof input === 'string') {
-      return input.toLowerCase().includes('.pdf') || input.startsWith('%PDF')
-    }
-    
-    // Check PDF magic bytes
-    return Buffer.isBuffer(input) && input.subarray(0, 4).toString() === '%PDF'
-  }
-
-  async process(input: string | Buffer, options: DocumentProcessingOptions = {}): Promise<ProcessedDocument> {
-    const config = { ...DEFAULT_PROCESSING_OPTIONS, ...options }
-    const startTime = performance.now()
-    
+  async resolveDOI(doi: string): Promise<DOIMetadata | null> {
     try {
-      // Dynamic import to avoid bundling issues
-      const pdf = await import('pdf-parse')
-      
-      let pdfBuffer: Buffer
-      
-      if (typeof input === 'string') {
-        // If input is a file path or URL, we'd need to read/fetch it
-        // For now, assume it's base64 encoded PDF content
-        if (input.startsWith('data:application/pdf;base64,')) {
-          pdfBuffer = Buffer.from(input.split(',')[1], 'base64')
-        } else {
-          throw new Error('PDF processor requires Buffer input or base64 data URL')
-        }
-      } else {
-        pdfBuffer = input
-      }
-
-      // Parse PDF
-      const pdfData = await pdf.default(pdfBuffer, {
-        max: config.maxPages
-      })
-
-      const processingTime = performance.now() - startTime
-      
-      // Extract sections if formatting is preserved
-      const sections = config.preserveFormatting ? 
-        this.extractSections(pdfData.text) : 
-        [{ content: pdfData.text, sectionType: 'paragraph' as const }]
-
-      const metadata = {
-        title: pdfData.info?.Title || undefined,
-        author: pdfData.info?.Author || undefined,
-        creator: pdfData.info?.Creator || undefined,
-        subject: pdfData.info?.Subject || undefined,
-        keywords: pdfData.info?.Keywords ? pdfData.info.Keywords.split(',').map((k: string) => k.trim()) : undefined,
-        creationDate: pdfData.info?.CreationDate ? this.parsePDFDate(pdfData.info.CreationDate) : undefined,
-        modificationDate: pdfData.info?.ModDate ? this.parsePDFDate(pdfData.info.ModDate) : undefined,
-        pageCount: pdfData.numpages,
-        wordCount: pdfData.text.split(/\s+/).length,
-        language: undefined, // PDF doesn't easily provide language
-        format: 'pdf' as const,
-        source: 'pdf-upload',
-        processingDate: new Date().toISOString(),
-        fileSize: pdfBuffer.length,
-        contentType: 'application/pdf'
-      }
-
-      return {
-        content: pdfData.text,
-        metadata,
-        sections,
-        processingStats: {
-          processingTimeMs: processingTime,
-          extractedCharacters: pdfData.text.length,
-          sectionsFound: sections.length,
-          imagesFound: 0, // pdf-parse doesn't extract images easily
-          tablesFound: 0, // Would need more sophisticated parsing
-          errors: []
-        }
-      }
-
-    } catch (error) {
-      console.error('PDF processing failed:', error)
-      
-      return {
-        content: '',
-        metadata: {
-          format: 'pdf' as const,
-          source: 'pdf-upload',
-          processingDate: new Date().toISOString(),
-          fileSize: Buffer.isBuffer(input) ? input.length : 0
-        },
-        processingStats: {
-          processingTimeMs: performance.now() - startTime,
-          extractedCharacters: 0,
-          sectionsFound: 0,
-          imagesFound: 0,
-          tablesFound: 0,
-          errors: [error instanceof Error ? error.message : 'Unknown PDF processing error']
-        }
-      }
-    }
-  }
-
-  private extractSections(text: string): Array<{ content: string, sectionType: 'header' | 'paragraph' | 'list' }> {
-    const sections = []
-    const lines = text.split('\n').filter(line => line.trim().length > 0)
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim()
-      
-      // Simple heuristics for section detection
-      if (line.length < 100 && line.match(/^[A-Z][A-Za-z\s\d]+$/)) {
-        // Potential header
-        sections.push({
-          content: line,
-          sectionType: 'header' as const
-        })
-      } else if (line.match(/^\s*[\-\*\+•]\s/)) {
-        // List item
-        sections.push({
-          content: line,
-          sectionType: 'list' as const
-        })
-      } else {
-        // Regular paragraph
-        sections.push({
-          content: line,
-          sectionType: 'paragraph' as const
-        })
-      }
-    }
-    
-    return sections
-  }
-
-  private parsePDFDate(pdfDate: string): string {
-    // PDF dates are in format: D:YYYYMMDDHHmmSSOHH'mm
-    const match = pdfDate.match(/D:(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/)
-    if (match) {
-      const [, year, month, day, hour, minute, second] = match
-      return `${year}-${month}-${day}T${hour}:${minute}:${second}Z`
-    }
-    return pdfDate
-  }
-}
-
-/**
- * DOCX Document Processor using mammoth
- */
-export class DOCXProcessor implements DocumentProcessor {
-  name = 'DOCX Processor'
-  supportedFormats = ['.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
-
-  canProcess(input: string | Buffer, contentType?: string): boolean {
-    if (contentType) {
-      return contentType.includes('wordprocessingml') || contentType.includes('docx')
-    }
-    
-    if (typeof input === 'string') {
-      return input.toLowerCase().includes('.docx')
-    }
-    
-    // Check DOCX magic bytes (ZIP file with specific structure)
-    return Buffer.isBuffer(input) && input.subarray(0, 2).toString() === 'PK'
-  }
-
-  async process(input: string | Buffer, options: DocumentProcessingOptions = {}): Promise<ProcessedDocument> {
-    const config = { ...DEFAULT_PROCESSING_OPTIONS, ...options }
-    const startTime = performance.now()
-    
-    try {
-      // Dynamic import to avoid bundling issues
-      const mammoth = await import('mammoth')
-      
-      let docxBuffer: Buffer
-      
-      if (typeof input === 'string') {
-        if (input.startsWith('data:application/')) {
-          const base64Data = input.split(',')[1]
-          docxBuffer = Buffer.from(base64Data, 'base64')
-        } else {
-          throw new Error('DOCX processor requires Buffer input or base64 data URL')
-        }
-      } else {
-        docxBuffer = input
-      }
-
-      // Convert DOCX to HTML for better structure preservation
-      const result = await mammoth.convertToHtml({ buffer: docxBuffer })
-      const textResult = await mammoth.extractRawText({ buffer: docxBuffer })
-
-      const processingTime = performance.now() - startTime
-      
-      // Extract metadata from document properties
-      // Note: mammoth doesn't easily extract metadata, so we'll infer what we can
-      const wordCount = textResult.value.split(/\s+/).filter(word => word.length > 0).length
-      
-      const sections = config.preserveFormatting ? 
-        this.extractSectionsFromHTML(result.value) : 
-        [{ content: textResult.value, sectionType: 'paragraph' as const }]
-
-      const metadata = {
-        title: undefined, // Would need more sophisticated DOCX parsing
-        author: undefined,
-        creator: 'Microsoft Word',
-        subject: undefined,
-        keywords: undefined,
-        creationDate: undefined,
-        modificationDate: undefined,
-        pageCount: undefined,
-        wordCount,
-        language: undefined,
-        format: 'docx' as const,
-        source: 'docx-upload',
-        processingDate: new Date().toISOString(),
-        fileSize: docxBuffer.length,
-        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      }
-
-      return {
-        content: textResult.value,
-        metadata,
-        sections,
-        processingStats: {
-          processingTimeMs: processingTime,
-          extractedCharacters: textResult.value.length,
-          sectionsFound: sections.length,
-          imagesFound: 0, // mammoth can extract images but we're not handling them here
-          tablesFound: (result.value.match(/<table/g) || []).length,
-          errors: result.messages.map(msg => msg.message)
-        }
-      }
-
-    } catch (error) {
-      console.error('DOCX processing failed:', error)
-      
-      return {
-        content: '',
-        metadata: {
-          format: 'docx' as const,
-          source: 'docx-upload',
-          processingDate: new Date().toISOString(),
-          fileSize: Buffer.isBuffer(input) ? input.length : 0
-        },
-        processingStats: {
-          processingTimeMs: performance.now() - startTime,
-          extractedCharacters: 0,
-          sectionsFound: 0,
-          imagesFound: 0,
-          tablesFound: 0,
-          errors: [error instanceof Error ? error.message : 'Unknown DOCX processing error']
-        }
-      }
-    }
-  }
-
-  private extractSectionsFromHTML(html: string): Array<{ content: string, sectionType: 'header' | 'paragraph' | 'list' | 'table' }> {
-    const sections = []
-    
-    // Simple HTML parsing to extract structured content
-    const headerRegex = /<h[1-6][^>]*>(.*?)<\/h[1-6]>/gi
-    const paragraphRegex = /<p[^>]*>(.*?)<\/p>/gi
-    const listRegex = /<li[^>]*>(.*?)<\/li>/gi
-    const tableRegex = /<table[^>]*>(.*?)<\/table>/gi
-    
-    let match
-    
-    // Extract headers
-    while ((match = headerRegex.exec(html)) !== null) {
-      sections.push({
-        content: match[1].replace(/<[^>]*>/g, ''), // Strip remaining HTML
-        sectionType: 'header' as const
-      })
-    }
-    
-    // Extract paragraphs
-    while ((match = paragraphRegex.exec(html)) !== null) {
-      const content = match[1].replace(/<[^>]*>/g, '').trim()
-      if (content) {
-        sections.push({
-          content,
-          sectionType: 'paragraph' as const
-        })
-      }
-    }
-    
-    // Extract list items
-    while ((match = listRegex.exec(html)) !== null) {
-      sections.push({
-        content: match[1].replace(/<[^>]*>/g, ''),
-        sectionType: 'list' as const
-      })
-    }
-    
-    // Extract tables
-    while ((match = tableRegex.exec(html)) !== null) {
-      const tableContent = match[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-      if (tableContent) {
-        sections.push({
-          content: tableContent,
-          sectionType: 'table' as const
-        })
-      }
-    }
-    
-    return sections
-  }
-}
-
-/**
- * URL/Web Content Processor using cheerio
- */
-export class URLProcessor implements DocumentProcessor {
-  name = 'URL Processor'
-  supportedFormats = ['http://', 'https://']
-
-  canProcess(input: string | Buffer, contentType?: string): boolean {
-    if (typeof input === 'string') {
-      return input.startsWith('http://') || input.startsWith('https://')
-    }
-    return false
-  }
-
-  async process(input: string | Buffer, options: DocumentProcessingOptions = {}): Promise<ProcessedDocument> {
-    const config = { ...DEFAULT_PROCESSING_OPTIONS, ...options }
-    const startTime = performance.now()
-    
-    if (typeof input !== 'string') {
-      throw new Error('URL processor requires string URL input')
-    }
-
-    try {
-      // Fetch the webpage
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), config.timeout)
-      
-      const response = await fetch(input, {
-        signal: controller.signal,
+      const cleanDOI = doi.replace(/^(https?:\/\/)?(dx\.)?doi\.org\//, '');
+      const response = await fetch(`${this.baseUrl}/${encodeURIComponent(cleanDOI)}`, {
         headers: {
-          'User-Agent': config.userAgent,
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.5',
-          'Accept-Encoding': 'gzip, deflate',
-          'Connection': 'keep-alive',
-          'Upgrade-Insecure-Requests': '1'
-        }
-      })
-      
-      clearTimeout(timeoutId)
+          'User-Agent': this.userAgent,
+          'Accept': 'application/json',
+        },
+      });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        throw new Error(`Crossref API error: ${response.status} ${response.statusText}`);
       }
 
-      const html = await response.text()
-      const contentType = response.headers.get('content-type') || ''
-      
-      // Parse HTML with cheerio
-      const cheerio = await import('cheerio')
-      const $ = cheerio.load(html)
-      
-      // Extract metadata
-      const title = $('title').text() || $('h1').first().text() || new URL(input).hostname
-      const description = $('meta[name="description"]').attr('content') || 
-                         $('meta[property="og:description"]').attr('content')
-      const author = $('meta[name="author"]').attr('content') || 
-                    $('meta[property="og:site_name"]').attr('content')
-      const keywords = $('meta[name="keywords"]').attr('content')?.split(',').map(k => k.trim())
-      const publishDate = $('meta[name="date"]').attr('content') || 
-                         $('meta[property="article:published_time"]').attr('content') ||
-                         $('time[datetime]').attr('datetime')
-      const modifiedDate = $('meta[property="article:modified_time"]').attr('content')
-      const language = $('html').attr('lang') || $('meta[http-equiv="content-language"]').attr('content')
-
-      // Extract main content
-      let mainContent = ''
-      const contentSelectors = [
-        'main',
-        'article',
-        '[role="main"]',
-        '.content',
-        '.article-content',
-        '.post-content',
-        '#content'
-      ]
-
-      for (const selector of contentSelectors) {
-        const content = $(selector).first()
-        if (content.length > 0) {
-          // Remove script, style, nav, footer, sidebar elements
-          content.find('script, style, nav, footer, aside, .sidebar, .navigation').remove()
-          mainContent = content.text()
-          break
-        }
-      }
-
-      // Fallback: extract all text from body
-      if (!mainContent) {
-        $('script, style, nav, footer, aside, .sidebar, .navigation, .menu').remove()
-        mainContent = $('body').text()
-      }
-
-      // Clean up text
-      mainContent = mainContent.replace(/\s+/g, ' ').trim()
-
-      // Extract sections if formatting is preserved
-      const sections = config.preserveFormatting ? 
-        this.extractWebSections($) : 
-        [{ content: mainContent, sectionType: 'paragraph' as const }]
-
-      const url = new URL(input)
-      const processingTime = performance.now() - startTime
-
-      const metadata = {
-        title: title.trim(),
-        author,
-        creator: undefined,
-        subject: description,
-        keywords,
-        creationDate: publishDate ? this.parseWebDate(publishDate) : undefined,
-        modificationDate: modifiedDate ? this.parseWebDate(modifiedDate) : undefined,
-        pageCount: 1,
-        wordCount: mainContent.split(/\s+/).filter(word => word.length > 0).length,
-        language,
-        format: 'url' as const,
-        source: input,
-        processingDate: new Date().toISOString(),
-        url: input,
-        domain: url.hostname,
-        contentType,
-        encoding: 'utf-8'
-      }
+      const data = await response.json();
+      const work = data.message;
 
       return {
-        content: mainContent,
-        metadata,
-        sections,
-        processingStats: {
-          processingTimeMs: processingTime,
-          extractedCharacters: mainContent.length,
-          sectionsFound: sections.length,
-          imagesFound: $('img').length,
-          tablesFound: $('table').length,
-          errors: []
-        }
-      }
-
+        doi: cleanDOI,
+        title: work.title?.[0] || 'Untitled',
+        authors: work.author?.map((a: any) => `${a.given || ''} ${a.family || ''}`.trim()) || [],
+        journal: work['container-title']?.[0],
+        volume: work.volume,
+        issue: work.issue,
+        pages: work.page,
+        year: work.issued?.['date-parts']?.[0]?.[0],
+        publishedDate: work.issued?.['date-parts']?.[0] ? 
+          new Date(
+            work.issued['date-parts'][0][0], 
+            (work.issued['date-parts'][0][1] || 1) - 1, 
+            work.issued['date-parts'][0][2] || 1
+          ) : undefined,
+        abstract: work.abstract,
+        url: work.URL,
+      };
     } catch (error) {
-      console.error('URL processing failed:', error)
-      
-      return {
-        content: '',
-        metadata: {
-          format: 'url' as const,
-          source: input,
-          processingDate: new Date().toISOString(),
-          url: input,
-          domain: typeof input === 'string' ? new URL(input).hostname : undefined
-        },
-        processingStats: {
-          processingTimeMs: performance.now() - startTime,
-          extractedCharacters: 0,
-          sectionsFound: 0,
-          imagesFound: 0,
-          tablesFound: 0,
-          errors: [error instanceof Error ? error.message : 'Unknown URL processing error']
-        }
-      }
+      console.error('Error resolving DOI:', error);
+      return null;
     }
   }
 
-  private extractWebSections($: any): Array<{ content: string, sectionType: 'header' | 'paragraph' | 'list' | 'table' }> {
-    const sections: Array<{ content: string, sectionType: 'header' | 'paragraph' | 'list' | 'table' }> = []
-    
-    // Extract headers
-    $('h1, h2, h3, h4, h5, h6').each((i: number, elem: any) => {
-      const content = $(elem).text().trim()
-      if (content) {
-        sections.push({
-          content,
-          sectionType: 'header' as const
-        })
-      }
-    })
-    
-    // Extract paragraphs
-    $('p').each((i: number, elem: any) => {
-      const content = $(elem).text().trim()
-      if (content && content.length > 20) { // Filter out very short paragraphs
-        sections.push({
-          content,
-          sectionType: 'paragraph' as const
-        })
-      }
-    })
-    
-    // Extract list items
-    $('li').each((i: number, elem: any) => {
-      const content = $(elem).text().trim()
-      if (content) {
-        sections.push({
-          content,
-          sectionType: 'list' as const
-        })
-      }
-    })
-    
-    // Extract tables
-    $('table').each((i: number, elem: any) => {
-      const content = $(elem).text().replace(/\s+/g, ' ').trim()
-      if (content) {
-        sections.push({
-          content,
-          sectionType: 'table' as const
-        })
-      }
-    })
-    
-    return sections
-  }
-
-  private parseWebDate(dateString: string): string {
+  /**
+   * Extract DOI from arXiv identifier
+   */
+  async resolveArxiv(arxivId: string): Promise<DOIMetadata | null> {
     try {
-      const date = new Date(dateString)
-      return date.toISOString()
-    } catch {
-      return dateString
+      // Clean arXiv ID (remove version if present)
+      const cleanId = arxivId.replace(/^(arxiv:)?/, '').replace(/v\d+$/, '');
+      
+      // First try to get metadata from arXiv API
+      const arxivResponse = await fetch(`http://export.arxiv.org/api/query?id_list=${cleanId}`);
+      if (!arxivResponse.ok) {
+        throw new Error(`arXiv API error: ${arxivResponse.status}`);
+      }
+
+      const xmlText = await arxivResponse.text();
+      
+      // Parse basic info from XML (simplified - in production, use proper XML parser)
+      const titleMatch = xmlText.match(/<title>([^<]+)<\/title>/);
+      const authorsMatch = xmlText.match(/<author>.*?<name>([^<]+)<\/name>.*?<\/author>/g);
+      const summaryMatch = xmlText.match(/<summary>([^<]+)<\/summary>/);
+      const publishedMatch = xmlText.match(/<published>([^<]+)<\/published>/);
+
+      return {
+        doi: `arxiv:${cleanId}`,
+        title: titleMatch?.[1] || 'Untitled arXiv Paper',
+        authors: authorsMatch?.map(match => match.match(/<name>([^<]+)<\/name>/)?.[1] || '') || [],
+        journal: 'arXiv',
+        abstract: summaryMatch?.[1],
+        publishedDate: publishedMatch?.[1] ? new Date(publishedMatch[1]) : undefined,
+        url: `https://arxiv.org/abs/${cleanId}`,
+      };
+    } catch (error) {
+      console.error('Error resolving arXiv ID:', error);
+      return null;
     }
   }
 }
 
 /**
- * Plain Text Processor for .txt files and other text formats
+ * GROBID client for academic paper parsing
  */
-export class TextProcessor implements DocumentProcessor {
-  name = 'Text Processor'
-  supportedFormats = ['.txt', '.md', '.rst', 'text/plain', 'text/markdown']
+export class GROBIDClient {
+  private readonly baseUrl = 'https://kermitt2-grobid.hf.space';
 
-  canProcess(input: string | Buffer, contentType?: string): boolean {
-    if (contentType) {
-      return contentType.startsWith('text/') || contentType.includes('markdown')
-    }
-    
-    if (typeof input === 'string') {
-      return input.includes('.txt') || input.includes('.md') || input.includes('.rst')
-    }
-    
-    // For buffers, assume it's text if it's valid UTF-8
-    if (Buffer.isBuffer(input)) {
-      try {
-        input.toString('utf8')
-        return true
-      } catch {
-        return false
+  async processPDF(pdfBuffer: Buffer): Promise<GROBIDResponse | null> {
+    try {
+      const formData = new FormData();
+      formData.append('input', new Blob([pdfBuffer], { type: 'application/pdf' }));
+
+      const response = await fetch(`${this.baseUrl}/api/processFulltextDocument`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/xml',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`GROBID API error: ${response.status} ${response.statusText}`);
       }
+
+      const xmlData = await response.text();
+      return this.parseGROBIDResponse(xmlData);
+    } catch (error) {
+      console.error('Error processing PDF with GROBID:', error);
+      return null;
     }
-    
-    return true // Default to text processor for unknown formats
   }
 
-  async process(input: string | Buffer, options: DocumentProcessingOptions = {}): Promise<ProcessedDocument> {
-    const startTime = performance.now()
+  private parseGROBIDResponse(xml: string): GROBIDResponse {
+    // Simplified XML parsing - in production, use proper XML parser
+    const titleMatch = xml.match(/<title[^>]*>([^<]+)<\/title>/);
+    const authorsMatch = xml.match(/<author[^>]*>.*?<persName[^>]*>.*?<forename[^>]*>([^<]*)<\/forename>.*?<surname[^>]*>([^<]*)<\/surname>.*?<\/persName>.*?<\/author>/g);
+    const abstractMatch = xml.match(/<abstract[^>]*>(.*?)<\/abstract>/s);
+    const keywordsMatch = xml.match(/<keywords[^>]*>(.*?)<\/keywords>/s);
+
+    return {
+      title: titleMatch?.[1]?.trim(),
+      authors: authorsMatch?.map(match => {
+        const forenameMatch = match.match(/<forename[^>]*>([^<]*)<\/forename>/);
+        const surnameMatch = match.match(/<surname[^>]*>([^<]*)<\/surname>/);
+        const forename = forenameMatch?.[1]?.trim() || '';
+        const surname = surnameMatch?.[1]?.trim() || '';
+        return {
+          firstName: forename,
+          surname: surname,
+          fullName: `${forename} ${surname}`.trim(),
+        };
+      }),
+      abstract: abstractMatch?.[1]?.replace(/<[^>]*>/g, '')?.trim(),
+      keywords: keywordsMatch?.[1]?.split(/[,;]/)?.map(k => k.trim()) || [],
+    };
+  }
+}
+
+/**
+ * Patent processing using USPTO/EPO APIs
+ */
+export class PatentProcessor {
+  async processPatentNumber(patentNo: string): Promise<PatentMetadata | null> {
+    // Clean patent number
+    const cleanPatentNo = patentNo.replace(/[^\w\d]/g, '').toUpperCase();
     
-    let content: string
-    let fileSize = 0
+    // Try different patent office APIs
+    let metadata = await this.processUSPTOPatent(cleanPatentNo);
+    if (!metadata) {
+      metadata = await this.processEPOPatent(cleanPatentNo);
+    }
     
-    if (typeof input === 'string') {
-      content = input
-      fileSize = Buffer.byteLength(content, 'utf8')
-    } else {
-      content = input.toString('utf8')
-      fileSize = input.length
+    return metadata;
+  }
+
+  private async processUSPTOPatent(patentNo: string): Promise<PatentMetadata | null> {
+    try {
+      // USPTO Patent Examination Research Dataset API
+      const response = await fetch(
+        `https://developer.uspto.gov/ds-api/patents/applications/v1/docs/${patentNo}`,
+        {
+          headers: {
+            'Accept': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const data = await response.json();
+      
+      return {
+        patentNumber: patentNo,
+        title: data.patentTitle || 'Untitled Patent',
+        inventors: data.inventors?.map((inv: any) => inv.name) || [],
+        assignee: data.assignees?.[0]?.name,
+        applicationNumber: data.applicationNumber,
+        filedDate: data.filedDate ? new Date(data.filedDate) : undefined,
+        publishedDate: data.publishedDate ? new Date(data.publishedDate) : undefined,
+        grantedDate: data.grantedDate ? new Date(data.grantedDate) : undefined,
+        abstract: data.abstract,
+        claims: data.claims,
+        description: data.description,
+      };
+    } catch (error) {
+      console.error('Error processing USPTO patent:', error);
+      return null;
+    }
+  }
+
+  private async processEPOPatent(patentNo: string): Promise<PatentMetadata | null> {
+    try {
+      // EPO Open Patent Services API
+      const response = await fetch(
+        `https://ops.epo.org/3.2/rest-services/published-data/publication/epodoc/${patentNo}/biblio`,
+        {
+          headers: {
+            'Accept': 'application/json',
+            'X-OPS-Range': '1-100',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const data = await response.json();
+      const biblio = data?.['ops:world-patent-data']?.['ops:biblio-search']?.['ops:search-result']?.['ops:publication-reference'];
+      
+      if (!biblio) {
+        return null;
+      }
+
+      return {
+        patentNumber: patentNo,
+        title: biblio.title || 'Untitled Patent',
+        inventors: biblio.inventors?.map((inv: any) => inv.name) || [],
+        assignee: biblio.applicants?.[0]?.name,
+        publicationNumber: biblio.publicationNumber,
+        publishedDate: biblio.publishedDate ? new Date(biblio.publishedDate) : undefined,
+        abstract: biblio.abstract,
+      };
+    } catch (error) {
+      console.error('Error processing EPO patent:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Extract patent number from various formats including Google Patents URLs
+   */
+  extractPatentNumber(input: string): string | null {
+    // Google Patents URL pattern
+    const googlePatentsMatch = input.match(/patents\.google\.com\/patent\/([A-Z0-9]+)/);
+    if (googlePatentsMatch) {
+      return googlePatentsMatch[1];
     }
 
-    const sections = this.extractTextSections(content)
-    const wordCount = content.split(/\s+/).filter(word => word.length > 0).length
+    // USPTO patent number patterns
+    const patentMatches = [
+      input.match(/US(\d{7,8})[A-Z]?\d?/),
+      input.match(/(\d{7,8})/),
+      input.match(/US(\d{4}\/\d{6})/),
+    ];
 
-    const metadata = {
-      title: this.inferTitle(content),
-      author: undefined,
-      creator: undefined,
-      subject: undefined,
-      keywords: undefined,
-      creationDate: undefined,
-      modificationDate: undefined,
-      pageCount: 1,
-      wordCount,
-      language: this.detectLanguage(content),
-      format: 'text' as const,
-      source: 'text-upload',
-      processingDate: new Date().toISOString(),
-      fileSize,
-      contentType: 'text/plain',
-      encoding: 'utf-8'
+    for (const match of patentMatches) {
+      if (match) {
+        return match[1] || match[0];
+      }
+    }
+
+    return null;
+  }
+}
+
+// =======================
+// Main Document Processor
+// =======================
+
+export class DocumentProcessor {
+  private crossref = new CrossrefClient();
+  private grobid = new GROBIDClient();
+  private patentProcessor = new PatentProcessor();
+
+  /**
+   * Process different types of document inputs
+   */
+  async processDocument(input: {
+    type: 'file' | 'doi' | 'arxiv' | 'patent' | 'url';
+    content?: Buffer | string;
+    metadata?: Partial<DocumentMetadata>;
+    userId?: string;
+  }): Promise<{
+    metadata: Partial<DocumentMetadata>;
+    content?: string;
+    rawText?: string;
+  } | null> {
+    try {
+      switch (input.type) {
+        case 'file':
+          return await this.processPDFFile(input.content as Buffer, input.metadata);
+        
+        case 'doi':
+          return await this.processDOI(input.content as string, input.metadata);
+        
+        case 'arxiv':
+          return await this.processArxiv(input.content as string, input.metadata);
+        
+        case 'patent':
+          return await this.processPatent(input.content as string, input.metadata);
+        
+        case 'url':
+          return await this.processURL(input.content as string, input.metadata);
+        
+        default:
+          throw new Error(`Unsupported document type: ${input.type}`);
+      }
+    } catch (error) {
+      console.error('Error processing document:', error);
+      return null;
+    }
+  }
+
+  private async processPDFFile(buffer: Buffer, metadata?: Partial<DocumentMetadata>) {
+    // First extract raw text with pdf-parse
+    const pdfData = await pdfParse(buffer);
+    const rawText = pdfData.text;
+
+    // Try to enhance with GROBID
+    const grobidData = await this.grobid.processPDF(buffer);
+
+    // Generate content hash
+    const contentHash = createHash('sha256').update(buffer).digest('hex');
+
+    return {
+      metadata: {
+        ...metadata,
+        docType: 'pdf' as DocumentType,
+        title: grobidData?.title || metadata?.title || 'Untitled PDF',
+        fileHash: contentHash,
+        fileSize: buffer.length,
+        processingStatus: 'completed',
+        processedAt: new Date(),
+      },
+      content: rawText,
+      rawText,
+      structuredData: grobidData,
+    };
+  }
+
+  private async processDOI(doi: string, metadata?: Partial<DocumentMetadata>) {
+    const doiData = await this.crossref.resolveDOI(doi);
+    if (!doiData) {
+      throw new Error(`Could not resolve DOI: ${doi}`);
     }
 
     return {
-      content,
-      metadata,
-      sections,
-      processingStats: {
-        processingTimeMs: performance.now() - startTime,
-        extractedCharacters: content.length,
-        sectionsFound: sections.length,
-        imagesFound: 0,
-        tablesFound: 0,
-        errors: []
+      metadata: {
+        ...metadata,
+        docType: 'paper' as DocumentType,
+        title: doiData.title,
+        doi: doiData.doi,
+        url: doiData.url,
+        canonicalUrl: doiData.url,
+        publishedDate: doiData.publishedDate,
+        isoDate: doiData.publishedDate,
+        processingStatus: 'completed',
+        processedAt: new Date(),
+      },
+      content: doiData.abstract || '',
+      rawText: doiData.abstract || '',
+      structuredData: doiData,
+    };
+  }
+
+  private async processArxiv(arxivId: string, metadata?: Partial<DocumentMetadata>) {
+    const arxivData = await this.crossref.resolveArxiv(arxivId);
+    if (!arxivData) {
+      throw new Error(`Could not resolve arXiv ID: ${arxivId}`);
+    }
+
+    return {
+      metadata: {
+        ...metadata,
+        docType: 'paper' as DocumentType,
+        title: arxivData.title,
+        arxivId,
+        url: arxivData.url,
+        canonicalUrl: arxivData.url,
+        publishedDate: arxivData.publishedDate,
+        isoDate: arxivData.publishedDate,
+        processingStatus: 'completed',
+        processedAt: new Date(),
+      },
+      content: arxivData.abstract || '',
+      rawText: arxivData.abstract || '',
+      structuredData: arxivData,
+    };
+  }
+
+  private async processPatent(patentInput: string, metadata?: Partial<DocumentMetadata>) {
+    const patentNo = this.patentProcessor.extractPatentNumber(patentInput);
+    if (!patentNo) {
+      throw new Error(`Could not extract patent number from: ${patentInput}`);
+    }
+
+    const patentData = await this.patentProcessor.processPatentNumber(patentNo);
+    if (!patentData) {
+      throw new Error(`Could not resolve patent: ${patentNo}`);
+    }
+
+    return {
+      metadata: {
+        ...metadata,
+        docType: 'patent' as DocumentType,
+        title: patentData.title,
+        patentNo: patentData.patentNumber,
+        applicationNo: patentData.applicationNumber,
+        publicationNo: patentData.publicationNumber,
+        filedDate: patentData.filedDate,
+        publishedDate: patentData.publishedDate,
+        grantedDate: patentData.grantedDate,
+        isoDate: patentData.grantedDate || patentData.publishedDate || patentData.filedDate,
+        processingStatus: 'completed',
+        processedAt: new Date(),
+      },
+      content: [
+        patentData.abstract,
+        patentData.description,
+        ...(patentData.claims || [])
+      ].filter(Boolean).join('\n\n'),
+      rawText: [
+        patentData.abstract,
+        patentData.description,
+        ...(patentData.claims || [])
+      ].filter(Boolean).join('\n\n'),
+      structuredData: patentData,
+    };
+  }
+
+  private async processURL(url: string, metadata?: Partial<DocumentMetadata>) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'david-gpt/0.1.0',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
+
+      const contentType = response.headers.get('content-type');
+      
+      if (contentType?.includes('application/pdf')) {
+        // Handle PDF URLs
+        const buffer = Buffer.from(await response.arrayBuffer());
+        return this.processPDFFile(buffer, { ...metadata, url, canonicalUrl: url });
+      } else if (contentType?.includes('text/html')) {
+        // Handle HTML pages (simplified - in production, use proper HTML parser)
+        const html = await response.text();
+        const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+        const title = titleMatch?.[1]?.trim() || 'Untitled Web Page';
+        
+        // Extract text content (very basic - use proper HTML-to-text library)
+        const textContent = html
+          .replace(/<script[^>]*>.*?<\/script>/gis, '')
+          .replace(/<style[^>]*>.*?<\/style>/gis, '')
+          .replace(/<[^>]*>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        return {
+          metadata: {
+            ...metadata,
+            docType: 'url' as DocumentType,
+            title,
+            url,
+            canonicalUrl: url,
+            processingStatus: 'completed',
+            processedAt: new Date(),
+          },
+          content: textContent,
+          rawText: textContent,
+        };
+      } else {
+        throw new Error(`Unsupported content type: ${contentType}`);
+      }
+    } catch (error) {
+      console.error('Error processing URL:', error);
+      throw error;
     }
   }
 
-  private extractTextSections(text: string): Array<{ content: string, sectionType: 'header' | 'paragraph' | 'list' }> {
-    const sections = []
-    const lines = text.split('\n')
-    
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (!trimmed) continue
-      
-      // Markdown-style headers
-      if (trimmed.match(/^#+\s/)) {
-        sections.push({
-          content: trimmed.replace(/^#+\s/, ''),
-          sectionType: 'header' as const
-        })
-      }
-      // List items
-      else if (trimmed.match(/^\s*[\-\*\+•]\s/) || trimmed.match(/^\s*\d+\.\s/)) {
-        sections.push({
-          content: trimmed,
-          sectionType: 'list' as const
-        })
-      }
-      // Regular paragraphs
-      else {
-        sections.push({
-          content: trimmed,
-          sectionType: 'paragraph' as const
-        })
-      }
+  /**
+   * Validate and normalize document metadata
+   */
+  validateMetadata(metadata: Partial<DocumentMetadata>): DocumentMetadata {
+    if (!metadata.title?.trim()) {
+      throw new Error('Document title is required');
     }
-    
-    return sections
+
+    if (!metadata.docType) {
+      throw new Error('Document type is required');
+    }
+
+    return {
+      id: metadata.id || '',
+      title: metadata.title.trim(),
+      docType: metadata.docType,
+      status: metadata.status || 'published',
+      processingStatus: metadata.processingStatus || 'pending',
+      createdAt: metadata.createdAt || new Date(),
+      updatedAt: metadata.updatedAt || new Date(),
+      ...metadata,
+    } as DocumentMetadata;
   }
 
-  private inferTitle(content: string): string {
-    // Look for the first line that looks like a title
-    const lines = content.split('\n').filter(line => line.trim())
+  /**
+   * Extract file extension and determine document type
+   */
+  detectDocumentType(filename: string, contentType?: string): DocumentType {
+    const ext = filename.split('.').pop()?.toLowerCase();
     
-    if (lines.length > 0) {
-      const firstLine = lines[0].trim()
-      
-      // Markdown header
-      if (firstLine.match(/^#+\s/)) {
-        return firstLine.replace(/^#+\s/, '')
-      }
-      
-      // Short first line could be a title
-      if (firstLine.length < 100 && firstLine.length > 5) {
-        return firstLine
-      }
+    if (ext === 'pdf' || contentType?.includes('pdf')) {
+      return 'pdf';
     }
     
-    return 'Untitled Document'
-  }
-
-  private detectLanguage(content: string): string {
-    // Simple language detection based on common words
-    const englishWords = ['the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were']
-    const words = content.toLowerCase().split(/\s+/).slice(0, 100) // Check first 100 words
+    if (['txt', 'md', 'markdown'].includes(ext || '')) {
+      return 'note';
+    }
     
-    const englishMatches = words.filter(word => englishWords.includes(word)).length
-    const ratio = englishMatches / Math.min(words.length, 100)
+    if (['html', 'htm'].includes(ext || '') || contentType?.includes('html')) {
+      return 'url';
+    }
     
-    return ratio > 0.1 ? 'en' : 'unknown'
+    // Default to PDF for unknown types
+    return 'pdf';
   }
 }
 
-/**
- * Document Processing Factory
- */
-export class DocumentProcessingFactory {
-  private processors: DocumentProcessor[] = [
-    new PDFProcessor(),
-    new DOCXProcessor(),
-    new URLProcessor(),
-    new TextProcessor() // Keep as fallback
-  ]
-
-  /**
-   * Get appropriate processor for input
-   */
-  getProcessor(input: string | Buffer, contentType?: string): DocumentProcessor {
-    for (const processor of this.processors) {
-      if (processor.canProcess(input, contentType)) {
-        return processor
-      }
-    }
-    
-    // Default to text processor
-    return new TextProcessor()
-  }
-
-  /**
-   * Process document with appropriate processor
-   */
-  async processDocument(
-    input: string | Buffer, 
-    contentType?: string, 
-    options?: DocumentProcessingOptions
-  ): Promise<ProcessedDocument> {
-    const processor = this.getProcessor(input, contentType)
-    console.log(`Processing document with ${processor.name}`)
-    
-    return processor.process(input, options)
-  }
-
-  /**
-   * Get list of supported formats
-   */
-  getSupportedFormats(): string[] {
-    const formats = new Set<string>()
-    for (const processor of this.processors) {
-      processor.supportedFormats.forEach(format => formats.add(format))
-    }
-    return Array.from(formats)
-  }
-}
-
-// Export factory instance
-export const documentProcessingFactory = new DocumentProcessingFactory()
+export const documentProcessor = new DocumentProcessor();

@@ -1,67 +1,117 @@
-import { createClient } from '@/lib/supabase/server'
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { AppError, handleApiError } from "@/lib/utils";
+import { generateConversationTitle } from "@/lib/title-generation";
 
-// export const runtime = 'edge' // Disabled due to cookie handling issues
-
-// GET /api/conversations - List user's conversations
-export async function GET(): Promise<Response> {
+export async function GET(req: NextRequest) {
   try {
-    const supabase = await createClient()
-    
-    // Check if user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const supabase = await createClient();
+
+    // Get the authenticated user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+      throw new AppError("Authentication required", 401);
     }
 
-    // Fetch user's conversations (RLS will filter by owner automatically)
+    // Get query parameters
+    const { searchParams } = new URL(req.url);
+    const limit = parseInt(searchParams.get("limit") || "50");
+    const offset = parseInt(searchParams.get("offset") || "0");
+
+    // Fetch conversations ordered by last message time
     const { data: conversations, error } = await supabase
-      .from('conversations')
-      .select('*')
-      .order('updated_at', { ascending: false })
+      .from("conversations")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("last_message_at", { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) {
-      console.error('Failed to fetch conversations:', error)
-      return Response.json({ error: 'Failed to fetch conversations' }, { status: 500 })
+      console.error("Failed to fetch conversations:", error);
+      throw new AppError("Failed to fetch conversations", 500);
     }
 
-    return Response.json({ conversations })
-
+    return NextResponse.json({ conversations });
   } catch (error) {
-    console.error('Conversations API error:', error)
-    return Response.json({ error: 'Internal server error' }, { status: 500 })
+    return handleApiError(error);
   }
 }
 
-// POST /api/conversations - Create new conversation
-export async function POST(): Promise<Response> {
+export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient()
-    
-    // Check if user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const supabase = await createClient();
+
+    // Get the authenticated user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+      throw new AppError("Authentication required", 401);
     }
 
+    // Authenticated users can save conversations
+
+    const {
+      title,
+      firstMessage,
+    }: {
+      title?: string;
+      firstMessage?: string;
+    } = await req.json();
+
+    // Create new conversation with default "New Chat" title
     const { data: conversation, error } = await supabase
-      .from('conversations')
+      .from("conversations")
       .insert({
-        title: 'New chat',
-        title_status: 'pending',
-        owner: user.id
+        user_id: user.id,
+        title: title || "New Chat",
+        last_message_at: new Date().toISOString(),
       })
-      .select('id, title, title_status, created_at, updated_at')
-      .single()
+      .select()
+      .single();
 
     if (error) {
-      console.error('Failed to create conversation:', error)
-      return Response.json({ error: 'Failed to create conversation' }, { status: 500 })
+      console.error("Failed to create conversation:", error);
+      throw new AppError("Failed to create conversation", 500);
     }
 
-    return Response.json(conversation)
+    // If there's a first message, save it and trigger title generation
+    if (firstMessage) {
+      const { error: messageError } = await supabase.from("messages").insert({
+        conversation_id: conversation.id,
+        role: "user",
+        content: firstMessage,
+      });
 
+      if (messageError) {
+        console.error("Failed to save first message:", messageError);
+        // Don't fail the conversation creation if message save fails
+      }
+
+      // Trigger async title generation (non-blocking)
+      // Don't await this - let it happen in background
+      generateConversationTitle(conversation.id, firstMessage, user.id)
+        .then((result) => {
+          if (result.success) {
+            console.log(`✅ Title generation completed: "${result.title}"`);
+          } else {
+            console.error(`❌ Title generation failed: ${result.error}`);
+          }
+        })
+        .catch((error) => {
+          console.error("Failed to trigger title generation:", error);
+          // Don't fail the conversation creation if title generation fails
+        });
+    }
+
+    return NextResponse.json({ conversation }, { status: 201 });
   } catch (error) {
-    console.error('Conversations POST API error:', error)
-    return Response.json({ error: 'Internal server error' }, { status: 500 })
+    return handleApiError(error);
   }
 }

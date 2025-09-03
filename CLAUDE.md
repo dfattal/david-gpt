@@ -2,97 +2,176 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project Overview
+
+David-GPT is a personal, citation-first RAG (Retrieval-Augmented Generation) chatbot built with Next.js. It answers questions in David's voice using a curated corpus of papers, patents, and notes with transparent citations and hybrid retrieval combining embeddings and BM25 search.
+
 ## Development Commands
 
-- **Development**: `pnpm dev` (uses Turbopack for faster builds)
-- **Build**: `pnpm build` (production build with Turbopack)
-- **Start**: `pnpm start` (start production server)
-- **Lint**: `pnpm lint` (ESLint with Next.js TypeScript config)
-- **E2E Tests**: `pnpm test:e2e` (Playwright end-to-end tests)
+- **Development server**: `pnpm dev` (uses Turbopack for faster builds)
+- **Production build**: `pnpm build` (also uses Turbopack)
+- **Start production**: `pnpm start`  
+- **Linting**: `pnpm lint`
+
+Note: No test commands are currently configured in package.json.
 
 ## Architecture Overview
 
-This is a Next.js application using the App Router pattern with the following key technologies:
+### Tech Stack
+- **Frontend**: Next.js 15 with App Router, React 19, TypeScript
+- **Styling**: Tailwind CSS 4
+- **Database**: Supabase (PostgreSQL with pgvector for embeddings)
+- **AI Integration**: Vercel AI SDK 5, OpenAI GPT-4
+- **Search**: Hybrid retrieval (embeddings + BM25) with Cohere reranking
+- **Authentication**: Supabase Auth with Google OAuth support
 
-- **Framework**: Next.js 15.5.0 with App Router
-- **Runtime**: React 19.1.0
-- **AI Integration**: Vercel AI SDK v5 for streaming with OpenAI provider
-- **Database**: Supabase (Auth + Postgres + RLS)
-- **UI Library**: shadcn/ui components based on Radix UI primitives
-- **Styling**: Tailwind CSS v4 with CSS variables
-- **Forms**: React Hook Form with Zod validation
-- **Icons**: Lucide React
-- **Testing**: Playwright for E2E tests
+### Key Directory Structure
+```
+src/
+├── app/                    # Next.js App Router pages and API routes
+│   ├── api/               # API endpoints for chat, documents, admin
+│   ├── layout.tsx         # Root layout with Geist fonts
+│   └── page.tsx           # Landing page (currently default Next.js)
+├── components/            # React components (currently empty - being rebuilt)
+├── lib/                   # Core utilities and business logic (currently empty)
+└── globals.css           # Global styles
+```
 
-## Project Structure
+### Current State
+The project appears to be in a significant refactoring phase:
+- Most components and lib files have been deleted (visible in git status)
+- Core infrastructure (Next.js, package.json, configs) remain
+- PRD document indicates a sophisticated RAG system is planned
 
-- **`src/app/`**: Next.js App Router pages and layouts
-- **`src/components/ui/`**: shadcn/ui components (Avatar, Badge, Button, Card, Dialog, etc.)
-- **`src/lib/`**: Shared utilities (`utils.ts` contains the `cn()` utility for class merging)
-- **`docs/`**: Architecture and setup documentation
-- **`budgets/`**: Performance budget configuration
+## Key Features (From PRD)
 
-## Key Configuration
+### Core Functionality
+- **Chat Interface**: Streaming responses with inline citations `[1]`, `[2]`
+- **Document Ingestion**: PDFs, DOI/arXiv links, patent numbers, Google Patents URLs
+- **Hybrid Search**: Combines semantic (embeddings) with keyword (BM25) search
+- **Knowledge Graph**: Entity extraction and relationship management
+- **Multi-turn Context**: Smart context routing for related vs unrelated queries
 
-- **TypeScript**: Configured with strict mode, path aliases (`@/*` maps to `src/*`)
-- **shadcn/ui**: New York style, RSC-enabled, with CSS variables for theming
-- **ESLint**: Next.js core-web-vitals and TypeScript rules
-- **Fonts**: Geist Sans and Geist Mono from Google Fonts
+### User Roles
+- **Admin**: Full corpus and knowledge graph management
+- **Member**: Read-only corpus access, conversation management  
+- **Guest**: Limited corpus access, no saved conversations
 
-## Environment Setup
+### Document Processing
+- **Chunking**: 800-1200 tokens with 15-20% overlap
+- **Libraries**: pdf-parse, GROBID (via public API), Crossref API, USPTO/EPO APIs
+- **Metadata**: Structured extraction of authors, dates, patent info, etc.
 
-Required environment variables (see `docs/setup.md`):
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` 
-- `OPENAI_API_KEY`
+## Supabase Integration
 
-## Development Workflow
+The project uses Supabase with MCP (Model Context Protocol) server integration:
+- Project reference: `mnjrwjtzfjfixdjrerke`
+- Access token configured in `.cursor/mcp.json`
+- Uses `@supabase/mcp-server-supabase` for database operations
 
-1. Run `pnpm dev` for development with Turbopack
-2. Use the contracts-first workflow (api.md, db.md, events.md as mentioned in architecture)
-3. Follow shadcn/ui patterns for new components
-4. Ensure RLS (Row Level Security) access is properly configured for Supabase
-5. Run linting and E2E tests before deployment
+## Development Notes
 
-## Orchestration Protocol
+### Path Aliases
+- `@/*` maps to `./src/*` for cleaner imports
 
-1. **Start-up Context**
-   - Always read `.claude/contracts/*.md`, `.claude/tickets/*.md`, `.claude/master_plan.md` before acting
-   - Use `context7` for design/system references instead of asking the user
-   - Check contract status - work may only proceed against **frozen** contracts
+### TypeScript Configuration
+- Target: ES2017 with strict mode enabled
+- Module resolution: bundler (for Next.js compatibility)
+- JSX: preserve (handled by Next.js)
 
-2. **Contracts-First Workflow**
-   - All contracts must be frozen with `frozen@timestamp` header before downstream work begins
-   - Current contracts: `api.md`, `db.md`, `events.md`
-   - If a contract is missing or draft, assign the appropriate sub-agent to propose/freeze it
-   - Contract changes require re-freezing with new timestamp
+### AI SDK Integration
+The PRD specifies using Vercel AI SDK 5 with:
+- `streamText()` for chat responses
+- Tool calling for retrieval (`search_corpus`, `lookup_facts`, `get_timeline`)
+- OpenAI GPT-4 as the primary LLM
 
-3. **Sub-Agent Delegation**
-   - Available agents in `.claude/agents/`: ai-integrations, auth-security, backend-developer, db-architect, devops-release, docs-writer, frontend-developer, performance-engineer, qa-expert, telemetry-analytics
-   - Assign tickets from `.claude/tickets/*.md` to the correct specialized agent
-   - Pass only relevant frozen contracts + specific deliverables to agents
-   - Agents must append progress JSON to `.claude/master_plan.md` for every meaningful update
+### Performance Targets
+- Document ingestion: searchable within 5 minutes
+- Chat response: < 3 seconds for typical queries
+- Citation accuracy: > 95% for structured facts
+- Support for 100+ concurrent users, 10,000+ documents
 
-4. **Progress Logging (Required Format)**
-   All agents must append JSON progress logs to master_plan.md:
-   ```json
-   {
-     "timestamp": "2025-01-27T10:30:00.000Z",
-     "agent": "backend-developer", 
-     "update_type": "progress|blocked|completed",
-     "ticket": "API-CHAT-STREAM",
-     "completed": ["route scaffolded", "streaming implemented"],
-     "next": ["message persistence", "error handling"],
-     "blocked_on": ["DB-SCHEMA-V1 completion"]
-   }
-   ```
+## Important Considerations
 
-5. **Current Ticket Queue**
-   - `DB-SCHEMA-V1` (db-architect) - in-progress
-   - `API-CHAT-STREAM` (backend-developer) - blocked on DB completion
-   - `FRONTEND-CHAT-UI` (frontend-developer) - todo
-   - `AUTH-SUPABASE-INTEGRATION` (auth-security) - todo  
-   - `TITLE-GENERATION` (ai-integrations) - todo
-   - `QA-E2E-TESTS` (qa-expert) - todo
-   - `PERFORMANCE-OPTIMIZATION` (performance-engineer) - todo
-   - `DEPLOYMENT-VERCEL` (devops-release) - todo
+### Security
+- All documents stored in private Supabase buckets with signed URLs
+- Row Level Security (RLS) policies for user access control
+- No sensitive information should be committed to the repository
+
+### Data Processing
+- GROBID integration for academic paper parsing
+- Cohere Rerank 3.5 for result reranking
+- pgvector with HNSW indexing for embeddings (3072 dimensions)
+
+### PRD reference
+Refer to the comprehensive PRD in `docs/PRD.md` for detailed requirements and architectural decisions.
+
+## MCP Server Integration
+
+This project integrates with several MCP (Model Context Protocol) servers to enhance development workflows:
+
+### Supabase MCP
+- **Primary database operations**: Use Supabase MCP tools for applying migrations and inspecting the database
+- **Available tools**: `apply_migration`, `execute_sql`, `list_tables`, `get_logs`, etc.
+- **Configuration**: Configured in `.cursor/mcp.json` with project reference `mnjrwjtzfjfixdjrerke`
+
+### Context7 MCP  
+- **Documentation retrieval**: Use Context7 MCP to pull up-to-date documentation for APIs and libraries
+- **Primary use cases**: 
+  - Vercel AI SDK 5 documentation and examples
+  - Next.js App Router patterns
+  - Supabase client library usage
+- **Workflow**: Always call `resolve-library-id` first, then `get-library-docs` for implementation guidance
+
+### Playwright MCP
+- **E2E testing**: Use Playwright MCP for browser automation and end-to-end testing
+- **Test account**: Use test admin account to handle login flows during testing (test@example.com,pwd=123456)
+- **Available tools**: `browser_navigate`, `browser_click`, `browser_type`, `browser_snapshot`, etc.
+- **Testing strategy**: Clear login pages by authenticating with the test admin account when needed
+
+## Agent Orchestration System
+
+This project uses a **Main Agent as Context Orchestrator** paradigm with two specialized sub-agents:
+
+### Main Agent Responsibilities
+- **Context Synchronization**: Maintain project state across all agents
+- **Task Delegation**: Deploy sub-agents with complete context snapshots  
+- **Integration Validation**: Ensure sub-agent outputs align with project goals
+- **State Management**: Update context files after each agent interaction
+
+### Context Files (Single Source of Truth)
+- `docs/context/current-architecture.md` - Current project state and active components
+- `docs/context/integration-status.md` - Component integration map and dependencies  
+- `docs/context/rag-implementation.md` - RAG Development Specialist progress
+- `docs/context/feature-status.md` - Full-Stack Integration Agent progress
+
+### Sub-Agent Communication Protocol
+
+**Before Delegating Tasks:**
+1. Read current context files and codebase state
+2. Identify integration points and dependencies
+3. Provide complete context snapshot to sub-agent
+4. Specify exact deliverables and validation criteria
+
+**Task Delegation Format:**
+```
+Task: [Specific deliverable]
+Context: [Current file states, dependencies, constraints from context docs]
+Requirements: [From PRD + current request] 
+Integration Points: [How this connects to existing components]
+Expected Output: [Files to create/modify + success criteria]
+```
+
+**After Sub-Agent Completion:**
+1. Validate changes align with project architecture
+2. Update relevant context files with progress  
+3. Test integration points and dependencies
+4. Run validation commands (lint, build, test)
+5. Document changes for future agent interactions
+
+### Sub-Agent Guidelines
+- **Always reference context files** before starting work
+- **Follow existing patterns** from current codebase
+- **Validate integration points** with other components
+- **Return comprehensive change summaries** for main agent
+- **Flag any architectural concerns** or dependencies discovered

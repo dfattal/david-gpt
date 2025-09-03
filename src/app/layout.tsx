@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Providers } from "@/lib/providers";
-import { PerformanceMonitor } from "@/components/performance-monitor";
+import { AuthProvider } from "@/components/auth/auth-provider";
+import { ToastProvider } from "@/components/ui/toast";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -16,7 +16,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "David-GPT",
-  description: "Chat with David Fattal AI - Technology entrepreneur and startup advisor",
+  description:
+    "Personal RAG chatbot by David Fattal - Technology entrepreneur and Spatial AI enthusiast",
 };
 
 export default function RootLayout({
@@ -29,12 +30,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <div className="min-h-screen bg-background font-sans antialiased">
-          <PerformanceMonitor />
-          <Providers>
-            {children}
-          </Providers>
-        </div>
+        <AuthProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -1,41 +1,77 @@
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { NextRequest } from 'next/server'
+import { AppError, handleApiError } from '@/lib/utils'
 
-// export const runtime = 'edge' // Disabled due to cookie handling issues
-
-export async function GET(request: NextRequest): Promise<Response> {
+export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient()
     
-    // Check if user is authenticated
+    // Get the authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
     if (authError || !user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+      throw new AppError('Authentication required', 401)
     }
 
-    const { searchParams } = new URL(request.url)
-    const conversationId = searchParams.get('conversationId')
+    const { 
+      conversationId,
+      role,
+      content,
+      turnType,
+      responseMode 
+    }: { 
+      conversationId: string
+      role: 'user' | 'assistant'
+      content: string
+      turnType?: 'new-topic' | 'drill-down' | 'compare' | 'same-sources'
+      responseMode?: 'FACT' | 'EXPLAIN' | 'CONFLICTS'
+    } = await req.json()
 
-    if (!conversationId) {
-      return Response.json({ error: 'conversationId is required' }, { status: 400 })
+    if (!conversationId || !role || !content?.trim()) {
+      throw new AppError('Missing required fields', 400)
     }
 
-    // Fetch messages for the conversation (RLS will ensure user owns the conversation)
-    const { data: messages, error } = await supabase
+    // Verify user owns the conversation
+    const { data: conversation, error: convError } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('id', conversationId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (convError || !conversation) {
+      throw new AppError('Conversation not found', 404)
+    }
+
+    // Create the message
+    const { data: message, error: msgError } = await supabase
       .from('messages')
-      .select('*')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true })
+      .insert({
+        conversation_id: conversationId,
+        role,
+        content: content.trim(),
+        turn_type: turnType || null,
+        response_mode: responseMode || null
+      })
+      .select()
+      .single()
 
-    if (error) {
-      console.error('Failed to fetch messages:', error)
-      return Response.json({ error: 'Failed to fetch messages' }, { status: 500 })
+    if (msgError) {
+      console.error('Failed to create message:', msgError)
+      throw new AppError('Failed to create message', 500)
     }
 
-    return Response.json({ messages })
+    // Update conversation's last message time
+    await supabase
+      .from('conversations')
+      .update({ 
+        last_message_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', conversationId)
 
+    return NextResponse.json({ message }, { status: 201 })
   } catch (error) {
-    console.error('Messages API error:', error)
-    return Response.json({ error: 'Internal server error' }, { status: 500 })
+    return handleApiError(error)
   }
 }

@@ -1,42 +1,54 @@
-import { createClient } from '@/lib/supabase/client'
+/**
+ * Supabase Client Configuration
+ * 
+ * Provides configured Supabase clients for different environments
+ * with proper typing and error handling.
+ */
 
-// Client-side Supabase client using SSR-compatible client
-// This is kept for backward compatibility but should be replaced with API calls
-export const supabase = createClient()
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from './database-types';
 
-// Types for our database schema
-export interface Conversation {
-  id: string
-  owner: string
-  title: string
-  title_status: 'pending' | 'ready' | 'error'
-  created_at: string
-  updated_at: string
-  last_message_at: string
-  deleted_at: string | null
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_URL');
 }
 
-export interface StoredMessage {
-  id: number
-  conversation_id: string
-  role: 'user' | 'assistant' | 'system' | 'tool'
-  parts: MessagePart[]
-  provider_message_id: string | null
-  created_at: string
+if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY');
 }
 
-// UIMessage interface for Vercel AI SDK v5
-export interface UIMessage {
-  id: string
-  role: 'user' | 'assistant' | 'system' | 'tool'
-  parts: MessagePart[]
-  createdAt?: Date
-}
+// Client-side Supabase client
+export const supabase = createClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+    },
+    global: {
+      headers: {
+        'x-client-info': 'david-gpt@0.1.0',
+      },
+    },
+  }
+);
 
-export interface MessagePart {
-  type: 'text' | 'image' | 'file'
-  text?: string
-  image?: string
-  data?: unknown
-}
+// Server-side Supabase client with service role key
+export const supabaseAdmin = createClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+    global: {
+      headers: {
+        'x-client-info': 'david-gpt-admin@0.1.0',
+      },
+    },
+  }
+);
 
+// Export types for convenience
+export type { Database } from './database-types';

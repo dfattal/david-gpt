@@ -1,82 +1,99 @@
-'use client'
+"use client";
 
-import * as React from 'react'
-import { ConversationSidebar } from './conversation-sidebar'
-import { ChatInterface } from './chat-interface'
-import { useConversations } from '@/lib/hooks/use-conversations'
-import { cn } from '@/lib/utils'
+import { useState, useEffect, useRef } from "react";
+import { ChatInterface } from "./chat-interface";
+import { ConversationSidebar } from "./conversation-sidebar";
+import { useAuth } from "@/components/auth/auth-provider";
+import type { Conversation } from "@/lib/types";
 
-interface ChatLayoutProps {
-  className?: string
-}
+export function ChatLayout() {
+  const { user } = useAuth();
+  const [currentConversation, setCurrentConversation] =
+    useState<Conversation | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const sidebarRef = useRef<{
+    refreshConversations: () => void;
+    setTitleGenerating: (conversationId: string, isGenerating: boolean) => void;
+  } | null>(null);
 
-export function ChatLayout({ className }: ChatLayoutProps) {
-  const {
-    conversations,
-    isLoading,
-    isCreating,
-    createConversation,
-    renameConversation,
-    deleteConversation,
-    refetch
-  } = useConversations()
-
-  const [activeConversationId, setActiveConversationId] = React.useState<string>()
-
-  const handleNewConversation = React.useCallback(async () => {
-    const newConversation = await createConversation()
-    if (newConversation) {
-      setActiveConversationId(newConversation.id)
+  // Reset conversation when user changes
+  useEffect(() => {
+    if (!user) {
+      setCurrentConversation(null);
     }
-  }, [createConversation])
+  }, [user]);
 
-  const handleSelectConversation = React.useCallback((id: string) => {
-    setActiveConversationId(id)
-  }, [])
+  const handleConversationSelect = (conversation: Conversation | null) => {
+    setCurrentConversation(conversation);
+  };
 
-  const handleRenameConversation = React.useCallback(async (id: string, title: string) => {
-    await renameConversation(id, title)
-  }, [renameConversation])
+  const handleNewConversation = () => {
+    setCurrentConversation(null);
+  };
 
-  const handleDeleteConversation = React.useCallback(async (id: string): Promise<boolean> => {
-    const success = await deleteConversation(id)
-    
-    // If we deleted the active conversation, clear selection
-    if (success && id === activeConversationId) {
-      setActiveConversationId(undefined)
+  const handleConversationUpdate = (conversation: Conversation) => {
+    setCurrentConversation(conversation);
+    // Immediately refresh the sidebar to show the new conversation
+    sidebarRef.current?.refreshConversations();
+    // Start title generation loading state for new conversations with "New Chat" title
+    if (conversation.title === "New Chat") {
+      sidebarRef.current?.setTitleGenerating(conversation.id, true);
     }
-    
-    return success
-  }, [deleteConversation, activeConversationId])
+  };
 
   return (
-    <div className={cn('relative flex h-screen bg-background', className)}>
-      {/* Sidebar */}
-      <ConversationSidebar
-        conversations={conversations}
-        activeConversationId={activeConversationId}
-        onNewConversation={handleNewConversation}
-        onSelectConversation={handleSelectConversation}
-        onRenameConversation={handleRenameConversation}
-        onDeleteConversation={handleDeleteConversation}
-        onTitleRefresh={refetch}
-        isLoading={isLoading}
-        isCreating={isCreating}
-      />
+    <div className="flex h-screen bg-background">
+      {/* Mobile sidebar toggle - hidden on desktop */}
+      <button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-background border shadow-sm"
+      >
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 6h16M4 12h16M4 18h16"
+          />
+        </svg>
+      </button>
 
-      {/* Main Chat Area */}
+      {/* Sidebar */}
+      <div
+        className={`
+        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+        lg:translate-x-0 transition-transform duration-300 ease-in-out
+        fixed lg:relative inset-y-0 left-0 z-40 lg:z-0
+      `}
+      >
+        <ConversationSidebar
+          ref={sidebarRef}
+          currentConversation={currentConversation}
+          onConversationSelect={handleConversationSelect}
+          onNewConversation={handleNewConversation}
+        />
+      </div>
+
+      {/* Overlay for mobile */}
+      {sidebarOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-30 bg-black/20"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Mobile Header - only visible on mobile, provides space for hamburger menu */}
-        <div className="md:hidden h-16 flex items-center justify-center border-b bg-background relative">
-          <h1 className="text-lg font-semibold text-foreground">David-GPT</h1>
-          <div className="absolute left-4 top-4 w-11 h-11" /> {/* Space reserved for hamburger menu */}
-        </div>
-        
         <ChatInterface
-          conversationId={activeConversationId}
-          className="flex-1"
+          conversation={currentConversation}
+          onConversationUpdate={handleConversationUpdate}
         />
       </div>
     </div>
-  )
+  );
 }
