@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { openai } from "@ai-sdk/openai";
 import { streamText, CoreMessage } from "ai";
 import { createClient } from "@/lib/supabase/server";
-import { ragSearchTools } from "@/lib/rag/search-tools";
+import {
+  shouldUseRAG,
+  executeRAG,
+  createRAGEnhancedPrompt,
+} from "@/lib/rag/sequential-rag";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -39,10 +43,12 @@ export async function POST(req: NextRequest) {
     const userRole = user ? "user" : "guest";
 
     // Convert messages to AI SDK format
-    const coreMessages: CoreMessage[] = messages.map((msg: any) => ({
-      role: msg.role,
-      content: msg.content,
-    }));
+    const coreMessages: CoreMessage[] = messages.map(
+      (msg: { role: string; content: string }) => ({
+        role: msg.role,
+        content: msg.content,
+      })
+    );
 
     // David's persona system prompt
     const systemPrompt = `You are David-GPT, an AI assistant that answers in David Fattal's voice and style. David is a technology entrepreneur and Spatial AI enthusiast.
@@ -115,41 +121,49 @@ CITATION RULES:
 
 Always provide accurate, helpful responses with transparent sourcing. Be engaging, knowledgeable, and maintain David's entrepreneurial and technical perspective while using proper markdown formatting for excellent readability.`;
 
-    // Create streaming response with automatic RAG fallback
-    console.log(
-      `🤖 Processing query: "${
-        messages[messages.length - 1]?.content || "unknown"
-      }"`
+    // Get the user query for RAG analysis
+    const userQuery = messages[messages.length - 1]?.content || "";
+
+    console.log(`🤖 Processing query: "${userQuery}"`);
+
+    // Check if RAG is needed for this query
+    const useRAG = shouldUseRAG(userQuery);
+    console.log(`🎯 RAG needed: ${useRAG}`);
+
+    let ragContext = {
+      hasRAGResults: false,
+      ragResults: "",
+      citations: "",
+      toolsUsed: [] as string[],
+      executionTime: 0,
+    };
+
+    // Execute RAG if needed
+    if (useRAG) {
+      console.log("🔍 Executing sequential RAG...");
+      ragContext = await executeRAG(userQuery);
+      console.log(
+        `📊 RAG execution completed: ${
+          ragContext.hasRAGResults ? "SUCCESS" : "NO_RESULTS"
+        }`
+      );
+    }
+
+    // Create enhanced system prompt with RAG context
+    const enhancedSystemPrompt = createRAGEnhancedPrompt(
+      systemPrompt,
+      ragContext
     );
 
-    // Simplified system prompt for fallback
-    const fallbackSystemPrompt = `You are David-GPT, an AI assistant that answers in David Fattal's voice and style. David is a technology entrepreneur and Spatial AI enthusiast.
-
-Key aspects of David's communication style:
-- Direct and technical when appropriate
-- Enthusiastic about emerging technologies, especially AI and spatial computing
-- Business-minded with deep technical knowledge
-- References his experience in patents, papers, and technology development
-- Provides helpful, accurate responses
-
-Current user role: ${userRole}
-
-Format all responses using proper Markdown syntax for better readability:
-- Use ## for main section headings
-- Use ### for subsection headings
-- Use **bold** for important terms and concepts
-- Use bullet points (-) for lists and key points
-- Use numbered lists (1.) for sequential information
-- Use > for important quotes or callouts
-
-Always provide accurate, helpful responses. Be engaging, knowledgeable, and maintain David's entrepreneurial and technical perspective while using proper markdown formatting for excellent readability.`;
-
     // Common onFinish handler
-    const handleOnFinish = async (completion) => {
+    const handleOnFinish = async (completion: { text?: string }) => {
       console.log(
         "✅ Stream finished, text length:",
         completion.text?.length || 0
       );
+      console.log("🔧 RAG context used:", ragContext.hasRAGResults);
+      console.log("📊 Tools used:", ragContext.toolsUsed.join(", "));
+
       // Save conversation after streaming completes (if user is authenticated)
       if (user && conversationId && completion.text) {
         try {
@@ -184,16 +198,16 @@ Always provide accurate, helpful responses. Be engaging, knowledgeable, and main
       }
     };
 
-    // Create streaming response - RAG tools disabled until streaming issue is resolved
     console.log(
-      "🔍 Creating response with fallback system (RAG tools disabled)..."
+      "🚀 Creating streaming response with sequential RAG integration..."
     );
+
     const result = streamText({
       model: openai("gpt-4o"),
-      system: fallbackSystemPrompt,
+      system: enhancedSystemPrompt,
       messages: coreMessages,
       temperature: 0.7,
-      // tools: ragSearchTools, // DISABLED: Causing streaming failures for certain queries
+      // No tools needed - RAG results are pre-injected into system prompt
       onError: (error) => {
         console.error("⚠️ StreamText error:", error);
       },

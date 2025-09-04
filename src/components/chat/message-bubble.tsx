@@ -156,7 +156,7 @@ export const MessageBubble = React.memo(
                   ul({ children, ...props }) {
                     return (
                       <ul
-                        className="list-disc list-inside mb-4 space-y-2 pl-4"
+                        className="list-disc list-outside mb-4 space-y-2 pl-6 ml-0"
                         {...props}
                       >
                         {children}
@@ -166,7 +166,7 @@ export const MessageBubble = React.memo(
                   ol({ children, ...props }) {
                     return (
                       <ol
-                        className="list-decimal list-inside mb-4 pl-4"
+                        className="list-decimal list-outside mb-4 space-y-2 pl-6 ml-0"
                         {...props}
                       >
                         {children}

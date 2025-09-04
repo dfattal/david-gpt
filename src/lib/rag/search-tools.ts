@@ -9,6 +9,13 @@ import { z } from "zod";
 import { tool } from "ai";
 import { createClient } from "@/lib/supabase/server";
 
+interface SearchResult {
+  title: string;
+  content: string;
+  docType: string;
+  citation: string;
+}
+
 // =======================
 // Tool Definitions
 // =======================
