@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { MessageBubble } from "./message-bubble";
 import { useAuth } from "@/components/auth/auth-provider";
+import { formatDate } from "@/lib/utils";
 import { Send } from "lucide-react";
 import type { Conversation } from "@/lib/types";
 
@@ -118,6 +119,24 @@ export function ChatInterface({
 
   return (
     <div className="flex flex-col h-full bg-background">
+      {/* Header */}
+      {conversation && (
+        <div className="px-4 pt-4 pb-4 border-b bg-background">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
+                <h2 className="font-semibold text-lg truncate">
+                  {conversation.title || "New Chat"}
+                </h2>
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {formatDate(conversation.created_at)}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Messages area */}
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full">
@@ -206,7 +225,7 @@ export function ChatInterface({
 
       {/* Input area */}
       <div className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="max-w-4xl mx-auto p-4">
+        <div className="max-w-4xl mx-auto px-4 pt-4 pb-4">
           <form
             onSubmit={handleFormSubmit}
             className="flex items-end space-x-3"

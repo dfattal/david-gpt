@@ -13,7 +13,7 @@ import { tool } from "ai";
 export const searchKnowledgeTool = tool({
   description:
     "Search through David Fattal's knowledge and expertise in technology, AI, spatial computing, and entrepreneurship.",
-  parameters: z.object({
+  inputSchema: z.object({
     query: z
       .string()
       .describe(
@@ -133,7 +133,7 @@ export const searchKnowledgeTool = tool({
 export const technologyTimelineTool = tool({
   description:
     "Get information about technology trends, developments, and timeline of innovations in David's areas of expertise.",
-  parameters: z.object({
+  inputSchema: z.object({
     technology: z
       .string()
       .describe(

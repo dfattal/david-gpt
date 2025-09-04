@@ -8,7 +8,7 @@
 ### Core Tables
 
 ```sql
--- Entity types: person, org, product, algorithm, material
+-- Entity types: person, organization, product, technology, material, concept, venue, location
 entities(id, name, kind)
 
 -- Handle name variations (e.g., "J. K. Rowling" vs "Joanne Rowling")
@@ -73,9 +73,25 @@ edges(src_id, src_type, rel, dst_id, dst_type, weight)
 3. Pick newest/most authoritative with clear explanation
 4. Example: "Patent superseded by newer filing in 2023"
 
+## Document Processing Strategy
+
+### Google Patents URL Processing
+- **Input**: Google Patents URLs (e.g., https://patents.google.com/patent/US11281020)
+- **Extraction Method**: JSON-LD structured data parsing (no PDF downloads)
+- **Benefits**: Rich metadata including inventors, assignees, claims, related patents
+- **Data Extracted**: Patent number, title, abstract, filing/publication dates, inventor names, assignee organizations
+
+### Document Types Supported
+1. **Academic Papers**: PDFs, DOI/arXiv links
+2. **Patents**: Google Patents URLs (JSON-LD extraction)
+3. **Documents**: Markdown files, notes
+4. **Web Sources**: URLs with metadata extraction
+
 ## Implementation Priority
-1. Design and create database schema
-2. Build entity extraction pipeline for document ingestion
-3. Implement relationship detection and edge creation
-4. Enhance hybrid search with mini-KG filters/boosts
-5. Add response mode logic to chat API
+1. Design and create database schema ✅ COMPLETED
+2. Update entity types to 8-type taxonomy (person, organization, product, technology, material, concept, venue, location)
+3. Implement Google Patents JSON-LD extraction pipeline
+4. Build entity extraction pipeline for document ingestion
+5. Implement relationship detection and edge creation
+6. Enhance hybrid search with mini-KG filters/boosts
+7. Add response mode logic to chat API

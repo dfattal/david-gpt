@@ -19,9 +19,9 @@ export async function generateConversationTitle(
       throw new Error("Missing OPENAI_API_KEY environment variable");
     }
 
-    // Generate title using GPT-4 mini
+    // Generate title using GPT-4o
     const result = await generateText({
-      model: openai("gpt-4o-mini"),
+      model: openai("gpt-4o"),
       system: `You are a title generator. Create a concise, descriptive title for a conversation based on the user's first message. 
 
 Rules:

@@ -117,11 +117,72 @@ export const MessageBubble = React.memo(
               </span>
             </div>
 
-            <div className="prose prose-sm max-w-none break-words text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-code:text-foreground prose-pre:bg-muted prose-pre:text-foreground prose-p:leading-relaxed prose-p:mb-3 prose-ul:mb-3 prose-ol:mb-3">
+            <div
+              className="prose prose-sm max-w-none break-words text-foreground
+              prose-strong:text-foreground prose-strong:font-semibold
+              prose-code:text-foreground prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs
+              prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border
+              prose-p:leading-relaxed prose-p:mb-3 prose-p:text-sm
+              prose-blockquote:border-l-primary prose-blockquote:bg-muted/30 prose-blockquote:px-4 prose-blockquote:py-2 prose-blockquote:my-4
+              prose-a:text-primary prose-a:no-underline hover:prose-a:underline
+              prose-table:text-sm"
+            >
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
                   // Custom components for better styling
+                  // Enhanced headings with proper styling
+                  h2({ children, ...props }) {
+                    return (
+                      <h2
+                        className="text-lg font-semibold mt-6 mb-4 pb-2 border-b border-border first:mt-0 text-foreground"
+                        {...props}
+                      >
+                        {children}
+                      </h2>
+                    );
+                  },
+                  h3({ children, ...props }) {
+                    return (
+                      <h3
+                        className="text-lg font-bold mt-6 mb-4 first:mt-0 text-foreground"
+                        {...props}
+                      >
+                        {children}
+                      </h3>
+                    );
+                  },
+                  // Enhanced list components for proper formatting
+                  ul({ children, ...props }) {
+                    return (
+                      <ul
+                        className="list-disc list-inside mb-4 space-y-2 pl-4"
+                        {...props}
+                      >
+                        {children}
+                      </ul>
+                    );
+                  },
+                  ol({ children, ...props }) {
+                    return (
+                      <ol
+                        className="list-decimal list-inside mb-4 pl-4"
+                        {...props}
+                      >
+                        {children}
+                      </ol>
+                    );
+                  },
+                  li({ children, ...props }) {
+                    return (
+                      <li
+                        className="text-sm leading-relaxed text-foreground"
+                        {...props}
+                      >
+                        {children}
+                      </li>
+                    );
+                  },
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   code({ inline, className, children, ...props }: any) {
                     const match = /language-(\w+)/.exec(className || "");

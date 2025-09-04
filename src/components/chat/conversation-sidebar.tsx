@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { cn, formatDate, truncateText } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useSSE } from "./sse-hook";
 import { useToast } from "@/components/ui/toast";
@@ -73,7 +73,6 @@ export const ConversationSidebar = forwardRef<
 
   const isGuest = !user;
 
-
   const fetchConversations = useCallback(async () => {
     if (!user) return;
 
@@ -93,7 +92,11 @@ export const ConversationSidebar = forwardRef<
       }
     } catch (error) {
       // Only show error toast if it's not an auth-related error during page load
-      if (error instanceof Error && !error.message.includes('401') && !error.message.includes('403')) {
+      if (
+        error instanceof Error &&
+        !error.message.includes("401") &&
+        !error.message.includes("403")
+      ) {
         console.error("Failed to fetch conversations:", error);
         addToast("Failed to load conversations", "error");
       }
@@ -130,7 +133,7 @@ export const ConversationSidebar = forwardRef<
       const timer = setTimeout(() => {
         fetchConversations();
       }, 100);
-      
+
       return () => clearTimeout(timer);
     }
   }, [user, fetchConversations]);
@@ -218,20 +221,22 @@ export const ConversationSidebar = forwardRef<
 
   const saveRename = async (conversationId: string) => {
     const trimmedTitle = editingTitle.trim();
-    
+
     if (!trimmedTitle) {
       addToast("Title cannot be empty", "error");
       return;
     }
 
-    if (trimmedTitle === conversations.find(c => c.id === conversationId)?.title) {
+    if (
+      trimmedTitle === conversations.find((c) => c.id === conversationId)?.title
+    ) {
       // No change, just cancel
       cancelRename();
       return;
     }
 
     // Add to renaming set
-    setRenamingIds(prev => new Set(prev).add(conversationId));
+    setRenamingIds((prev) => new Set(prev).add(conversationId));
 
     try {
       const response = await fetch(`/api/conversations/${conversationId}`, {
@@ -244,7 +249,7 @@ export const ConversationSidebar = forwardRef<
 
       if (response.ok) {
         const { conversation: updatedConversation } = await response.json();
-        
+
         // Update local state
         setConversations((prev) =>
           prev.map((c) =>
@@ -264,7 +269,7 @@ export const ConversationSidebar = forwardRef<
       addToast("Failed to rename conversation", "error");
     } finally {
       // Remove from renaming set
-      setRenamingIds(prev => {
+      setRenamingIds((prev) => {
         const newSet = new Set(prev);
         newSet.delete(conversationId);
         return newSet;
@@ -272,7 +277,10 @@ export const ConversationSidebar = forwardRef<
     }
   };
 
-  const handleRenameKeyDown = (e: React.KeyboardEvent, conversationId: string) => {
+  const handleRenameKeyDown = (
+    e: React.KeyboardEvent,
+    conversationId: string
+  ) => {
     if (e.key === "Enter") {
       e.preventDefault();
       saveRename(conversationId);
@@ -282,16 +290,10 @@ export const ConversationSidebar = forwardRef<
     }
   };
 
-  const generateConversationTitle = (conversation: Conversation) => {
-    // Use the actual conversation title from the database
-    // This will show "New Chat" initially, then the AI-generated title
-    return truncateText(conversation.title || "New Chat", 40);
-  };
-
   return (
-    <div className="w-64 sm:w-72 lg:w-80 border-r bg-background flex flex-col h-full">
+    <div className="w-72 sm:w-80 lg:w-96 border-r bg-background flex flex-col h-full">
       {/* Header */}
-      <div className="p-4 space-y-4">
+      <div className="px-4 pt-4 pb-4 space-y-4">
         <div className="flex items-center space-x-2">
           <MessageSquare className="w-5 h-5 text-primary" />
           <h2 className="font-semibold text-lg">Conversations</h2>
@@ -308,7 +310,7 @@ export const ConversationSidebar = forwardRef<
         </Button>
       </div>
 
-      <Separator />
+      <Separator className="mx-0" />
 
       {/* Conversations list */}
       <ScrollArea className="flex-1 px-1">
@@ -357,8 +359,8 @@ export const ConversationSidebar = forwardRef<
                 )}
                 onClick={() => onConversationSelect(conversation)}
               >
-                <div className="flex items-start pr-8">
-                  <div className="flex-1 min-w-0 px-3">
+                <div className="flex items-start pr-10">
+                  <div className="flex-1 min-w-0 px-3 pr-1">
                     <div className="flex items-center gap-2 mb-1">
                       {editingId === conversation.id ? (
                         <div className="flex items-center gap-1 min-w-0 flex-1">
@@ -366,7 +368,9 @@ export const ConversationSidebar = forwardRef<
                             ref={editInputRef}
                             value={editingTitle}
                             onChange={(e) => setEditingTitle(e.target.value)}
-                            onKeyDown={(e) => handleRenameKeyDown(e, conversation.id)}
+                            onKeyDown={(e) =>
+                              handleRenameKeyDown(e, conversation.id)
+                            }
                             className="text-sm h-6 px-2 py-0.5 min-w-0 flex-1"
                             size={editingTitle.length || 20}
                             maxLength={100}
@@ -401,8 +405,8 @@ export const ConversationSidebar = forwardRef<
                         </div>
                       ) : (
                         <>
-                          <div className="text-sm font-medium truncate min-w-0 flex-1">
-                            {generateConversationTitle(conversation)}
+                          <div className="text-sm font-medium truncate min-w-0 flex-1 overflow-hidden">
+                            {conversation.title || "New Chat"}
                           </div>
                           {generatingTitles.has(conversation.id) && (
                             <Spinner size="sm" className="flex-shrink-0" />
@@ -422,7 +426,7 @@ export const ConversationSidebar = forwardRef<
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="absolute top-2 right-2 w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted"
+                        className="absolute top-2 right-3 w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <MoreVertical className="w-3 h-3" />
@@ -430,7 +434,7 @@ export const ConversationSidebar = forwardRef<
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem 
+                      <DropdownMenuItem
                         className="text-sm"
                         onClick={(e) => startRename(conversation, e)}
                       >
@@ -459,113 +463,110 @@ export const ConversationSidebar = forwardRef<
       {/* User Profile Dropdown */}
       {user && (
         <>
-          <Separator />
-          <div className="p-4">
+          <Separator className="mx-0" />
+          <div className="px-4 pt-3 pb-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Card className="border-0 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors">
-                  <CardContent className="p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                          {(() => {
-                            // Try to get avatar from user_metadata first, then from Google identity
-                            const googleIdentity = user.identities?.find(
-                              (identity) => identity.provider === "google"
-                            );
-                            const avatarUrl =
-                              user.user_metadata?.avatar_url ||
-                              user.user_metadata?.picture ||
-                              googleIdentity?.identity_data?.picture;
+                <div className="border-0 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors rounded-lg px-3 py-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                        {(() => {
+                          // Try to get avatar from user_metadata first, then from Google identity
+                          const googleIdentity = user.identities?.find(
+                            (identity) => identity.provider === "google"
+                          );
+                          const avatarUrl =
+                            user.user_metadata?.avatar_url ||
+                            user.user_metadata?.picture ||
+                            googleIdentity?.identity_data?.picture;
 
-                            return avatarUrl ? (
-                              <img
-                                src={avatarUrl}
-                                alt={
-                                  user.user_metadata?.full_name ||
-                                  user.user_metadata?.name ||
-                                  googleIdentity?.identity_data?.name ||
-                                  user.email ||
-                                  "User"
-                                }
-                                className="w-full h-full object-cover"
-                                crossOrigin="anonymous"
-                                referrerPolicy="no-referrer"
-                                onError={(e) => {
-                                  // Try without CORS attributes on fallback
-                                  const img = e.currentTarget;
-                                  if (!img.dataset.retried) {
-                                    img.dataset.retried = "true";
-                                    img.crossOrigin = "";
-                                    img.referrerPolicy = "";
-                                    img.src = avatarUrl;
-                                    return;
-                                  }
-                                  // Hide image and show fallback initials
-                                  img.style.display = "none";
-                                  const fallback =
-                                    img.nextElementSibling as HTMLElement;
-                                  if (fallback)
-                                    fallback.style.display = "block";
-                                }}
-                              />
-                            ) : null;
-                          })()}
-                          <span
-                            className="text-sm font-medium text-white"
-                            style={{
-                              display: (() => {
-                                const googleIdentity = user.identities?.find(
-                                  (identity) => identity.provider === "google"
-                                );
-                                const hasAvatar =
-                                  user.user_metadata?.avatar_url ||
-                                  user.user_metadata?.picture ||
-                                  googleIdentity?.identity_data?.picture;
-                                return hasAvatar ? "none" : "block";
-                              })(),
-                            }}
-                          >
-                            {(() => {
-                              const googleIdentity = user.identities?.find(
-                                (identity) => identity.provider === "google"
-                              );
-                              const fullName =
-                                user.user_metadata?.full_name ||
-                                user.user_metadata?.name ||
-                                googleIdentity?.identity_data?.name;
-
-                              return fullName
-                                ? fullName
-                                    .split(" ")
-                                    .map((n: string) => n[0])
-                                    .join("")
-                                    .toUpperCase()
-                                : user.email?.charAt(0).toUpperCase() || "U";
-                            })()}
-                          </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium truncate">
-                            {(() => {
-                              const googleIdentity = user.identities?.find(
-                                (identity) => identity.provider === "google"
-                              );
-                              return (
+                          return avatarUrl ? (
+                            <img
+                              src={avatarUrl}
+                              alt={
                                 user.user_metadata?.full_name ||
                                 user.user_metadata?.name ||
                                 googleIdentity?.identity_data?.name ||
-                                user.email?.split("@")[0] ||
+                                user.email ||
                                 "User"
+                              }
+                              className="w-full h-full object-cover"
+                              crossOrigin="anonymous"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                // Try without CORS attributes on fallback
+                                const img = e.currentTarget;
+                                if (!img.dataset.retried) {
+                                  img.dataset.retried = "true";
+                                  img.crossOrigin = "";
+                                  img.referrerPolicy = "";
+                                  img.src = avatarUrl;
+                                  return;
+                                }
+                                // Hide image and show fallback initials
+                                img.style.display = "none";
+                                const fallback =
+                                  img.nextElementSibling as HTMLElement;
+                                if (fallback) fallback.style.display = "block";
+                              }}
+                            />
+                          ) : null;
+                        })()}
+                        <span
+                          className="text-xs font-medium text-white"
+                          style={{
+                            display: (() => {
+                              const googleIdentity = user.identities?.find(
+                                (identity) => identity.provider === "google"
                               );
-                            })()}
-                          </div>
+                              const hasAvatar =
+                                user.user_metadata?.avatar_url ||
+                                user.user_metadata?.picture ||
+                                googleIdentity?.identity_data?.picture;
+                              return hasAvatar ? "none" : "block";
+                            })(),
+                          }}
+                        >
+                          {(() => {
+                            const googleIdentity = user.identities?.find(
+                              (identity) => identity.provider === "google"
+                            );
+                            const fullName =
+                              user.user_metadata?.full_name ||
+                              user.user_metadata?.name ||
+                              googleIdentity?.identity_data?.name;
+
+                            return fullName
+                              ? fullName
+                                  .split(" ")
+                                  .map((n: string) => n[0])
+                                  .join("")
+                                  .toUpperCase()
+                              : user.email?.charAt(0).toUpperCase() || "U";
+                          })()}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">
+                          {(() => {
+                            const googleIdentity = user.identities?.find(
+                              (identity) => identity.provider === "google"
+                            );
+                            return (
+                              user.user_metadata?.full_name ||
+                              user.user_metadata?.name ||
+                              googleIdentity?.identity_data?.name ||
+                              user.email?.split("@")[0] ||
+                              "User"
+                            );
+                          })()}
                         </div>
                       </div>
-                      <ChevronUp className="w-4 h-4 text-muted-foreground" />
                     </div>
-                  </CardContent>
-                </Card>
+                    <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                </div>
               </DropdownMenuTrigger>
 
               <DropdownMenuContent
