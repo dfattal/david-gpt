@@ -187,20 +187,45 @@ export async function executeRAG(query: string): Promise<RAGContext> {
  */
 function formatSearchResults(result: { results?: Array<{ title: string; docType: string; content: string; citation: string }> }): string {
   const results = result.results || [];
-  return results.map((r, index: number) => 
-    `**Source ${index + 1}:** ${r.title} (${r.docType})
-${r.content}
-Citation: ${r.citation}`
+  
+  // Group results by document title to avoid redundant citations
+  const groupedByDocument = new Map<string, { results: typeof results; docType: string }>();
+  
+  results.forEach(r => {
+    if (!groupedByDocument.has(r.title)) {
+      groupedByDocument.set(r.title, { results: [], docType: r.docType });
+    }
+    groupedByDocument.get(r.title)!.results.push(r);
+  });
+  
+  // Create numbered citations for each unique document
+  const documents = Array.from(groupedByDocument.entries());
+  return documents.map(([title, { results: docResults, docType }], docIndex: number) => 
+    `**Source ${docIndex + 1}:** ${title} (${docType})
+${docResults.map(r => r.content).join('\n\n')}
+Citation: [${docIndex + 1}]`
   ).join("\n\n");
 }
 
 /**
- * Format citations for search results
+ * Format citations for search results - grouped by document
  */
-function formatCitations(result: { citations?: Array<{ marker: string; title: string; factSummary: string }> }): string {
+function formatCitations(result: { citations?: Array<{ marker: string; title: string; factSummary: string; documentType: string }> }): string {
   const citations = result.citations || [];
-  return citations.map((c) => 
-    `${c.marker}: ${c.title} - ${c.factSummary}`
+  
+  // Group citations by document title
+  const groupedByDocument = new Map<string, { documentType: string; factSummary: string }>();
+  
+  citations.forEach(c => {
+    if (!groupedByDocument.has(c.title)) {
+      groupedByDocument.set(c.title, { documentType: c.documentType, factSummary: c.factSummary });
+    }
+  });
+  
+  // Create clean numbered citations
+  const documents = Array.from(groupedByDocument.entries());
+  return documents.map(([title, { documentType }], index: number) => 
+    `[${index + 1}]: ${title}`
   ).join("\n");
 }
 
@@ -209,20 +234,43 @@ function formatCitations(result: { citations?: Array<{ marker: string; title: st
  */
 function formatFactResults(result: { facts?: Array<{ source: string; docType: string; content: string; citation: string }> }): string {
   const facts = result.facts || [];
-  return facts.map((f, index: number) => 
-    `**Fact ${index + 1}:** ${f.source} (${f.docType})
-${f.content}
-Citation: ${f.citation}`
+  
+  // Group facts by source document to avoid redundant citations
+  const groupedBySource = new Map<string, { facts: typeof facts; docType: string }>();
+  
+  facts.forEach(f => {
+    if (!groupedBySource.has(f.source)) {
+      groupedBySource.set(f.source, { facts: [], docType: f.docType });
+    }
+    groupedBySource.get(f.source)!.facts.push(f);
+  });
+  
+  // Create numbered citations for each unique source
+  const sources = Array.from(groupedBySource.entries());
+  return sources.map(([source, { facts: sourceFacts, docType }], sourceIndex: number) => 
+    `**Source ${sourceIndex + 1}:** ${source} (${docType})
+${sourceFacts.map(f => f.content).join('\n\n')}
+Citation: [${sourceIndex + 1}]`
   ).join("\n\n");
 }
 
 /**
- * Format fact citations
+ * Format fact citations - grouped by source
  */
 function formatFactCitations(result: { facts?: Array<{ citation: string; source: string }> }): string {
   const facts = result.facts || [];
-  return facts.map((f) => 
-    `${f.citation}: ${f.source}`
+  
+  // Group citations by source
+  const groupedBySource = new Map<string, boolean>();
+  
+  facts.forEach(f => {
+    groupedBySource.set(f.source, true);
+  });
+  
+  // Create clean numbered citations
+  const sources = Array.from(groupedBySource.keys());
+  return sources.map((source, index: number) => 
+    `[${index + 1}]: ${source}`
   ).join("\n");
 }
 
@@ -231,20 +279,43 @@ function formatFactCitations(result: { facts?: Array<{ citation: string; source:
  */
 function formatTimelineResults(result: { events?: Array<{ date: string; description: string; document: string; documentType: string; citation: string }> }): string {
   const events = result.events || [];
-  return events.map((e, index: number) => 
-    `**Event ${index + 1}:** ${e.date} - ${e.description}
-Document: ${e.document} (${e.documentType})
-Citation: ${e.citation}`
+  
+  // Group events by document to avoid redundant citations
+  const groupedByDocument = new Map<string, { events: typeof events; documentType: string }>();
+  
+  events.forEach(e => {
+    if (!groupedByDocument.has(e.document)) {
+      groupedByDocument.set(e.document, { events: [], documentType: e.documentType });
+    }
+    groupedByDocument.get(e.document)!.events.push(e);
+  });
+  
+  // Create numbered citations for each unique document
+  const documents = Array.from(groupedByDocument.entries());
+  return documents.map(([document, { events: docEvents, documentType }], docIndex: number) => 
+    `**Source ${docIndex + 1}:** ${document} (${documentType})
+${docEvents.map(e => `${e.date} - ${e.description}`).join('\n')}
+Citation: [${docIndex + 1}]`
   ).join("\n\n");
 }
 
 /**
- * Format timeline citations
+ * Format timeline citations - grouped by document
  */
 function formatTimelineCitations(result: { events?: Array<{ citation: string; document: string; date: string }> }): string {
   const events = result.events || [];
-  return events.map((e) => 
-    `${e.citation}: ${e.document} (${e.date})`
+  
+  // Group citations by document
+  const groupedByDocument = new Map<string, boolean>();
+  
+  events.forEach(e => {
+    groupedByDocument.set(e.document, true);
+  });
+  
+  // Create clean numbered citations
+  const documents = Array.from(groupedByDocument.keys());
+  return documents.map((document, index: number) => 
+    `[${index + 1}]: ${document}`
   ).join("\n");
 }
 
@@ -273,7 +344,25 @@ function extractEntityName(query: string): string | null {
  */
 export function createRAGEnhancedPrompt(basePrompt: string, ragContext: RAGContext): string {
   if (!ragContext.hasRAGResults) {
-    return basePrompt;
+    // When RAG fails or returns no results, explicitly inform the model
+    const noRAGSection = `
+
+## IMPORTANT: LIMITED ACCESS TO DOCUMENT CORPUS
+
+You currently do not have access to David Fattal's document corpus or the RAG search returned no relevant results.
+
+## CRITICAL INSTRUCTIONS FOR THIS RESPONSE:
+
+- DO NOT fabricate or guess information about specific patents, papers, people, or technical details
+- If asked about specific patents, papers, or documents, clearly state: "I cannot find information about [topic] in the available corpus. For accurate details about patents, papers, or technical documents, I'd recommend checking the original sources directly."
+- DO NOT make up patent numbers, inventor names, publication dates, or technical specifications
+- You can provide general knowledge about topics, but clearly distinguish between general knowledge and specific factual claims
+- Be honest about limitations rather than providing potentially incorrect information
+- Suggest alternative ways the user could find the information (USPTO database, Google Patents, original paper sources, etc.)
+
+REMEMBER: It's better to admit uncertainty than to provide incorrect information that could mislead the user.`;
+    
+    return basePrompt + noRAGSection;
   }
 
   const ragSection = `
@@ -291,10 +380,15 @@ ${ragContext.citations}
 ## INSTRUCTIONS
 
 - Use the above context to provide accurate, well-cited responses
-- Reference sources using the citation markers provided (e.g., [C1], [F1], [T1])
+- Reference sources using clean numbered citations (e.g., [1], [2], [3])
 - If the context doesn't contain relevant information, say so clearly
 - Always prioritize accuracy over completeness
-- Include a "Sources" section at the end with full citations`;
+- Include sources at the end using this sleek format with visual separation:
+  
+  <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 0.875rem; color: #6b7280;">
+  [1]: Document Title One<br>
+  [2]: Document Title Two
+  </div>`;
 
   return basePrompt + ragSection;
 }

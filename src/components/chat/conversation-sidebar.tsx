@@ -171,6 +171,7 @@ export const ConversationSidebar = forwardRef<
     fetchConversations,
   });
 
+
   const handleDeleteConversation = async (
     conversation: Conversation,
     e: React.MouseEvent
@@ -188,9 +189,9 @@ export const ConversationSidebar = forwardRef<
           prev.filter((c) => c.id !== conversation.id)
         );
 
-        // If this was the current conversation, clear it
+        // If this was the current conversation, start a new chat
         if (currentConversation?.id === conversation.id) {
-          onConversationSelect(null);
+          onNewConversation();
         }
 
         addToast("Conversation deleted", "success", 2000);
@@ -302,7 +303,7 @@ export const ConversationSidebar = forwardRef<
         <Button
           onClick={onNewConversation}
           className="w-full justify-start space-x-2"
-          variant="outline"
+          variant={!currentConversation ? "default" : "outline"}
           size="sm"
         >
           <Plus className="w-4 h-4" />

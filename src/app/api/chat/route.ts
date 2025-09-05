@@ -164,36 +164,119 @@ Always provide accurate, helpful responses with transparent sourcing. Be engagin
       console.log("🔧 RAG context used:", ragContext.hasRAGResults);
       console.log("📊 Tools used:", ragContext.toolsUsed.join(", "));
 
+      // Debug logging for message saving conditions
+      console.log("💾 Message saving conditions:");
+      console.log("  - User authenticated:", !!user);
+      console.log("  - Conversation ID exists:", !!conversationId);
+      console.log("  - Completion text exists:", !!completion.text);
+      console.log("  - Latest message exists:", !!(messages && messages.length > 0));
+
       // Save conversation after streaming completes (if user is authenticated)
-      if (user && conversationId && completion.text) {
+      if (user && completion.text) {
         try {
           const latestUserMessage = messages[messages.length - 1];
+          let actualConversationId = conversationId;
 
-          // Update conversation timestamp
-          await supabase
-            .from("conversations")
-            .update({
-              last_message_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", conversationId)
-            .eq("user_id", user.id);
+          // If no conversationId provided, this might be a first message
+          // Try to find the conversation that was just created for this user with this message
+          if (!actualConversationId) {
+            console.log("🔍 No conversationId provided, searching for recently created conversation...");
+            const { data: recentConversations, error: searchError } = await supabase
+              .from("conversations")
+              .select("id, created_at")
+              .eq("user_id", user.id)
+              .order("created_at", { ascending: false })
+              .limit(5); // Check last 5 conversations
 
-          // Save messages
-          await supabase.from("messages").insert([
-            {
-              conversation_id: conversationId,
+            if (searchError) {
+              console.error("❌ Failed to search for recent conversations:", searchError);
+            } else if (recentConversations && recentConversations.length > 0) {
+              // Look for a conversation that was created in the last 30 seconds
+              const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
+              const recentConv = recentConversations.find(conv => conv.created_at > thirtySecondsAgo);
+              
+              if (recentConv) {
+                actualConversationId = recentConv.id;
+                console.log(`✅ Found recent conversation: ${actualConversationId}`);
+              } else {
+                console.log("⚠️ No recent conversation found within 30 seconds");
+              }
+            }
+          }
+
+          if (!actualConversationId) {
+            console.log("⚠️ No conversation ID available, skipping message save");
+            return;
+          }
+
+          // Check if user message already exists (to avoid duplicates from conversation creation)
+          console.log("🔍 Checking if user message already exists...");
+          const { data: existingUserMessages, error: checkError } = await supabase
+            .from("messages")
+            .select("id")
+            .eq("conversation_id", actualConversationId)
+            .eq("role", "user")
+            .eq("content", latestUserMessage.content)
+            .limit(1);
+
+          let userError = checkError;
+
+          if (checkError) {
+            console.error("❌ Failed to check for existing user message:", checkError);
+          } else if (existingUserMessages && existingUserMessages.length > 0) {
+            console.log("✅ User message already exists, skipping duplicate save");
+          } else {
+            // Save user message only if it doesn't already exist
+            console.log("💾 Saving user message to database...");
+            const { error: insertUserError } = await supabase.from("messages").insert({
+              conversation_id: actualConversationId,
               role: "user",
               content: latestUserMessage.content,
-            },
-            {
-              conversation_id: conversationId,
-              role: "assistant",
-              content: completion.text,
-            },
-          ]);
+            });
+
+            userError = insertUserError;
+
+            if (insertUserError) {
+              console.error("❌ Failed to save user message:", insertUserError);
+            } else {
+              console.log("✅ User message saved successfully");
+            }
+          }
+
+          // Save assistant message separately to ensure it's persisted even if user message fails
+          console.log("💾 Saving assistant message to database...");
+          const { error: assistantError } = await supabase.from("messages").insert({
+            conversation_id: actualConversationId,
+            role: "assistant",
+            content: completion.text,
+          });
+
+          if (assistantError) {
+            console.error("❌ Failed to save assistant message:", assistantError);
+          } else {
+            console.log("✅ Assistant message saved successfully");
+          }
+
+          // Update conversation timestamp only if at least one message was saved
+          if (!userError || !assistantError) {
+            console.log("💾 Updating conversation timestamp...");
+            const { error: timestampError } = await supabase
+              .from("conversations")
+              .update({
+                last_message_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", actualConversationId)
+              .eq("user_id", user.id);
+
+            if (timestampError) {
+              console.error("❌ Failed to update conversation timestamp:", timestampError);
+            } else {
+              console.log("✅ Conversation timestamp updated successfully");
+            }
+          }
         } catch (error) {
-          console.error("Failed to save conversation:", error);
+          console.error("❌ Failed to save conversation:", error);
         }
       }
     };

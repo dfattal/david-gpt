@@ -6,7 +6,6 @@
  */
 
 import { createHash } from 'crypto';
-import pdfParse from 'pdf-parse';
 import type { 
   DocumentMetadata, 
   DOIMetadata, 
@@ -332,7 +331,8 @@ export class DocumentProcessor {
   }
 
   private async processPDFFile(buffer: Buffer, metadata?: Partial<DocumentMetadata>) {
-    // First extract raw text with pdf-parse
+    // First extract raw text with pdf-parse (dynamic import to avoid initialization issues)
+    const pdfParse = (await import('pdf-parse')).default;
     const pdfData = await pdfParse(buffer);
     const rawText = pdfData.text;
 

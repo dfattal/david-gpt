@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { AppError, handleApiError } from '@/lib/utils';
-import { processDocument } from '@/lib/rag/document-processors';
-import { chunkDocument } from '@/lib/rag/chunking';
-import { generateEmbeddings } from '@/lib/rag/embeddings';
+import { documentProcessor } from '@/lib/rag/document-processors';
+import { chunkText } from '@/lib/rag/chunking';
+import { embeddingService } from '@/lib/rag/embeddings';
 import { extractGooglePatentData as extractPatentData, formatPatentContent } from '@/lib/rag/google-patents-extractor';
 import type { DocumentType } from '@/lib/rag/types';
 
@@ -150,9 +150,13 @@ async function processDocumentBackground(
       extractedMetadata = patentData;
     } else if (config.doi) {
       // DOI/arXiv link processing
-      const metadata = await processDocument(config.doi, 'paper');
-      processedContent = metadata.content || '';
-      extractedMetadata = metadata;
+      const result = await documentProcessor.processDocument({
+        type: 'doi',
+        content: config.doi,
+        metadata: { title: config.title }
+      });
+      processedContent = result?.content || '';
+      extractedMetadata = result?.metadata || {};
     } else if (config.url) {
       // General URL processing
       const response = await fetch(config.url);
@@ -170,11 +174,7 @@ async function processDocumentBackground(
       .eq('document_id', documentId);
 
     // Step 2: Chunk the document
-    const chunks = await chunkDocument(processedContent, {
-      title: config.title,
-      documentId,
-      metadata: extractedMetadata
-    });
+    const chunks = await chunkText(processedContent, documentId);
 
     await supabase
       .from('processing_jobs')
@@ -185,7 +185,7 @@ async function processDocumentBackground(
       .eq('document_id', documentId);
 
     // Step 3: Generate embeddings for chunks
-    const embeddings = await generateEmbeddings(chunks.map(c => c.content));
+    const embeddings = await embeddingService.generateEmbeddings(chunks.map(c => c.content));
 
     // Step 4: Save chunks with embeddings to database
     const chunksToInsert = chunks.map((chunk, index) => ({

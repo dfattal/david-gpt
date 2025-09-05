@@ -67,6 +67,11 @@ export const searchCorpusTool = tool({
   }) => {
     try {
       console.log(`🔍 RAG search_corpus called with query: "${query}"`);
+      
+      // Extract key terms from natural language query with new logic
+      const searchTerms = extractKeyTerms(query);
+      console.log(`🔑 FIXED Extracted search terms: "${searchTerms}"`);
+      
       const supabase = await createClient();
 
       // Get authenticated user
@@ -97,16 +102,15 @@ export const searchCorpusTool = tool({
             title,
             doc_type,
             url,
-            authors,
-            published_date,
+            iso_date,
             created_at,
             patent_no
           )
         `
         )
-        .textSearch("tsvector_content", query, {
+        .textSearch("tsvector_content", searchTerms, {
           config: "english",
-          type: "websearch",
+          type: "plain",
         })
         .order("documents(created_at)", { ascending: false })
         .limit(limit);
@@ -119,17 +123,27 @@ export const searchCorpusTool = tool({
       // Apply date range filters
       if (dateRange) {
         if (dateRange.start) {
-          dbQuery = dbQuery.gte("documents.published_date", dateRange.start);
+          dbQuery = dbQuery.gte("documents.iso_date", dateRange.start);
         }
         if (dateRange.end) {
-          dbQuery = dbQuery.lte("documents.published_date", dateRange.end);
+          dbQuery = dbQuery.lte("documents.iso_date", dateRange.end);
         }
       }
 
       const { data: chunks, error: searchError } = await dbQuery;
 
+      console.log(`🔍 Database query executed, chunks found: ${chunks?.length || 0}`);
       if (searchError) {
+        console.error("❌ Database search error:", searchError);
         throw searchError;
+      }
+      
+      if (chunks && chunks.length > 0) {
+        console.log(`✅ Found chunks from documents:`, chunks.slice(0, 3).map(c => ({ 
+          title: c.documents?.title, 
+          doc_type: c.documents?.doc_type,
+          content_preview: c.content?.substring(0, 100)
+        })));
       }
 
       if (!chunks || chunks.length === 0) {
@@ -247,14 +261,13 @@ export const lookupFactsTool = tool({
             title,
             doc_type,
             url,
-            authors,
-            published_date
+            iso_date
           )
         `
         )
         .textSearch("tsvector_content", entityName, {
           config: "english",
-          type: "websearch",
+          type: "plain",
         })
         .limit(10);
 
@@ -389,18 +402,17 @@ export const getTimelineTool = tool({
           id,
           title,
           doc_type,
-          published_date,
+          iso_date,
           created_at,
           url,
-          patent_no,
-          authors
+          patent_no
         `
         )
         .textSearch("title", searchTerm, {
           config: "english",
-          type: "websearch",
+          type: "plain",
         })
-        .order("published_date", { ascending: true })
+        .order("iso_date", { ascending: true })
         .limit(20);
 
       if (searchError) {
@@ -419,9 +431,9 @@ export const getTimelineTool = tool({
 
       // Create timeline events from documents
       const timelineEvents = documents
-        .filter((doc) => doc.published_date || doc.created_at)
+        .filter((doc) => doc.iso_date || doc.created_at)
         .map((doc, index) => ({
-          date: doc.published_date || doc.created_at,
+          date: doc.iso_date || doc.created_at,
           type: doc.doc_type === "patent" ? "published" : "created",
           description: `${doc.title}`,
           entity: entityName || "David Fattal",
@@ -645,4 +657,46 @@ function extractCommonTerms(results: SearchResult[]): {
     .slice(0, 3);
 
   return { entities, dates, concepts };
+}
+
+/**
+ * Extract key search terms from natural language queries with smart prioritization
+ */
+function extractKeyTerms(query: string): string {
+  // Remove common question words and stopwords
+  const stopWords = new Set([
+    'who', 'what', 'when', 'where', 'why', 'how', 'are', 'is', 'the', 'of', 'in', 'to', 'for', 'a', 'an', 'and', 'or', 'but'
+  ]);
+  
+  // Check for patent numbers first - these are the most important
+  const patentMatch = query.match(/US\d+[A-Z]*\d*/i);
+  if (patentMatch) {
+    const patentNumber = patentMatch[0].toUpperCase();
+    
+    // For patent queries, prioritize the patent number and add one key concept
+    if (query.toLowerCase().includes('inventor') || query.toLowerCase().includes('author') || query.toLowerCase().includes('creator')) {
+      return `${patentNumber} inventors`;
+    }
+    
+    // For general patent queries, just use the patent number
+    return patentNumber;
+  }
+  
+  // Extract words and filter
+  const words = query.toLowerCase().split(/\s+/);
+  const keyTerms: string[] = [];
+  
+  for (const word of words) {
+    // Keep technical terms and meaningful words (but limit to avoid complexity)
+    if (word.length > 2 && !stopWords.has(word) && keyTerms.length < 5) {
+      keyTerms.push(word);
+    }
+  }
+  
+  // If no key terms found, return the original query
+  if (keyTerms.length === 0) {
+    return query;
+  }
+  
+  return keyTerms.join(' ');
 }

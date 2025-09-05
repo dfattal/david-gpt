@@ -8,7 +8,7 @@
 ### Core Tables
 
 ```sql
--- Entity types: person, organization, product, technology, material, concept, venue, location
+-- Entity types: person, organization, product, technology, component, document, dataset
 entities(id, name, kind)
 
 -- Handle name variations (e.g., "J. K. Rowling" vs "Joanne Rowling")
@@ -27,12 +27,20 @@ edges(src_id, src_type, rel, dst_id, dst_type, weight)
 
 ### Relationship Types
 
-- **author_of**: person → paper
-- **inventor_of**: person → patent  
-- **assignee_of**: org → patent
-- **implements**: doc → algorithm
-- **used_in**: algorithm/material → product
-- **supersedes**: doc → doc
+- **author_of**: person → document
+- **inventor_of**: person → document(type=patent)
+- **assignee_of**: organization → document(type=patent)
+- **contributor_to**: person → document (general purpose, non-author roles)
+- **affiliated_with**: person → organization
+- **belongs_to**: person → organization (team membership)
+- **implements**: technology → product
+- **uses_component**: product → component (replaces prior "used_in")
+- **part_of**: component → product
+- **documents**: document → (product | technology | component) (specs, design docs, app notes)
+- **cites**: document → document
+- **supersedes**: document → document
+- **uses_dataset**: (document | technology) → dataset
+- **owned_by**: dataset → organization
 
 ## Enhanced Retrieval Strategy
 
@@ -89,7 +97,7 @@ edges(src_id, src_type, rel, dst_id, dst_type, weight)
 
 ## Implementation Priority
 1. Design and create database schema ✅ COMPLETED
-2. Update entity types to 8-type taxonomy (person, organization, product, technology, material, concept, venue, location)
+2. Update entity types to 7-type taxonomy (person, organization, product, technology, component, document, dataset)
 3. Implement Google Patents JSON-LD extraction pipeline
 4. Build entity extraction pipeline for document ingestion
 5. Implement relationship detection and edge creation
