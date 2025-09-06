@@ -16,9 +16,14 @@
   - Chunking: 800-1200 tokens, 15-20% overlap implemented
 - **Next**: Connect to actual ingestion endpoints and background job processing
 
-### Hybrid Search with Mini-KG  
-- **Status**: ✅ **COMPLETED** (2025-01-03)
+### Hybrid Search with Relationship-Aware Mini-KG  
+- **Status**: ✅ **COMPLETED WITH RELATIONSHIP ENHANCEMENT** (2025-09-06)
 - **Core Search**: Semantic (pgvector) + BM25 + Cohere Rerank fully implemented
+- **Relationship-Aware Enhancement**: Query expansion via knowledge graph relationships
+  - **1-Hop Traversal**: Finds entities in query and expands via connected relationships
+  - **Query Enhancement**: "Leia technology" → "Leia technology OR lightfield OR head tracking"  
+  - **Contextual Results**: Documents enriched with relationship context and evidence
+  - **Real-world Impact**: Higher relevance scores for relationship-connected documents
 - **Mini-KG Enhanced Retrieval**:
   - **Filter/Boost**: Entity-based filtering and boosting implemented
   - **Disambiguate**: Aliases table integration for name resolution
@@ -36,7 +41,7 @@
   - Row Level Security policies for multi-tenant access
 
 ### Mini-KG (Pragmatic Knowledge Structure)
-- **Status**: ✅ **SCHEMA READY** (2025-01-02) 
+- **Status**: ✅ **COMPLETED WITH RELATIONSHIP-AWARE SEARCH** (2025-09-06) 
 - **Approach**: Postgres tables + thin edges table (not full KG)
 - **Schema Delivered**:
   - `entities(id, name, kind, authority_score, mention_count)` - 7 entity types: person, organization, product, technology, component, document, dataset
@@ -44,7 +49,10 @@
   - `events(document_id, entity_id, type, event_date, authority)` for timeline queries
   - `edges(src_id, src_type, rel, dst_id, dst_type, weight, evidence_text)` for relationships
 - **Relations**: author_of, inventor_of, assignee_of, contributor_to, affiliated_with, belongs_to, implements, uses_component, part_of, documents, cites, supersedes, uses_dataset, owned_by
-- **Next**: Entity extraction pipeline implementation
+- **Relationship System**: ✅ **FULLY OPERATIONAL** 
+  - **5 Working Relationships**: Leia Inc ↔ lightfield/head tracking, OLED/lightfield ↔ Android, head tracking → 3D reconstruction
+  - **Relationship-Aware Search**: 1-hop traversal with query expansion integrated into hybrid search
+  - **Extraction Pipeline**: Domain-specific patterns for 3D display technology with evidence capture
 
 ### Multi-Turn Context Management
 - **Status**: ✅ **SCHEMA READY** (2025-01-02)

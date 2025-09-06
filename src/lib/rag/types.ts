@@ -199,6 +199,9 @@ export interface HybridSearchResult {
   rerankedResults: SearchResult[];
   query: SearchQuery;
   executionTime: number;
+  // Relationship-aware search context
+  relationshipContext?: any;
+  enhancedQuery?: string;
 }
 
 // =======================

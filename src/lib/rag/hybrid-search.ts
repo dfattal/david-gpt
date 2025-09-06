@@ -8,6 +8,7 @@
 import { CohereApi, CohereClient } from 'cohere-ai';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { generateQueryEmbedding, cosineSimilarity } from './embeddings';
+import { relationshipSearchEngine } from './relationship-search';
 import type { 
   SearchQuery, 
   SearchResult, 
@@ -41,28 +42,62 @@ export class HybridSearchEngine {
   }
 
   /**
-   * Main hybrid search method
+   * Main hybrid search method with relationship-aware enhancement
    */
   async search(query: SearchQuery): Promise<HybridSearchResult> {
     const startTime = Date.now();
     
     try {
-      // Run semantic and keyword searches in parallel
+      console.log(`🔍 Starting hybrid search with relationship enhancement: "${query.query}"`);
+      
+      // Step 1: Try relationship-aware search first (enhances query via KG)
+      let enhancedQuery = query.query;
+      let relationshipContext: any = null;
+      
+      try {
+        console.log('🔗 Attempting relationship-aware search...');
+        const relationshipResult = await relationshipSearchEngine.searchWithRelationships({
+          query: query.query,
+          includeRelatedEntities: true,
+          maxHops: 1,
+          limit: query.limit || 10
+        });
+        
+        if (relationshipResult.relationships.length > 0) {
+          // Extract entity names from relationships for query enhancement
+          const relatedEntities = relationshipResult.expandedEntities
+            .filter(e => e.relatedVia === 'relationship')
+            .map(e => e.name);
+            
+          if (relatedEntities.length > 0) {
+            enhancedQuery = `${query.query} OR ${relatedEntities.join(' OR ')}`;
+            relationshipContext = relationshipResult;
+            console.log(`🚀 Enhanced query via relationships: "${enhancedQuery}"`);
+            console.log(`🔗 Found ${relationshipResult.relationships.length} relationships`);
+          }
+        }
+      } catch (relationshipError) {
+        console.warn('⚠️ Relationship search failed, falling back to regular hybrid search:', relationshipError);
+        // Continue with regular search if relationship search fails
+      }
+
+      // Step 2: Run semantic and keyword searches in parallel (with enhanced query)
+      const searchQueryWithEnhancement = { ...query, query: enhancedQuery };
       const [semanticResults, keywordResults] = await Promise.all([
-        this.semanticSearch(query),
-        this.keywordSearch(query),
+        this.semanticSearch(searchQueryWithEnhancement),
+        this.keywordSearch(searchQueryWithEnhancement),
       ]);
 
-      // Combine and deduplicate results
+      // Step 3: Combine and deduplicate results
       const combinedResults = this.combineResults(semanticResults, keywordResults);
       
-      // Apply reranking if enabled
+      // Step 4: Apply reranking if enabled
       let finalResults = combinedResults;
       if (this.config.rerank && combinedResults.length > 0) {
         finalResults = await this.rerank(query.query, combinedResults);
       }
 
-      // Apply final limit
+      // Step 5: Apply final limit
       const limitedResults = finalResults.slice(0, query.limit || this.config.finalLimit);
 
       const executionTime = Date.now() - startTime;
@@ -72,6 +107,9 @@ export class HybridSearchEngine {
         totalCount: limitedResults.length,
         semanticResults,
         keywordResults,
+        // Add relationship context to results
+        relationshipContext,
+        enhancedQuery: enhancedQuery !== query.query ? enhancedQuery : undefined,
         rerankedResults: finalResults,
         query,
         executionTime,

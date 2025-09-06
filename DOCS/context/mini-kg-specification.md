@@ -8,7 +8,7 @@
 ### Core Tables
 
 ```sql
--- Entity types: person, organization, product, technology, component, document, dataset
+-- Entity types: person, organization, product, technology, component(include dataset), document
 entities(id, name, kind)
 
 -- Handle name variations (e.g., "J. K. Rowling" vs "Joanne Rowling")
@@ -33,13 +33,11 @@ edges(src_id, src_type, rel, dst_id, dst_type, weight)
 - **contributor_to**: person → document (general purpose, non-author roles)
 - **affiliated_with**: person → organization
 - **belongs_to**: person → organization (team membership)
-- **implements**: technology → product
-- **uses_component**: product → component (replaces prior "used_in")
-- **part_of**: component → product
+- **part_of**: component/dataset → product | technology
+- **uses**: ( technology | product) → component
 - **documents**: document → (product | technology | component) (specs, design docs, app notes)
 - **cites**: document → document
 - **supersedes**: document → document
-- **uses_dataset**: (document | technology) → dataset
 - **owned_by**: dataset → organization
 
 ## Enhanced Retrieval Strategy
