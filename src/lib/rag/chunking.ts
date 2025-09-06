@@ -319,7 +319,7 @@ export class DocumentChunker {
    */
   private findOptimalChunkEnd(text: string, start: number, maxTokens: number): number {
     const maxChars = maxTokens * 4; // Rough approximation
-    let end = Math.min(start + maxChars, text.length);
+    const end = Math.min(start + maxChars, text.length);
     
     // If we're at the end, return
     if (end >= text.length) {

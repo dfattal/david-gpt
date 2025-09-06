@@ -172,6 +172,7 @@ export interface SearchFilters {
   authors?: string[];
   patents?: boolean;
   papers?: boolean;
+  documentIds?: string[]; // For context-aware search filtering
 }
 
 export const SearchModeSchema = z.enum(['semantic', 'keyword', 'hybrid']);
@@ -461,7 +462,7 @@ export const DEFAULT_RAG_CONFIG: RAGConfig = {
     rerankModel: 'rerank-english-v3.0',
     maxResults: 50,
     finalLimit: 10,
-    threshold: 0.7,
+    threshold: 0.1,
   },
   context: {
     maxTurns: 10,

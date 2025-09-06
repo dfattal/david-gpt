@@ -10,8 +10,29 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { ragSearchTools, classifyQueryIntent } from "./search-tools";
-
-// SearchResult interface removed - not used in this file
+import { 
+  ConversationContextManager, 
+  createContextManager,
+  extractAndStoreFactSummaries,
+  getCompactedContextMemory,
+  formatFactsForContext,
+  type TurnAnalysis,
+  type ContextCarryOverResult,
+  type FactSummary,
+  type ContextMemory
+} from "./context-management";
+import {
+  createCitationManager,
+  persistSearchResultCitations,
+  type CitationBatch,
+  type EnhancedCitation
+} from "./citation-persistence";
+import type { 
+  TurnType, 
+  ResponseMode, 
+  SearchResult,
+  ConversationSource 
+} from "./types";
 
 export interface RAGContext {
   hasRAGResults: boolean;
@@ -19,6 +40,20 @@ export interface RAGContext {
   citations: string;
   toolsUsed: string[];
   executionTime: number;
+  // Enhanced context information
+  contextUsed: boolean;
+  turnAnalysis?: TurnAnalysis;
+  carryOverResult?: ContextCarryOverResult;
+  freshResults: number;
+  carryOverResults: number;
+  // Fact summarization context
+  contextMemory?: ContextMemory;
+  factSummaries?: FactSummary[];
+  memoryUsed: boolean;
+  // Citation persistence context
+  citationBatch?: CitationBatch;
+  enhancedCitations?: EnhancedCitation[];
+  citationsPersisted: boolean;
 }
 
 /**
@@ -48,6 +83,27 @@ export function shouldUseRAG(query: string): boolean {
     'machine learning',
     'artificial intelligence',
     'david fattal',
+    // Patent-specific keywords
+    'claims',
+    'main claims',
+    'patent claims',
+    'inventors',
+    'assignee',
+    'filed',
+    'granted',
+    'abstract',
+    'specification',
+    'embodiment',
+    'prior art',
+    // Context-aware keywords
+    'this patent',
+    'the patent',
+    'that document',
+    'this document',
+    'about',
+    'details',
+    'more information',
+    'specifics',
   ];
 
   // Simple heuristic: if query contains RAG keywords, use RAG
@@ -55,13 +111,17 @@ export function shouldUseRAG(query: string): boolean {
 }
 
 /**
- * Execute RAG tools sequentially and return formatted results
+ * Execute RAG tools sequentially with context management
  */
-export async function executeRAG(query: string): Promise<RAGContext> {
+export async function executeRAGWithContext(
+  query: string, 
+  conversationId?: string,
+  messageHistory?: Array<{ role: string; content: string; }>
+): Promise<RAGContext> {
   const startTime = Date.now();
   
   try {
-    console.log(`🔍 Sequential RAG execution for query: "${query}"`);
+    console.log(`🔍 Sequential RAG execution with context for query: "${query}"`);
     
     // Get authenticated user for RAG tools
     const supabase = await createClient();
@@ -75,7 +135,33 @@ export async function executeRAG(query: string): Promise<RAGContext> {
         citations: "",
         toolsUsed: [],
         executionTime: Date.now() - startTime,
+        contextUsed: false,
+        freshResults: 0,
+        carryOverResults: 0,
+        memoryUsed: false,
+        citationsPersisted: false,
       };
+    }
+
+    // Initialize context manager
+    let contextManager: ConversationContextManager | null = null;
+    let turnAnalysis: TurnAnalysis | null = null;
+    let carryOverResult: ContextCarryOverResult | null = null;
+
+    if (conversationId && conversationId !== 'temp') {
+      contextManager = createContextManager(conversationId);
+      
+      // Classify the turn based on query and conversation history
+      const previousQueries = messageHistory?.filter(m => m.role === 'user')
+        .map(m => m.content).slice(-3) || [];
+      
+      turnAnalysis = await contextManager.classifyTurn(query, previousQueries);
+      console.log(`🎯 Turn classified as: ${turnAnalysis.turnType} (confidence: ${turnAnalysis.confidence})`);
+      console.log(`📋 Response mode: ${turnAnalysis.responseMode}`);
+      
+      // Manage context carry-over
+      carryOverResult = await contextManager.manageContextCarryOver(turnAnalysis.turnType);
+      console.log(`🔄 Context carry-over: ${carryOverResult.totalSourcesCarried} sources carried`);
     }
 
     // Classify query intent to determine best tool
@@ -85,20 +171,106 @@ export async function executeRAG(query: string): Promise<RAGContext> {
     let ragResults = "";
     let citations = "";
     const toolsUsed: string[] = [];
+    let freshResults = 0;
+    const carryOverResults = carryOverResult?.totalSourcesCarried || 0;
+    
+    // Initialize fact summarization context
+    let contextMemory: ContextMemory | undefined;
+    let factSummaries: FactSummary[] = [];
+    let memoryUsed = false;
+    
+    // Initialize citation persistence context
+    let citationBatch: CitationBatch | undefined;
+    let enhancedCitations: EnhancedCitation[] = [];
+    let citationsPersisted = false;
+    
+    // Build context memory for existing conversations
+    if (contextManager && conversationId && conversationId !== 'temp') {
+      try {
+        contextMemory = await getCompactedContextMemory(conversationId, 1500); // Limit to 1500 tokens
+        if (contextMemory.activeFacts.length > 0) {
+          memoryUsed = true;
+          console.log(`🧠 Context memory loaded: ${contextMemory.activeFacts.length} facts, ${contextMemory.memorySize} tokens`);
+        }
+      } catch (error) {
+        console.warn('Failed to load context memory:', error);
+      }
+    }
 
-    // Execute the primary tool based on classification
+    // Determine response mode from context analysis
+    const responseMode = turnAnalysis?.responseMode || "EXPLAIN";
+
+    // Extract document context for context-aware search
+    const documentContext = await extractDocumentContext(messageHistory, query);
+    if (documentContext.length > 0) {
+      console.log(`🎯 Document context extracted: ${documentContext.length} document(s) for context-aware search`);
+    }
+
+    // Execute the primary tool with context awareness
     switch (queryIntent.primaryTool) {
       case "search_corpus": {
         const tool = ragSearchTools.search_corpus;
+        
+        // Enhanced limit based on context - always do fresh search
+        const searchLimit = turnAnalysis?.turnType === 'new-topic' ? 8 : 5;
+        
         const result = await tool.execute({
           query,
-          limit: 8,
-          responseMode: "EXPLAIN",
+          limit: searchLimit,
+          responseMode,
+          documentIds: documentContext.length > 0 ? documentContext : undefined,
         });
         
         if (result.success && result.results && result.results.length > 0) {
-          ragResults = formatSearchResults(result);
-          citations = formatCitations(result);
+          freshResults = result.results.length;
+          
+          // Store new sources for context management and apply hybrid retrieval
+          if (contextManager && result.results && carryOverResult) {
+            const searchResults: SearchResult[] = result.results.map(r => ({
+              documentId: r.documentId || '',
+              chunkId: r.chunkId || undefined,
+              score: r.score || 0.5,
+              content: r.content,
+              title: r.title,
+              docType: (r.docType as any) || 'paper',
+              pageRange: r.pageRange,
+              metadata: {} as any,
+            }));
+            
+            // Extract fact summaries from fresh search results
+            try {
+              factSummaries = await extractAndStoreFactSummaries(conversationId, searchResults);
+              console.log(`📝 Extracted ${factSummaries.length} fact summaries from search results`);
+            } catch (error) {
+              console.warn('Failed to extract fact summaries:', error);
+            }
+            
+            // Apply hybrid retrieval strategy: merge fresh results with carried sources
+            const hybridResults = await applyHybridRetrievalStrategy(
+              searchResults,
+              carryOverResult.relevantSources,
+              turnAnalysis!.turnType
+            );
+            
+            // Use hybrid results instead of just fresh results
+            if (hybridResults.length > 0) {
+              ragResults = formatSearchResultsWithHybridSources(hybridResults, carryOverResult);
+              citations = formatCitationsWithHybridSources(hybridResults, carryOverResult);
+              
+              // Create enhanced citations from hybrid results
+              enhancedCitations = createEnhancedCitationsFromHybridResults(hybridResults, carryOverResult);
+            }
+            
+            // Update context with new search results
+            await contextManager.manageContextCarryOver(turnAnalysis!.turnType, searchResults);
+          } else {
+            ragResults = formatSearchResultsWithContext(result, carryOverResult);
+            citations = formatCitationsWithContext(result, carryOverResult);
+            
+            // Create enhanced citations from context-aware results
+            enhancedCitations = createEnhancedCitationsFromContextResults(result, carryOverResult);
+          }
+          
           toolsUsed.push("search_corpus");
         }
         break;
@@ -116,6 +288,7 @@ export async function executeRAG(query: string): Promise<RAGContext> {
           });
           
           if (result.success && result.facts && result.facts.length > 0) {
+            freshResults = result.facts.length;
             ragResults = formatFactResults(result);
             citations = formatFactCitations(result);
             toolsUsed.push("lookup_facts");
@@ -131,6 +304,7 @@ export async function executeRAG(query: string): Promise<RAGContext> {
         });
         
         if (result.success && result.events && result.events.length > 0) {
+          freshResults = result.events.length;
           ragResults = formatTimelineResults(result);
           citations = formatTimelineCitations(result);
           toolsUsed.push("get_timeline");
@@ -146,13 +320,29 @@ export async function executeRAG(query: string): Promise<RAGContext> {
       const result = await tool.execute({
         query,
         limit: 5,
-        responseMode: "EXPLAIN",
+        responseMode,
+        documentIds: documentContext.length > 0 ? documentContext : undefined,
       });
       
       if (result.success && result.results && result.results.length > 0) {
+        freshResults = result.results.length;
         ragResults = formatSearchResults(result);
         citations = formatCitations(result);
         toolsUsed.push("search_corpus");
+        
+        // Create enhanced citations for persistence
+        enhancedCitations = createEnhancedCitationsFromResults(result);
+      }
+    }
+
+    // Persist citations if we have results and this is not a temporary conversation
+    if (ragResults && conversationId && conversationId !== 'temp' && factSummaries.length > 0) {
+      try {
+        // We'll need the messageId from the chat API, so we'll do citation persistence post-response
+        // For now, just prepare the citation data
+        console.log(`💾 Prepared citation data for persistence: ${factSummaries.length} fact summaries`);
+      } catch (error) {
+        console.warn('Failed to prepare citation persistence:', error);
       }
     }
 
@@ -161,6 +351,7 @@ export async function executeRAG(query: string): Promise<RAGContext> {
     console.log(`✅ Sequential RAG completed in ${executionTime}ms`);
     console.log(`📊 Tools used: ${toolsUsed.join(", ")}`);
     console.log(`📝 RAG results length: ${ragResults.length} characters`);
+    console.log(`🔄 Context: ${freshResults} fresh + ${carryOverResults} carry-over results`);
     
     return {
       hasRAGResults: ragResults.length > 0,
@@ -168,6 +359,17 @@ export async function executeRAG(query: string): Promise<RAGContext> {
       citations,
       toolsUsed,
       executionTime,
+      contextUsed: !!contextManager,
+      turnAnalysis: turnAnalysis || undefined,
+      carryOverResult: carryOverResult || undefined,
+      freshResults,
+      carryOverResults,
+      contextMemory,
+      factSummaries: factSummaries.length > 0 ? factSummaries : undefined,
+      memoryUsed,
+      citationBatch,
+      enhancedCitations: enhancedCitations.length > 0 ? enhancedCitations : undefined,
+      citationsPersisted,
     };
     
   } catch (error) {
@@ -178,8 +380,20 @@ export async function executeRAG(query: string): Promise<RAGContext> {
       citations: "",
       toolsUsed: [],
       executionTime: Date.now() - startTime,
+      contextUsed: false,
+      freshResults: 0,
+      carryOverResults: 0,
+      memoryUsed: false,
+      citationsPersisted: false,
     };
   }
+}
+
+/**
+ * Legacy function for backward compatibility
+ */
+export async function executeRAG(query: string): Promise<RAGContext> {
+  return executeRAGWithContext(query);
 }
 
 /**
@@ -340,6 +554,168 @@ function extractEntityName(query: string): string | null {
 }
 
 /**
+ * Extract document references from conversation history for context-aware search
+ */
+async function extractDocumentContext(
+  messageHistory: Array<{ role: string; content: string }> = [],
+  currentQuery: string
+): Promise<string[]> {
+  const supabase = await createClient();
+  const documentIds: string[] = [];
+  
+  // Combine recent messages and current query for context analysis
+  const recentMessages = messageHistory.slice(-4); // Last 4 messages for context
+  const contextText = [...recentMessages.map(m => m.content), currentQuery].join(' ');
+  
+  // Extract patent numbers from context
+  const patentMatches = contextText.match(/US\d+[A-Z]*\d*/gi) || [];
+  
+  // Extract document titles or references
+  const titlePatterns = [
+    /(?:patent|document|paper)\s+(?:titled|called|named)\s+"([^"]+)"/gi,
+    /(?:the|this|that)\s+(patent|document|paper)\s+"([^"]+)"/gi,
+    /"([^"]+)"\s+(?:patent|document|paper)/gi
+  ];
+  
+  const titleMatches: string[] = [];
+  for (const pattern of titlePatterns) {
+    let match;
+    while ((match = pattern.exec(contextText)) !== null) {
+      titleMatches.push(match[1] || match[2]);
+    }
+  }
+  
+  try {
+    // Look up document IDs by patent numbers
+    if (patentMatches.length > 0) {
+      const { data: patentDocs } = await supabase
+        .from('documents')
+        .select('id, title, patent_no')
+        .in('patent_no', patentMatches.map(p => p.toUpperCase()));
+        
+      if (patentDocs) {
+        documentIds.push(...patentDocs.map(doc => doc.id));
+        console.log(`🎯 Found ${patentDocs.length} documents by patent number: ${patentDocs.map(d => d.patent_no).join(', ')}`);
+      }
+    }
+    
+    // Look up document IDs by titles
+    if (titleMatches.length > 0) {
+      const { data: titleDocs } = await supabase
+        .from('documents')
+        .select('id, title')
+        .ilike('title', `%${titleMatches[0]}%`); // Use first title match
+        
+      if (titleDocs && titleDocs.length > 0) {
+        const newIds = titleDocs.map(doc => doc.id).filter(id => !documentIds.includes(id));
+        documentIds.push(...newIds);
+        console.log(`🎯 Found ${newIds.length} additional documents by title match`);
+      }
+    }
+    
+    // Analyze context for follow-up queries that should use previously mentioned documents
+    const isFollowUpQuery = /(?:what|how|why|explain|describe|tell me|show me).*(?:about|of|in|from)?\s*(?:this|that|the|its?|their?)?\s*(?:patent|document|paper|claims?|details?|information)?/i.test(currentQuery);
+    const isContextualQuery = /(?:main|primary|key|important|specific)\s+(?:claims?|details?|features?|aspects?)/i.test(currentQuery);
+    
+    // If this seems like a follow-up query and we found documents, use them
+    if ((isFollowUpQuery || isContextualQuery) && documentIds.length === 0 && recentMessages.length > 0) {
+      // Try to extract document context from recent assistant responses (which may contain citations)
+      const recentAssistantMessages = recentMessages.filter(m => m.role === 'assistant');
+      for (const message of recentAssistantMessages) {
+        // Look for citation patterns like [1]: Multi-view display with head tracking
+        const citationMatches = message.content.match(/\[\d+\]:\s*([^\n]+)/g) || [];
+        for (const citation of citationMatches) {
+          const titleMatch = citation.match(/\[\d+\]:\s*([^\n]+)/);
+          if (titleMatch) {
+            const title = titleMatch[1].trim();
+            const { data: citedDocs } = await supabase
+              .from('documents')
+              .select('id, title')
+              .ilike('title', `%${title}%`);
+              
+            if (citedDocs && citedDocs.length > 0) {
+              const newIds = citedDocs.map(doc => doc.id).filter(id => !documentIds.includes(id));
+              documentIds.push(...newIds);
+              console.log(`🎯 Found ${newIds.length} documents from recent citations: ${title}`);
+            }
+          }
+        }
+      }
+    }
+    
+  } catch (error) {
+    console.warn('Error extracting document context:', error);
+  }
+  
+  return [...new Set(documentIds)]; // Remove duplicates
+}
+
+/**
+ * Format search results with context information
+ */
+function formatSearchResultsWithContext(
+  result: { results?: Array<{ title: string; docType: string; content: string; citation: string }> },
+  carryOverResult: ContextCarryOverResult | null
+): string {
+  const results = result.results || [];
+  
+  // Group results by document title to avoid redundant citations
+  const groupedByDocument = new Map<string, { results: typeof results; docType: string }>();
+  
+  results.forEach(r => {
+    if (!groupedByDocument.has(r.title)) {
+      groupedByDocument.set(r.title, { results: [], docType: r.docType });
+    }
+    groupedByDocument.get(r.title)!.results.push(r);
+  });
+  
+  // Create numbered citations for each unique document
+  const documents = Array.from(groupedByDocument.entries());
+  let contextInfo = "";
+  
+  if (carryOverResult && carryOverResult.totalSourcesCarried > 0) {
+    contextInfo = `\n**Context Notice:** This response incorporates ${carryOverResult.totalSourcesCarried} relevant sources from our ongoing conversation context.\n\n`;
+  }
+  
+  return contextInfo + documents.map(([title, { results: docResults, docType }], docIndex: number) => 
+    `**Source ${docIndex + 1}:** ${title} (${docType})
+${docResults.map(r => r.content).join('\n\n')}
+Citation: [${docIndex + 1}]`
+  ).join("\n\n");
+}
+
+/**
+ * Format citations with context information
+ */
+function formatCitationsWithContext(
+  result: { citations?: Array<{ marker: string; title: string; factSummary: string; documentType: string }> },
+  carryOverResult: ContextCarryOverResult | null
+): string {
+  const citations = result.citations || [];
+  
+  // Group citations by document title
+  const groupedByDocument = new Map<string, { documentType: string; factSummary: string }>();
+  
+  citations.forEach(c => {
+    if (!groupedByDocument.has(c.title)) {
+      groupedByDocument.set(c.title, { documentType: c.documentType, factSummary: c.factSummary });
+    }
+  });
+  
+  // Create clean numbered citations
+  const documents = Array.from(groupedByDocument.entries());
+  let contextNote = "";
+  
+  if (carryOverResult && carryOverResult.totalSourcesCarried > 0) {
+    contextNote = `\n<!-- Context: ${carryOverResult.totalSourcesCarried} carried sources integrated -->\n`;
+  }
+  
+  return contextNote + documents.map(([title, { documentType }], index: number) => 
+    `[${index + 1}]: ${title}`
+  ).join("\n");
+}
+
+/**
  * Create enhanced system prompt with RAG context
  */
 export function createRAGEnhancedPrompt(basePrompt: string, ragContext: RAGContext): string {
@@ -365,10 +741,40 @@ REMEMBER: It's better to admit uncertainty than to provide incorrect information
     return basePrompt + noRAGSection;
   }
 
+  let contextualInfo = "";
+  
+  if (ragContext.contextUsed && ragContext.turnAnalysis) {
+    contextualInfo = `
+
+## CONVERSATION CONTEXT ANALYSIS
+
+**Turn Type**: ${ragContext.turnAnalysis.turnType}
+**Response Mode**: ${ragContext.turnAnalysis.responseMode}
+**Context Confidence**: ${ragContext.turnAnalysis.confidence}
+
+**Context Strategy Applied**: ${ragContext.turnAnalysis.reasoning}
+
+**Sources Integration**: ${ragContext.freshResults} fresh results + ${ragContext.carryOverResults} contextual sources
+`;
+  }
+
+  // Add context memory section if available
+  let contextMemorySection = "";
+  if (ragContext.memoryUsed && ragContext.contextMemory?.activeFacts) {
+    contextMemorySection = `
+
+## CONTEXT MEMORY
+
+Previous conversation facts for reference:
+${formatFactsForContext(ragContext.contextMemory.activeFacts)}
+*Memory size: ${ragContext.contextMemory.memorySize} tokens, updated: ${ragContext.contextMemory.lastCompacted.toISOString().split('T')[0]}*
+`;
+  }
+
   const ragSection = `
 
 ## DOCUMENT CORPUS CONTEXT
-
+${contextualInfo}${contextMemorySection}
 You have access to the following relevant information from David Fattal's document corpus:
 
 ${ragContext.ragResults}
@@ -381,6 +787,7 @@ ${ragContext.citations}
 
 - Use the above context to provide accurate, well-cited responses
 - Reference sources using clean numbered citations (e.g., [1], [2], [3])
+- ${ragContext.contextUsed ? 'This response benefits from conversation context - build on previous insights where relevant' : 'This is a fresh query with no prior context'}
 - If the context doesn't contain relevant information, say so clearly
 - Always prioritize accuracy over completeness
 - Include sources at the end using this sleek format with visual separation:
@@ -391,4 +798,352 @@ ${ragContext.citations}
   </div>`;
 
   return basePrompt + ragSection;
+}
+
+// =======================
+// Hybrid Retrieval Strategy
+// =======================
+
+/**
+ * Apply hybrid retrieval strategy: merge fresh results with carried sources
+ */
+async function applyHybridRetrievalStrategy(
+  freshResults: SearchResult[],
+  carriedSources: ConversationSource[],
+  turnType: TurnType
+): Promise<HybridSearchResult[]> {
+  console.log(`🔀 Applying hybrid retrieval: ${freshResults.length} fresh + ${carriedSources.length} carried`);
+
+  // Convert carried sources to search result format (simplified)
+  const carriedResults: HybridSearchResult[] = carriedSources.map(source => ({
+    documentId: source.document_id,
+    chunkId: undefined,
+    score: source.carryScore,
+    rerankedScore: source.carryScore,
+    content: `[Carried context from previous conversation turns]`,
+    title: `Document ${source.document_id.slice(-8)}`,
+    docType: 'paper' as any,
+    pageRange: undefined,
+    sectionTitle: undefined,
+    metadata: {} as any,
+    isCarriedOver: true,
+    turnsInactive: source.turns_inactive,
+  }));
+
+  // Convert fresh results to hybrid format
+  const freshHybridResults: HybridSearchResult[] = freshResults.map(result => ({
+    ...result,
+    rerankedScore: result.score,
+    isCarriedOver: false,
+    turnsInactive: 0,
+  }));
+
+  // Merge and deduplicate by document ID
+  const resultMap = new Map<string, HybridSearchResult>();
+  
+  // Add fresh results first (they take priority)
+  freshHybridResults.forEach(result => {
+    if (result.documentId) {
+      resultMap.set(result.documentId, result);
+    }
+  });
+
+  // Add carried results only if not already present from fresh results
+  carriedResults.forEach(result => {
+    if (!resultMap.has(result.documentId)) {
+      resultMap.set(result.documentId, result);
+    } else {
+      // Boost the fresh result with carried context score
+      const existingResult = resultMap.get(result.documentId)!;
+      existingResult.rerankedScore = Math.min(existingResult.score * 1.2, 1.0);
+      existingResult.hasCarriedContext = true;
+    }
+  });
+
+  // Apply turn-specific weighting
+  const weightedResults = Array.from(resultMap.values()).map(result => {
+    let finalScore = result.rerankedScore || result.score;
+    
+    switch (turnType) {
+      case 'drill-down':
+        // Boost carried sources for drill-down
+        if (result.isCarriedOver) {
+          finalScore *= 1.3;
+        }
+        break;
+      case 'same-sources':
+        // Significantly boost carried sources
+        if (result.isCarriedOver) {
+          finalScore *= 1.5;
+        }
+        break;
+      case 'new-topic':
+        // Reduce weight of carried sources
+        if (result.isCarriedOver) {
+          finalScore *= 0.7;
+        }
+        break;
+      case 'compare':
+        // Balanced approach
+        if (result.isCarriedOver) {
+          finalScore *= 1.1;
+        }
+        break;
+    }
+    
+    return {
+      ...result,
+      rerankedScore: Math.min(finalScore, 1.0)
+    };
+  });
+
+  // Sort by final score and return top results
+  return weightedResults
+    .sort((a, b) => (b.rerankedScore || b.score) - (a.rerankedScore || a.score))
+    .slice(0, 8);
+}
+
+/**
+ * Extended search result interface for hybrid retrieval
+ */
+interface HybridSearchResult extends SearchResult {
+  rerankedScore?: number;
+  isCarriedOver?: boolean;
+  turnsInactive?: number;
+  hasCarriedContext?: boolean;
+}
+
+/**
+ * Format hybrid search results for system prompt
+ */
+function formatSearchResultsWithHybridSources(
+  results: HybridSearchResult[],
+  carryOverResult: ContextCarryOverResult | null
+): string {
+  // Group results by document title to avoid redundant citations
+  const groupedByDocument = new Map<string, { results: HybridSearchResult[]; docType: string }>();
+  
+  results.forEach(r => {
+    if (!groupedByDocument.has(r.title)) {
+      groupedByDocument.set(r.title, { results: [], docType: r.docType });
+    }
+    groupedByDocument.get(r.title)!.results.push(r);
+  });
+  
+  // Create numbered citations for each unique document
+  const documents = Array.from(groupedByDocument.entries());
+  let contextInfo = "";
+  
+  const carriedCount = results.filter(r => r.isCarriedOver).length;
+  const freshCount = results.length - carriedCount;
+  
+  if (carryOverResult && carryOverResult.totalSourcesCarried > 0) {
+    contextInfo = `\n**Hybrid Retrieval Applied**: ${freshCount} fresh sources + ${carriedCount} contextual sources from conversation history.\n\n`;
+  }
+  
+  return contextInfo + documents.map(([title, { results: docResults, docType }], docIndex: number) => {
+    const isCarriedDoc = docResults[0].isCarriedOver;
+    const contextMarker = isCarriedDoc ? " [Contextual]" : " [Fresh]";
+    
+    return `**Source ${docIndex + 1}:** ${title} (${docType})${contextMarker}
+${docResults.map(r => r.content).join('\n\n')}
+Citation: [${docIndex + 1}]`;
+  }).join("\n\n");
+}
+
+/**
+ * Format citations for hybrid sources
+ */
+function formatCitationsWithHybridSources(
+  results: HybridSearchResult[],
+  carryOverResult: ContextCarryOverResult | null
+): string {
+  // Group citations by document title
+  const groupedByDocument = new Map<string, { documentType: string; isCarried: boolean }>();
+  
+  results.forEach(r => {
+    if (!groupedByDocument.has(r.title)) {
+      groupedByDocument.set(r.title, { 
+        documentType: r.docType, 
+        isCarried: r.isCarriedOver || false 
+      });
+    }
+  });
+  
+  // Create clean numbered citations with context indicators
+  const documents = Array.from(groupedByDocument.entries());
+  let contextNote = "";
+  
+  const carriedCount = results.filter(r => r.isCarriedOver).length;
+  if (carriedCount > 0) {
+    contextNote = `\n<!-- Hybrid retrieval: ${carriedCount} contextual + ${results.length - carriedCount} fresh sources -->\n`;
+  }
+  
+  return contextNote + documents.map(([title, { documentType, isCarried }], index: number) => {
+    const marker = isCarried ? " (contextual)" : "";
+    return `[${index + 1}]: ${title}${marker}`;
+  }).join("\n");
+}
+
+/**
+ * Create enhanced citations from search corpus results for database persistence
+ */
+function createEnhancedCitationsFromResults(
+  result: { 
+    results?: Array<{ 
+      title: string; 
+      docType: string; 
+      content: string; 
+      citation: string;
+      documentId?: string;
+      chunkId?: string;
+      score?: number;
+      pageRange?: string;
+    }>;
+    citations?: Array<{ 
+      marker: string; 
+      title: string; 
+      factSummary: string; 
+      documentType: string;
+    }>;
+  }
+): EnhancedCitation[] {
+  const results = result.results || [];
+  const citations = result.citations || [];
+  
+  // Group citations by document title and extract relevant information
+  const groupedByDocument = new Map<string, {
+    documentType: string;
+    factSummary: string;
+    documentId?: string;
+    chunkId?: string;
+    score?: number;
+    pageRange?: string;
+  }>();
+  
+  // First, process citations to get fact summaries
+  citations.forEach(c => {
+    if (!groupedByDocument.has(c.title)) {
+      groupedByDocument.set(c.title, {
+        documentType: c.documentType,
+        factSummary: c.factSummary,
+      });
+    }
+  });
+  
+  // Then, enrich with search result data (documentId, chunkId, etc.)
+  results.forEach(r => {
+    if (groupedByDocument.has(r.title)) {
+      const existing = groupedByDocument.get(r.title)!;
+      existing.documentId = r.documentId;
+      existing.chunkId = r.chunkId;
+      existing.score = r.score;
+      existing.pageRange = r.pageRange;
+    } else {
+      // If we have a search result but no citation, create one with empty fact summary
+      groupedByDocument.set(r.title, {
+        documentType: r.docType,
+        factSummary: "",
+        documentId: r.documentId,
+        chunkId: r.chunkId,
+        score: r.score,
+        pageRange: r.pageRange,
+      });
+    }
+  });
+  
+  // Convert to enhanced citations with proper numbering
+  const documents = Array.from(groupedByDocument.entries());
+  return documents.map(([title, data], index: number) => ({
+    documentId: data.documentId || `unknown-${title.replace(/\s+/g, '-').toLowerCase()}`,
+    chunkId: data.chunkId,
+    marker: `[${index + 1}]`,
+    factSummary: data.factSummary,
+    pageRange: data.pageRange,
+    relevanceScore: data.score || 1.0,
+    citationOrder: index + 1,
+    title,
+    documentType: data.documentType,
+  }));
+}
+
+/**
+ * Create enhanced citations from hybrid search results for database persistence
+ */
+function createEnhancedCitationsFromHybridResults(
+  hybridResults: Array<{
+    title: string;
+    docType: string;
+    score: number;
+    isCarriedOver?: boolean;
+    documentId?: string;
+    chunkId?: string;
+    pageRange?: string;
+  }>,
+  carryOverResult: ContextCarryOverResult | null
+): EnhancedCitation[] {
+  // Group by document title to avoid duplicates
+  const groupedByDocument = new Map<string, {
+    documentType: string;
+    isCarriedOver: boolean;
+    documentId?: string;
+    chunkId?: string;
+    score: number;
+    pageRange?: string;
+  }>();
+  
+  hybridResults.forEach(r => {
+    if (!groupedByDocument.has(r.title)) {
+      groupedByDocument.set(r.title, {
+        documentType: r.docType,
+        isCarriedOver: r.isCarriedOver || false,
+        documentId: r.documentId,
+        chunkId: r.chunkId,
+        score: r.score,
+        pageRange: r.pageRange,
+      });
+    }
+  });
+  
+  // Convert to enhanced citations with proper numbering
+  const documents = Array.from(groupedByDocument.entries());
+  return documents.map(([title, data], index: number) => ({
+    documentId: data.documentId || `unknown-${title.replace(/\s+/g, '-').toLowerCase()}`,
+    chunkId: data.chunkId,
+    marker: `[${index + 1}]`,
+    factSummary: "", // Hybrid results don't have fact summaries by default
+    pageRange: data.pageRange,
+    relevanceScore: data.score,
+    citationOrder: index + 1,
+    title,
+    documentType: data.documentType,
+  }));
+}
+
+/**
+ * Create enhanced citations from context-aware search results for database persistence
+ */
+function createEnhancedCitationsFromContextResults(
+  result: { 
+    results?: Array<{ 
+      title: string; 
+      docType: string; 
+      content: string; 
+      citation: string;
+      documentId?: string;
+      chunkId?: string;
+      score?: number;
+      pageRange?: string;
+    }>;
+    citations?: Array<{ 
+      marker: string; 
+      title: string; 
+      factSummary: string; 
+      documentType: string;
+    }>;
+  },
+  carryOverResult: ContextCarryOverResult | null
+): EnhancedCitation[] {
+  // Reuse the base function for standard result processing
+  return createEnhancedCitationsFromResults(result);
 }

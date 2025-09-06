@@ -5,8 +5,12 @@ import { createClient } from "@/lib/supabase/server";
 import {
   shouldUseRAG,
   executeRAG,
+  executeRAGWithContext,
   createRAGEnhancedPrompt,
+  type RAGContext,
 } from "@/lib/rag/sequential-rag";
+import { createCitationManager } from "@/lib/rag/citation-persistence";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -45,7 +49,7 @@ export async function POST(req: NextRequest) {
     // Convert messages to AI SDK format
     const coreMessages: CoreMessage[] = messages.map(
       (msg: { role: string; content: string }) => ({
-        role: msg.role,
+        role: msg.role as 'user' | 'assistant' | 'system',
         content: msg.content,
       })
     );
@@ -130,23 +134,38 @@ Always provide accurate, helpful responses with transparent sourcing. Be engagin
     const useRAG = shouldUseRAG(userQuery);
     console.log(`🎯 RAG needed: ${useRAG}`);
 
-    let ragContext = {
+    let ragContext: RAGContext = {
       hasRAGResults: false,
       ragResults: "",
       citations: "",
-      toolsUsed: [] as string[],
+      toolsUsed: [],
       executionTime: 0,
+      // Enhanced context information
+      contextUsed: false,
+      turnAnalysis: undefined,
+      carryOverResult: undefined,
+      freshResults: 0,
+      carryOverResults: 0,
+      // Fact summarization context
+      memoryUsed: false,
+      // Citation persistence context
+      citationsPersisted: false,
     };
 
-    // Execute RAG if needed
+    // Execute RAG if needed (with enhanced context management)
     if (useRAG) {
-      console.log("🔍 Executing sequential RAG...");
-      ragContext = await executeRAG(userQuery);
+      console.log("🔍 Executing sequential RAG with context management...");
+      ragContext = await executeRAGWithContext(userQuery, conversationId, messages);
       console.log(
         `📊 RAG execution completed: ${
           ragContext.hasRAGResults ? "SUCCESS" : "NO_RESULTS"
         }`
       );
+      console.log(`🔄 Context Management: ${ragContext.contextUsed ? "ACTIVE" : "DISABLED"}`);
+      if (ragContext.contextUsed && ragContext.turnAnalysis) {
+        console.log(`🎯 Turn: ${ragContext.turnAnalysis.turnType}, Mode: ${ragContext.turnAnalysis.responseMode}`);
+        console.log(`📈 Sources: ${ragContext.freshResults} fresh + ${ragContext.carryOverResults} carried`);
+      }
     }
 
     // Create enhanced system prompt with RAG context
@@ -245,16 +264,21 @@ Always provide accurate, helpful responses with transparent sourcing. Be engagin
 
           // Save assistant message separately to ensure it's persisted even if user message fails
           console.log("💾 Saving assistant message to database...");
-          const { error: assistantError } = await supabase.from("messages").insert({
+          const { data: savedMessage, error: assistantError } = await supabase.from("messages").insert({
             conversation_id: actualConversationId,
             role: "assistant",
             content: completion.text,
-          });
+          }).select('id').single();
 
           if (assistantError) {
             console.error("❌ Failed to save assistant message:", assistantError);
           } else {
             console.log("✅ Assistant message saved successfully");
+            
+            // Persist citations and context sources if RAG was used
+            if (ragContext.hasRAGResults && savedMessage?.id) {
+              await handleCitationPersistence(supabase, savedMessage.id, actualConversationId, ragContext);
+            }
           }
 
           // Update conversation timestamp only if at least one message was saved
@@ -308,5 +332,82 @@ Always provide accurate, helpful responses with transparent sourcing. Be engagin
       },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Handle citation persistence after message is saved
+ */
+async function handleCitationPersistence(
+  supabase: SupabaseClient,
+  messageId: string,
+  conversationId: string,
+  ragContext: RAGContext
+) {
+  try {
+    console.log("💾 Starting citation persistence process...");
+    
+    const citationManager = createCitationManager(conversationId);
+    
+    // Extract citations from ragContext if available
+    if (ragContext.enhancedCitations && ragContext.enhancedCitations.length > 0) {
+      console.log(`💾 Persisting ${ragContext.enhancedCitations.length} enhanced citations...`);
+      
+      // Persist citations to message_citations table
+      const citationData = ragContext.enhancedCitations.map(citation => ({
+        message_id: messageId,
+        document_id: citation.documentId,
+        chunk_id: citation.chunkId,
+        marker: citation.marker,
+        fact_summary: citation.factSummary,
+        page_range: citation.pageRange,
+        relevance_score: citation.relevanceScore,
+        citation_order: citation.citationOrder
+      }));
+      
+      const { error: citationError } = await supabase
+        .from('message_citations')
+        .insert(citationData);
+        
+      if (citationError) {
+        console.error("❌ Failed to persist citations:", citationError);
+      } else {
+        console.log("✅ Citations persisted successfully");
+      }
+      
+      // Update conversation_sources table
+      const sourceData = ragContext.enhancedCitations.map(citation => ({
+        conversation_id: conversationId,
+        document_id: citation.documentId,
+        last_used_at: new Date().toISOString(),
+        carry_score: citation.relevanceScore || 1.0,
+        pinned: false,
+        turns_inactive: 0
+      }));
+      
+      // Use upsert to handle existing sources
+      const { error: sourceError } = await supabase
+        .from('conversation_sources')
+        .upsert(sourceData, { 
+          onConflict: 'conversation_id,document_id',
+          ignoreDuplicates: false 
+        });
+        
+      if (sourceError) {
+        console.error("❌ Failed to update conversation sources:", sourceError);
+      } else {
+        console.log("✅ Conversation sources updated successfully");
+      }
+    }
+    
+    // Also handle legacy citation format from ragContext.citations if needed
+    if (!ragContext.enhancedCitations && ragContext.citations) {
+      console.log("💾 Processing legacy citation format...");
+      // Parse citations from the formatted string and persist
+      // This would need additional parsing logic for the legacy format
+    }
+    
+  } catch (error) {
+    console.error("❌ Citation persistence failed:", error);
   }
 }

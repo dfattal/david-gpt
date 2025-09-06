@@ -99,9 +99,9 @@ export async function POST(req: NextRequest) {
       throw new AppError('Document type is required', 400)
     }
 
-    let filePath: string | null = null
+    const filePath: string | null = null
     let fileSize: number | null = null
-    let fileHash: string | null = null
+    const fileHash: string | null = null
 
     // Handle file upload to Supabase Storage
     if (file) {

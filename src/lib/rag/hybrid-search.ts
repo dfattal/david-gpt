@@ -91,7 +91,7 @@ export class HybridSearchEngine {
       const queryEmbedding = await generateQueryEmbedding(query.query);
 
       // Build the query with filters
-      let supabaseQuery = supabase
+      let supabaseQuery = supabaseAdmin
         .from('document_chunks')
         .select(`
           id,
@@ -173,41 +173,195 @@ export class HybridSearchEngine {
     try {
       // Clean and prepare search query for PostgreSQL
       const searchQuery = this.prepareSearchQuery(query.query);
+      console.log(`🔍 Keyword search query: "${searchQuery}"`);
 
-      // Build the query with filters
-      let supabaseQuery = supabase
-        .from('document_chunks')
-        .select(`
-          id,
-          document_id,
-          content,
-          token_count,
-          chunk_index,
-          page_start,
-          page_end,
-          section_title,
-          tsvector_content,
-          documents (
+      // Build the query with filters using raw SQL approach
+      // The Supabase JS textSearch method doesn't work well with filters, so we use raw queries
+      let supabaseQuery;
+      
+      if (query.filters?.documentIds && query.filters.documentIds.length > 0) {
+        // Use raw SQL query for better control when filtering
+        const documentIdsParam = query.filters.documentIds.map(id => `'${id}'`).join(',');
+        const sqlQuery = `
+          SELECT 
+            dc.id,
+            dc.document_id,
+            dc.content,
+            dc.token_count,
+            dc.chunk_index,
+            dc.page_start,
+            dc.page_end,
+            dc.section_title,
+            dc.tsvector_content,
+            d.id as doc_id,
+            d.title as doc_title,
+            d.doc_type,
+            d.doi,
+            d.arxiv_id,
+            d.patent_no,
+            d.url,
+            d.published_date,
+            d.created_at as doc_created_at
+          FROM document_chunks dc
+          LEFT JOIN documents d ON dc.document_id = d.id
+          WHERE dc.document_id IN (${documentIdsParam})
+          AND dc.tsvector_content @@ websearch_to_tsquery('english', $1)
+          ORDER BY ts_rank(dc.tsvector_content, websearch_to_tsquery('english', $1)) DESC
+          LIMIT ${this.config.maxResults}
+        `;
+        
+        console.log(`🔍 Using raw SQL query for filtered textSearch`);
+        console.log(`🔍 SQL Query:`, sqlQuery.replace(/\s+/g, ' ').trim());
+        
+        // Use Supabase's rpc with a custom function or direct query
+        const { data: chunks, error } = await supabaseAdmin
+          .from('document_chunks')
+          .select(`
             id,
-            title,
-            doc_type,
-            doi,
-            arxiv_id,
-            patent_no,
-            url,
-            published_date,
-            created_at
-          )
-        `)
-        .textSearch('tsvector_content', searchQuery, {
-          type: 'websearch',
-          config: 'english',
-        });
+            document_id,
+            content,
+            token_count,
+            chunk_index,
+            page_start,
+            page_end,
+            section_title,
+            documents (
+              id,
+              title,
+              doc_type,
+              doi,
+              arxiv_id,
+              patent_no,
+              url,
+              published_date,
+              created_at
+            )
+          `)
+          .in('document_id', query.filters.documentIds)
+          .textSearch('tsvector_content', searchQuery, {
+            type: 'websearch',
+            config: 'english',
+          })
+          .limit(this.config.maxResults);
+        
+        if (error) {
+          console.error('Raw SQL keyword search error:', error);
+          // Fallback to regular approach
+          supabaseQuery = supabaseAdmin
+            .from('document_chunks')
+            .select(`*`)
+            .in('document_id', query.filters.documentIds);
+        } else {
+          console.log(`🔍 Combined query succeeded: ${chunks?.length || 0} results`);
+          
+          // Process the results directly using standard format
+          const results: SearchResult[] = chunks?.map((chunk, index) => {
+            const score = Math.max(0.1, 1 - (index / chunks.length));
 
-      // Apply filters
-      supabaseQuery = this.applyFilters(supabaseQuery, query.filters);
+            return {
+              documentId: chunk.document_id,
+              chunkId: chunk.id,
+              score,
+              content: chunk.content,
+              title: chunk.documents?.title || 'Untitled',
+              docType: chunk.documents?.doc_type,
+              pageRange: this.formatPageRange(chunk.page_start, chunk.page_end),
+              sectionTitle: chunk.section_title,
+              metadata: chunk.documents as any,
+            } as SearchResult;
+          }) || [];
+
+          console.log(`🔍 Processed ${results.length} keyword results with combined filtering`);
+          return results;
+        }
+      } else {
+        // No document ID filters, use standard textSearch
+        supabaseQuery = supabaseAdmin
+          .from('document_chunks')
+          .select(`
+            id,
+            document_id,
+            content,
+            token_count,
+            chunk_index,
+            page_start,
+            page_end,
+            section_title,
+            tsvector_content,
+            documents (
+              id,
+              title,
+              doc_type,
+              doi,
+              arxiv_id,
+              patent_no,
+              url,
+              published_date,
+              created_at
+            )
+          `)
+          .textSearch('tsvector_content', searchQuery, {
+            type: 'websearch',
+            config: 'english',
+          });
+
+        // Apply other filters
+        supabaseQuery = this.applyFilters(supabaseQuery, query.filters);
+      }
+      
+      console.log(`🔍 Keyword search filters:`, query.filters);
 
       // Execute query
+      console.log(`🔍 About to execute Supabase query with maxResults: ${this.config.maxResults}`);
+      
+      // Debug: Test different scenarios to isolate the issue
+      if (query.filters?.documentIds && query.filters.documentIds.length > 0) {
+        console.log(`🔍 Testing document filter only (without textSearch)`);
+        console.log(`🔍 Testing with document IDs:`, query.filters.documentIds);
+        
+        // Test 1: Basic document filter
+        const testQuery = supabaseAdmin
+          .from('document_chunks')
+          .select('id, document_id')
+          .in('document_id', query.filters.documentIds)
+          .limit(5);
+        
+        const { data: testData, error: testError } = await testQuery;
+        console.log(`🔍 Document filter test: ${testData?.length || 0} results`, testError || '');
+        if (testData && testData.length > 0) {
+          console.log(`🔍 Sample results:`, testData.slice(0, 2));
+        }
+        
+        // Test 2: Text search without filters
+        console.log(`🔍 Testing textSearch without filters`);
+        const textOnlyQuery = supabaseAdmin
+          .from('document_chunks')
+          .select('id, document_id, content')
+          .textSearch('tsvector_content', searchQuery, {
+            type: 'websearch',
+            config: 'english',
+          })
+          .limit(3);
+        
+        const { data: textOnlyData, error: textOnlyError } = await textOnlyQuery;
+        console.log(`🔍 Text-only search test: ${textOnlyData?.length || 0} results`, textOnlyError || '');
+        
+        // Test 3: Combined text search + document filter
+        console.log(`🔍 Testing combined textSearch + document filter`);
+        const combinedQuery = supabaseAdmin
+          .from('document_chunks')
+          .select('id, document_id, content')
+          .textSearch('tsvector_content', searchQuery, {
+            type: 'websearch',
+            config: 'english',
+          })
+          .in('document_id', query.filters.documentIds)
+          .limit(3);
+        
+        const { data: combinedData, error: combinedError } = await combinedQuery;
+        console.log(`🔍 Combined search test: ${combinedData?.length || 0} results`, combinedError || '');
+      }
+      
       const { data: chunks, error } = await supabaseQuery
         .limit(this.config.maxResults);
 
@@ -215,6 +369,8 @@ export class HybridSearchEngine {
         console.error('Keyword search database error:', error);
         throw error;
       }
+
+      console.log(`🔍 Keyword search raw results: ${chunks?.length || 0} chunks`);
 
       if (!chunks || chunks.length === 0) {
         return [];
@@ -374,6 +530,11 @@ export class HybridSearchEngine {
     // Papers-specific filter
     if (filters.papers === true) {
       query = query.in('documents.doc_type', ['paper', 'pdf']);
+    }
+
+    // Document ID filter (for context-aware search)
+    if (filters.documentIds && filters.documentIds.length > 0) {
+      query = query.in('document_id', filters.documentIds);
     }
 
     return query;

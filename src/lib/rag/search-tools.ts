@@ -8,6 +8,8 @@
 import { z } from "zod";
 import { tool } from "ai";
 import { createClient } from "@/lib/supabase/server";
+import { hybridSearchEngine } from "./hybrid-search";
+import type { SearchQuery, SearchFilters } from "./types";
 
 interface SearchResult {
   title: string;
@@ -57,6 +59,10 @@ export const searchCorpusTool = tool({
       .describe(
         "How to structure the response - FACT for quick facts, EXPLAIN for detailed context, CONFLICTS for comparing sources"
       ),
+    documentIds: z
+      .array(z.string())
+      .optional()
+      .describe("Optional list of specific document IDs to search within (for context-aware searches)"),
   }),
   execute: async ({
     query,
@@ -64,17 +70,16 @@ export const searchCorpusTool = tool({
     documentTypes,
     dateRange,
     responseMode = "EXPLAIN",
+    documentIds,
   }) => {
     try {
       console.log(`🔍 RAG search_corpus called with query: "${query}"`);
+      if (documentIds && documentIds.length > 0) {
+        console.log(`🎯 Context-aware search: filtering to ${documentIds.length} specific document(s)`);
+      }
       
-      // Extract key terms from natural language query with new logic
-      const searchTerms = extractKeyTerms(query);
-      console.log(`🔑 FIXED Extracted search terms: "${searchTerms}"`);
-      
-      const supabase = await createClient();
-
       // Get authenticated user
+      const supabase = await createClient();
       const {
         data: { user },
         error: authError,
@@ -88,65 +93,29 @@ export const searchCorpusTool = tool({
         };
       }
 
-      // Build query with filters
-      let dbQuery = supabase
-        .from("document_chunks")
-        .select(
-          `
-          id,
-          content,
-          chunk_index,
-          section_title,
-          documents!inner (
-            id,
-            title,
-            doc_type,
-            url,
-            iso_date,
-            created_at,
-            patent_no
-          )
-        `
-        )
-        .textSearch("tsvector_content", searchTerms, {
-          config: "english",
-          type: "plain",
-        })
-        .order("documents(created_at)", { ascending: false })
-        .limit(limit);
+      // Build search query with filters for hybrid search
+      const searchQuery: SearchQuery = {
+        query,
+        limit,
+        filters: {
+          documentTypes,
+          dateRange: dateRange ? {
+            start: dateRange.start ? new Date(dateRange.start) : undefined,
+            end: dateRange.end ? new Date(dateRange.end) : undefined,
+          } : undefined,
+          documentIds, // Context-aware filtering
+        },
+      };
 
-      // Apply document type filters
-      if (documentTypes && documentTypes.length > 0) {
-        dbQuery = dbQuery.in("documents.doc_type", documentTypes);
-      }
-
-      // Apply date range filters
-      if (dateRange) {
-        if (dateRange.start) {
-          dbQuery = dbQuery.gte("documents.iso_date", dateRange.start);
-        }
-        if (dateRange.end) {
-          dbQuery = dbQuery.lte("documents.iso_date", dateRange.end);
-        }
-      }
-
-      const { data: chunks, error: searchError } = await dbQuery;
-
-      console.log(`🔍 Database query executed, chunks found: ${chunks?.length || 0}`);
-      if (searchError) {
-        console.error("❌ Database search error:", searchError);
-        throw searchError;
-      }
+      console.log(`🚀 Executing hybrid search (semantic + keyword + reranking)...`);
       
-      if (chunks && chunks.length > 0) {
-        console.log(`✅ Found chunks from documents:`, chunks.slice(0, 3).map(c => ({ 
-          title: c.documents?.title, 
-          doc_type: c.documents?.doc_type,
-          content_preview: c.content?.substring(0, 100)
-        })));
-      }
-
-      if (!chunks || chunks.length === 0) {
+      // Execute hybrid search
+      const searchResult = await hybridSearchEngine.search(searchQuery);
+      
+      console.log(`✅ Hybrid search completed: ${searchResult.results.length} results in ${searchResult.executionTime}ms`);
+      console.log(`📊 Search breakdown: ${searchResult.semanticResults.length} semantic, ${searchResult.keywordResults.length} keyword`);
+      
+      if (searchResult.results.length === 0) {
         return {
           success: true,
           message: `No documents found matching "${query}". The query might be too specific or the information may not be in the corpus.`,
@@ -154,30 +123,32 @@ export const searchCorpusTool = tool({
           totalCount: 0,
           suggestions: [
             "Try broader search terms",
-            "Check spelling and terminology",
+            "Check spelling and terminology", 
             "Remove date or document type filters",
             "Ask about general topics in the corpus",
           ],
         };
       }
 
-      // Format results with citations
-      const results = chunks.map((chunk, index) => ({
-        title: chunk.documents.title,
-        content: chunk.content,
-        docType: chunk.documents.doc_type,
-        pageRange: `Chunk ${chunk.chunk_index}`,
-        sectionTitle: chunk.section_title,
-        score: 0.8, // Placeholder score
+      // Format results for RAG tool response
+      const results = searchResult.results.map((result, index) => ({
+        title: result.title,
+        content: result.content,
+        docType: result.docType,
+        pageRange: result.pageRange || `Similarity: ${result.score.toFixed(3)}`,
+        sectionTitle: result.sectionTitle,
+        score: result.rerankedScore || result.score,
         citation: `[C${index + 1}]`,
+        documentId: result.documentId,
+        chunkId: result.chunkId,
       }));
 
       return {
         success: true,
-        message: `Found ${results.length} relevant documents for "${query}"`,
+        message: `Found ${results.length} relevant documents for "${query}" using hybrid search`,
         results,
         totalCount: results.length,
-        executionTime: Date.now() - Date.now(),
+        executionTime: searchResult.executionTime,
         citations: results.map((result, index) => ({
           marker: `C${index + 1}`,
           title: result.title,
@@ -186,10 +157,10 @@ export const searchCorpusTool = tool({
         })),
       };
     } catch (error) {
-      console.error("Search corpus error:", error);
+      console.error("Hybrid search corpus error:", error);
       return {
         success: false,
-        message: `Search failed: ${
+        message: `Hybrid search failed: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
         results: [],
@@ -659,44 +630,4 @@ function extractCommonTerms(results: SearchResult[]): {
   return { entities, dates, concepts };
 }
 
-/**
- * Extract key search terms from natural language queries with smart prioritization
- */
-function extractKeyTerms(query: string): string {
-  // Remove common question words and stopwords
-  const stopWords = new Set([
-    'who', 'what', 'when', 'where', 'why', 'how', 'are', 'is', 'the', 'of', 'in', 'to', 'for', 'a', 'an', 'and', 'or', 'but'
-  ]);
-  
-  // Check for patent numbers first - these are the most important
-  const patentMatch = query.match(/US\d+[A-Z]*\d*/i);
-  if (patentMatch) {
-    const patentNumber = patentMatch[0].toUpperCase();
-    
-    // For patent queries, prioritize the patent number and add one key concept
-    if (query.toLowerCase().includes('inventor') || query.toLowerCase().includes('author') || query.toLowerCase().includes('creator')) {
-      return `${patentNumber} inventors`;
-    }
-    
-    // For general patent queries, just use the patent number
-    return patentNumber;
-  }
-  
-  // Extract words and filter
-  const words = query.toLowerCase().split(/\s+/);
-  const keyTerms: string[] = [];
-  
-  for (const word of words) {
-    // Keep technical terms and meaningful words (but limit to avoid complexity)
-    if (word.length > 2 && !stopWords.has(word) && keyTerms.length < 5) {
-      keyTerms.push(word);
-    }
-  }
-  
-  // If no key terms found, return the original query
-  if (keyTerms.length === 0) {
-    return query;
-  }
-  
-  return keyTerms.join(' ');
-}
+// extractKeyTerms function removed - now using semantic search instead of keyword extraction
