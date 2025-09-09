@@ -54,8 +54,8 @@ export class RelationshipSearchEngine {
     console.log(`📊 Found ${queryEntities.length} entities in query:`, queryEntities.map(e => e.name));
     
     // Step 2: Expand with related entities via relationships
-    let expandedEntities = [...queryEntities];
-    let relationships: Array<any> = [];
+    const expandedEntities = [...queryEntities];
+    const relationships: Array<any> = [];
     
     if (includeRelatedEntities && queryEntities.length > 0) {
       const expansion = await this.expandEntitiesViaRelationships(queryEntities, maxHops);

@@ -345,6 +345,7 @@ export interface GROBIDResponse {
   }>;
   abstract?: string;
   keywords?: string[];
+  fullText?: string; // Full extracted text content
   sections?: Array<{
     title?: string;
     content?: string;
@@ -446,9 +447,9 @@ export interface RAGConfig {
 // Default configuration
 export const DEFAULT_RAG_CONFIG: RAGConfig = {
   chunking: {
-    targetTokens: 1000,
+    targetTokens: 800,
     overlapPercent: 17.5,
-    minChunkTokens: 800,
+    minChunkTokens: 100,
     maxChunkTokens: 1200,
     sectionAware: true,
   },

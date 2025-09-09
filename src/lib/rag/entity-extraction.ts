@@ -483,7 +483,7 @@ export class EntityExtractor {
   }
   
   /**
-   * Save entities to database
+   * Save entities to database with continuous consolidation
    */
   async saveEntities(
     documentId: string,
@@ -491,50 +491,39 @@ export class EntityExtractor {
     aliases: Partial<EntityAlias>[],
     relationships: Array<any>
   ): Promise<void> {
-    console.log(`💾 Saving ${entities.length} entities to database...`);
+    console.log(`💾 Saving ${entities.length} entities to database with consolidation...`);
     
     try {
-      // Save entities
+      // Import consolidator
+      const { entityConsolidator } = await import('./entity-consolidator');
+      
+      let reusedCount = 0;
+      let newCount = 0;
+      
+      // Save entities with consolidation
       for (const entity of entities) {
         if (!entity.name || !entity.kind) continue;
         
-        // Check if entity already exists
-        const { data: existing } = await supabaseAdmin
-          .from('entities')
-          .select('id, mention_count, authority_score')
-          .eq('name', entity.name)
-          .eq('kind', entity.kind)
-          .single();
+        // Use consolidator to check for existing entities and reuse them
+        const consolidationResult = await entityConsolidator.consolidateEntityOnIngestion(
+          entity.name,
+          entity.kind,
+          entity.description
+        );
         
-        if (existing) {
-          // Update existing entity
-          await supabaseAdmin
-            .from('entities')
-            .update({
-              mention_count: existing.mention_count + (entity.mentionCount || 1),
-              authority_score: Math.max(existing.authority_score, entity.authorityScore || 0.5),
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', existing.id);
+        if (consolidationResult.wasReused) {
+          reusedCount++;
+          console.log(`🔗 Reused entity: ${entity.name} → ${consolidationResult.matchedName || entity.name}`);
         } else {
-          // Create new entity
-          const { error } = await supabaseAdmin
-            .from('entities')
-            .insert({
-              name: entity.name,
-              kind: entity.kind,
-              description: entity.description,
-              authority_score: entity.authorityScore || 0.5,
-              mention_count: entity.mentionCount || 1
-            });
-          
-          if (error) {
-            console.error('Error saving entity:', error);
-          }
+          newCount++;
+          console.log(`🆕 Created new entity: ${entity.name}`);
         }
       }
       
-      console.log('✅ Entities saved successfully');
+      console.log(`✅ Entities saved successfully: ${reusedCount} reused, ${newCount} new`);
+      
+      // TODO: Save relationships after consolidation
+      // This would require mapping entity names to consolidated entity IDs
       
     } catch (error) {
       console.error('Error in saveEntities:', error);

@@ -151,7 +151,7 @@ class SimpleE2ETester {
       "What devices use this technology?"
     ];
 
-    let conversationMessages: Array<{role: string, content: string}> = [];
+    const conversationMessages: Array<{role: string, content: string}> = [];
     let allSuccessful = true;
     let contextContinuity = false;
 

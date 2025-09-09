@@ -182,7 +182,7 @@ export async function executeRAGWithContext(
     // Initialize citation persistence context
     let citationBatch: CitationBatch | undefined;
     let enhancedCitations: EnhancedCitation[] = [];
-    let citationsPersisted = false;
+    const citationsPersisted = false;
     
     // Build context memory for existing conversations
     if (contextManager && conversationId && conversationId !== 'temp') {

@@ -442,7 +442,7 @@ export class CitationPersistenceManager {
   }
 
   private calculateAuthorityScore(result: SearchResult): number {
-    let score = 0.5 + Math.min(result.score, 0.3);
+    const score = 0.5 + Math.min(result.score, 0.3);
     
     const typeAuthority = {
       'patent': 0.9,

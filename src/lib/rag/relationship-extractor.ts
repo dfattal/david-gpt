@@ -228,7 +228,7 @@ export class RelationshipExtractor {
       
       // Determine source and destination based on relationship type
       let srcName: string, dstName: string;
-      let srcType: 'entity' | 'document' = 'entity';
+      const srcType: 'entity' | 'document' = 'entity';
       let dstType: 'entity' | 'document' = 'entity';
       
       switch (relationType) {

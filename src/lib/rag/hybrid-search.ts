@@ -150,7 +150,17 @@ export class HybridSearchEngine {
             patent_no,
             url,
             published_date,
-            created_at
+            created_at,
+            inventors,
+            assignees,
+            original_assignee,
+            patent_status,
+            filed_date,
+            granted_date,
+            priority_date,
+            expiration_date,
+            abstract,
+            classification
           )
         `)
         .not('embedding', 'is', null);
@@ -239,7 +249,17 @@ export class HybridSearchEngine {
             d.patent_no,
             d.url,
             d.published_date,
-            d.created_at as doc_created_at
+            d.created_at as doc_created_at,
+            d.inventors,
+            d.assignees,
+            d.original_assignee,
+            d.patent_status,
+            d.filed_date,
+            d.granted_date,
+            d.priority_date,
+            d.expiration_date,
+            d.abstract,
+            d.classification
           FROM document_chunks dc
           LEFT JOIN documents d ON dc.document_id = d.id
           WHERE dc.document_id IN (${documentIdsParam})
@@ -272,7 +292,17 @@ export class HybridSearchEngine {
               patent_no,
               url,
               published_date,
-              created_at
+              created_at,
+              inventors,
+              assignees,
+              original_assignee,
+              patent_status,
+              filed_date,
+              granted_date,
+              priority_date,
+              expiration_date,
+              abstract,
+              classification
             )
           `)
           .in('document_id', query.filters.documentIds)
@@ -335,7 +365,17 @@ export class HybridSearchEngine {
               patent_no,
               url,
               published_date,
-              created_at
+              created_at,
+              inventors,
+              assignees,
+              original_assignee,
+              patent_status,
+              filed_date,
+              granted_date,
+              priority_date,
+              expiration_date,
+              abstract,
+              classification
             )
           `)
           .textSearch('tsvector_content', searchQuery, {
@@ -691,7 +731,23 @@ export async function searchWithinDocument(
         documents (
           id,
           title,
-          doc_type
+          doc_type,
+          doi,
+          arxiv_id,
+          patent_no,
+          url,
+          published_date,
+          created_at,
+          inventors,
+          assignees,
+          original_assignee,
+          patent_status,
+          filed_date,
+          granted_date,
+          priority_date,
+          expiration_date,
+          abstract,
+          classification
         )
       `)
       .eq('document_id', documentId)

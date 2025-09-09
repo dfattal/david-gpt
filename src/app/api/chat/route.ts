@@ -10,15 +10,27 @@ import {
   type RAGContext,
 } from "@/lib/rag/sequential-rag";
 import { createCitationManager } from "@/lib/rag/citation-persistence";
+import { startPerformanceTimer, endPerformanceTimer, timeOperation } from "@/lib/performance/monitoring";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
+  const overallTimerId = startPerformanceTimer('chat_request', {
+    category: 'api',
+    operation: 'chat_complete_request',
+    threshold: 3000, // 3 second threshold
+  });
+
   try {
     // Parse request body
+    const parseTimerId = startPerformanceTimer('parse_request', {
+      category: 'api',
+      operation: 'parse_request_body',
+    });
     const body = await req.json();
+    endPerformanceTimer(parseTimerId);
     const { messages, conversationId } = body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
@@ -154,10 +166,21 @@ Always provide accurate, helpful responses with transparent sourcing. Be engagin
 
     // Execute RAG if needed (with enhanced context management)
     if (useRAG) {
+      const { result: ragResult, duration: ragDuration } = await timeOperation(
+        () => executeRAGWithContext(userQuery, conversationId, messages),
+        'rag_execution',
+        {
+          category: 'rag',
+          operation: 'executeRAGWithContext',
+          threshold: 1000, // 1 second threshold for RAG
+          context: { query: userQuery, conversationId }
+        }
+      );
+      
+      ragContext = ragResult;
       console.log("🔍 Executing sequential RAG with context management...");
-      ragContext = await executeRAGWithContext(userQuery, conversationId, messages);
       console.log(
-        `📊 RAG execution completed: ${
+        `📊 RAG execution completed in ${ragDuration.toFixed(0)}ms: ${
           ragContext.hasRAGResults ? "SUCCESS" : "NO_RESULTS"
         }`
       );
@@ -174,7 +197,7 @@ Always provide accurate, helpful responses with transparent sourcing. Be engagin
       ragContext
     );
 
-    // Common onFinish handler
+    // Optimized onFinish handler with parallel operations
     const handleOnFinish = async (completion: { text?: string }) => {
       console.log(
         "✅ Stream finished, text length:",
@@ -196,8 +219,7 @@ Always provide accurate, helpful responses with transparent sourcing. Be engagin
           const latestUserMessage = messages[messages.length - 1];
           let actualConversationId = conversationId;
 
-          // If no conversationId provided, this might be a first message
-          // Try to find the conversation that was just created for this user with this message
+          // Parallel operation 1: Get conversation ID if needed
           if (!actualConversationId) {
             console.log("🔍 No conversationId provided, searching for recently created conversation...");
             const { data: recentConversations, error: searchError } = await supabase
@@ -205,20 +227,15 @@ Always provide accurate, helpful responses with transparent sourcing. Be engagin
               .select("id, created_at")
               .eq("user_id", user.id)
               .order("created_at", { ascending: false })
-              .limit(5); // Check last 5 conversations
+              .limit(5);
 
-            if (searchError) {
-              console.error("❌ Failed to search for recent conversations:", searchError);
-            } else if (recentConversations && recentConversations.length > 0) {
-              // Look for a conversation that was created in the last 30 seconds
+            if (!searchError && recentConversations?.length > 0) {
               const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
               const recentConv = recentConversations.find(conv => conv.created_at > thirtySecondsAgo);
               
               if (recentConv) {
                 actualConversationId = recentConv.id;
                 console.log(`✅ Found recent conversation: ${actualConversationId}`);
-              } else {
-                console.log("⚠️ No recent conversation found within 30 seconds");
               }
             }
           }
@@ -228,77 +245,107 @@ Always provide accurate, helpful responses with transparent sourcing. Be engagin
             return;
           }
 
-          // Check if user message already exists (to avoid duplicates from conversation creation)
-          console.log("🔍 Checking if user message already exists...");
-          const { data: existingUserMessages, error: checkError } = await supabase
-            .from("messages")
-            .select("id")
-            .eq("conversation_id", actualConversationId)
-            .eq("role", "user")
-            .eq("content", latestUserMessage.content)
-            .limit(1);
+          console.log("💾 Starting parallel database operations...");
+          const dbTimerId = startPerformanceTimer('database_operations', {
+            category: 'database',
+            operation: 'parallel_message_persistence',
+            threshold: 2000, // 2 second threshold for DB operations
+            context: { conversationId: actualConversationId }
+          });
 
-          let userError = checkError;
-
-          if (checkError) {
-            console.error("❌ Failed to check for existing user message:", checkError);
-          } else if (existingUserMessages && existingUserMessages.length > 0) {
-            console.log("✅ User message already exists, skipping duplicate save");
-          } else {
-            // Save user message only if it doesn't already exist
-            console.log("💾 Saving user message to database...");
-            const { error: insertUserError } = await supabase.from("messages").insert({
-              conversation_id: actualConversationId,
-              role: "user",
-              content: latestUserMessage.content,
-            });
-
-            userError = insertUserError;
-
-            if (insertUserError) {
-              console.error("❌ Failed to save user message:", insertUserError);
-            } else {
-              console.log("✅ User message saved successfully");
-            }
-          }
-
-          // Save assistant message separately to ensure it's persisted even if user message fails
-          console.log("💾 Saving assistant message to database...");
-          const { data: savedMessage, error: assistantError } = await supabase.from("messages").insert({
-            conversation_id: actualConversationId,
-            role: "assistant",
-            content: completion.text,
-          }).select('id').single();
-
-          if (assistantError) {
-            console.error("❌ Failed to save assistant message:", assistantError);
-          } else {
-            console.log("✅ Assistant message saved successfully");
+          // Execute all database operations in parallel
+          const [
+            existingMessageCheck,
+            assistantMessageInsert,
+            conversationUpdate
+          ] = await Promise.allSettled([
+            // Check for existing user message
+            supabase
+              .from("messages")
+              .select("id")
+              .eq("conversation_id", actualConversationId)
+              .eq("role", "user")
+              .eq("content", latestUserMessage.content)
+              .limit(1),
             
-            // Persist citations and context sources if RAG was used
-            if (ragContext.hasRAGResults && savedMessage?.id) {
-              await handleCitationPersistence(supabase, savedMessage.id, actualConversationId, ragContext);
-            }
-          }
-
-          // Update conversation timestamp only if at least one message was saved
-          if (!userError || !assistantError) {
-            console.log("💾 Updating conversation timestamp...");
-            const { error: timestampError } = await supabase
+            // Save assistant message immediately
+            supabase.from("messages").insert({
+              conversation_id: actualConversationId,
+              role: "assistant",
+              content: completion.text,
+            }).select('id').single(),
+            
+            // Update conversation timestamp
+            supabase
               .from("conversations")
               .update({
                 last_message_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
               })
               .eq("id", actualConversationId)
-              .eq("user_id", user.id);
+              .eq("user_id", user.id)
+          ]);
 
-            if (timestampError) {
-              console.error("❌ Failed to update conversation timestamp:", timestampError);
-            } else {
-              console.log("✅ Conversation timestamp updated successfully");
+          const operationTime = endPerformanceTimer(dbTimerId) || 0;
+          console.log(`⚡ Parallel database operations completed in ${operationTime.toFixed(0)}ms`);
+
+          // Handle assistant message result
+          let savedMessageId: string | null = null;
+          if (assistantMessageInsert.status === 'fulfilled' && !assistantMessageInsert.value.error) {
+            savedMessageId = assistantMessageInsert.value.data?.id;
+            console.log("✅ Assistant message saved successfully");
+          } else {
+            console.error("❌ Failed to save assistant message:", 
+              assistantMessageInsert.status === 'fulfilled' 
+                ? assistantMessageInsert.value.error 
+                : assistantMessageInsert.reason);
+          }
+
+          // Handle user message if needed (only if doesn't exist)
+          let userMessageExists = false;
+          if (existingMessageCheck.status === 'fulfilled' && !existingMessageCheck.value.error) {
+            userMessageExists = (existingMessageCheck.value.data?.length || 0) > 0;
+            if (userMessageExists) {
+              console.log("✅ User message already exists, skipping duplicate save");
             }
           }
+
+          // Save user message if it doesn't exist (async, non-blocking)
+          if (!userMessageExists) {
+            supabase.from("messages").insert({
+              conversation_id: actualConversationId,
+              role: "user",
+              content: latestUserMessage.content,
+            }).then(result => {
+              if (result.error) {
+                console.error("❌ Failed to save user message:", result.error);
+              } else {
+                console.log("✅ User message saved successfully");
+              }
+            });
+          }
+
+          // Handle conversation timestamp update
+          if (conversationUpdate.status === 'fulfilled' && !conversationUpdate.value.error) {
+            console.log("✅ Conversation timestamp updated successfully");
+          } else {
+            console.error("❌ Failed to update conversation timestamp:", 
+              conversationUpdate.status === 'fulfilled' 
+                ? conversationUpdate.value.error 
+                : conversationUpdate.reason);
+          }
+          
+          // Handle citation persistence with optimized batch processing (non-blocking)
+          if (ragContext.hasRAGResults && savedMessageId) {
+            // Import optimized citation processing
+            import('@/lib/performance/batch-citations')
+              .then(({ optimizedCitationPersistence }) => 
+                optimizedCitationPersistence(supabase, savedMessageId, actualConversationId, ragContext)
+              )
+              .then(() => console.log("✅ Citations queued for batch processing"))
+              .catch((error) => console.error("❌ Citation persistence failed:", error));
+          }
+
         } catch (error) {
           console.error("❌ Failed to save conversation:", error);
         }
@@ -324,6 +371,7 @@ Always provide accurate, helpful responses with transparent sourcing. Be engagin
     return result.toTextStreamResponse();
   } catch (error) {
     console.error("Chat API error:", error);
+    endPerformanceTimer(overallTimerId);
 
     return NextResponse.json(
       {
@@ -332,6 +380,9 @@ Always provide accurate, helpful responses with transparent sourcing. Be engagin
       },
       { status: 500 }
     );
+  } finally {
+    // Ensure timer is ended even if not caught above
+    endPerformanceTimer(overallTimerId);
   }
 }
 

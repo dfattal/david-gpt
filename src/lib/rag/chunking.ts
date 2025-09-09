@@ -211,17 +211,95 @@ export class DocumentChunker {
       throw new Error('Text content is required for chunking');
     }
 
+    const totalTokens = estimateTokens(text);
+    
+    // If document is small (< 1000 tokens), keep as single chunk
+    if (totalTokens < 1000) {
+      console.log(`Document is small (${totalTokens} tokens), keeping as single chunk`);
+      return [{
+        id: '', // Will be set by database
+        documentId,
+        content: text.trim(),
+        contentHash: createHash('sha256').update(text.trim()).digest('hex'),
+        tokenCount: totalTokens,
+        chunkIndex: 0,
+        sectionTitle: metadata?.title || 'Document',
+        overlapStart: 0,
+        overlapEnd: 0,
+        createdAt: new Date(),
+      }];
+    }
+
     const sections = metadata?.sections || (
       this.config.sectionAware ? detectSections(text) : []
     );
 
-    // If section-aware and we have sections, chunk by section
+    // For medium-sized documents (1000-2000 tokens), be more conservative with section chunking
+    // Only use section-based chunking if we have reasonable sections (not too many tiny ones)
     if (this.config.sectionAware && sections.length > 1) {
-      return this.chunkBySections(text, documentId, sections);
+      const shouldUseTokenBasedChunking = this.shouldAvoidSectionChunking(sections, totalTokens);
+      
+      if (shouldUseTokenBasedChunking) {
+        console.log(`Document has ${sections.length} sections but would create too many small chunks, using token-based chunking instead`);
+        return this.chunkByTokens(text, documentId);
+      }
+      
+      const sectionChunks = await this.chunkBySections(text, documentId, sections);
+      
+      // If section-based chunking produced valid chunks, use them
+      const validChunks = this.postProcessChunks(sectionChunks);
+      if (validChunks.length > 0 && validChunks.length <= 5) { // Don't return more than 5 chunks for medium docs
+        return validChunks;
+      }
+      
+      // If section-based chunking produced too many chunks, fall back to token-based chunking
+      console.log('Section-based chunking produced too many chunks, falling back to token-based chunking');
     }
 
-    // Otherwise, use sliding window approach
+    // Use sliding window approach (either as primary strategy or fallback)
     return this.chunkByTokens(text, documentId);
+  }
+
+  /**
+   * Determine if we should avoid section-based chunking due to too many small sections
+   */
+  private shouldAvoidSectionChunking(sections: DocumentSection[], totalTokens: number): boolean {
+    // If we have too many sections relative to document size, avoid section chunking
+    const averageTokensPerSection = totalTokens / sections.length;
+    
+    // Count very small sections (< 50 tokens) and empty sections
+    const smallSections = sections.filter(s => {
+      const sectionTokens = estimateTokens(s.content);
+      return sectionTokens < 50;
+    }).length;
+    
+    // Count empty sections
+    const emptySections = sections.filter(s => s.content.trim().length === 0).length;
+    
+    // Avoid section chunking if:
+    // 1. More than 50% of sections are very small or empty
+    // 2. More than 10 sections for documents under 3000 tokens
+    // 3. Average section size is less than 200 tokens for documents under 2000 tokens
+    const tooManySmallSections = (smallSections + emptySections) / sections.length > 0.5;
+    const tooManySections = sections.length > 10 && totalTokens < 3000;
+    const sectionsTooSmall = averageTokensPerSection < 200 && totalTokens < 2000;
+    
+    if (tooManySmallSections) {
+      console.log(`Avoiding section chunking: ${smallSections + emptySections}/${sections.length} sections are small/empty`);
+      return true;
+    }
+    
+    if (tooManySections) {
+      console.log(`Avoiding section chunking: ${sections.length} sections is too many for ${totalTokens} token document`);
+      return true;
+    }
+    
+    if (sectionsTooSmall) {
+      console.log(`Avoiding section chunking: average section size of ${Math.round(averageTokensPerSection)} tokens is too small`);
+      return true;
+    }
+    
+    return false;
   }
 
   /**

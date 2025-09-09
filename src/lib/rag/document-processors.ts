@@ -140,10 +140,26 @@ export class GROBIDClient {
     // Simplified XML parsing - in production, use proper XML parser
     const titleMatch = xml.match(/<title[^>]*>([^<]+)<\/title>/);
     const authorsMatch = xml.match(/<author[^>]*>.*?<persName[^>]*>.*?<forename[^>]*>([^<]*)<\/forename>.*?<surname[^>]*>([^<]*)<\/surname>.*?<\/persName>.*?<\/author>/g);
-    const abstractMatch = xml.match(/<abstract[^>]*>(.*?)<\/abstract>/s);
-    const keywordsMatch = xml.match(/<keywords[^>]*>(.*?)<\/keywords>/s);
+    const abstractMatch = xml.match(/<abstract[^>]*>([\s\S]*?)<\/abstract>/);
+    const keywordsMatch = xml.match(/<keywords[^>]*>([\s\S]*?)<\/keywords>/);
 
-    return {
+    // Extract full text content from body
+    let fullText = '';
+    const bodyMatch = xml.match(/<body[^>]*>([\s\S]*?)<\/body>/);
+    if (bodyMatch) {
+      const bodyXML = bodyMatch[1];
+      
+      // Extract text from paragraphs and sections - using [\s\S]* for ES2017 compatibility
+      const paragraphs = bodyXML.match(/<p[^>]*>([\s\S]*?)<\/p>/g) || [];
+      const cleanParagraphs = paragraphs.map(p => 
+        p.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+      ).filter(p => p.length > 10); // Filter out very short paragraphs
+      
+      // Combine paragraphs in document order
+      fullText = cleanParagraphs.join('\n\n');
+    }
+
+    const parsedResult: GROBIDResponse = {
       title: titleMatch?.[1]?.trim(),
       authors: authorsMatch?.map(match => {
         const forenameMatch = match.match(/<forename[^>]*>([^<]*)<\/forename>/);
@@ -158,7 +174,10 @@ export class GROBIDClient {
       }),
       abstract: abstractMatch?.[1]?.replace(/<[^>]*>/g, '')?.trim(),
       keywords: keywordsMatch?.[1]?.split(/[,;]/)?.map(k => k.trim()) || [],
+      fullText, // Add the extracted full text
     };
+
+    return parsedResult;
   }
 }
 
@@ -331,13 +350,24 @@ export class DocumentProcessor {
   }
 
   private async processPDFFile(buffer: Buffer, metadata?: Partial<DocumentMetadata>) {
-    // First extract raw text with pdf-parse (dynamic import to avoid initialization issues)
-    const pdfParse = (await import('pdf-parse')).default;
-    const pdfData = await pdfParse(buffer);
-    const rawText = pdfData.text;
-
-    // Try to enhance with GROBID
+    // Try to enhance with GROBID first
     const grobidData = await this.grobid.processPDF(buffer);
+    
+    // Use GROBID full text if available, otherwise fall back to pdf-parse
+    let content = '';
+    if (grobidData?.fullText && grobidData.fullText.length > 1000) {
+      // Use GROBID structured content
+      content = [
+        grobidData.title,
+        grobidData.abstract,
+        grobidData.fullText
+      ].filter(Boolean).join('\n\n');
+    } else {
+      // Fallback to pdf-parse (dynamic import to avoid initialization issues)
+      const pdfParse = (await import('pdf-parse')).default;
+      const pdfData = await pdfParse(buffer);
+      content = pdfData.text;
+    }
 
     // Generate content hash
     const contentHash = createHash('sha256').update(buffer).digest('hex');
@@ -349,11 +379,11 @@ export class DocumentProcessor {
         title: grobidData?.title || metadata?.title || 'Untitled PDF',
         fileHash: contentHash,
         fileSize: buffer.length,
-        processingStatus: 'completed',
+        processingStatus: 'completed' as const,
         processedAt: new Date(),
       },
-      content: rawText,
-      rawText,
+      content,
+      rawText: content,
       structuredData: grobidData,
     };
   }
@@ -374,7 +404,7 @@ export class DocumentProcessor {
         canonicalUrl: doiData.url,
         publishedDate: doiData.publishedDate,
         isoDate: doiData.publishedDate,
-        processingStatus: 'completed',
+        processingStatus: 'completed' as const,
         processedAt: new Date(),
       },
       content: doiData.abstract || '',
@@ -399,7 +429,7 @@ export class DocumentProcessor {
         canonicalUrl: arxivData.url,
         publishedDate: arxivData.publishedDate,
         isoDate: arxivData.publishedDate,
-        processingStatus: 'completed',
+        processingStatus: 'completed' as const,
         processedAt: new Date(),
       },
       content: arxivData.abstract || '',
@@ -431,7 +461,7 @@ export class DocumentProcessor {
         publishedDate: patentData.publishedDate,
         grantedDate: patentData.grantedDate,
         isoDate: patentData.grantedDate || patentData.publishedDate || patentData.filedDate,
-        processingStatus: 'completed',
+        processingStatus: 'completed' as const,
         processedAt: new Date(),
       },
       content: [
@@ -474,8 +504,8 @@ export class DocumentProcessor {
         
         // Extract text content (very basic - use proper HTML-to-text library)
         const textContent = html
-          .replace(/<script[^>]*>.*?<\/script>/gis, '')
-          .replace(/<style[^>]*>.*?<\/style>/gis, '')
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
           .replace(/<[^>]*>/g, ' ')
           .replace(/\s+/g, ' ')
           .trim();
@@ -487,7 +517,7 @@ export class DocumentProcessor {
             title,
             url,
             canonicalUrl: url,
-            processingStatus: 'completed',
+            processingStatus: 'completed' as const,
             processedAt: new Date(),
           },
           content: textContent,

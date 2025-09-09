@@ -67,6 +67,187 @@ const CONSOLIDATION_RULES: ConsolidationRule[] = [
 export class EntityConsolidator {
   
   /**
+   * Consolidate a single entity during ingestion (continuous consolidation)
+   */
+  async consolidateEntityOnIngestion(
+    name: string, 
+    kind: EntityKind, 
+    description?: string
+  ): Promise<{
+    entityId: string;
+    wasReused: boolean;
+    matchedName?: string;
+  }> {
+    // First check exact match
+    const { data: exactMatch } = await supabaseAdmin
+      .from('entities')
+      .select('id, name')
+      .eq('name', name)
+      .eq('kind', kind)
+      .single();
+      
+    if (exactMatch) {
+      // Update mention count using RPC call or direct SQL
+      await supabaseAdmin
+        .rpc('increment_mention_count', { entity_id: exactMatch.id })
+        .single();
+        
+      return {
+        entityId: exactMatch.id,
+        wasReused: true,
+        matchedName: exactMatch.name
+      };
+    }
+    
+    // Check aliases
+    const { data: aliasMatch } = await supabaseAdmin
+      .from('aliases')
+      .select('entity_id, entities!inner(name)')
+      .eq('alias', name)
+      .eq('entities.kind', kind)
+      .single();
+      
+    if (aliasMatch) {
+      // Update mention count using RPC call
+      await supabaseAdmin
+        .rpc('increment_mention_count', { entity_id: aliasMatch.entity_id })
+        .single();
+        
+      return {
+        entityId: aliasMatch.entity_id,
+        wasReused: true,
+        matchedName: (aliasMatch.entities as any).name
+      };
+    }
+    
+    // Check consolidation rules
+    const rule = CONSOLIDATION_RULES.find(r => 
+      r.kind === kind && r.variants.includes(name)
+    );
+    
+    if (rule) {
+      // Find or create primary entity
+      let { data: primaryEntity } = await supabaseAdmin
+        .from('entities')
+        .select('id, name')
+        .eq('name', rule.primaryName)
+        .eq('kind', rule.kind)
+        .single();
+        
+      if (!primaryEntity) {
+        // Create primary entity
+        const { data: created } = await supabaseAdmin
+          .from('entities')
+          .insert({
+            name: rule.primaryName,
+            kind: rule.kind,
+            description: rule.description || description,
+            mention_count: 1,
+            authority_score: 0.8
+          })
+          .select('id, name')
+          .single();
+          
+        primaryEntity = created!;
+      } else {
+        // Update mention count using RPC call
+        await supabaseAdmin
+          .rpc('increment_mention_count', { entity_id: primaryEntity.id })
+          .single();
+      }
+      
+      // Create alias if name is different from primary
+      if (name !== rule.primaryName) {
+        await supabaseAdmin
+          .from('aliases')
+          .insert({
+            entity_id: primaryEntity.id,
+            alias: name,
+            is_primary: false,
+            confidence: 0.95
+          });
+      }
+      
+      return {
+        entityId: primaryEntity.id,
+        wasReused: true,
+        matchedName: primaryEntity.name
+      };
+    }
+    
+    // Check fuzzy match for similar entities
+    const fuzzyMatch = await this.findSimilarEntityForIngestion(name, kind);
+    if (fuzzyMatch) {
+      // Create alias and reuse existing entity
+      await supabaseAdmin
+        .from('aliases')
+        .insert({
+          entity_id: fuzzyMatch.id,
+          alias: name,
+          is_primary: false,
+          confidence: 0.8
+        });
+        
+      // Update mention count using RPC call
+      await supabaseAdmin
+        .rpc('increment_mention_count', { entity_id: fuzzyMatch.id })
+        .single();
+        
+      return {
+        entityId: fuzzyMatch.id,
+        wasReused: true,
+        matchedName: fuzzyMatch.name
+      };
+    }
+    
+    // Create new entity
+    const { data: newEntity } = await supabaseAdmin
+      .from('entities')
+      .insert({
+        name,
+        kind,
+        description: description || `${kind} entity`,
+        mention_count: 1,
+        authority_score: 0.3
+      })
+      .select('id')
+      .single();
+      
+    return {
+      entityId: newEntity!.id,
+      wasReused: false
+    };
+  }
+  
+  /**
+   * Find similar entity for ingestion (fuzzy matching)
+   */
+  private async findSimilarEntityForIngestion(name: string, kind: EntityKind): Promise<{
+    id: string;
+    name: string;
+  } | null> {
+    // Get entities of the same kind for fuzzy matching
+    const { data: entities } = await supabaseAdmin
+      .from('entities')
+      .select('id, name')
+      .eq('kind', kind)
+      .gte('mention_count', 2) // Only match entities with some authority
+      .order('mention_count', { ascending: false })
+      .limit(50); // Limit to avoid performance issues
+      
+    if (!entities || entities.length === 0) return null;
+    
+    // Find similar entity
+    for (const entity of entities) {
+      if (this.areSimilar(name, entity.name, kind)) {
+        return entity;
+      }
+    }
+    
+    return null;
+  }
+  
+  /**
    * Consolidate all entities in the database
    */
   async consolidateEntities(): Promise<{
