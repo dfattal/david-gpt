@@ -95,7 +95,7 @@ edges(src_id, src_type, rel, dst_id, dst_type, weight)
 
 ## Implementation Priority
 1. Design and create database schema ✅ COMPLETED
-2. Update entity types to 7-type taxonomy (person, organization, product, technology, component, document, dataset)
+2. Update entity types to 7-type taxonomy (person, organization, product, technology, component, document)
 3. Implement Google Patents JSON-LD extraction pipeline
 4. Build entity extraction pipeline for document ingestion
 5. Implement relationship detection and edge creation

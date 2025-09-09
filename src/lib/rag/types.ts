@@ -90,7 +90,7 @@ export interface DocumentChunk {
 // =======================
 
 export const EntityKindSchema = z.enum([
-  'person', 'org', 'product', 'algorithm', 'material', 'concept'
+  'person', 'organization', 'product', 'technology', 'component', 'document'
 ]);
 
 export const RelationTypeSchema = z.enum([

@@ -6,6 +6,7 @@
  */
 
 import { createHash } from 'crypto';
+import { exaClient } from './exa-client';
 import type { 
   DocumentMetadata, 
   DOIMetadata, 
@@ -480,6 +481,50 @@ export class DocumentProcessor {
 
   private async processURL(url: string, metadata?: Partial<DocumentMetadata>) {
     try {
+      // Check if this is a patent URL - use EXA for better patent processing
+      if (url.includes('patents.google.com') || url.includes('patents.uspto.gov') || url.includes('ops.epo.org')) {
+        console.log('Processing patent URL with EXA:', url);
+        const exaResult = await exaClient.processPatentDocument(url);
+        if (exaResult) {
+          return {
+            metadata: {
+              ...metadata,
+              ...exaResult.metadata,
+              docType: 'patent' as DocumentType,
+              url,
+              processingStatus: 'completed' as const,
+              processedAt: new Date(),
+            },
+            content: exaResult.content,
+            rawText: exaResult.rawText,
+          };
+        }
+        // If EXA fails, fall back to traditional processing
+      }
+
+      // Try EXA first for better content extraction
+      try {
+        console.log('Processing URL with EXA:', url);
+        const exaResult = await exaClient.processDocument(url);
+        if (exaResult && exaResult.content.length > 500) {
+          return {
+            metadata: {
+              ...metadata,
+              ...exaResult.metadata,
+              docType: this.detectDocumentTypeFromUrl(url),
+              url,
+              processingStatus: 'completed' as const,
+              processedAt: new Date(),
+            },
+            content: exaResult.content,
+            rawText: exaResult.rawText,
+          };
+        }
+      } catch (exaError) {
+        console.warn('EXA processing failed, falling back to traditional method:', exaError);
+      }
+
+      // Fall back to traditional URL processing
       const response = await fetch(url, {
         headers: {
           'User-Agent': 'david-gpt/0.1.0',
@@ -576,6 +621,29 @@ export class DocumentProcessor {
     
     // Default to PDF for unknown types
     return 'pdf';
+  }
+
+  /**
+   * Determine document type from URL
+   */
+  private detectDocumentTypeFromUrl(url: string): DocumentType {
+    if (url.includes('patents.google.com') || url.includes('patents.uspto.gov') || url.includes('ops.epo.org')) {
+      return 'patent';
+    }
+    
+    if (url.includes('arxiv.org')) {
+      return 'paper';
+    }
+    
+    if (url.includes('doi.org') || url.includes('pubmed') || url.includes('scholar.google')) {
+      return 'paper';
+    }
+    
+    if (url.endsWith('.pdf')) {
+      return 'pdf';
+    }
+    
+    return 'url';
   }
 }
 

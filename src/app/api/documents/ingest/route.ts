@@ -227,10 +227,23 @@ async function processDocumentBackground(
       // Direct markdown content
       processedContent = config.content;
     } else if (config.patentUrl) {
-      // Google Patents URL - extract via JSON-LD
-      const patentData = await extractPatentData(config.patentUrl);
-      processedContent = formatPatentContent(patentData);
-      extractedMetadata = patentData;
+      // Google Patents URL - use EXA for better extraction
+      console.log('Processing patent URL with EXA:', config.patentUrl);
+      const result = await documentProcessor.processDocument({
+        type: 'url',
+        content: config.patentUrl,
+        metadata: { title: config.title }
+      });
+      processedContent = result?.content || '';
+      extractedMetadata = result?.metadata || {};
+      
+      // Fallback to old method if EXA fails
+      if (!processedContent || processedContent.length < 500) {
+        console.log('EXA failed, falling back to Google Patents extractor');
+        const patentData = await extractPatentData(config.patentUrl);
+        processedContent = formatPatentContent(patentData);
+        extractedMetadata = patentData;
+      }
     } else if (config.doi) {
       // DOI/arXiv link processing
       const result = await documentProcessor.processDocument({
