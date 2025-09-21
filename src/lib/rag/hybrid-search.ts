@@ -91,10 +91,39 @@ export class HybridSearchEngine {
       // Step 3: Combine and deduplicate results
       const combinedResults = this.combineResults(semanticResults, keywordResults);
       
-      // Step 4: Apply reranking if enabled
-      let finalResults = combinedResults;
-      if (this.config.rerank && combinedResults.length > 0) {
-        finalResults = await this.rerank(query.query, combinedResults);
+      // Step 3.5: Apply document type relevance scoring
+      const typeAdjustedResults = this.applyDocumentTypeScoring(query.query, combinedResults);
+      
+      // Step 4: Apply advanced reranking if enabled
+      let finalResults = typeAdjustedResults;
+      let rerankMetrics = undefined;
+      
+      if (this.config.rerank && typeAdjustedResults.length > 0) {
+        const { advancedRerank, QueryIntent } = await import('./advanced-reranking');
+        
+        // Use query transformation intent if available
+        let queryIntent: any = undefined;
+        try {
+          const { analyzeQuery } = await import('./query-transformation');
+          queryIntent = await analyzeQuery(query.query);
+        } catch (error) {
+          console.warn('Could not analyze query intent for reranking:', error);
+        }
+        
+        const targetCount = query.limit || this.config.finalLimit;
+        const rerankResult = await advancedRerank(
+          query, 
+          typeAdjustedResults, 
+          queryIntent, 
+          targetCount
+        );
+        
+        finalResults = rerankResult.results;
+        rerankMetrics = rerankResult.metrics;
+        
+        console.log(`🎯 Advanced reranking: ${rerankResult.strategy} strategy`);
+        console.log(`   Avg relevance: ${rerankResult.metrics.averageRelevance.toFixed(3)}`);
+        console.log(`   Diversity: ${rerankResult.metrics.diversityScore.toFixed(3)}`);
       }
 
       // Step 5: Apply final limit
@@ -111,6 +140,7 @@ export class HybridSearchEngine {
         relationshipContext,
         enhancedQuery: enhancedQuery !== query.query ? enhancedQuery : undefined,
         rerankedResults: finalResults,
+        rerankMetrics, // Include advanced reranking metrics
         query,
         executionTime,
       };
@@ -145,22 +175,11 @@ export class HybridSearchEngine {
             id,
             title,
             doc_type,
-            doi,
-            arxiv_id,
-            patent_no,
             url,
-            published_date,
             created_at,
-            inventors,
-            assignees,
-            original_assignee,
-            patent_status,
-            filed_date,
-            granted_date,
-            priority_date,
-            expiration_date,
-            abstract,
-            classification
+            identifiers,
+            dates,
+            actors
           )
         `)
         .not('embedding', 'is', null);
@@ -244,22 +263,11 @@ export class HybridSearchEngine {
             d.id as doc_id,
             d.title as doc_title,
             d.doc_type,
-            d.doi,
-            d.arxiv_id,
-            d.patent_no,
             d.url,
-            d.published_date,
             d.created_at as doc_created_at,
-            d.inventors,
-            d.assignees,
-            d.original_assignee,
-            d.patent_status,
-            d.filed_date,
-            d.granted_date,
-            d.priority_date,
-            d.expiration_date,
-            d.abstract,
-            d.classification
+            d.identifiers,
+            d.dates,
+            d.actors
           FROM document_chunks dc
           LEFT JOIN documents d ON dc.document_id = d.id
           WHERE dc.document_id IN (${documentIdsParam})
@@ -287,22 +295,11 @@ export class HybridSearchEngine {
               id,
               title,
               doc_type,
-              doi,
-              arxiv_id,
-              patent_no,
               url,
-              published_date,
               created_at,
-              inventors,
-              assignees,
-              original_assignee,
-              patent_status,
-              filed_date,
-              granted_date,
-              priority_date,
-              expiration_date,
-              abstract,
-              classification
+              identifiers,
+              dates,
+              actors
             )
           `)
           .in('document_id', query.filters.documentIds)
@@ -360,22 +357,11 @@ export class HybridSearchEngine {
               id,
               title,
               doc_type,
-              doi,
-              arxiv_id,
-              patent_no,
               url,
-              published_date,
               created_at,
-              inventors,
-              assignees,
-              original_assignee,
-              patent_status,
-              filed_date,
-              granted_date,
-              priority_date,
-              expiration_date,
-              abstract,
-              classification
+              identifiers,
+              dates,
+              actors
             )
           `)
           .textSearch('tsvector_content', searchQuery, {
@@ -572,6 +558,212 @@ export class HybridSearchEngine {
   }
 
   /**
+   * Apply document type relevance scoring based on query intent
+   */
+  private applyDocumentTypeScoring(query: string, results: SearchResult[]): SearchResult[] {
+    const queryIntent = this.classifyQueryIntent(query);
+    
+    return results.map(result => {
+      const docTypeBoost = this.calculateDocumentTypeBoost(queryIntent, result.docType, result.metadata);
+      const recencyBoost = this.calculateRecencyBoost(queryIntent, result.docType, result.metadata);
+      const productNameBoost = this.calculateProductNameBoost(query, result);
+      
+      const totalBoost = docTypeBoost * recencyBoost * productNameBoost;
+      const adjustedScore = result.score * totalBoost;
+      
+      if (totalBoost !== 1.0) {
+        console.log(`📊 Document type scoring: ${result.title.substring(0, 50)}... - ${result.docType} - Boost: ${totalBoost.toFixed(2)} (${result.score.toFixed(3)} → ${adjustedScore.toFixed(3)})`);
+      }
+      
+      return {
+        ...result,
+        score: adjustedScore,
+        typeBoost: totalBoost,
+      };
+    }).sort((a, b) => b.score - a.score); // Re-sort by adjusted scores
+  }
+
+  /**
+   * Classify query intent to determine document type preferences
+   */
+  private classifyQueryIntent(query: string): 'product' | 'technical' | 'academic' | 'general' {
+    const lowerQuery = query.toLowerCase();
+    
+    // Product/Launch queries - favor press articles and recent content
+    const productIndicators = [
+      'launch', 'announce', 'release', 'new', 'latest', 'product', 'device',
+      'monitor', 'display', 'gaming', 'smartphone', 'tablet', 'tv',
+      'odyssey', 'galaxy', 'iphone', 'samsung', 'apple', 'specs', 'features',
+      'price', 'availability', 'review'
+    ];
+    
+    // Technical/Invention queries - favor patents and technical papers
+    const technicalIndicators = [
+      'patent', 'invention', 'method', 'system', 'apparatus', 'algorithm',
+      'implementation', 'architecture', 'design', 'mechanism', 'process',
+      'technique', 'approach', 'solution', 'technology behind', 'how does',
+      'principle', 'theory'
+    ];
+    
+    // Academic queries - favor papers and academic content
+    const academicIndicators = [
+      'research', 'study', 'paper', 'publication', 'journal', 'conference',
+      'analysis', 'evaluation', 'comparison', 'survey', 'review',
+      'experiment', 'results', 'findings', 'conclusion'
+    ];
+    
+    const productScore = productIndicators.filter(indicator => lowerQuery.includes(indicator)).length;
+    const technicalScore = technicalIndicators.filter(indicator => lowerQuery.includes(indicator)).length;
+    const academicScore = academicIndicators.filter(indicator => lowerQuery.includes(indicator)).length;
+    
+    if (productScore > technicalScore && productScore > academicScore) {
+      return 'product';
+    } else if (technicalScore > academicScore) {
+      return 'technical';
+    } else if (academicScore > 0) {
+      return 'academic';
+    } else {
+      return 'general';
+    }
+  }
+
+  /**
+   * Calculate document type relevance boost based on query intent
+   */
+  private calculateDocumentTypeBoost(intent: string, docType: string, metadata: any): number {
+    const boosts: Record<string, Record<string, number>> = {
+      'product': {
+        'url': 1.4,      // Press articles get big boost for product queries
+        'paper': 0.9,    // Academic papers less relevant for product info
+        'patent': 0.7,   // Patents much less relevant for current products
+        'pdf': 1.0,      // Neutral
+        'note': 1.1,     // Personal notes slightly favored
+        'book': 0.8      // Books less current
+      },
+      'technical': {
+        'patent': 1.3,   // Patents highly relevant for technical details
+        'paper': 1.2,    // Academic papers also good for technical info
+        'url': 0.9,      // Press articles less technical depth
+        'pdf': 1.1,      // Technical PDFs relevant
+        'note': 1.0,     // Neutral
+        'book': 1.0      // Technical books relevant
+      },
+      'academic': {
+        'paper': 1.3,    // Academic papers most relevant
+        'pdf': 1.2,      // Academic PDFs relevant
+        'patent': 1.0,   // Patents can be relevant for academic work
+        'url': 0.8,      // Press articles less academic
+        'note': 0.9,     // Personal notes less authoritative
+        'book': 1.1      // Academic books relevant
+      },
+      'general': {
+        'url': 1.0,      // No bias for general queries
+        'paper': 1.0,
+        'patent': 1.0,
+        'pdf': 1.0,
+        'note': 1.0,
+        'book': 1.0
+      }
+    };
+    
+    return boosts[intent]?.[docType] || 1.0;
+  }
+
+  /**
+   * Calculate recency boost for time-sensitive content types
+   */
+  private calculateRecencyBoost(intent: string, docType: string, metadata: any): number {
+    // Only apply recency boost for product queries and press articles
+    if (intent !== 'product' || docType !== 'url') {
+      return 1.0;
+    }
+    
+    const publishedDate = metadata?.dates?.published || metadata?.dates?.created || metadata?.created_at;
+    if (!publishedDate) {
+      return 1.0;
+    }
+    
+    const now = new Date();
+    const docDate = new Date(publishedDate);
+    const ageInDays = (now.getTime() - docDate.getTime()) / (1000 * 60 * 60 * 24);
+    
+    // Boost recent press articles for product queries
+    if (ageInDays < 30) {
+      return 1.2; // 20% boost for very recent articles
+    } else if (ageInDays < 365) {
+      return 1.1; // 10% boost for articles within a year
+    } else if (ageInDays < 730) {
+      return 1.0; // No boost for 1-2 year old articles
+    } else {
+      return 0.9; // Slight penalty for older articles
+    }
+  }
+
+  /**
+   * Calculate product name boost for exact product matches
+   */
+  private calculateProductNameBoost(query: string, result: SearchResult): number {
+    const lowerQuery = query.toLowerCase();
+    const fullText = `${result.title} ${result.content}`.toLowerCase();
+    
+    // Extract specific product names from common queries
+    const productPatterns = [
+      // Samsung products
+      { pattern: /samsung\s+odyssey\s+3d/i, boost: 3.0, name: 'Samsung Odyssey 3D' },
+      { pattern: /odyssey\s+3d/i, boost: 2.5, name: 'Odyssey 3D' },
+      { pattern: /samsung\s+odyssey/i, boost: 2.0, name: 'Samsung Odyssey' },
+      
+      // Apple products
+      { pattern: /iphone\s+\d+(\s+pro)?/i, boost: 2.5, name: 'iPhone' },
+      { pattern: /ipad(\s+pro)?/i, boost: 2.5, name: 'iPad' },
+      { pattern: /macbook(\s+pro)?/i, boost: 2.5, name: 'MacBook' },
+      
+      // Generic products
+      { pattern: /gaming\s+monitor/i, boost: 1.5, name: 'Gaming Monitor' },
+      { pattern: /3d\s+display/i, boost: 1.5, name: '3D Display' },
+      { pattern: /lightfield\s+display/i, boost: 1.8, name: 'Lightfield Display' },
+      
+      // Company names for product queries
+      { pattern: /leia\s+technology/i, boost: 1.7, name: 'Leia Technology' },
+      { pattern: /leia\s+inc/i, boost: 1.7, name: 'Leia Inc' },
+    ];
+    
+    let maxBoost = 1.0;
+    let matchedProduct = '';
+    
+    // Check for product name matches in both query and document
+    for (const { pattern, boost, name } of productPatterns) {
+      const queryMatches = pattern.test(lowerQuery);
+      const docMatches = pattern.test(fullText);
+      
+      if (queryMatches && docMatches) {
+        if (boost > maxBoost) {
+          maxBoost = boost;
+          matchedProduct = name;
+        }
+      }
+    }
+    
+    // Additional boost for exact title matches
+    if (maxBoost > 1.0) {
+      // Check if the title contains a very close match
+      const titleMatch = productPatterns.some(({ pattern }) => 
+        pattern.test(result.title.toLowerCase()) && pattern.test(lowerQuery)
+      );
+      
+      if (titleMatch) {
+        maxBoost *= 1.2; // 20% additional boost for title matches
+      }
+    }
+    
+    if (maxBoost > 1.0) {
+      console.log(`🎯 Product name boost: ${result.title.substring(0, 50)}... - Matched "${matchedProduct}" - Boost: ${maxBoost.toFixed(2)}`);
+    }
+    
+    return maxBoost;
+  }
+
+  /**
    * Apply search filters to Supabase query
    */
   private applyFilters(query: any, filters?: SearchFilters): any {
@@ -584,13 +776,13 @@ export class HybridSearchEngine {
       query = query.in('documents.doc_type', filters.documentTypes);
     }
 
-    // Date range filter
+    // Date range filter (using JSONB dates field)
     if (filters.dateRange) {
       if (filters.dateRange.start) {
-        query = query.gte('documents.published_date', filters.dateRange.start.toISOString());
+        query = query.gte('documents.dates->published', filters.dateRange.start.toISOString().split('T')[0]);
       }
       if (filters.dateRange.end) {
-        query = query.lte('documents.published_date', filters.dateRange.end.toISOString());
+        query = query.lte('documents.dates->published', filters.dateRange.end.toISOString().split('T')[0]);
       }
     }
 
@@ -732,22 +924,11 @@ export async function searchWithinDocument(
           id,
           title,
           doc_type,
-          doi,
-          arxiv_id,
-          patent_no,
           url,
-          published_date,
           created_at,
-          inventors,
-          assignees,
-          original_assignee,
-          patent_status,
-          filed_date,
-          granted_date,
-          priority_date,
-          expiration_date,
-          abstract,
-          classification
+          identifiers,
+          dates,
+          actors
         )
       `)
       .eq('document_id', documentId)

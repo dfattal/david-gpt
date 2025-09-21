@@ -53,18 +53,38 @@ export function IngestionProgressVisualizer({ batchId, onComplete }: IngestionPr
   const [isExpanded, setIsExpanded] = useState(true);
   const [selectedDocument, setSelectedDocument] = useState<string | null>(null);
 
+  // Track completion state to avoid calling onComplete multiple times
+  const [isCompleted, setIsCompleted] = useState(false);
+
+  // Use useEffect to call onComplete after render cycle completes
+  useEffect(() => {
+    if (batchProgress && !isCompleted && batchProgress.endTime) {
+      const completed = batchProgress.completedDocuments;
+      const failed = batchProgress.failedDocuments;
+      const total = batchProgress.totalDocuments;
+
+      if (completed + failed === total) {
+        setIsCompleted(true);
+        // Defer the callback to avoid setState during render
+        setTimeout(() => {
+          onComplete?.(batchProgress);
+        }, 0);
+      }
+    }
+  }, [batchProgress, isCompleted, onComplete]);
+
   const updateDocumentProgress = useCallback((documentUpdate: DocumentProgress) => {
     setBatchProgress(prev => {
       if (!prev) return null;
 
-      const updatedDocuments = prev.documents.map(doc => 
+      const updatedDocuments = prev.documents.map(doc =>
         doc.documentId === documentUpdate.documentId ? documentUpdate : doc
       );
 
       // Recalculate batch stats
       const completed = updatedDocuments.filter(doc => doc.currentStage.stage === 'completed').length;
       const failed = updatedDocuments.filter(doc => doc.currentStage.stage === 'failed').length;
-      const inProgress = updatedDocuments.filter(doc => 
+      const inProgress = updatedDocuments.filter(doc =>
         !['completed', 'failed'].includes(doc.currentStage.stage)
       ).length;
 
@@ -76,10 +96,9 @@ export function IngestionProgressVisualizer({ batchId, onComplete }: IngestionPr
         documents: updatedDocuments
       };
 
-      // Check if batch is complete
+      // Set endTime when batch is complete, but don't call onComplete here
       if (completed + failed === prev.totalDocuments && !prev.endTime) {
         updatedBatch.endTime = new Date().toISOString();
-        onComplete?.(updatedBatch);
       }
 
       return updatedBatch;

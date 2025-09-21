@@ -9,6 +9,7 @@ import { z } from "zod";
 import { tool } from "ai";
 import { createClient } from "@/lib/supabase/server";
 import { hybridSearchEngine } from "./hybrid-search";
+import { detectMetadataQuery, executeMetadataSearch, searchDavidFattalDocuments } from "./metadata-search";
 import type { SearchQuery, SearchFilters } from "./types";
 
 interface SearchResult {
@@ -78,12 +79,20 @@ export const searchCorpusTool = tool({
         console.log(`🎯 Context-aware search: filtering to ${documentIds.length} specific document(s)`);
       }
       
+      // Apply query transformation for better search performance
+      const { transformQuery } = await import('./query-transformation');
+      const transformedQuery = await transformQuery(query);
+      console.log(`🔄 Query transformed: ${transformedQuery.intent.type} intent, ${transformedQuery.optimizedSearchQueries.length} search strategies`);
+      
+      // Use the best transformed query for search
+      const searchQuery = transformedQuery.optimizedSearchQueries[0]?.query || query;
+      
       // Get authenticated user
-      const supabase = await createClient();
+      const supabaseClient = await createClient();
       const {
         data: { user },
         error: authError,
-      } = await supabase.auth.getUser();
+      } = await supabaseClient.auth.getUser();
       if (authError || !user) {
         return {
           success: false,
@@ -93,9 +102,13 @@ export const searchCorpusTool = tool({
         };
       }
 
-      // Build search query with filters for hybrid search
-      const searchQuery: SearchQuery = {
-        query,
+      // Use the new three-tier search system for intelligent query routing
+      const { threeTierSearch } = await import('./three-tier-search');
+
+      console.log(`🎯 Executing three-tier search with intelligent routing...`);
+
+      // Execute three-tier search with enhanced query
+      const searchResult = await threeTierSearch(searchQuery, supabaseClient, {
         limit,
         filters: {
           documentTypes,
@@ -105,15 +118,52 @@ export const searchCorpusTool = tool({
           } : undefined,
           documentIds, // Context-aware filtering
         },
-      };
+        tier: 'auto' // Let the system choose the best tier
+      });
+      
+      console.log(`✅ Three-tier search completed: ${searchResult.results.length} results in ${searchResult.executionTime}ms`);
+      console.log(`🎯 Search tier: ${searchResult.tier.toUpperCase()} (${searchResult.executionStrategy})`);
+      console.log(`📊 Query classification: ${searchResult.queryClassification.intent} (confidence: ${searchResult.queryClassification.confidence.toFixed(2)})`);
+      if (searchResult.fallbackTier) {
+        console.log(`🔄 Used fallback from ${searchResult.fallbackTier.toUpperCase()} to ${searchResult.tier.toUpperCase()}`);
+      }
 
-      console.log(`🚀 Executing hybrid search (semantic + keyword + reranking)...`);
+      // Log analytics for performance tracking
+      const { logSearch } = await import('./search-analytics');
+      await logSearch(
+        searchQuery,
+        searchResult.tier,
+        searchResult.executionTime,
+        searchResult.results.length,
+        searchResult.results.length > 0,
+        {
+          confidence: searchResult.queryClassification.confidence,
+          explanation: searchResult.queryClassification.intent,
+          matchType: searchResult.queryClassification.type || 'general'
+        },
+        {
+          fallbackUsed: !!searchResult.fallbackTier,
+          executionStrategy: searchResult.executionStrategy,
+          userId: user.id,
+          sessionId: `session_${Date.now()}` // Simple session tracking
+        }
+      );
       
-      // Execute hybrid search
-      const searchResult = await hybridSearchEngine.search(searchQuery);
-      
-      console.log(`✅ Hybrid search completed: ${searchResult.results.length} results in ${searchResult.executionTime}ms`);
-      console.log(`📊 Search breakdown: ${searchResult.semanticResults.length} semantic, ${searchResult.keywordResults.length} keyword`);
+      // Apply context post-processing for better response generation
+      let processedContext = null;
+      if (searchResult.results.length > 0) {
+        const { processSearchContext } = await import('./context-post-processing');
+        processedContext = await processSearchContext(
+          searchQuery, 
+          searchResult.results, 
+          transformedQuery.intent,
+          4000 // 4K token limit for context
+        );
+        
+        console.log(`🔄 Context processed: ${searchResult.results.length} → ${processedContext.sourceCount} sources`);
+        console.log(`   Token optimization: ${processedContext.debugInfo?.originalTokenCount} → ${processedContext.tokenCount} tokens`);
+        console.log(`   Quality score: ${processedContext.qualityMetrics.overallQuality.toFixed(3)}`);
+      }
       
       if (searchResult.results.length === 0) {
         return {
@@ -145,7 +195,7 @@ export const searchCorpusTool = tool({
 
       return {
         success: true,
-        message: `Found ${results.length} relevant documents for "${query}" using hybrid search`,
+        message: `Found ${results.length} relevant documents for "${query}" using ${searchResult.executionStrategy}`,
         results,
         totalCount: results.length,
         executionTime: searchResult.executionTime,
@@ -155,12 +205,38 @@ export const searchCorpusTool = tool({
           factSummary: result.content.substring(0, 100) + "...",
           documentType: result.docType,
         })),
+        // Include three-tier search metadata
+        searchMetadata: {
+          tier: searchResult.tier,
+          executionStrategy: searchResult.executionStrategy,
+          queryClassification: searchResult.queryClassification,
+          fallbackTier: searchResult.fallbackTier,
+          semanticResults: searchResult.semanticResults?.length || 0,
+          keywordResults: searchResult.keywordResults?.length || 0
+        },
+        // Include context processing results
+        processedContext: processedContext ? {
+          content: processedContext.content,
+          tokenCount: processedContext.tokenCount,
+          compressionRatio: processedContext.compressionRatio,
+          sourceCount: processedContext.sourceCount,
+          qualityMetrics: processedContext.qualityMetrics,
+          citations: processedContext.citations
+        } : undefined,
+        // Include query transformation details
+        queryTransformation: {
+          originalQuery: query,
+          transformedQuery: searchQuery,
+          intent: transformedQuery.intent,
+          expansions: transformedQuery.expansion.expandedQueries.slice(0, 3),
+          strategiesUsed: transformedQuery.optimizedSearchQueries.length
+        }
       };
     } catch (error) {
-      console.error("Hybrid search corpus error:", error);
+      console.error("Three-tier search corpus error:", error);
       return {
         success: false,
-        message: `Hybrid search failed: ${
+        message: `Three-tier search failed: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
         results: [],
@@ -189,10 +265,8 @@ export const lookupFactsTool = tool({
         "organization",
         "product",
         "technology",
-        "material",
-        "concept",
-        "venue",
-        "location",
+        "component",
+        "document",
       ])
       .describe("The type of entity being looked up"),
     factType: z
@@ -202,13 +276,13 @@ export const lookupFactsTool = tool({
   }),
   execute: async ({ entityName, entityType, factType = "basic_info" }) => {
     try {
-      const supabase = await createClient();
+      const supabaseClient = await createClient();
 
       // Get authenticated user
       const {
         data: { user },
         error: authError,
-      } = await supabase.auth.getUser();
+      } = await supabaseClient.auth.getUser();
       if (authError || !user) {
         return {
           success: false,
@@ -219,7 +293,7 @@ export const lookupFactsTool = tool({
       }
 
       // Search for entity mentions in document chunks
-      const { data: chunks, error: searchError } = await supabase
+      const { data: chunks, error: searchError } = await supabaseClient
         .from("document_chunks")
         .select(
           `
@@ -232,7 +306,7 @@ export const lookupFactsTool = tool({
             title,
             doc_type,
             url,
-            iso_date
+            published_date
           )
         `
         )
@@ -347,13 +421,13 @@ export const getTimelineTool = tool({
   }),
   execute: async ({ entityName, topic, dateRange, eventTypes }) => {
     try {
-      const supabase = await createClient();
+      const supabaseClient = await createClient();
 
       // Get authenticated user
       const {
         data: { user },
         error: authError,
-      } = await supabase.auth.getUser();
+      } = await supabaseClient.auth.getUser();
       if (authError || !user) {
         return {
           success: false,
@@ -366,14 +440,14 @@ export const getTimelineTool = tool({
       // Search for timeline-relevant content in documents
       const searchTerm = entityName || topic || "timeline";
 
-      const { data: documents, error: searchError } = await supabase
+      const { data: documents, error: searchError } = await supabaseClient
         .from("documents")
         .select(
           `
           id,
           title,
           doc_type,
-          iso_date,
+          published_date,
           created_at,
           url,
           patent_no
@@ -383,7 +457,7 @@ export const getTimelineTool = tool({
           config: "english",
           type: "plain",
         })
-        .order("iso_date", { ascending: true })
+        .order("published_date", { ascending: true })
         .limit(20);
 
       if (searchError) {
@@ -402,9 +476,9 @@ export const getTimelineTool = tool({
 
       // Create timeline events from documents
       const timelineEvents = documents
-        .filter((doc) => doc.iso_date || doc.created_at)
+        .filter((doc) => doc.published_date || doc.created_at)
         .map((doc, index) => ({
-          date: doc.iso_date || doc.created_at,
+          date: doc.published_date || doc.created_at,
           type: doc.doc_type === "patent" ? "published" : "created",
           description: `${doc.title}`,
           entity: entityName || "David Fattal",

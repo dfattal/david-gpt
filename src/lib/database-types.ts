@@ -199,121 +199,155 @@ export type Database = {
       }
       documents: {
         Row: {
+          abstract: string | null
           application_no: string | null
           arxiv_id: string | null
-          canonical_of: string | null
+          assignees: Json | null
+          authority: string | null
+          authors_affiliations: Json | null
           canonical_url: string | null
+          citation_count: number | null
+          claim_count: number | null
+          classification: Json | null
+          conference_date: string | null
           created_at: string | null
           created_by: string | null
           doc_type: Database["public"]["Enums"]["document_type"]
           doi: string | null
           error_message: string | null
+          expiration_date: string | null
+          expiration_is_estimate: boolean | null
           file_hash: string | null
           file_path: string | null
           file_size: number | null
           filed_date: string | null
-          funding_agency: string | null
-          grant_no: string | null
           granted_date: string | null
           id: string
-          iso_date: string | null
+          impact_factor: number | null
+          independent_claim_count: number | null
+          inventors: Json | null
+          jurisdiction: string | null
+          keywords: Json | null
+          meta_title: string | null
+          open_access: boolean | null
+          original_assignee: string | null
           patent_no: string | null
+          patent_status: Database["public"]["Enums"]["patent_status_enum"] | null
+          priority_date: string | null
           processed_at: string | null
           processing_status: string | null
           publication_no: string | null
+          publication_year: number | null
           published_date: string | null
-          pubmed_id: string | null
-          raw_date: string | null
+          source_url: string | null
           status: Database["public"]["Enums"]["document_status"] | null
-          superseded_by: string | null
           title: string
           updated_at: string | null
           url: string | null
+          venue: string | null
         }
         Insert: {
+          abstract?: string | null
           application_no?: string | null
           arxiv_id?: string | null
-          canonical_of?: string | null
+          assignees?: Json | null
+          authority?: string | null
+          authors_affiliations?: Json | null
           canonical_url?: string | null
+          citation_count?: number | null
+          claim_count?: number | null
+          classification?: Json | null
+          conference_date?: string | null
           created_at?: string | null
           created_by?: string | null
           doc_type: Database["public"]["Enums"]["document_type"]
           doi?: string | null
           error_message?: string | null
+          expiration_date?: string | null
+          expiration_is_estimate?: boolean | null
           file_hash?: string | null
           file_path?: string | null
           file_size?: number | null
           filed_date?: string | null
-          funding_agency?: string | null
-          grant_no?: string | null
           granted_date?: string | null
           id?: string
-          iso_date?: string | null
+          impact_factor?: number | null
+          independent_claim_count?: number | null
+          inventors?: Json | null
+          jurisdiction?: string | null
+          keywords?: Json | null
+          meta_title?: string | null
+          open_access?: boolean | null
+          original_assignee?: string | null
           patent_no?: string | null
+          patent_status?: Database["public"]["Enums"]["patent_status_enum"] | null
+          priority_date?: string | null
           processed_at?: string | null
           processing_status?: string | null
           publication_no?: string | null
+          publication_year?: number | null
           published_date?: string | null
-          pubmed_id?: string | null
-          raw_date?: string | null
+          source_url?: string | null
           status?: Database["public"]["Enums"]["document_status"] | null
-          superseded_by?: string | null
           title: string
           updated_at?: string | null
           url?: string | null
+          venue?: string | null
         }
         Update: {
+          abstract?: string | null
           application_no?: string | null
           arxiv_id?: string | null
-          canonical_of?: string | null
+          assignees?: Json | null
+          authority?: string | null
+          authors_affiliations?: Json | null
           canonical_url?: string | null
+          citation_count?: number | null
+          claim_count?: number | null
+          classification?: Json | null
+          conference_date?: string | null
           created_at?: string | null
           created_by?: string | null
           doc_type?: Database["public"]["Enums"]["document_type"]
           doi?: string | null
           error_message?: string | null
+          expiration_date?: string | null
+          expiration_is_estimate?: boolean | null
           file_hash?: string | null
           file_path?: string | null
           file_size?: number | null
           filed_date?: string | null
-          funding_agency?: string | null
-          grant_no?: string | null
           granted_date?: string | null
           id?: string
-          iso_date?: string | null
+          impact_factor?: number | null
+          independent_claim_count?: number | null
+          inventors?: Json | null
+          jurisdiction?: string | null
+          keywords?: Json | null
+          meta_title?: string | null
+          open_access?: boolean | null
+          original_assignee?: string | null
           patent_no?: string | null
+          patent_status?: Database["public"]["Enums"]["patent_status_enum"] | null
+          priority_date?: string | null
           processed_at?: string | null
           processing_status?: string | null
           publication_no?: string | null
+          publication_year?: number | null
           published_date?: string | null
-          pubmed_id?: string | null
-          raw_date?: string | null
+          source_url?: string | null
           status?: Database["public"]["Enums"]["document_status"] | null
-          superseded_by?: string | null
           title?: string
           updated_at?: string | null
           url?: string | null
+          venue?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "documents_canonical_of_fkey"
-            columns: ["canonical_of"]
-            isOneToOne: false
-            referencedRelation: "documents"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "documents_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "user_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "documents_superseded_by_fkey"
-            columns: ["superseded_by"]
-            isOneToOne: false
-            referencedRelation: "documents"
             referencedColumns: ["id"]
           },
         ]
@@ -371,7 +405,7 @@ export type Database = {
           created_at: string | null
           description: string | null
           id: string
-          kind: Database["public"]["Enums"]["entity_kind"]
+          kind: Database["public"]["Enums"]["entity_kind"] | null
           mention_count: number | null
           name: string
           updated_at: string | null
@@ -381,7 +415,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
-          kind: Database["public"]["Enums"]["entity_kind"]
+          kind?: Database["public"]["Enums"]["entity_kind"] | null
           mention_count?: number | null
           name: string
           updated_at?: string | null
@@ -391,7 +425,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
-          kind?: Database["public"]["Enums"]["entity_kind"]
+          kind?: Database["public"]["Enums"]["entity_kind"] | null
           mention_count?: number | null
           name?: string
           updated_at?: string | null
@@ -721,7 +755,229 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      binary_quantize: {
+        Args: { "": string } | { "": unknown }
+        Returns: unknown
+      }
+      bm25_score: {
+        Args: {
+          b?: number
+          document_vector: unknown
+          k1?: number
+          query_text: string
+        }
+        Returns: number
+      }
+      cleanup_expired_conversation_sources: {
+        Args: { dry_run?: boolean; ttl_turns?: number }
+        Returns: {
+          action_taken: string
+          conversation_id: string
+          expired_sources: number
+        }[]
+      }
+      cleanup_old_data: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      cleanup_orphaned_entities: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      clear_user_knowledge_graph: {
+        Args: { p_user_id: string }
+        Returns: {
+          chunk_entities_deleted: number
+          entities_deleted: number
+          relations_deleted: number
+        }[]
+      }
+      find_orphaned_entities: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          canonical_name: string
+          created_at: string
+          entity_id: number
+          type: string
+        }[]
+      }
+      get_current_user_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_habit_conversation_insights: {
+        Args: { target_user_id?: string }
+        Returns: {
+          consistency_score: number
+          conversation_count: number
+          habit_keywords: string[]
+          last_mention: string
+        }[]
+      }
+      get_user_conversation_ids: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          conversation_id: string
+        }[]
+      }
+      get_user_conversation_summary: {
+        Args: { target_user_id?: string }
+        Returns: {
+          active_conversations: number
+          activity_streak_days: number
+          avg_messages_per_conversation: number
+          last_activity: string
+          total_conversations: number
+          total_messages: number
+        }[]
+      }
+      get_user_entity_stats: {
+        Args: { p_user_id: string }
+        Returns: {
+          avg_confidence: number
+          entity_count: number
+          entity_type: string
+          total_mentions: number
+        }[]
+      }
+      gtrgm_compress: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_decompress: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_in: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_options: {
+        Args: { "": unknown }
+        Returns: undefined
+      }
+      gtrgm_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      halfvec_avg: {
+        Args: { "": number[] }
+        Returns: unknown
+      }
+      halfvec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      halfvec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      halfvec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      hnsw_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_sparsevec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnswhandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      increment_mention_count: {
+        Args: { entity_id: string }
+        Returns: undefined
+      }
+      ivfflat_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflathandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      l2_norm: {
+        Args: { "": unknown } | { "": unknown }
+        Returns: number
+      }
+      l2_normalize: {
+        Args: { "": string } | { "": unknown } | { "": unknown }
+        Returns: unknown
+      }
+      refresh_conversation_analytics: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      restore_conversation: {
+        Args: { conversation_uuid: string }
+        Returns: boolean
+      }
+      set_limit: {
+        Args: { "": number }
+        Returns: number
+      }
+      show_limit: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      show_trgm: {
+        Args: { "": string }
+        Returns: string[]
+      }
+      soft_delete_conversation: {
+        Args:
+          | { conversation_id: string; user_id: string }
+          | { conversation_uuid: string }
+        Returns: Json
+      }
+      sparsevec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      sparsevec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      sparsevec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      vector_avg: {
+        Args: { "": number[] }
+        Returns: string
+      }
+      vector_dims: {
+        Args: { "": string } | { "": unknown }
+        Returns: number
+      }
+      vector_norm: {
+        Args: { "": string }
+        Returns: number
+      }
+      vector_out: {
+        Args: { "": string }
+        Returns: unknown
+      }
+      vector_send: {
+        Args: { "": string }
+        Returns: string
+      }
+      vector_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
     }
     Enums: {
       document_status:
@@ -733,11 +989,12 @@ export type Database = {
       document_type: "pdf" | "paper" | "patent" | "note" | "url" | "book"
       entity_kind:
         | "person"
-        | "org"
+        | "organization"
         | "product"
-        | "algorithm"
-        | "material"
-        | "concept"
+        | "technology"
+        | "component"
+        | "document"
+      patent_status_enum: "filed" | "active" | "expired"
       event_type:
         | "filed"
         | "published"
@@ -767,6 +1024,14 @@ export type Database = {
         | "supersedes"
         | "cites"
         | "similar_to"
+        | "enables_3d"
+        | "uses_component"
+        | "competing_with"
+        | "integrates_with"
+        | "can_use"
+        | "enhances"
+        | "evolved_to"
+        | "alternative_to"
       source_type: "entity" | "document"
       user_role: "admin" | "member" | "guest"
     }
@@ -875,3 +1140,81 @@ export type Enums<
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      document_status: [
+        "draft",
+        "published",
+        "granted",
+        "expired",
+        "superseded",
+      ],
+      document_type: ["pdf", "paper", "patent", "note", "url", "book"],
+      entity_kind: [
+        "person",
+        "organization",
+        "product",
+        "technology",
+        "component",
+        "document",
+      ],
+      patent_status_enum: ["filed", "active", "expired"],
+      event_type: [
+        "filed",
+        "published",
+        "granted",
+        "expires",
+        "product_launch",
+        "acquired",
+        "founded",
+      ],
+      job_status: ["pending", "processing", "completed", "failed", "cancelled"],
+      job_type: [
+        "document_ingest",
+        "entity_extraction",
+        "embedding_generation",
+        "kg_processing",
+        "reindexing",
+      ],
+      relation_type: [
+        "author_of",
+        "inventor_of",
+        "assignee_of",
+        "implements",
+        "used_in",
+        "supersedes",
+        "cites",
+        "similar_to",
+        "enables_3d",
+        "uses_component",
+        "competing_with",
+        "integrates_with",
+        "can_use",
+        "enhances",
+        "evolved_to",
+        "alternative_to",
+      ],
+      source_type: ["entity", "document"],
+      user_role: ["admin", "member", "guest"],
+    },
+  },
+} as const

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useDropzone } from "react-dropzone";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,182 +8,186 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/components/ui/toast";
-import { DocumentTypeDetector } from "@/lib/rag/document-type-detector";
+import { Badge } from "@/components/ui/badge";
+import { validateDocument } from "@/lib/validation/document-format-validator";
 import { SingleDocumentProgress } from "./single-document-progress";
+import { AlertCircle, CheckCircle, AlertTriangle, FileText, Eye, Upload, Info } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface DocumentUploadProps {
   onUploadComplete?: () => void;
 }
 
-interface UploadFormData {
-  title: string;
-  inputType: 'document' | 'text' | 'url';
-  content?: string;
-  url?: string;
-  file?: File;
-  detectedType?: string;
-  metadata: {
-    description?: string;
-    tags?: string[];
-  };
+interface ValidationResult {
+  isValid: boolean;
+  errors: Array<{ type: string; field?: string; message: string; severity: string }>;
+  warnings: Array<{ type: string; field?: string; message: string; suggestion: string }>;
+  qualityScore: number;
+  suggestions: string[];
+}
+
+interface UploadData {
+  content: string;
+  fileName?: string;
+  validation?: ValidationResult;
+  validating: boolean;
 }
 
 export function DocumentUpload({ onUploadComplete }: DocumentUploadProps) {
-  const [formData, setFormData] = useState<UploadFormData>({
-    title: '',
-    inputType: 'document',
-    metadata: {}
+  const [uploadData, setUploadData] = useState<UploadData>({
+    content: '',
+    validating: false
   });
   const [uploading, setUploading] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
-  const [detectionResult, setDetectionResult] = useState<{
-    detectedType: string;
-    confidence: number;
-    title: string;
-  } | null>(null);
+  const [showValidationDetails, setShowValidationDetails] = useState(false);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [strictValidation, setStrictValidation] = useState(false);
+  const [validateOnly, setValidateOnly] = useState(false);
   const { addToast } = useToast();
+
+  // Auto-validate when content changes
+  const validateContent = useCallback(async (content: string, fileName?: string) => {
+    if (!content.trim()) {
+      setUploadData(prev => ({ ...prev, validation: undefined }));
+      return;
+    }
+
+    setUploadData(prev => ({ ...prev, validating: true }));
+
+    try {
+      const validation = validateDocument(content, fileName);
+      setUploadData(prev => ({ ...prev, validation, validating: false }));
+    } catch (error) {
+      console.error('Validation error:', error);
+      setUploadData(prev => ({
+        ...prev,
+        validation: {
+          isValid: false,
+          errors: [{
+            type: 'validation',
+            message: `Validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            severity: 'error'
+          }],
+          warnings: [],
+          qualityScore: 0,
+          suggestions: []
+        },
+        validating: false
+      }));
+    }
+  }, []);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
       const file = acceptedFiles[0];
-      
+
+      if (!file.name.endsWith('.md') && !file.name.endsWith('.markdown')) {
+        addToast('Only markdown files (.md, .markdown) are supported in the new workflow', 'error');
+        return;
+      }
+
       try {
-        // Analyze file to detect document type
-        const analysis = await DocumentTypeDetector.analyzeFile(file);
-        setDetectionResult(analysis);
-        
-        setFormData(prev => ({
-          ...prev,
-          file,
-          title: prev.title || analysis.title,
-          detectedType: analysis.detectedType
-        }));
-        
-        addToast(`File analyzed: ${analysis.detectedType} (${Math.round(analysis.confidence * 100)}% confidence)`, 'success');
+        const content = await file.text();
+        setUploadData({
+          content,
+          fileName: file.name,
+          validating: false
+        });
+
+        await validateContent(content, file.name);
+        addToast(`Markdown file loaded: ${file.name}`, 'success');
       } catch (error) {
-        console.error('File analysis error:', error);
-        setFormData(prev => ({
-          ...prev,
-          file,
-          title: prev.title || file.name.replace(/\.[^/.]+$/, '')
-        }));
+        console.error('File reading error:', error);
+        addToast('Failed to read file', 'error');
       }
     }
-  }, [addToast]);
+  }, [addToast, validateContent]);
 
-  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'application/pdf': ['.pdf'],
-      'text/plain': ['.txt'],
       'text/markdown': ['.md'],
-      'application/json': ['.json'],
-      'text/csv': ['.csv'],
-      'application/vnd.ms-excel': ['.xls'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
+      'text/plain': ['.markdown']
     },
     maxFiles: 1,
     noClick: false,
     noKeyboard: false
   });
 
+  const handleContentChange = useCallback((newContent: string) => {
+    setUploadData(prev => ({ ...prev, content: newContent }));
+
+    // Debounce validation
+    const timeoutId = setTimeout(() => {
+      validateContent(newContent, uploadData.fileName);
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [validateContent, uploadData.fileName]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validation based on input type
-    if (formData.inputType === 'document' && !formData.file) {
-      addToast('Please upload a file', 'error');
+    if (!uploadData.content.trim()) {
+      addToast('Please provide markdown content', 'error');
       return;
     }
-    
-    if (formData.inputType === 'text' && !formData.content?.trim()) {
-      addToast('Please provide text content', 'error');
+
+    // Check validation requirements
+    if (!uploadData.validation) {
+      addToast('Content validation is required', 'error');
       return;
     }
-    
-    if (formData.inputType === 'url' && !formData.url?.trim()) {
-      addToast('Please provide a URL', 'error');
+
+    if (!uploadData.validation.isValid) {
+      addToast('Document has validation errors. Please fix them before uploading.', 'error');
+      return;
+    }
+
+    if (strictValidation && uploadData.validation.warnings.length > 0) {
+      addToast('Strict validation enabled: Please address all warnings before uploading.', 'error');
       return;
     }
 
     setUploading(true);
 
     try {
-      let requestBody: Record<string, unknown> = {
-        metadata: formData.metadata
+      const requestBody = {
+        content: uploadData.content,
+        fileName: uploadData.fileName,
+        validateOnly,
+        strictValidation
       };
 
-      // Handle different input types
-      if (formData.inputType === 'document' && formData.file) {
-        // Use FormData for file uploads
-        const formDataObj = new FormData();
-        formDataObj.append('file', formData.file);
-        formDataObj.append('title', formData.title.trim() || '');
-        formDataObj.append('docType', detectionResult?.detectedType || 'pdf');
-        formDataObj.append('metadata', JSON.stringify(formData.metadata));
-
-        const response = await fetch('/api/documents/ingest', {
-          method: 'POST',
-          body: formDataObj
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || 'Upload failed');
-        }
-
-        const result = await response.json();
-        setActiveJobId(result.jobId);
-        
-      } else if (formData.inputType === 'text') {
-        // Direct text content
-        requestBody = {
-          title: formData.title.trim() || await generateTitle(formData.content!),
-          content: formData.content,
-          docType: 'note',
-          metadata: formData.metadata
-        };
-
-      } else if (formData.inputType === 'url') {
-        // URL processing with Google Patents detection
-        const isGooglePatent = formData.url!.includes('patents.google.com');
-        
-        requestBody = {
-          title: formData.title.trim() || await generateTitle(`URL: ${formData.url}`),
-          docType: isGooglePatent ? 'patent' : 'url',
-          [isGooglePatent ? 'patentUrl' : 'url']: formData.url,
-          metadata: formData.metadata
-        };
-      }
-
-      // For text and URL submissions, send JSON
-      if (formData.inputType !== 'document') {
-        const response = await fetch('/api/documents/ingest', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody)
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || 'Upload failed');
-        }
-
-        const result = await response.json();
-        setActiveJobId(result.jobId);
-      }
-
-      addToast('Document ingestion started! View progress below.', 'success');
-      
-      // Reset form
-      setFormData({
-        title: '',
-        inputType: 'document',
-        metadata: {}
+      const response = await fetch('/api/documents/markdown-ingest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
       });
-      setDetectionResult(null);
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || result.message || 'Upload failed');
+      }
+
+      if (validateOnly) {
+        addToast(`Validation complete! Quality score: ${result.validation.qualityScore}/100`, 'success');
+      } else {
+        setActiveJobId(result.jobId);
+        addToast(`Document ingestion started! Quality score: ${result.validation.qualityScore}/100`, 'success');
+
+        // Reset form
+        setUploadData({
+          content: '',
+          validating: false
+        });
+      }
 
     } catch (error) {
       console.error('Upload error:', error);
@@ -196,226 +200,236 @@ export function DocumentUpload({ onUploadComplete }: DocumentUploadProps) {
     }
   };
 
-  // Generate title using LLM if none provided
-  const generateTitle = async (content: string): Promise<string> => {
-    try {
-      const response = await fetch('/api/llm/generate-title', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: content.substring(0, 1000) })
-      });
-      
-      if (response.ok) {
-        const { title } = await response.json();
-        return title;
-      }
-    } catch (error) {
-      console.error('Title generation failed:', error);
+  const getValidationBadge = () => {
+    if (uploadData.validating) {
+      return <Badge variant="secondary" className="bg-blue-100 text-blue-800"><Spinner className="w-3 h-3 mr-1" />Validating...</Badge>;
     }
-    
-    // Fallback to simple extraction
-    return content.split('\n')[0]?.trim()?.substring(0, 100) || 'Untitled Document';
+    if (!uploadData.validation) {
+      return <Badge variant="secondary">Not Validated</Badge>;
+    }
+    if (uploadData.validation.isValid) {
+      return <Badge variant="default" className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1" />Valid ({uploadData.validation.qualityScore}/100)</Badge>;
+    }
+    if (uploadData.validation.errors.length > 0) {
+      return <Badge variant="destructive"><AlertCircle className="w-3 h-3 mr-1" />Errors ({uploadData.validation.qualityScore}/100)</Badge>;
+    }
+    return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800"><AlertTriangle className="w-3 h-3 mr-1" />Warnings ({uploadData.validation.qualityScore}/100)</Badge>;
   };
 
-  const inputTypes = [
-    { value: 'document', label: 'Document', description: 'Upload PDF, text, or other document files' },
-    { value: 'text', label: 'Text', description: 'Paste text content directly' },
-    { value: 'url', label: 'URL', description: 'Web URL or Google Patents link' }
-  ] as const;
+  const generateExampleMarkdown = () => {
+    const timestamp = new Date().toISOString();
+    const example = `---
+title: "Example Document Title"
+docType: "note"
+persona: "david"
+scraped_at: "${timestamp}"
+word_count: 150
+extraction_quality: "high"
+---
+
+# Example Document Title
+
+This is an example of a properly formatted markdown document for the David-GPT system.
+
+## Key Points
+
+- Complete YAML frontmatter with required fields
+- Clear heading hierarchy
+- Sufficient content for meaningful search
+
+The document follows the formatting guidelines from DOCS/CONTENT_GUIDE.md.`;
+
+    setUploadData({
+      content: example,
+      fileName: 'example.md',
+      validating: false
+    });
+    validateContent(example, 'example.md');
+    addToast('Example markdown loaded. Edit as needed.', 'info');
+  };
 
   return (
     <div className="space-y-6">
       <Card className="p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Upload New Document
-        </h2>
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Input Type Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Input Type
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {inputTypes.map(type => (
-                <button
-                  key={type.value}
-                  type="button"
-                  onClick={() => setFormData(prev => ({ 
-                    ...prev, 
-                    inputType: type.value,
-                    // Reset relevant fields when switching types
-                    file: undefined,
-                    content: '',
-                    url: ''
-                  }))}
-                  className={`p-4 text-left rounded-lg border transition-all ${
-                    formData.inputType === type.value
-                      ? 'bg-blue-50 border-blue-200 text-blue-700 ring-1 ring-blue-200'
-                      : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="font-medium text-sm">{type.label}</div>
-                  <div className="text-xs text-gray-500 mt-1">{type.description}</div>
-                </button>
-              ))}
-            </div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Single Document Upload</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Upload or create a single markdown document with proper YAML frontmatter.
+          <Button variant="link" className="p-0 h-auto text-blue-600" onClick={generateExampleMarkdown}>
+            Load example
+          </Button>
+        </p>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* File Upload Area */}
+          <div
+            {...getRootProps()}
+            className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+              isDragActive
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50'
+            }`}
+          >
+            <input {...getInputProps()} />
+            <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+            <p className="text-sm font-medium text-gray-700">
+              {isDragActive ? 'Drop markdown file here' : 'Drop a .md file here or click to select'}
+            </p>
+            <p className="text-xs text-gray-500">Only .md and .markdown files are supported</p>
           </div>
 
-          {/* Title */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Title (Optional)
-              {detectionResult && (
-                <span className="text-xs text-gray-500 ml-2">
-                  Auto-detected: {detectionResult.detectedType} ({Math.round(detectionResult.confidence * 100)}% confidence)
-                </span>
-              )}
-            </label>
-            <Input
-              value={formData.title}
-              onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-              placeholder="Enter document title (leave blank to auto-generate)"
-            />
-          </div>
-
-          {/* Content Input Based on Type */}
-          {formData.inputType === 'document' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Upload File
-              </label>
-              <div
-                {...getRootProps()}
-                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-                  isDragActive
-                    ? 'border-blue-400 bg-blue-50'
-                    : 'border-gray-300 hover:border-gray-400'
-                }`}
-                role="button"
-                tabIndex={0}
-                onClick={open}
-              >
-                <input {...getInputProps()} style={{ display: 'none' }} />
-                {formData.file ? (
-                  <div className="space-y-2">
-                    <p className="text-sm text-gray-600">Selected: {formData.file.name}</p>
-                    <p className="text-xs text-gray-400">
-                      Size: {(formData.file.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
-                    {detectionResult && (
-                      <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        Detected: {detectionResult.detectedType} ({Math.round(detectionResult.confidence * 100)}%)
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div>
-                    <p className="text-sm text-gray-600">
-                      {isDragActive ? 'Drop file here' : 'Drag & drop file here, or click to select'}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Supports PDF, TXT, MD, JSON, CSV files up to 10MB
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      System will auto-detect document type (PDF, academic paper, patent, etc.)
-                    </p>
-                  </div>
+          {/* Content Textarea */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-gray-700">Markdown Content</label>
+              <div className="flex items-center space-x-2">
+                {getValidationBadge()}
+                {uploadData.validation && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowValidationDetails(true)}
+                    className="h-7 px-2"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </Button>
                 )}
               </div>
             </div>
-          )}
-
-          {formData.inputType === 'text' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Text Content
-              </label>
-              <Textarea
-                value={formData.content || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                placeholder="Paste your text content here... (Markdown supported)"
-                rows={12}
-                className="font-mono text-sm"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Supports Markdown formatting. Title will be auto-generated if not provided.
-              </p>
-            </div>
-          )}
-
-          {formData.inputType === 'url' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Web URL
-              </label>
-              <Input
-                value={formData.url || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, url: e.target.value }))}
-                placeholder="https://example.com/article or https://patents.google.com/patent/US123456"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Supports any web URL. Google Patents URLs will be processed using patent extraction APIs.
-              </p>
-            </div>
-          )}
-
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Description (Optional)
-            </label>
             <Textarea
-              value={formData.metadata.description || ''}
-              onChange={(e) => setFormData(prev => ({
-                ...prev,
-                metadata: { ...prev.metadata, description: e.target.value }
-              }))}
-              placeholder="Brief description of the document"
-              rows={3}
+              value={uploadData.content}
+              onChange={(e) => handleContentChange(e.target.value)}
+              placeholder="Paste your markdown content here or upload a file above..."
+              className="min-h-[300px] font-mono text-sm"
             />
           </div>
 
+          {/* Advanced Options */}
+          <Collapsible open={showAdvancedOptions} onOpenChange={setShowAdvancedOptions}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="w-full justify-between">
+                Advanced Options
+                <Info className="w-4 h-4" />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 pt-3">
+              <div className="flex items-center space-x-4">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={validateOnly}
+                    onChange={(e) => setValidateOnly(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span className="text-sm">Validate only (don't ingest)</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={strictValidation}
+                    onChange={(e) => setStrictValidation(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span className="text-sm">Strict validation (require zero warnings)</span>
+                </label>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+
           {/* Submit Button */}
-          <div className="flex justify-end">
-            <Button 
-              type="submit" 
-              disabled={uploading}
-              className="min-w-32 bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {uploading ? (
-                <>
-                  <Spinner className="w-4 h-4 mr-2" />
-                  Starting ingestion...
-                </>
-              ) : (
-                `Upload ${formData.inputType === 'document' ? 'Document' : 
-                         formData.inputType === 'text' ? 'Text' : 'URL'}`
-              )}
-            </Button>
-          </div>
+          <Button
+            type="submit"
+            disabled={uploading || uploadData.validating || !uploadData.validation?.isValid}
+            className="w-full"
+          >
+            {uploading ? (
+              <>
+                <Spinner className="w-4 h-4 mr-2" />
+                {validateOnly ? 'Validating...' : 'Uploading...'}
+              </>
+            ) : (
+              validateOnly ? 'Validate Document' : 'Upload Document'
+            )}
+          </Button>
         </form>
       </Card>
 
-      {/* Single Document Progress Tracking */}
+      {/* Progress Tracking */}
       {activeJobId && (
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Document Processing Progress
-          </h3>
-          <SingleDocumentProgress 
-            jobId={activeJobId} 
-            onComplete={(results) => {
-              setActiveJobId(null);
-              addToast(
-                `Document processing completed! Created ${results.chunksCreated || 0} chunks and extracted ${results.entitiesExtracted || 0} entities.`, 
-                'success'
-              );
-              onUploadComplete?.();
-            }}
-          />
-        </div>
+        <SingleDocumentProgress
+          jobId={activeJobId}
+          onComplete={() => {
+            setActiveJobId(null);
+            onUploadComplete?.();
+          }}
+        />
       )}
+
+      {/* Validation Details Dialog */}
+      <Dialog open={showValidationDetails} onOpenChange={setShowValidationDetails}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Validation Details</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[70vh] pr-6">
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                {getValidationBadge()}
+              </div>
+
+              {uploadData.validation?.errors.length > 0 && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded">
+                  <h4 className="text-sm font-medium text-red-800 mb-1">Errors:</h4>
+                  <ul className="text-sm text-red-700 list-disc list-inside">
+                    {uploadData.validation.errors.map((error, i) => (
+                      <li key={i}>
+                        {error.field && <code className="bg-red-100 px-1 rounded">{error.field}</code>}: {error.message}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {uploadData.validation?.warnings.length > 0 && (
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                  <h4 className="text-sm font-medium text-yellow-800 mb-1">Warnings:</h4>
+                  <ul className="text-sm text-yellow-700 list-disc list-inside">
+                    {uploadData.validation.warnings.map((warning, i) => (
+                      <li key={i}>
+                        {warning.field && <code className="bg-yellow-100 px-1 rounded">{warning.field}</code>}: {warning.message}
+                        {warning.suggestion && (
+                          <div className="ml-4 mt-1 text-yellow-600">💡 {warning.suggestion}</div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {uploadData.validation?.suggestions.length > 0 && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+                  <h4 className="text-sm font-medium text-blue-800 mb-1">Suggestions:</h4>
+                  <ul className="text-sm text-blue-700 list-disc list-inside">
+                    {uploadData.validation.suggestions.map((suggestion, i) => (
+                      <li key={i}>{suggestion}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {uploadData.validation?.isValid && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded">
+                  <h4 className="text-sm font-medium text-green-800 mb-1">✅ Document is valid and ready for ingestion!</h4>
+                  <p className="text-sm text-green-700">
+                    Quality score: {uploadData.validation.qualityScore}/100
+                    {uploadData.validation.warnings.length > 0 && ` (${uploadData.validation.warnings.length} warnings)`}
+                  </p>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

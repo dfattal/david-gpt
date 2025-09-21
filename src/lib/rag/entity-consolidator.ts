@@ -17,12 +17,48 @@ interface ConsolidationRule {
 
 // Domain-specific consolidation rules
 const CONSOLIDATION_RULES: ConsolidationRule[] = [
-  // Organizations
+  // Organizations - OEMs from press articles
   {
     primaryName: "Leia Inc",
     variants: ["Leia", "Leia Inc.", "Leia Inc", "LEIA"],
     kind: "organization",
     description: "3D lightfield display technology company"
+  },
+  {
+    primaryName: "Samsung Electronics",
+    variants: ["Samsung", "Samsung Corp", "Samsung Corporation"],
+    kind: "organization",
+    description: "South Korean consumer electronics company"
+  },
+  {
+    primaryName: "LG Electronics", 
+    variants: ["LG", "LG Corp", "LG Corporation"],
+    kind: "organization",
+    description: "South Korean consumer electronics company"
+  },
+  {
+    primaryName: "Sony Corporation",
+    variants: ["Sony", "Sony Corp", "Sony Electronics"],
+    kind: "organization", 
+    description: "Japanese consumer electronics company"
+  },
+  {
+    primaryName: "TCL Technology",
+    variants: ["TCL", "TCL Corp", "TCL Corporation"],
+    kind: "organization",
+    description: "Chinese consumer electronics company"
+  },
+  {
+    primaryName: "Apple Inc",
+    variants: ["Apple", "Apple Corp", "Apple Corporation"],
+    kind: "organization",
+    description: "American consumer electronics company"
+  },
+  {
+    primaryName: "Google LLC",
+    variants: ["Google", "Google Corp", "Google Corporation"],
+    kind: "organization",
+    description: "American technology company"
   },
   
   // Technologies (normalize casing)
@@ -61,6 +97,50 @@ const CONSOLIDATION_RULES: ConsolidationRule[] = [
     variants: ["refractive-index", "Refractive Index", "refractive_index"],
     kind: "technology",
     description: "Optical refractive index property"
+  },
+  
+  // Leia-specific technologies from press articles
+  {
+    primaryName: "Leia 3D Technology",
+    variants: ["Leia 3D", "Leia technology", "Leia display", "Leia screen"],
+    kind: "technology",
+    description: "Leia's proprietary 3D display technology"
+  },
+  {
+    primaryName: "Glasses-Free 3D",
+    variants: ["glasses-free 3d", "glasses free 3d", "Glasses-Free 3D", "glassless 3d"],
+    kind: "technology",
+    description: "3D display technology that doesn't require special glasses"
+  },
+  {
+    primaryName: "Lightfield Display",
+    variants: ["lightfield display", "light-field display", "light field display", "Lightfield Display"],
+    kind: "technology",
+    description: "Advanced 3D display technology using lightfield principles"
+  },
+  {
+    primaryName: "Holographic Display", 
+    variants: ["holographic display", "hologram display", "Holographic Display", "holographic screen"],
+    kind: "technology",
+    description: "Display technology creating holographic images"
+  },
+  {
+    primaryName: "Immersive Gaming",
+    variants: ["immersive gaming", "Immersive Gaming", "3d gaming", "3D Gaming"],
+    kind: "technology",
+    description: "Enhanced gaming experience with immersive 3D visuals"
+  },
+  {
+    primaryName: "Eye Tracking",
+    variants: ["eye tracking", "Eye Tracking", "eye-tracking", "gaze tracking"],
+    kind: "technology", 
+    description: "Technology that tracks user's eye movements"
+  },
+  {
+    primaryName: "Depth Sensing",
+    variants: ["depth sensing", "Depth Sensing", "depth detection", "3D sensing"],
+    kind: "technology",
+    description: "Technology for detecting spatial depth and distance"
   }
 ];
 
@@ -68,154 +148,158 @@ export class EntityConsolidator {
   
   /**
    * Consolidate a single entity during ingestion (continuous consolidation)
+   * Uses UPSERT with ON CONFLICT to prevent race conditions during concurrent processing
    */
   async consolidateEntityOnIngestion(
-    name: string, 
-    kind: EntityKind, 
+    name: string,
+    kind: EntityKind,
     description?: string
   ): Promise<{
     entityId: string;
     wasReused: boolean;
     matchedName?: string;
   }> {
-    // First check exact match
-    const { data: exactMatch } = await supabaseAdmin
-      .from('entities')
-      .select('id, name')
-      .eq('name', name)
-      .eq('kind', kind)
-      .single();
-      
-    if (exactMatch) {
-      // Update mention count using RPC call or direct SQL
-      await supabaseAdmin
-        .rpc('increment_mention_count', { entity_id: exactMatch.id })
-        .single();
-        
-      return {
-        entityId: exactMatch.id,
-        wasReused: true,
-        matchedName: exactMatch.name
-      };
-    }
-    
-    // Check aliases
+    // Check aliases first (these won't have race conditions since they reference existing entities)
     const { data: aliasMatch } = await supabaseAdmin
       .from('aliases')
       .select('entity_id, entities!inner(name)')
       .eq('alias', name)
       .eq('entities.kind', kind)
       .single();
-      
+
     if (aliasMatch) {
       // Update mention count using RPC call
       await supabaseAdmin
         .rpc('increment_mention_count', { entity_id: aliasMatch.entity_id })
         .single();
-        
+
       return {
         entityId: aliasMatch.entity_id,
         wasReused: true,
         matchedName: (aliasMatch.entities as any).name
       };
     }
-    
+
     // Check consolidation rules
-    const rule = CONSOLIDATION_RULES.find(r => 
+    const rule = CONSOLIDATION_RULES.find(r =>
       r.kind === kind && r.variants.includes(name)
     );
-    
+
     if (rule) {
-      // Find or create primary entity
-      let { data: primaryEntity } = await supabaseAdmin
+      // Use UPSERT for primary entity to handle race conditions
+      const { data: primaryEntity } = await supabaseAdmin
         .from('entities')
-        .select('id, name')
-        .eq('name', rule.primaryName)
-        .eq('kind', rule.kind)
+        .upsert({
+          name: rule.primaryName,
+          kind: rule.kind,
+          description: rule.description || description,
+          mention_count: 1,
+          authority_score: 0.8
+        }, {
+          onConflict: 'name,kind',
+          ignoreDuplicates: false
+        })
+        .select('id, name, mention_count')
         .single();
-        
+
       if (!primaryEntity) {
-        // Create primary entity
-        const { data: created } = await supabaseAdmin
-          .from('entities')
-          .insert({
-            name: rule.primaryName,
-            kind: rule.kind,
-            description: rule.description || description,
-            mention_count: 1,
-            authority_score: 0.8
-          })
-          .select('id, name')
-          .single();
-          
-        primaryEntity = created!;
-      } else {
-        // Update mention count using RPC call
+        throw new Error(`Failed to upsert primary entity: ${rule.primaryName}`);
+      }
+
+      // If mention_count > 1, this entity already existed, so we reused it
+      const wasReused = primaryEntity.mention_count > 1;
+
+      // Increment mention count if we're reusing existing entity
+      if (wasReused) {
         await supabaseAdmin
           .rpc('increment_mention_count', { entity_id: primaryEntity.id })
           .single();
       }
-      
-      // Create alias if name is different from primary
+
+      // Create alias if name is different from primary (use upsert to avoid duplicates)
       if (name !== rule.primaryName) {
         await supabaseAdmin
           .from('aliases')
-          .insert({
+          .upsert({
             entity_id: primaryEntity.id,
             alias: name,
             is_primary: false,
             confidence: 0.95
+          }, {
+            onConflict: 'entity_id,alias',
+            ignoreDuplicates: true
           });
       }
-      
+
       return {
         entityId: primaryEntity.id,
         wasReused: true,
         matchedName: primaryEntity.name
       };
     }
-    
-    // Check fuzzy match for similar entities
+
+    // Check fuzzy match for similar entities (but only against established entities)
     const fuzzyMatch = await this.findSimilarEntityForIngestion(name, kind);
     if (fuzzyMatch) {
-      // Create alias and reuse existing entity
+      // Create alias and reuse existing entity (use upsert to avoid duplicate aliases)
       await supabaseAdmin
         .from('aliases')
-        .insert({
+        .upsert({
           entity_id: fuzzyMatch.id,
           alias: name,
           is_primary: false,
           confidence: 0.8
+        }, {
+          onConflict: 'entity_id,alias',
+          ignoreDuplicates: true
         });
-        
+
       // Update mention count using RPC call
       await supabaseAdmin
         .rpc('increment_mention_count', { entity_id: fuzzyMatch.id })
         .single();
-        
+
       return {
         entityId: fuzzyMatch.id,
         wasReused: true,
         matchedName: fuzzyMatch.name
       };
     }
-    
-    // Create new entity
+
+    // Use UPSERT to create new entity, handling race conditions atomically
     const { data: newEntity } = await supabaseAdmin
       .from('entities')
-      .insert({
+      .upsert({
         name,
         kind,
         description: description || `${kind} entity`,
         mention_count: 1,
         authority_score: 0.3
+      }, {
+        onConflict: 'name,kind',
+        ignoreDuplicates: false
       })
-      .select('id')
+      .select('id, mention_count')
       .single();
-      
+
+    if (!newEntity) {
+      throw new Error(`Failed to upsert entity: ${name} (${kind})`);
+    }
+
+    // If mention_count > 1, this entity already existed (created by concurrent process)
+    const wasReused = newEntity.mention_count > 1;
+
+    // Increment mention count if we're reusing existing entity
+    if (wasReused) {
+      await supabaseAdmin
+        .rpc('increment_mention_count', { entity_id: newEntity.id })
+        .single();
+    }
+
     return {
-      entityId: newEntity!.id,
-      wasReused: false
+      entityId: newEntity.id,
+      wasReused,
+      matchedName: wasReused ? name : undefined
     };
   }
   
@@ -227,23 +311,26 @@ export class EntityConsolidator {
     name: string;
   } | null> {
     // Get entities of the same kind for fuzzy matching
+    // Removed mention_count filter to allow matching newly created entities
     const { data: entities } = await supabaseAdmin
       .from('entities')
-      .select('id, name')
+      .select('id, name, mention_count')
       .eq('kind', kind)
-      .gte('mention_count', 2) // Only match entities with some authority
       .order('mention_count', { ascending: false })
-      .limit(50); // Limit to avoid performance issues
-      
+      .limit(100); // Increased limit since we're checking all entities
+
     if (!entities || entities.length === 0) return null;
-    
-    // Find similar entity
+
+    // Find similar entity, prioritizing entities with higher mention counts
     for (const entity of entities) {
       if (this.areSimilar(name, entity.name, kind)) {
-        return entity;
+        return {
+          id: entity.id,
+          name: entity.name
+        };
       }
     }
-    
+
     return null;
   }
   

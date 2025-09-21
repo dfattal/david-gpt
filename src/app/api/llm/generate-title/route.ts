@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const { content } = await req.json();
+    const { content, metaTitle } = await req.json();
     
     if (!content || typeof content !== 'string') {
       return NextResponse.json({ error: 'Content is required' }, { status: 400 });
@@ -37,17 +37,20 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: 'system',
-          content: `You are an expert at generating concise, descriptive titles for documents. 
+          content: `You are an expert at generating concise, descriptive titles for documents that will be used in academic citations. 
           Generate a clear, informative title (max 80 characters) that captures the main topic or purpose of the provided content.
+          
+          ${metaTitle ? `You have access to an extracted metadata title: "${metaTitle}". Use this as context but improve it to be more human-readable and descriptive.` : ''}
           
           Rules:
           - Keep it under 80 characters
-          - Make it descriptive and specific
+          - Make it descriptive and specific for citation purposes
           - Avoid generic words like "document", "text", "content"
           - Use title case
-          - For academic papers, include key concepts
-          - For patents, focus on the invention
-          - For URLs, describe what the page is about
+          - For academic papers, include key concepts and methods
+          - For patents, focus on the specific invention or technology
+          - For URLs, describe the main content or purpose
+          - Prioritize clarity and searchability for researchers
           
           Return only the title, no quotes or additional text.`
         },

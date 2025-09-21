@@ -5,12 +5,14 @@
 import { createClient } from '@/lib/supabase/server';
 
 export interface IngestionStage {
-  stage: 'queued' | 'analyzing' | 'extracting' | 'chunking' | 'embedding' | 'indexing' | 'completed' | 'failed';
+  stage: 'upload' | 'analysis' | 'chunking' | 'embedding' | 'entities_extraction' | 'entities_consolidation' | 'completed' | 'failed';
   progress: number; // 0-1
   message: string;
   details?: {
     chunksCreated?: number;
     embeddingsGenerated?: number;
+    entitiesExtracted?: number;
+    entitiesConsolidated?: number;
     timeElapsed?: number;
     error?: string;
     metadata?: any;
@@ -166,12 +168,12 @@ export class IngestionWebhookManager {
 
   private mapStageToStatus(stage: IngestionStage['stage']): string {
     switch (stage) {
-      case 'queued': return 'pending';
-      case 'analyzing':
-      case 'extracting':
+      case 'upload': return 'pending';
+      case 'analysis':
       case 'chunking':
       case 'embedding':
-      case 'indexing': return 'processing';
+      case 'entities_extraction':
+      case 'entities_consolidation': return 'processing';
       case 'completed': return 'completed';
       case 'failed': return 'failed';
       default: return 'pending';
@@ -196,54 +198,51 @@ export class IngestionWebhookManager {
   }
 
   /**
-   * Predefined stage templates
+   * Predefined stage templates aligned with progress visualization
    */
   static readonly STAGES = {
-    QUEUED: (position?: number) => this.createStageUpdate(
-      'queued', 0.0, 
-      position ? `Queued (position ${position})` : 'Queued for processing'
-    ),
-    
-    ANALYZING: () => this.createStageUpdate(
-      'analyzing', 0.1, 
-      'Analyzing document type and metadata'
-    ),
-    
-    EXTRACTING: (type: string) => this.createStageUpdate(
-      'extracting', 0.3, 
-      `Extracting content using ${type}`
-    ),
-    
-    CHUNKING: (chunks: number) => this.createStageUpdate(
-      'chunking', 0.5, 
-      `Creating ${chunks} text chunks`,
-      { chunksCreated: chunks }
-    ),
-    
-    EMBEDDING: (embeddings: number) => this.createStageUpdate(
-      'embedding', 0.7, 
-      `Generating ${embeddings} embeddings`,
-      { embeddingsGenerated: embeddings }
-    ),
-    
-    INDEXING: () => this.createStageUpdate(
-      'indexing', 0.8, 
-      'Indexing content for search'
+    UPLOAD: () => this.createStageUpdate(
+      'upload', 0.1,
+      'Document uploaded to database'
     ),
 
-    EXTRACTING_ENTITIES: () => this.createStageUpdate(
-      'extracting_entities', 0.9,
-      'Extracting entities and relationships for knowledge graph'
+    ANALYSIS: (isUrlList?: boolean) => this.createStageUpdate(
+      'analysis', 0.3,
+      isUrlList ? 'Analyzing URL list and expanding into individual documents' : 'Analyzing document content and structure'
     ),
-    
-    COMPLETED: (chunks: number, embeddings: number, timeElapsed: number) => this.createStageUpdate(
-      'completed', 1.0, 
-      'Document processing completed successfully',
-      { chunksCreated: chunks, embeddingsGenerated: embeddings, timeElapsed }
+
+    CHUNKING: (chunks?: number) => this.createStageUpdate(
+      'chunking', 0.5,
+      chunks ? `Creating ${chunks} text chunks` : 'Breaking document into searchable chunks',
+      chunks ? { chunksCreated: chunks } : undefined
     ),
-    
+
+    EMBEDDING: (embeddings?: number) => this.createStageUpdate(
+      'embedding', 0.7,
+      embeddings ? `Generating ${embeddings} embeddings` : 'Generating semantic embeddings',
+      embeddings ? { embeddingsGenerated: embeddings } : undefined
+    ),
+
+    ENTITIES_EXTRACTION: (entities?: number) => this.createStageUpdate(
+      'entities_extraction', 0.85,
+      entities ? `Extracting ${entities} entities` : 'Extracting entities for knowledge graph',
+      entities ? { entitiesExtracted: entities } : undefined
+    ),
+
+    ENTITIES_CONSOLIDATION: (consolidated?: number) => this.createStageUpdate(
+      'entities_consolidation', 0.95,
+      consolidated ? `Consolidated ${consolidated} entities` : 'Consolidating and linking entities',
+      consolidated ? { entitiesConsolidated: consolidated } : undefined
+    ),
+
+    COMPLETED: (chunks: number, embeddings: number, entities: number, consolidated: number, timeElapsed?: number) => this.createStageUpdate(
+      'completed', 1.0,
+      'Document processing completed successfully - ready for search and chat',
+      { chunksCreated: chunks, embeddingsGenerated: embeddings, entitiesExtracted: entities, entitiesConsolidated: consolidated, timeElapsed }
+    ),
+
     FAILED: (error: string) => this.createStageUpdate(
-      'failed', 0.0, 
+      'failed', 0.0,
       'Document processing failed',
       { error }
     )
@@ -307,6 +306,24 @@ export class BatchProgressTracker {
     }
   }
 
+  async updateProgress(progress: number) {
+    // Create a generic batch progress update
+    const batchStage = IngestionWebhookManager.createStageUpdate(
+      'entities_consolidation', progress,
+      `Batch progress: ${Math.round(progress * 100)}% (${Math.round(progress * this.totalDocuments)}/${this.totalDocuments} documents processed)`,
+      { chunksCreated: this.completedDocuments }
+    );
+
+    // Send batch progress with special batch document ID
+    await notifyIngestionProgress(
+      `batch_${this.batchId}`,
+      `batch_job_${this.batchId}`,
+      this.userId,
+      batchStage,
+      this.batchId
+    );
+  }
+
   private async notifyBatchProgress() {
     const totalProcessed = this.completedDocuments + this.failedDocuments;
     const batchProgress = totalProcessed / this.totalDocuments;
@@ -329,7 +346,7 @@ export class BatchProgressTracker {
       }
     } else {
       batchStage = IngestionWebhookManager.createStageUpdate(
-        'indexing', batchProgress,
+        'entities_consolidation', batchProgress,
         `Batch progress: ${totalProcessed}/${this.totalDocuments} documents processed`,
         { chunksCreated: this.completedDocuments }
       );

@@ -5,11 +5,12 @@
  * for enhanced document processing with better structure and metadata.
  */
 
-import type { 
-  PatentMetadata, 
-  DOIMetadata, 
-  DocumentMetadata 
+import type {
+  PatentMetadata,
+  DOIMetadata,
+  DocumentMetadata
 } from './types';
+import { sanitizeDOI } from './doi-utils';
 
 interface ExaContentsRequest {
   urls: string[];
@@ -78,6 +79,21 @@ export class ExaClient {
       }
 
       const data: ExaContentsResponse = await response.json();
+
+      // Debug logging to understand what EXA is returning
+      console.log('🔍 EXA API Response:', {
+        requestId: data.requestId,
+        resultCount: data.results.length,
+        firstResult: data.results[0] ? {
+          url: data.results[0].url,
+          title: data.results[0].title,
+          textLength: data.results[0].text?.length || 0,
+          textPreview: data.results[0].text?.substring(0, 200) + '...',
+          hasText: !!data.results[0].text,
+          textIsUrl: data.results[0].text && /^https?:\/\//.test(data.results[0].text.trim())
+        } : null
+      });
+
       return data.results;
     } catch (error) {
       console.error('Error extracting content with EXA:', error);
@@ -179,12 +195,27 @@ export class ExaClient {
 
       const results = await this.extractContent([url], summaryQuery);
       if (!results.length) {
+        console.warn(`🔍 EXA returned zero results for URL: ${url}`);
         return null;
       }
 
       const result = results[0];
+
+      // Validate that EXA returned actual content, not just a URL
+      if (!result.text || result.text.trim().length < 50) {
+        console.warn(`🔍 EXA returned insufficient content for URL: ${url} (${result.text?.length || 0} chars)`);
+        return null;
+      }
+
+      // Check if EXA returned just a URL (validation similar to ingestion service)
+      const urlRegex = /^https?:\/\/[^\s]+$/;
+      if (urlRegex.test(result.text.trim())) {
+        console.warn(`🔍 EXA returned only URL for: ${url}`);
+        return null;
+      }
+
       const metadata = this.parseDocumentMetadata(result, url);
-      
+
       return {
         metadata,
         content: result.text,
@@ -324,11 +355,53 @@ export class ExaClient {
         metadata.publishedDate = new Date(publicationDateMatch[1]);
       }
 
-      // Extract expiration date from "expires YYYY-MM-DD" pattern
+      // Extract expiration date from various patterns
+      let expirationDate: Date | undefined;
+
+      // Pattern 1: "expires YYYY-MM-DD"
       const expirationMatch = info.match(/expires\s+(\d{4}-\d{2}-\d{2})/i);
       if (expirationMatch) {
-        metadata.expirationDate = new Date(expirationMatch[1]);
-        console.log('✅ Extracted expiration date:', expirationMatch[1]);
+        expirationDate = new Date(expirationMatch[1]);
+        console.log('✅ Extracted expiration date from "expires" pattern:', expirationMatch[1]);
+      }
+
+      // Pattern 2: "Expiration: YYYY-MM-DD" or "Expiration date: YYYY-MM-DD"
+      if (!expirationDate) {
+        const expireDateMatch = info.match(/Expiration(?:\s+date)?[:\s]*(\d{4}-\d{2}-\d{2})/i);
+        if (expireDateMatch) {
+          expirationDate = new Date(expireDateMatch[1]);
+          console.log('✅ Extracted expiration date from "Expiration date" pattern:', expireDateMatch[1]);
+        }
+      }
+
+      // Pattern 3: Look in Legal status section for expiration info
+      if (!expirationDate) {
+        const legalStatusMatch = text.match(/Legal status[^)]*\).*?expir.*?(\d{4}-\d{2}-\d{2})/i);
+        if (legalStatusMatch) {
+          expirationDate = new Date(legalStatusMatch[1]);
+          console.log('✅ Extracted expiration date from Legal status:', legalStatusMatch[1]);
+        }
+      }
+
+      // Calculate expiration date if not found but we have filing date
+      if (!expirationDate && metadata.filedDate) {
+        // US utility patents typically expire 20 years from filing date
+        expirationDate = new Date(metadata.filedDate);
+        expirationDate.setFullYear(expirationDate.getFullYear() + 20);
+        metadata.expirationIsEstimate = true;
+        console.log('📊 Calculated expiration date (20 years from filing):', expirationDate.toISOString().split('T')[0]);
+      }
+
+      // Calculate from priority date if filing date is not available
+      if (!expirationDate && metadata.priorityDate) {
+        expirationDate = new Date(metadata.priorityDate);
+        expirationDate.setFullYear(expirationDate.getFullYear() + 20);
+        metadata.expirationIsEstimate = true;
+        console.log('📊 Calculated expiration date (20 years from priority):', expirationDate.toISOString().split('T')[0]);
+      }
+
+      if (expirationDate) {
+        metadata.expirationDate = expirationDate;
       }
 
       // Extract application number
@@ -488,7 +561,7 @@ export class ExaClient {
   }
 
   /**
-   * Parse general document metadata from EXA result
+   * Parse enhanced academic document metadata from EXA result
    */
   private parseDocumentMetadata(result: ExaResult, originalUrl: string): Partial<DocumentMetadata> {
     const metadata: Partial<DocumentMetadata> = {
@@ -497,36 +570,363 @@ export class ExaClient {
       canonicalUrl: result.url,
     };
 
-    // Extract publication date
+    // Enhanced publication date extraction with multiple patterns
+    let pubDate: Date | undefined;
+
     if (result.publishedDate) {
-      metadata.publishedDate = new Date(result.publishedDate);
-      metadata.isoDate = new Date(result.publishedDate);
+      pubDate = new Date(result.publishedDate);
+    } else {
+      // Try to extract date from text content
+      const datePatterns = [
+        // Standard ISO dates
+        /(\d{4}-\d{2}-\d{2})/g,
+        // Month Day, Year format
+        /((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})/gi,
+        // Day Month Year format
+        /(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})/gi,
+        // Published/Posted patterns
+        /(?:published|posted|updated|created)\s*:?\s*([^.\n]+?(?:20\d{2}|19\d{2}))/gi,
+        // Date in metadata patterns
+        /(?:date|time)\s*[:=]\s*["']?([^"'\n]+?(?:20\d{2}|19\d{2}))/gi
+      ];
+
+      for (const pattern of datePatterns) {
+        const matches = result.text.match(pattern);
+        if (matches) {
+          for (const match of matches) {
+            const parsedDate = new Date(match.replace(/^(published|posted|updated|created)\s*:?\s*/i, ''));
+            if (!isNaN(parsedDate.getTime()) && parsedDate.getFullYear() > 1990 && parsedDate.getFullYear() <= new Date().getFullYear()) {
+              pubDate = parsedDate;
+              console.log('✅ Extracted publication date from text:', match, '→', pubDate.toISOString().split('T')[0]);
+              break;
+            }
+          }
+          if (pubDate) break;
+        }
+      }
     }
 
-    // Extract author
+    if (pubDate && !isNaN(pubDate.getTime())) {
+      metadata.publishedDate = pubDate;
+      metadata.isoDate = pubDate;
+      metadata.publicationYear = pubDate.getFullYear();
+    }
+
+    // First, try to extract structured data from JSON-LD and OpenGraph
+    this.extractStructuredMetadata(result.text, metadata);
+
+    // Enhanced author extraction with affiliations
+    const authorsAffiliations: Array<{name: string, affiliation?: string}> = [];
+
     if (result.author) {
-      metadata.authors = [result.author];
+      authorsAffiliations.push({name: result.author});
     }
 
-    // Extract DOI
-    const doiMatch = result.text.match(/doi\s*:?\s*([0-9]+\.[0-9]+\/[^\s]+)/i);
-    if (doiMatch) {
-      metadata.doi = doiMatch[1];
+    // Try to extract multiple authors from text with enhanced patterns
+    const authorPatterns = [
+      // Academic paper patterns
+      /(?:authors?|by)\s*:?\s*([^.\n]+?)(?:\n|abstract|introduction|$)/i,
+      // News article bylines
+      /(?:by|written by|author)\s*:?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s*,\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)*)/i,
+      // Multiple author formats
+      /([A-Z][a-z]+\s+[A-Z]\.?\s+[A-Z][a-z]+(?:\s*,\s*[A-Z][a-z]+\s+[A-Z]\.?\s+[A-Z][a-z]+)*)/g,
+      // Simple name patterns
+      /([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*[A-Z][a-z]+\s+[A-Z][a-z]+)*)/g,
+      // Blog post patterns
+      /(?:posted by|published by)\s*:?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/i
+    ];
+
+    for (const pattern of authorPatterns) {
+      const matches = result.text.match(pattern);
+      if (matches) {
+        const authorText = matches[1] || matches[0];
+        const authorNames = authorText
+          .split(/[,;]|(?:\s+and\s+)|(?:\s*&\s*)/)
+          .map(name => name.trim())
+          .filter(name =>
+            name.length > 3 &&
+            name.length < 100 &&
+            /^[A-Z]/.test(name) &&
+            !name.includes('@') && // Skip email addresses
+            !name.includes('http') && // Skip URLs
+            !/^\d/.test(name) // Skip numbers
+          );
+
+        authorNames.forEach(name => {
+          // Extract potential affiliation in parentheses
+          const affiliationMatch = name.match(/^([^(]+)\s*\(([^)]+)\)$/);
+          if (affiliationMatch) {
+            const cleanName = affiliationMatch[1].trim();
+            const affiliation = affiliationMatch[2].trim();
+            if (!authorsAffiliations.some(a => a.name === cleanName)) {
+              authorsAffiliations.push({name: cleanName, affiliation});
+            }
+          } else {
+            if (!authorsAffiliations.some(a => a.name === name)) {
+              authorsAffiliations.push({name});
+            }
+          }
+        });
+
+        if (authorNames.length > 0) {
+          console.log('✅ Extracted authors from pattern:', pattern.source, '→', authorNames);
+          break; // Use first successful pattern
+        }
+      }
     }
 
-    // Extract abstract or summary
-    const abstractMatch = result.text.match(/(?:abstract|summary)\s*:?\s*([\s\S]+?)(?:\n\s*\n|introduction|keywords)/i);
-    if (abstractMatch) {
-      metadata.abstract = abstractMatch[1].trim();
+    if (authorsAffiliations.length > 0) {
+      metadata.authorsAffiliations = authorsAffiliations;
     }
 
-    // Extract journal/venue
-    const journalMatch = result.text.match(/(?:journal|published\s+in|venue)\s*:?\s*([^.]+)/i);
-    if (journalMatch) {
-      metadata.journal = journalMatch[1].trim();
+    // Extract DOI with multiple patterns
+    const doiPatterns = [
+      /doi\s*:?\s*([0-9]{2}\.[0-9]{4}\/[^\s]+)/i,
+      /https?:\/\/doi\.org\/([0-9]{2}\.[0-9]{4}\/[^\s]+)/i,
+      /DOI:\s*([0-9]{2}\.[0-9]{4}\/[^\s]+)/i
+    ];
+
+    for (const pattern of doiPatterns) {
+      const doiMatch = result.text.match(pattern);
+      if (doiMatch) {
+        // Clean the DOI using centralized sanitization
+        const rawDoi = doiMatch[1];
+        const cleanedDoi = sanitizeDOI(rawDoi);
+        if (cleanedDoi) {
+          metadata.doi = cleanedDoi;
+        }
+        break;
+      }
     }
+
+    // Extract arXiv ID
+    const arxivMatch = result.text.match(/arxiv\s*:?\s*([0-9]{4}\.[0-9]{4,5}(?:v[0-9]+)?)/i);
+    if (arxivMatch) {
+      metadata.arxivId = arxivMatch[1];
+    }
+
+    // Enhanced abstract extraction
+    const abstractPatterns = [
+      /(?:abstract|summary)\s*:?\s*([\s\S]+?)(?:\n\s*\n|introduction|keywords|1\.|I\.)/i,
+      /abstract\s*\n([\s\S]+?)(?:\n\s*introduction|\n\s*keywords|\n\s*1\.)/i
+    ];
+
+    for (const pattern of abstractPatterns) {
+      const abstractMatch = result.text.match(pattern);
+      if (abstractMatch) {
+        const abstract = abstractMatch[1]
+          .replace(/\s+/g, ' ')
+          .trim()
+          .substring(0, 2000); // Limit abstract length
+        
+        if (abstract.length > 50) {
+          metadata.abstract = abstract;
+          break;
+        }
+      }
+    }
+
+    // Enhanced venue/journal extraction with multiple patterns
+    const venuePatterns = [
+      // Academic paper patterns
+      /(?:published\s+in|appeared\s+in|in\s+proceedings\s+of)\s*:?\s*([^.\n]+)/i,
+      /(?:journal|conference|venue|publication)\s*:?\s*([^.\n]+)/i,
+      /(?:Proceedings\s+of\s+the\s+)([^.\n]+)/i,
+      // News/magazine patterns
+      /(?:source|publication|magazine|newspaper)\s*:?\s*([^.\n]+)/i,
+      // Conference acronyms like "CVPR 2024", "ICML 2023"
+      /\b([A-Z]{3,8}\s*['"']?\d{4}['"']?)\b/g,
+      // Journal names in italics or quotes
+      /(?:in\s+)?['"'""]([^'"'""\n]+)['"'""](?:\s*journal|\s*magazine|\s*,|\s*\.)/i,
+      // Nature, Science, etc patterns
+      /\b(Nature|Science|Cell|PNAS|IEEE|ACM|Springer|Elsevier)\s+([A-Za-z\s]+)/i
+    ];
+
+    for (const pattern of venuePatterns) {
+      const venueMatches = result.text.match(pattern);
+      if (venueMatches) {
+        let venue = venueMatches[1]?.trim();
+        if (!venue && venueMatches.length > 2) {
+          venue = `${venueMatches[1]} ${venueMatches[2]}`.trim();
+        }
+
+        if (venue && venue.length > 3 && venue.length < 200) {
+          // Clean up venue name
+          venue = venue
+            .replace(/[.,;:]$/, '') // Remove trailing punctuation
+            .replace(/^\s*["']|["']\s*$/g, '') // Remove quotes
+            .trim();
+
+          if (venue.length > 3) {
+            metadata.venue = venue;
+            console.log('✅ Extracted venue:', venue);
+            break;
+          }
+        }
+      }
+    }
+
+    // Extract keywords
+    const keywordsMatch = result.text.match(/(?:keywords|key\s+words)\s*:?\s*([^.\n]+)/i);
+    if (keywordsMatch) {
+      const keywords = keywordsMatch[1]
+        .split(/[,;]/)
+        .map(k => k.trim())
+        .filter(k => k.length > 2 && k.length < 50);
+      
+      if (keywords.length > 0) {
+        metadata.keywords = keywords;
+      }
+    }
+
+    // Extract citation count (if mentioned)
+    const citationMatch = result.text.match(/(?:cited\s+by|citations?)\s*:?\s*([0-9]+)/i);
+    if (citationMatch) {
+      metadata.citationCount = parseInt(citationMatch[1]);
+    }
+
+    // Determine document status based on URL and content
+    let status = 'Published';
+    if (originalUrl.includes('arxiv.org')) {
+      status = 'Preprint';
+    } else if (result.text.toLowerCase().includes('accepted') && result.text.toLowerCase().includes('review')) {
+      status = 'Accepted';
+    } else if (result.text.toLowerCase().includes('under review') || result.text.toLowerCase().includes('submitted')) {
+      status = 'In Review';
+    }
+
+    // Detect open access indicators
+    const openAccessIndicators = [
+      /open\s+access/i,
+      /creative\s+commons/i,
+      /cc\s+by/i,
+      /freely\s+available/i
+    ];
+
+    metadata.openAccess = openAccessIndicators.some(pattern => pattern.test(result.text));
 
     return metadata;
+  }
+
+  /**
+   * Extract structured metadata from JSON-LD, OpenGraph, and other structured data
+   */
+  private extractStructuredMetadata(text: string, metadata: Partial<DocumentMetadata>): void {
+    // Extract JSON-LD structured data
+    const jsonLdMatches = text.match(/<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
+    if (jsonLdMatches) {
+      for (const match of jsonLdMatches) {
+        try {
+          const jsonContent = match.replace(/<script[^>]*>/i, '').replace(/<\/script>/i, '');
+          const structuredData = JSON.parse(jsonContent);
+
+          if (structuredData['@type']) {
+            this.extractFromJsonLd(structuredData, metadata);
+          }
+        } catch (error) {
+          console.warn('Failed to parse JSON-LD:', error);
+        }
+      }
+    }
+
+    // Extract OpenGraph meta tags
+    const metaTagPattern = /<meta\s+(?:property|name)\s*=\s*["']([^"']+)["']\s+content\s*=\s*["']([^"']+)["'][^>]*>/gi;
+    let metaMatch;
+    while ((metaMatch = metaTagPattern.exec(text)) !== null) {
+      const property = metaMatch[1];
+      const content = metaMatch[2];
+
+      switch (property) {
+        case 'og:title':
+        case 'twitter:title':
+          if (!metadata.title || metadata.title.length < content.length) {
+            metadata.title = content;
+          }
+          break;
+        case 'og:description':
+        case 'twitter:description':
+        case 'description':
+          if (!metadata.abstract) {
+            metadata.abstract = content.substring(0, 2000);
+          }
+          break;
+        case 'article:author':
+        case 'og:author':
+          if (!metadata.authorsAffiliations) {
+            metadata.authorsAffiliations = [{name: content}];
+          }
+          break;
+        case 'article:published_time':
+        case 'og:published_time':
+          if (!metadata.publishedDate) {
+            const pubDate = new Date(content);
+            if (!isNaN(pubDate.getTime())) {
+              metadata.publishedDate = pubDate;
+              metadata.isoDate = pubDate;
+              metadata.publicationYear = pubDate.getFullYear();
+            }
+          }
+          break;
+        case 'article:section':
+        case 'og:site_name':
+          if (!metadata.venue) {
+            metadata.venue = content;
+          }
+          break;
+      }
+    }
+  }
+
+  /**
+   * Extract metadata from JSON-LD structured data
+   */
+  private extractFromJsonLd(data: any, metadata: Partial<DocumentMetadata>): void {
+    const type = Array.isArray(data['@type']) ? data['@type'][0] : data['@type'];
+
+    switch (type) {
+      case 'Article':
+      case 'NewsArticle':
+      case 'ScholarlyArticle':
+        if (data.headline && (!metadata.title || metadata.title.length < data.headline.length)) {
+          metadata.title = data.headline;
+        }
+
+        if (data.abstract && !metadata.abstract) {
+          metadata.abstract = data.abstract.substring(0, 2000);
+        }
+
+        if (data.author && !metadata.authorsAffiliations) {
+          const authors = Array.isArray(data.author) ? data.author : [data.author];
+          metadata.authorsAffiliations = authors.map(author => ({
+            name: typeof author === 'string' ? author : (author.name || author.givenName + ' ' + author.familyName),
+            affiliation: typeof author === 'object' ? author.affiliation?.name : undefined
+          }));
+        }
+
+        if (data.datePublished && !metadata.publishedDate) {
+          const pubDate = new Date(data.datePublished);
+          if (!isNaN(pubDate.getTime())) {
+            metadata.publishedDate = pubDate;
+            metadata.isoDate = pubDate;
+            metadata.publicationYear = pubDate.getFullYear();
+          }
+        }
+
+        if (data.publisher && !metadata.venue) {
+          metadata.venue = typeof data.publisher === 'string' ? data.publisher : data.publisher.name;
+        }
+
+        if (data.keywords && !metadata.keywords) {
+          const keywords = Array.isArray(data.keywords) ? data.keywords : [data.keywords];
+          metadata.keywords = keywords.map(k => typeof k === 'string' ? k : k.name).filter(k => k);
+        }
+        break;
+
+      case 'Organization':
+      case 'Person':
+        // Can extract author information for cross-referencing
+        break;
+    }
   }
 }
 

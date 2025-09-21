@@ -518,20 +518,13 @@ export class RelationshipExtractor {
         const resolvedRel = await this.resolveRelationshipEntities(rel);
         
         if (resolvedRel.srcId && resolvedRel.dstId) {
-          // Check if relationship already exists
-          const { data: existing } = await supabaseAdmin
+          // Use UPSERT to handle unique constraint gracefully
+          await supabaseAdmin
             .from('edges')
-            .select('id')
-            .eq('src_id', resolvedRel.srcId)
-            .eq('rel', resolvedRel.rel)
-            .eq('dst_id', resolvedRel.dstId)
-            .single();
-          
-          if (!existing) {
-            await supabaseAdmin
-              .from('edges')
-              .insert(resolvedRel);
-          }
+            .upsert(resolvedRel, {
+              onConflict: 'src_id,src_type,rel,dst_id,dst_type',
+              ignoreDuplicates: false  // Update existing relationships
+            });
         }
       } catch (error) {
         console.warn(`Failed to save relationship:`, rel, error);

@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const batchId = searchParams.get('batchId');
-    
+    const jobId = searchParams.get('jobId'); // Optional: for single document within batch
+
     if (!batchId) {
       return new NextResponse('Batch ID required', { status: 400 });
     }
@@ -35,15 +36,23 @@ export async function GET(req: NextRequest) {
           }
         });
 
-        // Send initial batch state
-        sendInitialBatchState(batchId, controller, supabase);
+        // Send initial state (batch or single document)
+        if (jobId) {
+          sendInitialDocumentState(jobId, batchId, controller, supabase);
+        } else {
+          sendInitialBatchState(batchId, controller, supabase);
+        }
 
-        // Set up periodic batch state updates
+        // Set up periodic state updates
         const interval = setInterval(async () => {
           try {
-            await sendBatchStateUpdate(batchId, controller, supabase);
+            if (jobId) {
+              await sendDocumentStateUpdate(jobId, batchId, controller, supabase);
+            } else {
+              await sendBatchStateUpdate(batchId, controller, supabase);
+            }
           } catch (error) {
-            console.error('Error sending batch update:', error);
+            console.error('Error sending update:', error);
           }
         }, 2000); // Update every 2 seconds
 
@@ -90,34 +99,40 @@ async function sendInitialBatchState(
   supabase: any
 ) {
   try {
-    // Get batch job
-    const { data: batchJob } = await supabase
+    // Get batch job by batchId in config
+    const { data: batchJobs } = await supabase
       .from('processing_jobs')
       .select('*')
-      .eq('id', `batch_job_${batchId}`)
-      .single();
+      .eq('config->>batchId', batchId)
+      .eq('type', 'document_ingest')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    const batchJob = batchJobs?.[0];
 
     if (!batchJob) {
       return;
     }
 
-    // Get individual document jobs
-    const { data: documentJobs } = await supabase
+    // Get individual document jobs (exclude the batch job itself)
+    const { data: allJobs } = await supabase
       .from('processing_jobs')
       .select(`
         *,
         document:documents(id, title, doc_type)
       `)
       .eq('config->>batchId', batchId)
-      .neq('id', `batch_job_${batchId}`)
       .order('created_at');
+
+    // Filter out the batch job (it won't have a document_id)
+    const documentJobs = allJobs?.filter(job => job.document_id) || [];
 
     const batchProgress = {
       batchId,
       totalDocuments: batchJob.config?.totalDocuments || 0,
-      completedDocuments: documentJobs?.filter(job => job.status === 'completed').length || 0,
-      failedDocuments: documentJobs?.filter(job => job.status === 'failed').length || 0,
-      inProgressDocuments: documentJobs?.filter(job => job.status === 'processing').length || 0,
+      completedDocuments: documentJobs?.filter((job: any) => job.status === 'completed').length || 0,
+      failedDocuments: documentJobs?.filter((job: any) => job.status === 'failed').length || 0,
+      inProgressDocuments: documentJobs?.filter((job: any) => job.status === 'processing').length || 0,
       startTime: batchJob.created_at,
       endTime: batchJob.completed_at,
       documents: documentJobs?.map(job => ({
@@ -156,16 +171,18 @@ async function sendBatchStateUpdate(
   supabase: any
 ) {
   try {
-    // Get updated document jobs
-    const { data: documentJobs } = await supabase
+    // Get updated document jobs (exclude batch job)
+    const { data: allJobs } = await supabase
       .from('processing_jobs')
       .select(`
         *,
         document:documents(id, title, doc_type)
       `)
       .eq('config->>batchId', batchId)
-      .neq('id', `batch_job_${batchId}`)
       .order('created_at');
+
+    // Filter out the batch job (it won't have a document_id)
+    const documentJobs = allJobs?.filter(job => job.document_id);
 
     if (!documentJobs) return;
 
@@ -200,25 +217,125 @@ async function sendBatchStateUpdate(
   }
 }
 
+async function sendInitialDocumentState(
+  jobId: string,
+  batchId: string,
+  controller: ReadableStreamDefaultController,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any
+) {
+  try {
+    // Get the specific document job
+    const { data: job } = await supabase
+      .from('processing_jobs')
+      .select(`
+        *,
+        document:documents(id, title, doc_type)
+      `)
+      .eq('id', jobId)
+      .single();
+
+    if (!job) {
+      console.error(`Job ${jobId} not found`);
+      return;
+    }
+
+    const documentProgress = {
+      documentId: job.document_id,
+      jobId: job.id,
+      title: job.document?.title || 'Unknown',
+      detectedType: job.document?.doc_type || 'unknown',
+      currentStage: {
+        stage: mapJobStatusToStage(job.status, job.progress, job.progress_message),
+        progress: job.progress || 0,
+        message: job.progress_message || 'Processing...',
+        timestamp: job.updated_at,
+        details: job.results
+      },
+      stageHistory: [],
+      startTime: job.created_at,
+      endTime: job.completed_at
+    };
+
+    const message = JSON.stringify({
+      type: 'document_progress',
+      document: documentProgress
+    });
+
+    controller.enqueue(`data: ${message}\n\n`);
+  } catch (error) {
+    console.error('Error sending initial document state:', error);
+  }
+}
+
+async function sendDocumentStateUpdate(
+  jobId: string,
+  batchId: string,
+  controller: ReadableStreamDefaultController,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any
+) {
+  try {
+    // Get updated document job
+    const { data: job } = await supabase
+      .from('processing_jobs')
+      .select(`
+        *,
+        document:documents(id, title, doc_type)
+      `)
+      .eq('id', jobId)
+      .single();
+
+    if (!job) return;
+
+    const documentProgress = {
+      documentId: job.document_id,
+      jobId: job.id,
+      title: job.document?.title || 'Unknown',
+      detectedType: job.document?.doc_type || 'unknown',
+      currentStage: {
+        stage: mapJobStatusToStage(job.status, job.progress, job.progress_message),
+        progress: job.progress || 0,
+        message: job.progress_message || 'Processing...',
+        timestamp: job.updated_at,
+        details: job.results
+      },
+      stageHistory: [],
+      startTime: job.created_at,
+      endTime: job.completed_at
+    };
+
+    const message = JSON.stringify({
+      type: 'document_progress',
+      document: documentProgress
+    });
+
+    controller.enqueue(`data: ${message}\n\n`);
+  } catch (error) {
+    console.error('Error sending document state update:', error);
+  }
+}
+
 function mapJobStatusToStage(status: string, progress?: number, message?: string): string {
   switch (status) {
     case 'pending': return 'upload';
-    case 'processing': 
+    case 'processing':
       // Map based on progress and message for more granular tracking
       if (message?.includes('analysis') || message?.includes('analyzing')) return 'analysis';
       if (message?.includes('chunk') || message?.includes('chunking')) return 'chunking';
       if (message?.includes('embedding') || message?.includes('embed')) return 'embedding';
       if (message?.includes('entities') && message?.includes('extract')) return 'entities_extraction';
       if (message?.includes('entities') && message?.includes('consolidat')) return 'entities_consolidation';
-      
-      // Default mapping based on progress
-      if ((progress || 0) < 0.2) return 'analysis';
-      if ((progress || 0) < 0.4) return 'chunking';
-      if ((progress || 0) < 0.6) return 'embedding';
-      if ((progress || 0) < 0.8) return 'entities_extraction';
-      if ((progress || 0) < 1.0) return 'entities_consolidation';
-      
-      return 'chunking'; // Default fallback
+
+      // Enhanced mapping based on progress thresholds
+      if ((progress || 0) <= 0.1) return 'upload';
+      if ((progress || 0) <= 0.3) return 'analysis';
+      if ((progress || 0) <= 0.5) return 'chunking';
+      if ((progress || 0) <= 0.7) return 'embedding';
+      if ((progress || 0) <= 0.85) return 'entities_extraction';
+      if ((progress || 0) <= 0.95) return 'entities_consolidation';
+
+      return 'entities_consolidation'; // Near completion
     case 'completed': return 'completed';
     case 'failed': return 'failed';
     default: return 'upload';

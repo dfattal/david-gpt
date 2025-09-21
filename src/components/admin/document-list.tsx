@@ -18,10 +18,9 @@ interface Document {
   arxiv_id: string | null;
   patent_no: string | null;
   url: string | null;
-  iso_date: string | null;
+  published_date: string | null;
   filed_date: string | null;
   granted_date: string | null;
-  published_date: string | null;
   file_size: number | null;
   created_at: string;
   processed_at: string | null;
@@ -301,7 +300,7 @@ export function DocumentList({ refreshKey, onDocumentUpdate }: DocumentListProps
                       {doc.patent_no && <div>Patent: {doc.patent_no}</div>}
                       {doc.arxiv_id && <div>arXiv: {doc.arxiv_id}</div>}
                       {doc.file_size && <div>Size: {formatFileSize(doc.file_size)}</div>}
-                      {doc.iso_date && <div>Published: {formatDate(doc.iso_date)}</div>}
+                      {doc.published_date && <div>Published: {formatDate(doc.published_date)}</div>}
                       <div>Chunks: {doc.document_chunks?.[0]?.count || 0}</div>
                     </div>
                   </td>

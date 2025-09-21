@@ -21,6 +21,11 @@ import {
   type FactSummary,
   type ContextMemory
 } from "./context-management";
+import { 
+  processSearchContext,
+  type ProcessedContext,
+  type CitationRelevanceMetrics
+} from "./context-post-processing";
 import {
   createCitationManager,
   persistSearchResultCitations,
@@ -54,14 +59,28 @@ export interface RAGContext {
   citationBatch?: CitationBatch;
   enhancedCitations?: EnhancedCitation[];
   citationsPersisted: boolean;
+  // Metadata query context
+  isMetadataQuery: boolean;
+  // Citation relevance tracking
+  citationRelevance?: CitationRelevanceMetrics;
+  processedContext?: ProcessedContext;
 }
 
 /**
  * Determine if a query needs RAG support
  */
 export function shouldUseRAG(query: string): boolean {
+  // ALWAYS-ON RAG APPROACH:
+  // Previously used keyword-based filtering that missed important queries like "who are the authors?"
+  // Now we always attempt RAG retrieval and let relevance scoring determine result usage
+  // This fixes the critical issue where follow-up questions were incorrectly filtered out
+
+  // Always return true - let RAG execution handle relevance filtering
+  return true;
+
+  /* LEGACY KEYWORD-BASED APPROACH (disabled):
   const normalizedQuery = query.toLowerCase();
-  
+
   // Keywords that suggest RAG is needed
   const ragKeywords = [
     'difference between',
@@ -108,6 +127,7 @@ export function shouldUseRAG(query: string): boolean {
 
   // Simple heuristic: if query contains RAG keywords, use RAG
   return ragKeywords.some(keyword => normalizedQuery.includes(keyword));
+  */
 }
 
 /**
@@ -140,6 +160,9 @@ export async function executeRAGWithContext(
         carryOverResults: 0,
         memoryUsed: false,
         citationsPersisted: false,
+        isMetadataQuery: false,
+        citationRelevance: undefined,
+        processedContext: undefined,
       };
     }
 
@@ -184,6 +207,13 @@ export async function executeRAGWithContext(
     let enhancedCitations: EnhancedCitation[] = [];
     const citationsPersisted = false;
     
+    // Initialize metadata query context
+    let isMetadataQuery = false;
+    
+    // Initialize citation relevance tracking
+    let processedContext: ProcessedContext | undefined;
+    let citationRelevance: CitationRelevanceMetrics | undefined;
+    
     // Build context memory for existing conversations
     if (contextManager && conversationId && conversationId !== 'temp') {
       try {
@@ -221,7 +251,18 @@ export async function executeRAGWithContext(
           documentIds: documentContext.length > 0 ? documentContext : undefined,
         });
         
-        if (result.success && result.results && result.results.length > 0) {
+        if ((result.success && result.results && result.results.length > 0) || (result.success && result.metadataQuery && result.message)) {
+          // Handle metadata queries separately
+          if (result.metadataQuery && result.message) {
+            ragResults = formatMetadataResults(result);
+            citations = ""; // Metadata queries don't have traditional citations
+            enhancedCitations = [];
+            toolsUsed.push("search_corpus");
+            freshResults = 1; // Indicate we have results
+            isMetadataQuery = true; // Mark as metadata query for citation handling
+            break;
+          }
+          
           freshResults = result.results.length;
           
           // Store new sources for context management and apply hybrid retrieval
@@ -252,13 +293,50 @@ export async function executeRAGWithContext(
               turnAnalysis!.turnType
             );
             
-            // Use hybrid results instead of just fresh results
+            // Use hybrid results instead of just fresh results with citation filtering
             if (hybridResults.length > 0) {
-              ragResults = formatSearchResultsWithHybridSources(hybridResults, carryOverResult);
-              citations = formatCitationsWithHybridSources(hybridResults, carryOverResult);
-              
-              // Create enhanced citations from hybrid results
-              enhancedCitations = createEnhancedCitationsFromHybridResults(hybridResults, carryOverResult);
+              try {
+                // Apply advanced context processing with citation relevance filtering
+                const contextProcessingResult = await processSearchContext(
+                  query,
+                  hybridResults,
+                  queryIntent,
+                  4000 // Max tokens for system prompt
+                );
+                
+                console.log(`🔍 Citation relevance filtering applied:`);
+                console.log(`   Total citations: ${contextProcessingResult.citationRelevance.totalCitations}`);
+                console.log(`   Relevant citations: ${contextProcessingResult.citationRelevance.relevantCitations}`);
+                console.log(`   Average relevance: ${contextProcessingResult.citationRelevance.averageRelevance.toFixed(3)}`);
+                console.log(`   Confidence score: ${contextProcessingResult.citationRelevance.confidenceScore.toFixed(3)}`);
+                
+                // Use processed context with filtered citations
+                ragResults = contextProcessingResult.content;
+                citations = formatProcessedCitations(contextProcessingResult.citations);
+                
+                // Store processing results for return
+                processedContext = contextProcessingResult;
+                citationRelevance = contextProcessingResult.citationRelevance;
+                
+                // Create enhanced citations from processed results
+                enhancedCitations = contextProcessingResult.citations.map((citation, index) => ({
+                  documentId: citation.id || 'unknown',
+                  chunkId: citation.chunkIndex?.toString(),
+                  marker: citation.id,
+                  factSummary: citation.extractedContent,
+                  pageRange: undefined,
+                  relevanceScore: citation.relevanceScore,
+                  citationOrder: index + 1,
+                  title: citation.title,
+                  documentType: citation.docType,
+                }));
+                
+              } catch (error) {
+                console.warn('Citation relevance filtering failed, falling back to standard formatting:', error);
+                ragResults = formatSearchResultsWithHybridSources(hybridResults, carryOverResult);
+                citations = formatCitationsWithHybridSources(hybridResults, carryOverResult);
+                enhancedCitations = createEnhancedCitationsFromHybridResults(hybridResults, carryOverResult);
+              }
             }
             
             // Update context with new search results
@@ -283,7 +361,7 @@ export async function executeRAGWithContext(
           const tool = ragSearchTools.lookup_facts;
           const result = await tool.execute({
             entityName,
-            entityType: "concept",
+            entityType: "technology",
             factType: "basic_info",
           });
           
@@ -347,16 +425,52 @@ export async function executeRAGWithContext(
     }
 
     const executionTime = Date.now() - startTime;
-    
+
+    // RELEVANCE THRESHOLD FILTERING:
+    // Apply minimum relevance threshold to determine if RAG results should be used
+    const RELEVANCE_THRESHOLD = 0.3; // Minimum average relevance score (0.0-1.0)
+    const MIN_RELEVANT_CITATIONS = 1; // Minimum number of relevant citations required
+
+    let filteredRAGResults = ragResults;
+    let filteredCitations = citations;
+    let filteredEnhancedCitations = enhancedCitations;
+    let hasRAGResults = ragResults.length > 0;
+
+    // Apply relevance filtering if we have citation relevance metrics
+    if (citationRelevance && ragResults.length > 0 && !isMetadataQuery) {
+      const meetsRelevanceThreshold =
+        citationRelevance.averageRelevance >= RELEVANCE_THRESHOLD &&
+        citationRelevance.relevantCitations >= MIN_RELEVANT_CITATIONS;
+
+      if (!meetsRelevanceThreshold) {
+        console.log(`🔍 RAG results filtered out due to low relevance:`);
+        console.log(`   Average relevance: ${citationRelevance.averageRelevance.toFixed(3)} < ${RELEVANCE_THRESHOLD}`);
+        console.log(`   Relevant citations: ${citationRelevance.relevantCitations} < ${MIN_RELEVANT_CITATIONS}`);
+
+        // Clear results that don't meet threshold
+        filteredRAGResults = "";
+        filteredCitations = "";
+        filteredEnhancedCitations = [];
+        hasRAGResults = false;
+      } else {
+        console.log(`✅ RAG results passed relevance filtering:`);
+        console.log(`   Average relevance: ${citationRelevance.averageRelevance.toFixed(3)} >= ${RELEVANCE_THRESHOLD}`);
+        console.log(`   Relevant citations: ${citationRelevance.relevantCitations} >= ${MIN_RELEVANT_CITATIONS}`);
+      }
+    } else if (ragResults.length > 0) {
+      // For metadata queries or results without relevance metrics, keep as-is
+      console.log(`📋 RAG results preserved (metadata query or no relevance metrics available)`);
+    }
+
     console.log(`✅ Sequential RAG completed in ${executionTime}ms`);
     console.log(`📊 Tools used: ${toolsUsed.join(", ")}`);
-    console.log(`📝 RAG results length: ${ragResults.length} characters`);
+    console.log(`📝 RAG results length: ${filteredRAGResults.length} characters`);
     console.log(`🔄 Context: ${freshResults} fresh + ${carryOverResults} carry-over results`);
-    
+
     return {
-      hasRAGResults: ragResults.length > 0,
-      ragResults,
-      citations,
+      hasRAGResults,
+      ragResults: filteredRAGResults,
+      citations: filteredCitations,
       toolsUsed,
       executionTime,
       contextUsed: !!contextManager,
@@ -368,8 +482,11 @@ export async function executeRAGWithContext(
       factSummaries: factSummaries.length > 0 ? factSummaries : undefined,
       memoryUsed,
       citationBatch,
-      enhancedCitations: enhancedCitations.length > 0 ? enhancedCitations : undefined,
+      enhancedCitations: filteredEnhancedCitations.length > 0 ? filteredEnhancedCitations : undefined,
       citationsPersisted,
+      isMetadataQuery,
+      citationRelevance,
+      processedContext,
     };
     
   } catch (error) {
@@ -385,6 +502,9 @@ export async function executeRAGWithContext(
       carryOverResults: 0,
       memoryUsed: false,
       citationsPersisted: false,
+      isMetadataQuery: false,
+      citationRelevance: undefined,
+      processedContext: undefined,
     };
   }
 }
@@ -419,6 +539,18 @@ function formatSearchResults(result: { results?: Array<{ title: string; docType:
 ${docResults.map(r => r.content).join('\n\n')}
 Citation: [${docIndex + 1}]`
   ).join("\n\n");
+}
+
+/**
+ * Format metadata search results (structured responses from personal queries)
+ */
+function formatMetadataResults(result: { message?: string; queryType?: string }): string {
+  if (!result.message) {
+    return "";
+  }
+  
+  // Metadata responses are already formatted and ready to use
+  return result.message;
 }
 
 /**
@@ -616,9 +748,24 @@ async function extractDocumentContext(
     // Analyze context for follow-up queries that should use previously mentioned documents
     const isFollowUpQuery = /(?:what|how|why|explain|describe|tell me|show me).*(?:about|of|in|from)?\s*(?:this|that|the|its?|their?)?\s*(?:patent|document|paper|claims?|details?|information)?/i.test(currentQuery);
     const isContextualQuery = /(?:main|primary|key|important|specific)\s+(?:claims?|details?|features?|aspects?)/i.test(currentQuery);
+
+    // Enhanced follow-up query patterns for metadata and authorship questions
+    const isMetadataQuery = /(?:who|what|when|where)\s+(?:are|is|were|was)?\s*(?:the)?\s*(?:authors?|inventors?|assignees?|companies?|organizations?|published?|filed?|granted?)/i.test(currentQuery);
+    const isAuthorshipQuery = /(?:who)\s+(?:wrote|authored|invented|created|developed|filed|published)\s*(?:this|that|it)?/i.test(currentQuery);
+    const isPronounReferenceQuery = /(?:who|what|when|where|how)\s+(?:are|is|were|was)\s+(?:they|it|this|that)/i.test(currentQuery);
+    const isImplicitReferenceQuery = /^(?:who|what|when|where|how)\s+(?:are|is|were|was)\s+(?:the|its?|their?)\s+/i.test(currentQuery);
+
+    // Debug logging for context pattern matching
+    if (isMetadataQuery || isAuthorshipQuery || isPronounReferenceQuery || isImplicitReferenceQuery) {
+      console.log(`🔍 Enhanced context pattern detected for query: "${currentQuery}"`);
+      console.log(`   Metadata query: ${isMetadataQuery}`);
+      console.log(`   Authorship query: ${isAuthorshipQuery}`);
+      console.log(`   Pronoun reference: ${isPronounReferenceQuery}`);
+      console.log(`   Implicit reference: ${isImplicitReferenceQuery}`);
+    }
     
-    // If this seems like a follow-up query and we found documents, use them
-    if ((isFollowUpQuery || isContextualQuery) && documentIds.length === 0 && recentMessages.length > 0) {
+    // If this seems like a follow-up query and we haven't found documents yet, try to extract from context
+    if ((isFollowUpQuery || isContextualQuery || isMetadataQuery || isAuthorshipQuery || isPronounReferenceQuery || isImplicitReferenceQuery) && documentIds.length === 0 && recentMessages.length > 0) {
       // Try to extract document context from recent assistant responses (which may contain citations)
       const recentAssistantMessages = recentMessages.filter(m => m.role === 'assistant');
       for (const message of recentAssistantMessages) {
@@ -797,7 +944,23 @@ ${ragContext.citations}
   [2]: Document Title Two
   </div>`;
 
-  return basePrompt + ragSection;
+  const finalPrompt = basePrompt + ragSection;
+  
+  // Debug logging to investigate citation issues
+  console.log("🔍 SYSTEM PROMPT DEBUG - RAG Context Present:");
+  console.log("📊 RAG Results Length:", ragContext.ragResults.length, "characters");
+  console.log("📚 Citations Length:", ragContext.citations.length, "characters");
+  console.log("🔹 RAG Results Preview (first 500 chars):");
+  console.log(ragContext.ragResults.substring(0, 500) + "...");
+  console.log("🔹 Citations Preview:");
+  console.log(ragContext.citations);
+  console.log("📝 Final Prompt Length:", finalPrompt.length, "characters");
+  console.log("📝 Complete System Prompt:");
+  console.log("=".repeat(80));
+  console.log(finalPrompt);
+  console.log("=".repeat(80));
+  
+  return finalPrompt;
 }
 
 // =======================
@@ -1146,4 +1309,24 @@ function createEnhancedCitationsFromContextResults(
 ): EnhancedCitation[] {
   // Reuse the base function for standard result processing
   return createEnhancedCitationsFromResults(result);
+}
+
+/**
+ * Format processed citations from context post-processing
+ */
+function formatProcessedCitations(citations: Array<{
+  id: string;
+  title: string;
+  docType: string;
+  relevanceScore: number;
+  chunkIndex: number;
+  extractedContent: string;
+  url?: string;
+  authors?: string[];
+  publishedDate?: string;
+}>): string {
+  return citations
+    .filter(citation => citation.relevanceScore >= 0.6) // Only include relevant citations
+    .map((citation, index) => `[${index + 1}]: ${citation.title}`)
+    .join('\n');
 }

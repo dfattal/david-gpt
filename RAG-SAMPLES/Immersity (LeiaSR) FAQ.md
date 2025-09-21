@@ -179,3 +179,19 @@ Currently, we support this function for one 2D screen and one 3D screen.
 Our roadmap includes full multi-screen support, meaning a single window can span any number of 2D and 3D monitors, with each segment rendered correctly (2D or 3D) depending on the monitor. This is planned for release later this year.
 
 **Key Benefit:** Users can seamlessly work across mixed display setups without breaking the 3D effect.
+
+## SDK + Runtime Distribution
+
+### How are the SDK and Runtime related?
+**A:** The SDK introduces new developer-facing features and therefore always requires an associated Runtime that supports those features.
+
+### How does Leia handle compatibility? 
+**A:** We aim to keep Runtime backward-compatible with older apps/SDKs for as long as possible. Internally, we commit to maintain binary compatibility for at least two years, and in practice expect to support older runtimes much longer—unless a major architectural change makes that impossible.
+
+### How are SDK and Runtime distributed?
+**A:** The SDK and Runtime are NOT distributed in the same way:
+- The SDK is publicly available for developers
+- The Runtime (Immersity/LeiaSR) is delivered only to licensed OEM customers, who decide which Runtime version they ship in their products and are responsible for updating it
+
+### Are there exceptions?
+**A:** Yes. At Leia's discretion we can share future Runtime previews with key ecosystem partners (for example, Zoom or a top gaming studio) so they can develop and test against upcoming features before the official release.

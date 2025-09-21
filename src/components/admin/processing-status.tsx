@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { supabase } from "@/lib/supabase/client";
+import { IngestionProgressVisualizer } from "./ingestion-progress-visualizer";
 
 interface ProcessingJob {
   id: string;
@@ -34,6 +35,7 @@ interface ProcessingStatusProps {
 export function ProcessingStatus({ refreshKey }: ProcessingStatusProps) {
   const [jobs, setJobs] = useState<ProcessingJob[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeBatchIds, setActiveBatchIds] = useState<string[]>([]);
 
   const loadJobs = async () => {
     try {
@@ -52,6 +54,16 @@ export function ProcessingStatus({ refreshKey }: ProcessingStatusProps) {
       }
 
       setJobs(data || []);
+
+      // Detect active batches from jobs with batchId in config
+      const batchIds = new Set<string>();
+      data?.forEach(job => {
+        if (job.config?.batchId &&
+            (job.status === 'pending' || job.status === 'processing')) {
+          batchIds.add(job.config.batchId);
+        }
+      });
+      setActiveBatchIds(Array.from(batchIds));
     } catch (error) {
       console.error('Error loading processing jobs:', error);
     } finally {
@@ -75,7 +87,7 @@ export function ProcessingStatus({ refreshKey }: ProcessingStatusProps) {
         },
         (payload) => {
           console.log('Processing job update:', payload);
-          loadJobs(); // Refresh the entire list for simplicity
+          loadJobs(); // Refresh the entire list for simplicity (includes batch detection)
         }
       )
       .subscribe();
@@ -179,6 +191,18 @@ export function ProcessingStatus({ refreshKey }: ProcessingStatusProps) {
 
   return (
     <div className="space-y-6">
+      {/* Active Batch Progress */}
+      {activeBatchIds.map(batchId => (
+        <IngestionProgressVisualizer
+          key={batchId}
+          batchId={batchId}
+          onComplete={() => {
+            // Refresh jobs when batch completes
+            loadJobs();
+          }}
+        />
+      ))}
+
       {/* Active Processing Jobs */}
       {activeJobs.length > 0 && (
         <Card className="p-6">

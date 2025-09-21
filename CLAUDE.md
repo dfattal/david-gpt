@@ -30,18 +30,25 @@ Note: No test commands are currently configured in package.json.
 src/
 ├── app/                    # Next.js App Router pages and API routes
 │   ├── api/               # API endpoints for chat, documents, admin
+│   ├── admin/             # Admin interface pages
+│   ├── auth/              # Authentication pages
 │   ├── layout.tsx         # Root layout with Geist fonts
-│   └── page.tsx           # Landing page (currently default Next.js)
-├── components/            # React components (currently empty - being rebuilt)
-├── lib/                   # Core utilities and business logic (currently empty)
+│   └── page.tsx           # Landing page
+├── components/            # React components
+│   ├── admin/             # Admin-specific components
+│   ├── chat/              # Chat interface components
+│   └── ui/                # Reusable UI components
+├── lib/                   # Core utilities and business logic
+│   └── rag/               # RAG system & document processing
 └── globals.css           # Global styles
 ```
 
 ### Current State
-The project appears to be in a significant refactoring phase:
-- Most components and lib files have been deleted (visible in git status)
-- Core infrastructure (Next.js, package.json, configs) remain
-- PRD document indicates a sophisticated RAG system is planned
+David-GPT is in active development with substantial functionality implemented:
+- **Frontend**: Chat interface, admin components, authentication flows
+- **Backend**: API routes, RAG system, document processing
+- **Core Achievement**: Advanced RAG metadata injection system for improved query accuracy
+- **Database**: Supabase integration with pgvector for embeddings
 
 ## Key Features (From PRD)
 
@@ -66,7 +73,7 @@ The project appears to be in a significant refactoring phase:
 
 The project uses Supabase with MCP (Model Context Protocol) server integration:
 - Project reference: `mnjrwjtzfjfixdjrerke`
-- Access token configured in `.cursor/mcp.json`
+- Access token configured in `.env.local`
 - Uses `@supabase/mcp-server-supabase` for database operations
 
 ## Development Notes
@@ -99,12 +106,15 @@ The PRD specifies using Vercel AI SDK 5 with:
 - No sensitive information should be committed to the repository
 
 ### Data Processing
-- GROBID integration for academic paper parsing
 - Cohere Rerank 3.5 for result reranking
 - pgvector with HNSW indexing for embeddings (3072 dimensions)
 
-### PRD reference
-Refer to the comprehensive PRD in `docs/PRD.md` for detailed requirements and architectural decisions.
+## Documentation Reference
+- **`DOCS/PRD.md`** - Product requirements and architectural decisions
+- **`DOCS/SYSTEM_ARCHITECTURE.md`** - Technical system architecture and implementation
+- **`DOCS/CONTENT_GUIDE.md`** - Document and persona creation guide
+- **`DOCS/DEVELOPER_ONBOARDING.md`** - Developer setup and workflow guide
+- **`DOCS/PROJECT_STATUS.md`** - Current project status and implementation details
 
 ## MCP Server Integration
 
@@ -125,53 +135,16 @@ This project integrates with several MCP (Model Context Protocol) servers to enh
 
 ### Playwright MCP
 - **E2E testing**: Use Playwright MCP for browser automation and end-to-end testing
-- **Test account**: Use test admin account to handle login flows during testing (test@example.com,pwd=123456)
 - **Available tools**: `browser_navigate`, `browser_click`, `browser_type`, `browser_snapshot`, etc.
-- **Testing strategy**: Clear login pages by authenticating with the test admin account when needed
-
-## Agent Orchestration System
-
-This project uses a **Main Agent as Context Orchestrator** paradigm with two specialized sub-agents:
-
-### Main Agent Responsibilities
-- **Context Synchronization**: Maintain project state across all agents
-- **Task Delegation**: Deploy sub-agents with complete context snapshots  
-- **Integration Validation**: Ensure sub-agent outputs align with project goals
-- **State Management**: Update context files after each agent interaction
-
-### Context Files (Single Source of Truth)
-- `docs/context/current-architecture.md` - Current project state and active components
-- `docs/context/integration-status.md` - Component integration map and dependencies  
-- `docs/context/rag-implementation.md` - RAG Development Specialist progress
-- `docs/context/feature-status.md` - Full-Stack Integration Agent progress
-
-### Sub-Agent Communication Protocol
-
-**Before Delegating Tasks:**
-1. Read current context files and codebase state
-2. Identify integration points and dependencies
-3. Provide complete context snapshot to sub-agent
-4. Specify exact deliverables and validation criteria
-
-**Task Delegation Format:**
-```
-Task: [Specific deliverable]
-Context: [Current file states, dependencies, constraints from context docs]
-Requirements: [From PRD + current request] 
-Integration Points: [How this connects to existing components]
-Expected Output: [Files to create/modify + success criteria]
-```
-
-**After Sub-Agent Completion:**
-1. Validate changes align with project architecture
-2. Update relevant context files with progress  
-3. Test integration points and dependencies
-4. Run validation commands (lint, build, test)
-5. Document changes for future agent interactions
-
-### Sub-Agent Guidelines
-- **Always reference context files** before starting work
-- **Follow existing patterns** from current codebase
-- **Validate integration points** with other components
-- **Return comprehensive change summaries** for main agent
-- **Flag any architectural concerns** or dependencies discovered
+- **Session Management**: Not using `--isolated` feature to preserve Google Auth credentials across sessions
+- **Troubleshooting**: If Playwright MCP gets stuck (cannot spin independent sessions):
+  ```bash
+  # Kill dev servers on common ports
+  lsof -ti:3000,3001,3002 | xargs -r kill -9
+  
+  # Close browser windows manually or restart browser
+  # Then restart development server
+  pnpm dev
+  ```
+### gemini-cli MCP
+- use gemini-cli MCP with model 2.5 pro for large files IO operations

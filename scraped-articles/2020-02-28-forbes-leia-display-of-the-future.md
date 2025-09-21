@@ -1,0 +1,38 @@
+---
+title: "Leia, The Display of the Future"
+url: "https://www.forbes.com/sites/charliefink/2020/02/28/leia-the-display-of-the-future/#65a058242270"
+domain: "forbes.com"
+extraction_method: "gemini"
+scraped_at: "2025-01-18T20:30:00.000Z"
+published_date: "2020-02-28T00:00:00.000Z"
+author: "Charlie Fink"
+word_count: 742
+image: ""
+extraction_quality: "high"
+cost_dollars: 0.00
+---
+
+# Leia, The Display of the Future
+
+**By Charlie Fink, Contributor**
+*Forbes contributors publish independent expert analyses and insights. A former tech executive covering AI, XR and The Metaverse for Forbes.*
+
+**Published:** Feb 28, 2020
+
+This article is more than 5 years old.
+
+Like many iconic inventors, David Fattal, created breakthrough holographic light field technology while trying to do something else. Fattal was at HP Labs in 2010, tasked with creating a breakthrough logo treatment for the back of their laptop that would make the famous white apple obsolete. The project, called Optical Interconnects, used nanostructures on a chip to manipulate the direction and intensity of light, creating an effect which appears holographic to the naked eye.
+
+One day in the lab, Fattal and his colleagues were interrupted by a fire drill. "We had to leave the lab with everything we had in our hands," Fattal recounted. "So we were gathered up on the parking lot of HP with a lot of people around us. It was a bright, sunny day. The sun was acting pretty much like a laser beam, very directional light, and it started to heat the surface of the wafer. And we saw all kind of cool patterns emerge, and it was due to the directionality of the structures. And we didn't even notice that people around Us were like hey, that's super cool, what do you have in your hand? So that's how it all started."
+
+For a couple of years, Fattal and Zhen Peng (co-founder and Leia Inc. CTO) worked on the project on their "20% time." Many Silicon Valley companies allow employees to work on passion projects on company time in order to foster creativity and intrapreneurship. In 2014, Fattal and Peng, and the nanotechnology they developed, left HP Labs with its patents and a significant investment to join forces with co-founder and CFO, Pierre-Emmanuel Evreux, to officially create Leia Inc. While it's most helpful to have powerful friends in the Valley, it is equally important to have a few things break your way. as if the universe wants this to happen. In Leia's case, there were three.
+
+First, the technology made its way onto the cover of Nature, which generated remarkable interest, which got HP's attention. Next, Jim Jannard of RED, who was working on the Hydrogen smartphone project, chose Leia's display technology and invested in the company. The next break Leia got may have the biggest impact: Continental, the German automotive giant specializing in interior electronics, agreed to a long-term partnership with Leia to put the light field display in the car. Continental also invested. Overall, the company has raised nearly $130 million dollars.
+
+At the time, Jens Brandt, Continental's head of business unit Instrumentation & Driver HMI, said "The new Lightfield display not only brings the third dimension of the highest quality into the vehicle, but the innovative technology also creates a new dimension of comfort and safety. Our solution provides vehicle manufacturers with the ability to enhance the driver experience."
+
+At CES in January, Continental was giving private demos of what they are doing with Leia's technology. "It was beautiful," said Fattal, "I was amazed, because I hadn't seen the final form of how they integrated the display in its mechanical Form, and how they integrated all kinds of interactivity. They added force feedback and gesture control. It was magnificent. I couldn't even recognize our tech, you know, by the time they had dressed it up. And this is just the tip of the iceberg."
+
+The company has spent the past four years perfecting the means of mass fabrication of this technology, a technique called nanoimprint. They have a team of seventy people in China executing on this. While the RED Hydrogen One is no more, and it will be several years before we see Continental's holographic display on our dashboards, Leia is turning its attention to tablets and laptop displays.
+
+Leia has a reference design for the tablet that can switch in and out of Lightfield mode (2D to 3D) on which we saw our demo of Disney's Coco jump off the screen. The company says it is in talks with leading OEMs. Perhaps even HP? For now, Fattal can't say.

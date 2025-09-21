@@ -11,6 +11,8 @@ import {
 } from "@/lib/rag/sequential-rag";
 import { createCitationManager } from "@/lib/rag/citation-persistence";
 import { startPerformanceTimer, endPerformanceTimer, timeOperation } from "@/lib/performance/monitoring";
+import { personaManager } from "@/lib/personas/persona-manager";
+import type { Persona } from "@/lib/rag/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Allow streaming responses up to 30 seconds
@@ -31,7 +33,7 @@ export async function POST(req: NextRequest) {
     });
     const body = await req.json();
     endPerformanceTimer(parseTimerId);
-    const { messages, conversationId } = body;
+    const { messages, conversationId, persona = 'david' } = body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json(
@@ -66,19 +68,32 @@ export async function POST(req: NextRequest) {
       })
     );
 
-    // David's persona system prompt
-    const systemPrompt = `You are David-GPT, an AI assistant that answers in David Fattal's voice and style. David is a technology entrepreneur and Spatial AI enthusiast.
+    // Initialize persona system if not already done
+    const personaLoadTimerId = startPerformanceTimer('persona_load', {
+      category: 'persona',
+      operation: 'load_persona_config',
+    });
 
-Key aspects of David's communication style:
-- Direct and technical when appropriate
-- Enthusiastic about emerging technologies, especially AI and spatial computing
-- Business-minded with deep technical knowledge
-- References his experience in patents, papers, and technology development
-- Provides helpful, accurate responses with precise citations
+    // Try to load enhanced persona if not already cached
+    if (!personaManager.isEnhanced(persona as Persona)) {
+      try {
+        await personaManager.loadPersonaFromMarkdown(persona as Persona);
+      } catch (error) {
+        console.warn(`Failed to load enhanced persona ${persona}, using fallback:`, error);
+      }
+    }
+
+    endPerformanceTimer(personaLoadTimerId);
+
+    // Generate dynamic system prompt based on persona
+    const baseSystemPrompt = personaManager.generateSystemPrompt(persona as Persona);
+
+    // Add RAG tools and formatting guidelines
+    const toolsAndFormattingGuidelines = `
 
 Current user role: ${userRole}
 
-You have access to advanced RAG tools that can search David's comprehensive document corpus:
+You have access to advanced RAG tools that can search the comprehensive document corpus:
 
 **search_corpus**: Use for general information queries about papers, patents, notes, and technical topics. Returns ranked results with citations.
 
@@ -106,36 +121,15 @@ CONTENT BALANCE:
 - Don't turn single sentences into one-item lists
 - Use natural flow between paragraphs and lists
 
-Example formatting:
-## Main Topic
-
-### Definition
-Regular paragraph explaining the concept with **important terms** highlighted.
-
-### Key Characteristics
-Another explanatory paragraph describing the main features.
-
-### Examples
-1. First example with detailed explanation
-2. Second example with context
-3. Third example showing variety
-
-### Comparison Points
-- **Feature A**: How it differs between approaches
-- **Feature B**: Specific comparison details
-- **Feature C**: Practical implications
-
-> Important insight or key takeaway
-
-**Conclusion**: Summary statement with key takeaways.
-
 CITATION RULES:
 - Always cite sources using the citation IDs returned by tools (e.g., [A1], [F2], [T3])
 - Include a "Sources" section at the end with full citations
 - For facts with low confidence, mention uncertainty
 - Prefer authoritative sources (patents, papers) over notes
 
-Always provide accurate, helpful responses with transparent sourcing. Be engaging, knowledgeable, and maintain David's entrepreneurial and technical perspective while using proper markdown formatting for excellent readability.`;
+Always provide accurate, helpful responses with transparent sourcing while maintaining proper markdown formatting for excellent readability.`;
+
+    const systemPrompt = baseSystemPrompt + toolsAndFormattingGuidelines;
 
     // Get the user query for RAG analysis
     const userQuery = messages[messages.length - 1]?.content || "";
@@ -162,6 +156,8 @@ Always provide accurate, helpful responses with transparent sourcing. Be engagin
       memoryUsed: false,
       // Citation persistence context
       citationsPersisted: false,
+      // Metadata query context
+      isMetadataQuery: false,
     };
 
     // Execute RAG if needed (with enhanced context management)
@@ -231,7 +227,7 @@ Always provide accurate, helpful responses with transparent sourcing. Be engagin
 
             if (!searchError && recentConversations?.length > 0) {
               const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
-              const recentConv = recentConversations.find(conv => conv.created_at > thirtySecondsAgo);
+              const recentConv = recentConversations.find((conv: { id: string; created_at: string }) => conv.created_at > thirtySecondsAgo);
               
               if (recentConv) {
                 actualConversationId = recentConv.id;
@@ -316,7 +312,7 @@ Always provide accurate, helpful responses with transparent sourcing. Be engagin
               conversation_id: actualConversationId,
               role: "user",
               content: latestUserMessage.content,
-            }).then(result => {
+            }).then((result: { error: any }) => {
               if (result.error) {
                 console.error("❌ Failed to save user message:", result.error);
               } else {
@@ -336,7 +332,8 @@ Always provide accurate, helpful responses with transparent sourcing. Be engagin
           }
           
           // Handle citation persistence with optimized batch processing (non-blocking)
-          if (ragContext.hasRAGResults && savedMessageId) {
+          // Skip citation persistence for metadata queries since they don't have document citations
+          if (ragContext.hasRAGResults && savedMessageId && !ragContext.isMetadataQuery) {
             // Import optimized citation processing
             import('@/lib/performance/batch-citations')
               .then(({ optimizedCitationPersistence }) => 

@@ -71,10 +71,16 @@ export default function AdminLayout({
       current: pathname === '/admin' || pathname.startsWith('/admin/documents'),
     },
     {
+      name: 'Personas',
+      href: '/admin/personas',
+      description: 'Persona creation and management',
+      current: pathname.startsWith('/admin/personas'),
+    },
+    {
       name: 'Knowledge Graph',
-      href: '/admin/knowledge-graph',
+      href: '/admin/kg',
       description: 'Entity and relationship management',
-      current: pathname.startsWith('/admin/knowledge-graph'),
+      current: pathname.startsWith('/admin/kg'),
     },
     {
       name: 'Users',

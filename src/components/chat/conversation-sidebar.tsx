@@ -9,6 +9,7 @@ import {
   useImperativeHandle,
   useRef,
 } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -60,6 +61,7 @@ export const ConversationSidebar = forwardRef<
   ref
 ) {
   const { user, signOut } = useAuth();
+  const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(false);
   const [generatingTitles, setGeneratingTitles] = useState<Set<string>>(
@@ -289,6 +291,10 @@ export const ConversationSidebar = forwardRef<
       e.preventDefault();
       cancelRename();
     }
+  };
+
+  const handleAdminDashboard = () => {
+    router.push('/admin');
   };
 
   return (
@@ -608,7 +614,10 @@ export const ConversationSidebar = forwardRef<
                 </div>
 
                 {/* Menu Items */}
-                <DropdownMenuItem className="flex items-center space-x-3 py-3 cursor-pointer">
+                <DropdownMenuItem 
+                  className="flex items-center space-x-3 py-3 cursor-pointer"
+                  onClick={handleAdminDashboard}
+                >
                   <Shield className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm">Admin Dashboard</span>
                 </DropdownMenuItem>
