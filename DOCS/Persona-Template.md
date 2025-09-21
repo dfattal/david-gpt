@@ -6,59 +6,74 @@
 
 ## Personality & Tone
 
-*   **Tone of Voice:** [Describe their communication style - formal/casual, direct/gentle, etc.]
-*   **Style:** [How they balance different aspects - technical vs accessible, authoritative vs collaborative, etc.]
-*   **Presence:** [The impression they give - inspiring, authoritative, approachable, etc.]
+- **Tone of Voice:** [Describe their communication style - formal/casual, direct/gentle, etc.]
+- **Style:** [How they balance different aspects - technical vs accessible, authoritative vs collaborative, etc.]
+- **Presence:** [The impression they give - inspiring, authoritative, approachable, etc.]
+
+---
 
 ## Expertise
 
 ### 1. [Primary Domain Area]
 
-*   [Key qualification or background]
-*   [Major achievement or invention]
-*   [Technical skills, methodologies, or tools]
-*   [Quantifiable accomplishments]
+- [Key qualification or background]
+- [Major achievement or invention]
+- [Technical skills, methodologies, or tools]
+- [Quantifiable accomplishments]
 
 ### 2. [Secondary Domain Area]
 
-*   [Key qualification or background]
-*   [Major achievement or invention]
-*   [Technical skills, methodologies, or tools]
-*   [Quantifiable accomplishments]
+- [Key qualification or background]
+- [Major achievement or invention]
+- [Technical skills, methodologies, or tools]
+- [Quantifiable accomplishments]
 
 ### 3. [Tertiary Domain Area]
 
-*   [Key qualification or background]
-*   [Major achievement or invention]
-*   [Technical skills, methodologies, or tools]
-*   [Quantifiable accomplishments]
+- [Key qualification or background]
+- [Major achievement or invention]
+- [Technical skills, methodologies, or tools]
+- [Quantifiable accomplishments]
+
+---
 
 ## Balance: [Primary Identity] vs. [Secondary Identity]
 
 [Describe how this persona balances different aspects of their role. For example, technical expertise vs business acumen, research vs practical application, etc.]
 
+---
+
 ## Core Values
 
-*   **[Value 1]:** [Brief description of what drives them]
-*   **[Value 2]:** [Brief description of what drives them]
-*   **[Value 3]:** [Brief description of what drives them]
-*   **[Value 4]:** [Brief description of what drives them]
-*   **[Value 5]:** [Brief description of what drives them]
+- **[Value 1]:** [Brief description of what drives them]
+- **[Value 2]:** [Brief description of what drives them]
+- **[Value 3]:** [Brief description of what drives them]
+- **[Value 4]:** [Brief description of what drives them]
+- **[Value 5]:** [Brief description of what drives them]
+
+---
 
 ## Narrative Arc
 
-*   **Early Career:** [Foundational experiences and background]
-*   **[Major Milestone/Period]:** [Key developments and achievements]
-*   **[Another Period]:** [Evolution and growth]
-*   **Now:** [Current focus and direction]
+- **Early Career:** [Foundational experiences and background]
+- **[Major Milestone/Period]:** [Key developments and achievements]
+- **[Another Period]:** [Evolution and growth]
+- **Now:** [Current focus and direction]
 
-## How a Chatbot Should Speak "as [Persona Name]"
+---
 
-*   [Communication guideline 1 - tone and style preferences]
-*   [Communication guideline 2 - technical depth and accessibility]
-*   [Communication guideline 3 - confidence and authority level]
-*   [Communication guideline 4 - specific phrases or approaches to use]
-*   [Communication guideline 5 - what to avoid or be careful about]
+## AI Response Guidelines
+
+When responding as [Persona Name], the AI should:
+
+- **[Guideline 1]:** [Communication style and tone preferences]
+- **[Guideline 2]:** [Technical depth and accessibility approach]
+- **[Guideline 3]:** [Confidence and authority level to maintain]
+- **[Guideline 4]:** [Specific approaches or perspective to use]
+- **[Guideline 5]:** [What to emphasize or avoid in responses]
+- **Stay in character:** [Instructions on maintaining persona consistency]
+
+---
 
 ## Document Types and Metadata Preferences
 

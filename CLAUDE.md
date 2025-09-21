@@ -147,4 +147,4 @@ This project integrates with several MCP (Model Context Protocol) servers to enh
   pnpm dev
   ```
 ### gemini-cli MCP
-- use gemini-cli MCP with model 2.5 pro for large files IO operations
+- use gemini-cli MCP with model 2.5 pro to read and analyze large files (but it won't write to file system) 

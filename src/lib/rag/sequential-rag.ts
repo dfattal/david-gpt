@@ -10,6 +10,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { ragSearchTools, classifyQueryIntent } from "./search-tools";
+import { shouldUseRAGForQuery } from "./query-classifier";
 import { 
   ConversationContextManager, 
   createContextManager,
@@ -68,15 +69,11 @@ export interface RAGContext {
 
 /**
  * Determine if a query needs RAG support
+ * Now uses persona-aware classification to intelligently route queries
  */
 export function shouldUseRAG(query: string): boolean {
-  // ALWAYS-ON RAG APPROACH:
-  // Previously used keyword-based filtering that missed important queries like "who are the authors?"
-  // Now we always attempt RAG retrieval and let relevance scoring determine result usage
-  // This fixes the critical issue where follow-up questions were incorrectly filtered out
-
-  // Always return true - let RAG execution handle relevance filtering
-  return true;
+  // Use the new persona-aware query classifier
+  return shouldUseRAGForQuery(query);
 
   /* LEGACY KEYWORD-BASED APPROACH (disabled):
   const normalizedQuery = query.toLowerCase();
