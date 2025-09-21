@@ -13,6 +13,9 @@ function extractPatentNumber(url: string): string | null {
 
 export async function POST(req: NextRequest) {
   try {
+    // DEPRECATION WARNING: This endpoint is deprecated
+    console.warn('⚠️  DEPRECATED: /api/documents/ingest is deprecated. Use /api/documents/markdown-ingest for single documents or /api/documents/folder-ingest for batch processing.');
+
     // Check for service role bypass (for testing only)
     const authHeader = req.headers.get('Authorization');
     const isServiceRoleRequest = authHeader?.includes(process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -197,8 +200,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       documentId: result.documentId,
       jobId: result.jobId,
-      message: result.message
-    }, { status: 201 });
+      message: result.message,
+      warning: 'DEPRECATED: This endpoint is deprecated. Use /api/documents/markdown-ingest for single documents or /api/documents/folder-ingest for batch processing.'
+    }, {
+      status: 201,
+      headers: {
+        'X-Deprecated': 'true',
+        'X-Deprecated-Message': 'Use /api/documents/markdown-ingest for single documents or /api/documents/folder-ingest for batch processing.',
+        'X-Migration-Guide': 'See DOCS/Ingestion-Strategies.md for migration guidance'
+      }
+    });
 
   } catch (error) {
     return handleApiError(error);

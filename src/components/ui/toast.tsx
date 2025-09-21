@@ -10,7 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import { X, CheckCircle, AlertCircle, Info } from "lucide-react";
 
-type ToastType = "success" | "error" | "info";
+type ToastType = "success" | "error" | "info" | "warning";
 
 interface Toast {
   id: string;

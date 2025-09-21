@@ -451,7 +451,7 @@ export class PersonaValidator {
 
     // Test parser compatibility
     try {
-      const parseResult = PersonaParser.parsePersonaFile('/dev/null', personaId);
+      const parseResult = PersonaParser.parsePersonaContent(content, personaId, filename);
       parserCompatible = parseResult.success;
 
       if (!parseResult.success) {

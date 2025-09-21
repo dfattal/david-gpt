@@ -17,9 +17,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 // --- Type Definitions ---
 
 interface ValidationResult {
+  isValid: boolean;
   valid: boolean;
-  errors: string[];
-  warnings: string[];
+  errors: Array<{ type: string; field?: string; message: string; severity: string }>;
+  warnings: Array<{ type: string; field?: string; message: string; suggestion: string }>;
   suggestions: string[];
   qualityScore: number;
   type: 'document' | 'persona';
@@ -57,16 +58,27 @@ const validateFileContent = async (file: File, content: string): Promise<Validat
     const filename = file.name;
     if (isPersonaFile(filename)) {
       const personaId = filename.replace('.md', '').replace(/^.*\//, '');
-      const result = validatePersona(content, personaId, filename);
-      return { ...result, type: 'persona' };
+      const result = validatePersona(content, personaId as any, filename);
+      return {
+        ...result,
+        type: 'persona',
+        valid: result.isValid,
+        errors: result.errors.map(e => ({ type: 'validation', message: e.message, severity: 'error' })),
+        warnings: result.warnings.map(w => ({ type: 'validation', message: w.message, suggestion: w.suggestion }))
+      };
     } else {
       const result = validateDocument(content, filename);
-      return { ...result, type: 'document' };
+      return {
+        ...result,
+        type: 'document',
+        valid: result.isValid
+      };
     }
   } catch (error) {
     return {
+      isValid: false,
       valid: false,
-      errors: [`Validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`],
+      errors: [{ type: 'validation', message: `Validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`, severity: 'error' }],
       warnings: [],
       suggestions: [],
       qualityScore: 0,
@@ -185,10 +197,18 @@ export function BatchFolderUpload({ onUploadComplete }: ModernBatchFolderUploadP
         const content = await uploadFile.file.text();
         const validation = await validateFileContent(uploadFile.file, content);
         uploadFile.validation = validation;
-        uploadFile.status = validation.errors.length > 0 ? 'error' : 'validated';
+        uploadFile.status = !validation.isValid ? 'error' : 'validated';
       } catch (e) {
         uploadFile.status = 'error';
-        uploadFile.validation = { valid: false, errors: [`Failed to read/validate: ${e instanceof Error ? e.message : 'Unknown'}`], warnings: [], suggestions: [], qualityScore: 0, type: 'document' };
+        uploadFile.validation = {
+          isValid: false,
+          valid: false,
+          errors: [{ type: 'validation', message: `Failed to read/validate: ${e instanceof Error ? e.message : 'Unknown'}`, severity: 'error' }],
+          warnings: [],
+          suggestions: [],
+          qualityScore: 0,
+          type: 'document'
+        };
       }
       setRootFolder(prev => prev ? { ...prev } : null);
     }));
@@ -218,7 +238,7 @@ export function BatchFolderUpload({ onUploadComplete }: ModernBatchFolderUploadP
     }
 
     if (invalidFileCount > 0) {
-      if (!confirm(`${invalidFileCount} files have validation errors and will be skipped. Continue?`)) return;
+      if (!window.confirm(`${invalidFileCount} files have validation errors and will be skipped. Continue?`)) return;
     }
 
     setUploading(true);
@@ -282,8 +302,8 @@ export function BatchFolderUpload({ onUploadComplete }: ModernBatchFolderUploadP
 
     return {
       valid: allFiles.filter(f => f.validation?.valid).length,
-      warning: allFiles.filter(f => f.validation && !f.validation.valid && f.validation.errors.length === 0).length,
-      error: allFiles.filter(f => f.validation?.errors.length ?? 0 > 0).length,
+      warning: allFiles.filter(f => f.validation && f.validation.isValid && f.validation.warnings.length > 0).length,
+      error: allFiles.filter(f => f.validation && !f.validation.isValid).length,
       total: allFiles.length
     };
   };
@@ -362,12 +382,14 @@ export function BatchFolderUpload({ onUploadComplete }: ModernBatchFolderUploadP
       {batchId && (
         <IngestionProgressVisualizer
           batchId={batchId}
-          onComplete={(results) => {
+          onComplete={(results: any) => {
             setUploading(false);
             setBatchId(null);
             setRootFolder(null);
             onUploadComplete?.();
-            addToast(`Batch completed! ${results.completedDocuments} successful, ${results.failedDocuments} failed`, results.failedDocuments > 0 ? 'error' : 'success');
+            const completed = results?.completedDocuments || 0;
+            const failed = results?.failedDocuments || 0;
+            addToast(`Batch completed! ${completed} successful, ${failed} failed`, failed > 0 ? 'error' : 'success');
           }}
         />
       )}
@@ -381,23 +403,23 @@ export function BatchFolderUpload({ onUploadComplete }: ModernBatchFolderUploadP
                 <div className="flex items-center gap-4 flex-wrap">
                   {getValidationBadge(selectedFile.validation)}
                 </div>
-                {selectedFile.validation?.errors.length > 0 && (
+                {selectedFile.validation?.errors && selectedFile.validation.errors.length > 0 && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded">
                     <h4 className="text-sm font-medium text-red-800 mb-1">Errors:</h4>
                     <ul className="text-sm text-red-700 list-disc list-inside">
-                      {selectedFile.validation.errors.map((e, i) => <li key={i}>{e}</li>)}
+                      {selectedFile.validation.errors.map((e, i) => <li key={i}>{typeof e === 'string' ? e : e.message}</li>)}
                     </ul>
                   </div>
                 )}
-                {selectedFile.validation?.warnings.length > 0 && (
+                {selectedFile.validation?.warnings && selectedFile.validation.warnings.length > 0 && (
                   <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
                     <h4 className="text-sm font-medium text-yellow-800 mb-1">Warnings:</h4>
                     <ul className="text-sm text-yellow-700 list-disc list-inside">
-                      {selectedFile.validation.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                      {selectedFile.validation.warnings.map((w, i) => <li key={i}>{typeof w === 'string' ? w : w.message}</li>)}
                     </ul>
                   </div>
                 )}
-                {selectedFile.validation?.suggestions.length > 0 && (
+                {selectedFile.validation?.suggestions && selectedFile.validation.suggestions.length > 0 && (
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded">
                     <h4 className="text-sm font-medium text-blue-800 mb-1">Suggestions:</h4>
                     <ul className="text-sm text-blue-700 list-disc list-inside">

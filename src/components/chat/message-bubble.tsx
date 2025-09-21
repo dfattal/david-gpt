@@ -3,10 +3,15 @@
 import * as React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import rehypeRaw from "rehype-raw";
+import rehypeKatex from "rehype-katex";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import type { User } from "@supabase/supabase-js";
+
+// Import KaTeX CSS
+import "katex/dist/katex.min.css";
 
 interface MessageBubbleProps {
   message: {
@@ -54,8 +59,14 @@ export const MessageBubble = React.memo(
         <div className="flex w-full justify-end mb-4">
           <div className="flex items-start space-x-3 max-w-[80%]">
             <div className="bg-primary text-primary-foreground rounded-lg shadow-sm px-3 py-2">
-              <div className="text-sm leading-relaxed break-words">
-                {textContent}
+              <div className="text-sm leading-relaxed break-words prose prose-sm prose-invert max-w-none">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm, remarkMath]}
+                  rehypePlugins={[rehypeKatex]}
+                  onError={(error) => console.error('ReactMarkdown error:', error)}
+                >
+                  {textContent}
+                </ReactMarkdown>
               </div>
             </div>
             <Avatar className="w-8 h-8 ring-2 ring-background shadow-sm">
@@ -129,8 +140,9 @@ export const MessageBubble = React.memo(
               prose-table:text-sm"
             >
               <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeRaw]}
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeKatex]}
+                onError={(error) => console.error('ReactMarkdown error:', error)}
                 components={{
                   // Custom components for better styling
                   // Enhanced headings with proper styling

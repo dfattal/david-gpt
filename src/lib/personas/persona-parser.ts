@@ -5,7 +5,6 @@
  * for use in both document ingestion and chat response generation.
  */
 
-import { readFileSync, statSync } from 'fs';
 import type { EnhancedPersonaConfig, Persona, DocumentType } from '@/lib/rag/types';
 
 export interface PersonaParseResult {
@@ -21,6 +20,13 @@ export class PersonaParser {
    * Parse a persona markdown file into an enhanced configuration
    */
   static parsePersonaFile(filePath: string, personaId: Persona): PersonaParseResult {
+    throw new Error('parsePersonaFile with file system access is not available in browser environment. Use parsePersonaContent instead.');
+  }
+
+  /**
+   * Parse persona markdown content into an enhanced configuration
+   */
+  static parsePersonaContent(content: string, personaId: Persona, fileName?: string): PersonaParseResult {
     const result: PersonaParseResult = {
       success: false,
       errors: [],
@@ -28,10 +34,6 @@ export class PersonaParser {
     };
 
     try {
-      // Read and parse the markdown file
-      const content = readFileSync(filePath, 'utf-8');
-      const stats = statSync(filePath);
-
       const sections = this.parseMarkdownSections(content);
 
       // Validate required sections
@@ -47,7 +49,7 @@ export class PersonaParser {
       }
 
       // Extract structured data from sections
-      const config = this.buildPersonaConfig(sections, personaId, filePath, stats.mtime);
+      const config = this.buildPersonaConfig(sections, personaId, fileName || 'unknown', new Date());
 
       // Validate the resulting configuration
       const validation = this.validatePersonaConfig(config);
@@ -60,7 +62,7 @@ export class PersonaParser {
       }
 
     } catch (error) {
-      result.errors.push(`Failed to parse persona file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      result.errors.push(`Failed to parse persona content: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
     return result;
@@ -107,7 +109,7 @@ export class PersonaParser {
   private static buildPersonaConfig(
     sections: Record<string, string>,
     personaId: Persona,
-    filePath: string,
+    fileName: string,
     lastModified: Date
   ): EnhancedPersonaConfig {
 
@@ -168,7 +170,7 @@ export class PersonaParser {
       },
 
       source: {
-        filePath,
+        filePath: fileName,
         lastModified,
         version: '1.0'
       }
@@ -498,3 +500,4 @@ Always be helpful, accurate, and maintain the persona's authentic voice while pr
 
 // Export convenience functions
 export const parsePersonaFile = PersonaParser.parsePersonaFile.bind(PersonaParser);
+export const parsePersonaContent = PersonaParser.parsePersonaContent.bind(PersonaParser);

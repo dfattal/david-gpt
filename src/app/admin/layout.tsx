@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase/client";
 import { Spinner } from "@/components/ui/spinner";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Info, X } from "lucide-react";
 
 interface UserProfile {
   role: string;
@@ -20,6 +21,7 @@ export default function AdminLayout({
   const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showMigrationNotice, setShowMigrationNotice] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -146,6 +148,40 @@ export default function AdminLayout({
         </nav>
 
         <main className="flex-1 p-8">
+          {/* Migration Notice */}
+          {showMigrationNotice && (pathname === '/admin' || pathname.startsWith('/admin/documents')) && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start">
+                <Info className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+                <div className="flex-1">
+                  <h3 className="text-sm font-medium text-blue-800 mb-1">
+                    📋 Ingestion System Modernized
+                  </h3>
+                  <div className="text-sm text-blue-700 space-y-2">
+                    <p>
+                      The document ingestion system has been modernized to use markdown-first workflows:
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 ml-2">
+                      <li><strong>Single documents:</strong> Upload well-formatted markdown files with YAML frontmatter</li>
+                      <li><strong>Batch processing:</strong> Upload folders with markdown files (follows /my-corpus structure)</li>
+                      <li><strong>Legacy endpoints:</strong> Still available but deprecated (DOI, patent, URL ingestion)</li>
+                    </ul>
+                    <p className="mt-2">
+                      📖 See <code className="bg-blue-100 px-1 rounded">DOCS/CONTENT_GUIDE.md</code> for formatting guidelines and
+                      <code className="bg-blue-100 px-1 rounded ml-1">DOCS/Ingestion-Strategies.md</code> for legacy methods.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowMigrationNotice(false)}
+                  className="ml-2 text-blue-400 hover:text-blue-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
           {children}
         </main>
       </div>

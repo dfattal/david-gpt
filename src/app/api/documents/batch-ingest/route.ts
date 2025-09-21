@@ -5,6 +5,9 @@ import { unifiedIngestionService, type BatchIngestionRequest } from '@/lib/rag/i
 
 export async function POST(req: NextRequest) {
   try {
+    // DEPRECATION WARNING: This endpoint is deprecated
+    console.warn('⚠️  DEPRECATED: /api/documents/batch-ingest is deprecated. Use /api/documents/folder-ingest for folder-based batch processing.');
+
     // Check for service role bypass (for testing only)
     const authHeader = req.headers.get('Authorization');
     const isServiceRoleRequest = authHeader?.includes(process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -121,8 +124,16 @@ export async function POST(req: NextRequest) {
       batchId: result.batchId,
       batchJobId: result.batchJobId,
       totalDocuments: result.totalDocuments,
-      message: result.message
-    }, { status: 201 });
+      message: result.message,
+      warning: 'DEPRECATED: This endpoint is deprecated. Use /api/documents/folder-ingest for folder-based batch processing.'
+    }, {
+      status: 201,
+      headers: {
+        'X-Deprecated': 'true',
+        'X-Deprecated-Message': 'Use /api/documents/folder-ingest for folder-based batch processing.',
+        'X-Migration-Guide': 'See DOCS/Ingestion-Strategies.md for migration guidance'
+      }
+    });
 
   } catch (error) {
     return handleApiError(error);

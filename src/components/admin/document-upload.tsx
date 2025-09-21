@@ -377,7 +377,7 @@ The document follows the formatting guidelines from DOCS/CONTENT_GUIDE.md.`;
                 {getValidationBadge()}
               </div>
 
-              {uploadData.validation?.errors.length > 0 && (
+              {uploadData.validation?.errors && uploadData.validation.errors.length > 0 && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded">
                   <h4 className="text-sm font-medium text-red-800 mb-1">Errors:</h4>
                   <ul className="text-sm text-red-700 list-disc list-inside">
@@ -390,7 +390,7 @@ The document follows the formatting guidelines from DOCS/CONTENT_GUIDE.md.`;
                 </div>
               )}
 
-              {uploadData.validation?.warnings.length > 0 && (
+              {uploadData.validation?.warnings && uploadData.validation.warnings.length > 0 && (
                 <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
                   <h4 className="text-sm font-medium text-yellow-800 mb-1">Warnings:</h4>
                   <ul className="text-sm text-yellow-700 list-disc list-inside">
@@ -406,7 +406,7 @@ The document follows the formatting guidelines from DOCS/CONTENT_GUIDE.md.`;
                 </div>
               )}
 
-              {uploadData.validation?.suggestions.length > 0 && (
+              {uploadData.validation?.suggestions && uploadData.validation.suggestions.length > 0 && (
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded">
                   <h4 className="text-sm font-medium text-blue-800 mb-1">Suggestions:</h4>
                   <ul className="text-sm text-blue-700 list-disc list-inside">

@@ -132,7 +132,20 @@ export class PersonaManager {
           systemPrompt += `[${index + 1}] ${result.title}\n${result.content}\n\n`;
         });
 
-        systemPrompt += `Use this context to provide accurate, well-sourced responses with appropriate citations [1], [2], etc.`;
+        systemPrompt += `Use this context to provide accurate, well-sourced responses with appropriate citations [1], [2], etc.
+
+IMPORTANT: When including mathematical expressions, use LaTeX with dollar sign delimiters:
+- Use $...$ for inline math (e.g., $E = mc^2$)
+- Use $$...$$ for display math (e.g., $$\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$$)
+- Do NOT use square brackets [ ] for math expressions`;
+      } else {
+        // Add math formatting instructions even without RAG context
+        systemPrompt += `
+
+IMPORTANT: When including mathematical expressions, use LaTeX with dollar sign delimiters:
+- Use $...$ for inline math (e.g., $E = mc^2$)
+- Use $$...$$ for display math (e.g., $$\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$$)
+- Do NOT use square brackets [ ] for math expressions`;
       }
 
       return systemPrompt;
@@ -165,7 +178,12 @@ When responding:
 1. Draw upon specialized knowledge in your domain
 2. Provide well-sourced information with citations
 3. Maintain accuracy and professional tone
-4. Help users understand complex concepts clearly`;
+4. Help users understand complex concepts clearly
+
+IMPORTANT: When including mathematical expressions, use LaTeX with dollar sign delimiters:
+- Use $...$ for inline math (e.g., $E = mc^2$)
+- Use $$...$$ for display math (e.g., $$\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$$)
+- Do NOT use square brackets [ ] for math expressions`;
 
     if (ragContext && ragContext.results && ragContext.results.length > 0) {
       prompt += `\n\nRELEVANT CONTEXT:\n`;
@@ -182,14 +200,24 @@ When responding:
    */
   private getDefaultSystemPrompt(persona: Persona, ragContext?: any): string {
     const prompts = {
-      david: `You are David-GPT, an AI assistant that answers in David Fattal's voice and style. David is a technology entrepreneur and Spatial AI enthusiast.
+      david: `IMPORTANT FORMATTING: When including mathematical expressions, use LaTeX with dollar sign delimiters:
+- Use $...$ for inline math (e.g., $E = mc^2$)
+- Use $$...$$ for display math (e.g., $$\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$$)
+- Do NOT use square brackets [ ] for math expressions
+
+You are David-GPT, an AI assistant that answers in David Fattal's voice and style. David is a technology entrepreneur and Spatial AI enthusiast.
 
 Key aspects of David's communication style:
 - Direct and technical when appropriate
 - Enthusiastic about emerging technologies, especially AI and spatial computing
 - Business-minded with deep technical knowledge
 
-Always provide accurate, helpful responses with transparent sourcing. Be engaging, knowledgeable, and maintain David's entrepreneurial and technical perspective.`,
+Always provide accurate, helpful responses with transparent sourcing. Be engaging, knowledgeable, and maintain David's entrepreneurial and technical perspective.
+
+IMPORTANT: When including mathematical expressions, use LaTeX with dollar sign delimiters:
+- Use $...$ for inline math (e.g., $E = mc^2$)
+- Use $$...$$ for display math (e.g., $$\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$$)
+- Do NOT use square brackets [ ] for math expressions`,
 
       legal: `You are a Legal Expert AI assistant. You provide accurate legal information and analysis while maintaining professional standards.
 
