@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle, Clock, AlertCircle } from "lucide-react";
 
 interface SingleDocumentProgressProps {
   jobId: string;
@@ -10,40 +12,84 @@ interface SingleDocumentProgressProps {
   onComplete?: (results: { chunksCreated?: number; entitiesExtracted?: number }) => void;
 }
 
-interface ProcessingStage {
-  id: 'upload' | 'analysis' | 'chunking' | 'embedding' | 'entities_extraction' | 'entities_consolidation' | 'completed';
+interface ProgressStage {
+  id: 'validation' | 'processing' | 'completion';
   label: string;
-  icon: string;
   description: string;
-  completed: boolean;
-  active: boolean;
-  details?: string;
+  progress: number;
+  status: 'pending' | 'active' | 'completed' | 'failed';
+}
+
+interface JobProgress {
+  currentStage: string;
+  overallProgress: number;
+  message: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  results?: {
+    chunksCreated?: number;
+    entitiesExtracted?: number;
+    embeddingsGenerated?: number;
+  };
+  error?: string;
 }
 
 export function SingleDocumentProgress({ jobId, batchId, onComplete }: SingleDocumentProgressProps) {
-  const [stages, setStages] = useState<ProcessingStage[]>([
-    { id: 'upload', label: 'Upload', icon: '📤', description: 'Document uploaded to database', completed: false, active: true },
-    { id: 'analysis', label: 'Analysis', icon: '🔍', description: 'Analyzing document content and structure', completed: false, active: false },
-    { id: 'chunking', label: 'Chunking', icon: '✂️', description: 'Breaking document into searchable chunks', completed: false, active: false },
-    { id: 'embedding', label: 'Embeddings', icon: '🧠', description: 'Generating semantic embeddings', completed: false, active: false },
-    { id: 'entities_extraction', label: 'Entity Extraction', icon: '🕷️', description: 'Extracting entities for knowledge graph', completed: false, active: false },
-    { id: 'entities_consolidation', label: 'Entity Consolidation', icon: '🔗', description: 'Consolidating and linking entities', completed: false, active: false },
-    { id: 'completed', label: 'Complete', icon: '✅', description: 'Ready for search and chat', completed: false, active: false }
-  ]);
+  const [progress, setProgress] = useState<JobProgress>({
+    currentStage: 'validation',
+    overallProgress: 0,
+    message: 'Starting document processing...',
+    status: 'pending'
+  });
 
-  const [currentDetails, setCurrentDetails] = useState<string>('Starting document processing...');
-  const [error, setError] = useState<string | null>(null);
-  const [completed, setCompleted] = useState<boolean>(false);
-  const [urlListExpansion, setUrlListExpansion] = useState<{
-    detected: boolean;
-    totalDocuments: number;
-    listType?: string;
-  } | null>(null);
+  const [startTime] = useState<Date>(new Date());
+  const [endTime, setEndTime] = useState<Date | null>(null);
+  const [isCompleted, setIsCompleted] = useState(false);
+
+  // Define our simplified 3-stage model
+  const stages: ProgressStage[] = [
+    {
+      id: 'validation',
+      label: 'Validation & Upload',
+      description: 'Validating markdown format and uploading to database',
+      progress: Math.min(progress.overallProgress / 0.3, 1) * 100,
+      status: progress.overallProgress <= 0.3
+        ? (progress.status === 'processing' ? 'active' : 'pending')
+        : 'completed'
+    },
+    {
+      id: 'processing',
+      label: 'Processing',
+      description: 'Chunking content, generating embeddings, and storing data',
+      progress: progress.overallProgress > 0.3
+        ? Math.min((progress.overallProgress - 0.3) / 0.5, 1) * 100
+        : 0,
+      status: progress.overallProgress <= 0.3
+        ? 'pending'
+        : progress.overallProgress < 0.8
+          ? 'active'
+          : 'completed'
+    },
+    {
+      id: 'completion',
+      label: 'Completion',
+      description: 'Extracting entities, building indexes, and finalizing',
+      progress: progress.overallProgress > 0.8
+        ? Math.min((progress.overallProgress - 0.8) / 0.2, 1) * 100
+        : 0,
+      status: progress.overallProgress <= 0.8
+        ? 'pending'
+        : progress.status === 'completed'
+          ? 'completed'
+          : 'active'
+    }
+  ];
 
   useEffect(() => {
     if (!jobId) return;
 
-    // If this document is part of a batch, use SSE for progress updates
+    let cleanup: (() => void) | undefined;
+
+    // Use SSE for batch documents, polling for single documents
     if (batchId) {
       console.log(`Setting up SSE for batch document: jobId=${jobId}, batchId=${batchId}`);
 
@@ -56,7 +102,6 @@ export function SingleDocumentProgress({ jobId, batchId, onComplete }: SingleDoc
           if (data.type === 'document_progress' && data.document.jobId === jobId) {
             updateProgressFromSSE(data.document);
           } else if (data.type === 'batch_progress') {
-            // Check if we can find our document in the batch
             const ourDocument = data.batch.documents?.find((doc: any) => doc.jobId === jobId);
             if (ourDocument) {
               updateProgressFromSSE(ourDocument);
@@ -72,43 +117,20 @@ export function SingleDocumentProgress({ jobId, batchId, onComplete }: SingleDoc
         eventSource.close();
       };
 
-      return () => {
-        eventSource.close();
-      };
+      cleanup = () => eventSource.close();
     } else {
-      // Use polling for single documents
+      // Use polling for single documents with longer intervals
       const pollProgress = async () => {
         try {
           const response = await fetch(`/api/processing-jobs/${jobId}`);
           if (!response.ok) return;
 
           const job = await response.json();
-
-          // Check if this is a batch job (URL list expansion)
-          if (job.config?.batchId && job.config?.totalDocuments && !urlListExpansion) {
-            setUrlListExpansion({
-              detected: true,
-              totalDocuments: job.config.totalDocuments,
-              listType: job.config.batchDescription?.includes('patent') ? 'patent' :
-                       job.config.batchDescription?.includes('paper') ? 'paper' :
-                       job.config.batchDescription?.includes('article') ? 'article' : 'mixed'
-            });
-          }
-
-          updateProgress(job);
+          updateProgressFromJob(job);
 
           // Stop polling if job is complete or failed
           if (job.status === 'completed' || job.status === 'failed') {
-            clearInterval(pollInterval);
-            if (job.status === 'completed' && !completed) {
-              setCompleted(true);
-              onComplete?.({
-                chunksCreated: job.results?.chunksCreated,
-                entitiesExtracted: job.results?.entitiesExtracted
-              });
-            } else if (job.status === 'failed') {
-              setError(job.error_message || 'Processing failed');
-            }
+            if (pollInterval) clearInterval(pollInterval);
           }
         } catch (error) {
           console.error('Error polling job progress:', error);
@@ -118,130 +140,113 @@ export function SingleDocumentProgress({ jobId, batchId, onComplete }: SingleDoc
       // Initial poll
       pollProgress();
 
-      // Poll every 2 seconds
-      const pollInterval = setInterval(pollProgress, 2000);
+      // Poll every 3 seconds (reduced from 2s)
+      const pollInterval = setInterval(pollProgress, 3000);
 
-      return () => clearInterval(pollInterval);
+      cleanup = () => clearInterval(pollInterval);
     }
-  }, [jobId, batchId, onComplete, completed, urlListExpansion]);
 
-  const updateProgress = (job: any) => {
-    const progress = job.progress || 0;
-    const message = job.progress_message || '';
+    return cleanup;
+  }, [jobId, batchId]);
 
-    setCurrentDetails(message);
+  const updateProgressFromJob = (job: any) => {
+    const newProgress: JobProgress = {
+      currentStage: mapJobStatusToStage(job.status, job.progress, job.progress_message),
+      overallProgress: job.progress || 0,
+      message: job.progress_message || 'Processing...',
+      status: job.status,
+      results: job.results,
+      error: job.error_message
+    };
 
-    setStages(prevStages => prevStages.map(stage => {
-      let completed = false;
-      let active = false;
-      let details = stage.description;
+    setProgress(newProgress);
 
-      switch (stage.id) {
-        case 'upload':
-          completed = progress > 0.1;
-          active = progress <= 0.1 && job.status === 'processing';
-          if (completed) details = 'Document uploaded to database ✓';
-          break;
-
-        case 'analysis':
-          completed = progress > 0.3;
-          active = progress > 0.1 && progress <= 0.3;
-          if (completed) {
-            details = urlListExpansion?.detected
-              ? `URL list analysis complete - ${urlListExpansion.totalDocuments} documents identified ✓`
-              : 'Document analysis complete ✓';
-          } else if (active) {
-            details = urlListExpansion?.detected
-              ? 'Analyzing URL list and expanding into individual documents...'
-              : 'Analyzing document structure and content...';
-          }
-          break;
-
-        case 'chunking':
-          completed = progress > 0.5;
-          active = progress > 0.3 && progress <= 0.5;
-          if (completed && job.results?.chunksCreated) {
-            details = `${job.results.chunksCreated} chunks created ✓`;
-          } else if (active) {
-            details = 'Breaking document into searchable chunks...';
-          }
-          break;
-
-        case 'embedding':
-          completed = progress > 0.7;
-          active = progress > 0.5 && progress <= 0.7;
-          if (completed && job.results?.embeddingsGenerated) {
-            details = `${job.results.embeddingsGenerated} embeddings generated ✓`;
-          } else if (active) {
-            details = 'Generating semantic embeddings...';
-          }
-          break;
-
-        case 'entities_extraction':
-          completed = progress > 0.85;
-          active = progress > 0.7 && progress <= 0.85;
-          if (completed && job.results?.entitiesExtracted) {
-            details = `${job.results.entitiesExtracted} entities extracted ✓`;
-          } else if (active) {
-            details = 'Extracting entities for knowledge graph...';
-          }
-          break;
-
-        case 'entities_consolidation':
-          completed = progress > 0.95;
-          active = progress > 0.85 && progress <= 0.95;
-          if (completed && job.results?.entitiesConsolidated) {
-            details = `${job.results.entitiesConsolidated} entities consolidated ✓`;
-          } else if (active) {
-            details = 'Consolidating and linking entities...';
-          }
-          break;
-
-        case 'completed':
-          completed = job.status === 'completed';
-          active = false;
-          if (completed) details = 'DONE - Document ready for search and chat ✓';
-          break;
-      }
-
-      return { ...stage, completed, active, details };
-    }));
+    // Handle completion
+    if (job.status === 'completed' && !isCompleted) {
+      setIsCompleted(true);
+      setEndTime(new Date());
+      onComplete?.(job.results || {});
+    }
   };
 
   const updateProgressFromSSE = (document: any) => {
-    // Map SSE document format to job format for consistency
-    const job = {
-      progress: document.currentStage.progress,
-      progress_message: document.currentStage.message,
+    const newProgress: JobProgress = {
+      currentStage: document.currentStage.stage,
+      overallProgress: document.currentStage.progress || 0,
+      message: document.currentStage.message || 'Processing...',
       status: document.currentStage.stage === 'completed' ? 'completed' :
               document.currentStage.stage === 'failed' ? 'failed' : 'processing',
       results: document.currentStage.details,
-      error_message: document.currentStage.details?.error
+      error: document.currentStage.details?.error
     };
 
-    updateProgress(job);
+    setProgress(newProgress);
 
     // Handle completion
-    if (document.currentStage.stage === 'completed' && !completed) {
-      setCompleted(true);
-      onComplete?.({
-        chunksCreated: document.currentStage.details?.chunksCreated,
-        entitiesExtracted: document.currentStage.details?.entitiesExtracted
-      });
-    } else if (document.currentStage.stage === 'failed') {
-      setError(document.currentStage.details?.error || 'Processing failed');
+    if (document.currentStage.stage === 'completed' && !isCompleted) {
+      setIsCompleted(true);
+      setEndTime(new Date());
+      onComplete?.(document.currentStage.details || {});
     }
   };
 
-  if (error) {
+  const mapJobStatusToStage = (status: string, progressValue?: number, message?: string): string => {
+    if (status === 'completed') return 'completed';
+    if (status === 'failed') return 'failed';
+
+    // Map based on progress thresholds
+    if ((progressValue || 0) <= 0.3) return 'validation';
+    if ((progressValue || 0) <= 0.8) return 'processing';
+    return 'completion';
+  };
+
+  const getStatusBadge = () => {
+    switch (progress.status) {
+      case 'completed':
+        return <Badge className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1" />Completed</Badge>;
+      case 'failed':
+        return <Badge variant="destructive"><AlertCircle className="w-3 h-3 mr-1" />Failed</Badge>;
+      case 'processing':
+        return <Badge className="bg-blue-100 text-blue-800"><Spinner className="w-3 h-3 mr-1" />Processing</Badge>;
+      default:
+        return <Badge variant="secondary"><Clock className="w-3 h-3 mr-1" />Pending</Badge>;
+    }
+  };
+
+  const getElapsedTime = () => {
+    const end = endTime || new Date();
+    const elapsed = Math.round((end.getTime() - startTime.getTime()) / 1000);
+
+    if (elapsed < 60) return `${elapsed}s`;
+    if (elapsed < 3600) return `${Math.round(elapsed / 60)}m ${elapsed % 60}s`;
+    return `${Math.round(elapsed / 3600)}h ${Math.round((elapsed % 3600) / 60)}m`;
+  };
+
+  const getEstimatedTimeRemaining = () => {
+    if (progress.overallProgress <= 0 || progress.status === 'completed') return null;
+
+    const elapsed = (new Date().getTime() - startTime.getTime()) / 1000;
+    const estimated = (elapsed / progress.overallProgress) * (1 - progress.overallProgress);
+
+    if (estimated < 60) return `~${Math.round(estimated)}s remaining`;
+    if (estimated < 3600) return `~${Math.round(estimated / 60)}m remaining`;
+    return `~${Math.round(estimated / 3600)}h remaining`;
+  };
+
+  if (progress.status === 'failed') {
     return (
       <Card className="p-6 border-red-200 bg-red-50">
         <div className="text-red-800">
-          <div className="flex items-center mb-2">
-            <span className="text-lg mr-2">❌</span>
-            <span className="font-semibold">Processing Failed</span>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center">
+              <AlertCircle className="w-5 h-5 mr-2" />
+              <span className="font-semibold">Processing Failed</span>
+            </div>
+            <span className="text-sm text-red-600">Duration: {getElapsedTime()}</span>
           </div>
-          <p className="text-sm">{error}</p>
+          <p className="text-sm bg-red-100 p-3 rounded border border-red-200">
+            {progress.error || progress.message}
+          </p>
         </div>
       </Card>
     );
@@ -249,82 +254,132 @@ export function SingleDocumentProgress({ jobId, batchId, onComplete }: SingleDoc
 
   return (
     <Card className="p-6">
-      <div className="space-y-4">
-        {/* URL List Expansion Alert */}
-        {urlListExpansion?.detected && (
-          <div className="flex items-center space-x-3 p-4 bg-purple-50 rounded-lg border border-purple-200">
-            <span className="text-2xl">📋</span>
-            <div className="flex-1">
-              <div className="font-semibold text-purple-800">URL List Detected</div>
-              <div className="text-sm text-purple-700">
-                Expanded into {urlListExpansion.totalDocuments} individual documents
-                {urlListExpansion.listType && ` (${urlListExpansion.listType} list)`}
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <h3 className="text-lg font-semibold text-gray-900">Document Processing</h3>
+            {getStatusBadge()}
+          </div>
+          <div className="text-sm text-gray-500">
+            Duration: {getElapsedTime()}
+            {getEstimatedTimeRemaining() && (
+              <div className="text-xs">{getEstimatedTimeRemaining()}</div>
+            )}
+          </div>
+        </div>
+
+        {/* Overall Progress Bar */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-medium text-gray-700">Overall Progress</span>
+            <span className="text-sm text-gray-500">{Math.round(progress.overallProgress * 100)}%</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-3">
+            <div
+              className={`h-3 rounded-full transition-all duration-500 ${
+                progress.status === 'completed' ? 'bg-green-500' :
+                progress.status === 'failed' ? 'bg-red-500' :
+                'bg-blue-500'
+              }`}
+              style={{ width: `${progress.overallProgress * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Current Status */}
+        <div className="flex items-center space-x-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          {progress.status === 'processing' && <Spinner className="w-5 h-5 text-blue-600" />}
+          <div className="flex-1">
+            <div className="font-medium text-blue-800">Current Stage: {progress.currentStage}</div>
+            <div className="text-sm text-blue-700">{progress.message}</div>
+          </div>
+        </div>
+
+        {/* Stage Progress */}
+        <div className="space-y-4">
+          <h4 className="text-sm font-medium text-gray-700">Stage Progress</h4>
+          {stages.map((stage, index) => (
+            <div key={stage.id} className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 rounded-full ${
+                    stage.status === 'completed' ? 'bg-green-500' :
+                    stage.status === 'active' ? 'bg-blue-500' :
+                    'bg-gray-300'
+                  }`} />
+                  <span className={`text-sm font-medium ${
+                    stage.status === 'completed' ? 'text-green-700' :
+                    stage.status === 'active' ? 'text-blue-700' :
+                    'text-gray-500'
+                  }`}>
+                    {stage.label}
+                  </span>
+                  {stage.status === 'completed' && (
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                  )}
+                  {stage.status === 'active' && (
+                    <Spinner className="w-4 h-4 text-blue-500" />
+                  )}
+                </div>
+                <span className="text-xs text-gray-500">
+                  {Math.round(stage.progress)}%
+                </span>
               </div>
+              <div className="w-full bg-gray-200 rounded-full h-1.5 ml-4">
+                <div
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    stage.status === 'completed' ? 'bg-green-500' :
+                    stage.status === 'active' ? 'bg-blue-500' :
+                    'bg-gray-300'
+                  }`}
+                  style={{ width: `${stage.progress}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-600 ml-4">{stage.description}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Results Summary */}
+        {progress.results && (
+          <div className="p-4 bg-gray-50 rounded-lg border">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">Processing Results</h4>
+            <div className="grid grid-cols-3 gap-4 text-sm">
+              {progress.results.chunksCreated && (
+                <div>
+                  <div className="font-medium text-gray-900">{progress.results.chunksCreated}</div>
+                  <div className="text-gray-600">Chunks Created</div>
+                </div>
+              )}
+              {progress.results.embeddingsGenerated && (
+                <div>
+                  <div className="font-medium text-gray-900">{progress.results.embeddingsGenerated}</div>
+                  <div className="text-gray-600">Embeddings</div>
+                </div>
+              )}
+              {progress.results.entitiesExtracted && (
+                <div>
+                  <div className="font-medium text-gray-900">{progress.results.entitiesExtracted}</div>
+                  <div className="text-gray-600">Entities</div>
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* Current Status */}
-        <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <Spinner className="w-5 h-5 text-blue-600" />
-          <span className="text-blue-800 font-medium">{currentDetails}</span>
-        </div>
-
-        {/* Progress Steps */}
-        <div className="space-y-3">
-          {stages.map((stage) => (
-            <div
-              key={stage.id}
-              className={`flex items-center space-x-4 p-3 rounded-lg transition-all duration-300 ${
-                stage.completed 
-                  ? 'bg-green-50 border border-green-200' 
-                  : stage.active 
-                    ? 'bg-blue-50 border border-blue-200' 
-                    : 'bg-gray-50 border border-gray-200'
-              }`}
-            >
-              <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
-                stage.completed 
-                  ? 'bg-green-500 text-white' 
-                  : stage.active 
-                    ? 'bg-blue-500 text-white' 
-                    : 'bg-gray-300 text-gray-600'
-              }`}>
-                {stage.active && !stage.completed ? (
-                  <Spinner className="w-4 h-4" />
-                ) : (
-                  <span className="text-sm">{stage.icon}</span>
-                )}
-              </div>
-              
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <span className={`font-medium ${
-                    stage.completed 
-                      ? 'text-green-800' 
-                      : stage.active 
-                        ? 'text-blue-800' 
-                        : 'text-gray-600'
-                  }`}>
-                    {stage.label}
-                  </span>
-                  {stage.completed && (
-                    <span className="text-green-600 text-sm">✓</span>
-                  )}
-                </div>
-                <p className={`text-sm mt-1 ${
-                  stage.completed 
-                    ? 'text-green-700' 
-                    : stage.active 
-                      ? 'text-blue-700' 
-                      : 'text-gray-500'
-                }`}>
-                  {stage.details}
-                </p>
-              </div>
+        {/* Success Message */}
+        {progress.status === 'completed' && (
+          <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+            <div className="flex items-center text-green-800">
+              <CheckCircle className="w-5 h-5 mr-2" />
+              <span className="font-medium">Document processing completed successfully!</span>
             </div>
-          ))}
-        </div>
+            <p className="text-sm text-green-700 mt-1">
+              Your document is now ready for search and chat queries.
+            </p>
+          </div>
+        )}
       </div>
     </Card>
   );

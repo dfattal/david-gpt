@@ -47,42 +47,9 @@ The frontmatter provides the essential metadata the system uses to categorize, f
 
 #### **Document-Type Specific Metadata**
 
-Different document types require additional metadata fields. Below are examples for common types.
+Beyond the core fields required for all documents, each `docType` has a set of specific metadata fields that are essential for discoverability and proper processing. For example, a `paper` will have fields for `authorsAffiliations` and `doi`, while a `patent` will have a `patentNo` and `filedDate`.
 
-**Academic Papers (`docType: "paper"`)**
-
-```yaml
-authorsAffiliations:
-  - name: "First Author"
-    affiliation: "University of Example"
-venue: "Nature Machine Intelligence"
-publicationYear: 2023
-doi: "10.1038/s42256-023-12345-6"
-abstract: "Brief abstract text summarizing key findings..."
-keywords: ["machine learning", "risk management", "finance"]
-```
-
-**Patents (`docType: "patent"`)**
-
-```yaml
-patentNo: "US11,234,567"
-inventors: ["John Smith", "Jane Doe"]
-assignees: ["Technology Corp Inc."]
-filedDate: "2021-03-15"
-grantedDate: "2023-06-20"
-ipcClass: "G06F 21/62"
-abstract: "Brief description of the invention..."
-```
-
-**Press Articles (`docType: "press-article"`)**
-
-```yaml
-author: "Reporter Name"
-outlet: "TechCrunch"
-published_date: "2025-01-15T00:00:00.000Z"
-company: "Apple Inc."
-productCategory: "Smartphone"
-```
+For a complete and detailed technical specification of all supported document types, their required fields, and persona-specific extensions, please refer to the **Document Ingestion Format Specification (`INGESTION-FORMAT.md`)**. That document is the definitive reference for all metadata fields.
 
 ### Markdown Content Guidelines
 

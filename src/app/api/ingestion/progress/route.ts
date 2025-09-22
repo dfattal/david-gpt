@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
           sendInitialBatchState(batchId, controller, supabase);
         }
 
-        // Set up periodic state updates
+        // Set up periodic state updates with longer intervals for better performance
         const interval = setInterval(async () => {
           try {
             if (jobId) {
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
           } catch (error) {
             console.error('Error sending update:', error);
           }
-        }, 2000); // Update every 2 seconds
+        }, 5000); // Update every 5 seconds (improved from 2s)
 
         // Cleanup on close
         const cleanup = () => {
@@ -318,26 +318,14 @@ async function sendDocumentStateUpdate(
 
 function mapJobStatusToStage(status: string, progress?: number, message?: string): string {
   switch (status) {
-    case 'pending': return 'upload';
+    case 'pending': return 'validation';
     case 'processing':
-      // Map based on progress and message for more granular tracking
-      if (message?.includes('analysis') || message?.includes('analyzing')) return 'analysis';
-      if (message?.includes('chunk') || message?.includes('chunking')) return 'chunking';
-      if (message?.includes('embedding') || message?.includes('embed')) return 'embedding';
-      if (message?.includes('entities') && message?.includes('extract')) return 'entities_extraction';
-      if (message?.includes('entities') && message?.includes('consolidat')) return 'entities_consolidation';
-
-      // Enhanced mapping based on progress thresholds
-      if ((progress || 0) <= 0.1) return 'upload';
-      if ((progress || 0) <= 0.3) return 'analysis';
-      if ((progress || 0) <= 0.5) return 'chunking';
-      if ((progress || 0) <= 0.7) return 'embedding';
-      if ((progress || 0) <= 0.85) return 'entities_extraction';
-      if ((progress || 0) <= 0.95) return 'entities_consolidation';
-
-      return 'entities_consolidation'; // Near completion
+      // Simplified 3-stage mapping based on progress thresholds
+      if ((progress || 0) <= 0.3) return 'validation';
+      if ((progress || 0) <= 0.8) return 'processing';
+      return 'completion';
     case 'completed': return 'completed';
     case 'failed': return 'failed';
-    default: return 'upload';
+    default: return 'validation';
   }
 }

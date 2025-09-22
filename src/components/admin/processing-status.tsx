@@ -131,10 +131,16 @@ export function ProcessingStatus({ refreshKey }: ProcessingStatusProps) {
     const start = new Date(startTime);
     const end = endTime ? new Date(endTime) : new Date();
     const duration = end.getTime() - start.getTime();
-    
+
     if (duration < 1000) return '< 1s';
     if (duration < 60000) return `${Math.round(duration / 1000)}s`;
     return `${Math.round(duration / 60000)}m`;
+  };
+
+  const getSimplifiedStage = (progress: number, message?: string | null) => {
+    if (progress <= 0.3) return 'Validation';
+    if (progress <= 0.8) return 'Processing';
+    return 'Completion';
   };
 
   const retryJob = async (jobId: string) => {
@@ -206,54 +212,67 @@ export function ProcessingStatus({ refreshKey }: ProcessingStatusProps) {
       {/* Active Processing Jobs */}
       {activeJobs.length > 0 && (
         <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Active Processing Jobs ({activeJobs.length})
-          </h3>
-          <div className="space-y-4">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Active Processing ({activeJobs.length})
+            </h3>
+            <div className="text-sm text-gray-500">
+              {activeJobs.filter(j => j.status === 'processing').length} running
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {activeJobs.map((job) => (
-              <div key={job.id} className="border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-3">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(job.status)}`}>
-                      {job.status}
-                    </span>
-                    <span className="text-sm font-medium">
+              <div key={job.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(job.status)}`}>
+                        {job.status === 'processing' ? 'Processing' : job.status}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {getSimplifiedStage(job.progress, job.progress_message)}
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-medium text-gray-900 truncate" title={job.document?.title}>
                       {job.document?.title || `Job ${job.id.slice(0, 8)}`}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {job.type.replace('_', ' ')}
-                    </span>
+                    </h4>
                   </div>
                   {job.status === 'processing' && (
                     <Button
                       onClick={() => cancelJob(job.id)}
-                      variant="outline"
-                      className="text-xs px-2 py-1"
+                      variant="ghost"
+                      size="sm"
+                      className="text-gray-400 hover:text-gray-600 ml-2"
                     >
-                      Cancel
+                      ×
                     </Button>
                   )}
                 </div>
 
-                {/* Progress Bar */}
-                <div className="mb-2">
-                  <div className="flex justify-between text-xs text-gray-600 mb-1">
-                    <span>{job.progress_message || 'Processing...'}</span>
-                    <span>{Math.round(job.progress * 100)}%</span>
+                {/* Simplified Progress */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-600">
+                      {job.progress_message || 'Processing...'}
+                    </span>
+                    <span className="text-xs font-medium text-gray-700">
+                      {Math.round(job.progress * 100)}%
+                    </span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="w-full bg-gray-100 rounded-full h-2">
                     <div
-                      className={`h-2 rounded-full transition-all duration-300 ${getProgressBarColor(job.status)}`}
+                      className={`h-2 rounded-full transition-all duration-500 ${getProgressBarColor(job.status)}`}
                       style={{ width: `${job.progress * 100}%` }}
                     />
                   </div>
                 </div>
 
-                <div className="text-xs text-gray-500">
-                  Started: {job.started_at 
-                    ? `${new Date(job.started_at).toLocaleString()} (${formatDuration(job.started_at)})`
-                    : 'Pending'
-                  }
+                <div className="flex justify-between items-center mt-3 text-xs text-gray-500">
+                  <span>{job.document?.doc_type || 'document'}</span>
+                  <span>
+                    {job.started_at ? formatDuration(job.started_at) : 'Pending'}
+                  </span>
                 </div>
               </div>
             ))}
@@ -264,24 +283,32 @@ export function ProcessingStatus({ refreshKey }: ProcessingStatusProps) {
       {/* Recent Completed Jobs */}
       {completedJobs.length > 0 && (
         <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Recently Completed ({completedJobs.slice(0, 10).length})
-          </h3>
-          <div className="space-y-3">
-            {completedJobs.slice(0, 10).map((job) => (
-              <div key={job.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(job.status)}`}>
-                    ✓ {job.status}
-                  </span>
-                  <span className="text-sm font-medium">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Recently Completed
+            </h3>
+            <span className="text-sm text-gray-500">
+              {completedJobs.slice(0, 8).length} of {completedJobs.length}
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            {completedJobs.slice(0, 8).map((job) => (
+              <div key={job.id} className="flex items-center justify-between p-3 bg-green-50 border border-green-100 rounded-lg">
+                <div className="flex items-center space-x-3 flex-1 min-w-0">
+                  <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0" />
+                  <span className="text-sm font-medium text-green-800 truncate" title={job.document?.title}>
                     {job.document?.title || `Job ${job.id.slice(0, 8)}`}
                   </span>
+                  <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded flex-shrink-0">
+                    {job.document?.doc_type || 'document'}
+                  </span>
                 </div>
-                <div className="text-xs text-gray-500">
-                  {job.completed_at && job.started_at && (
-                    <span>Duration: {formatDuration(job.started_at, job.completed_at)}</span>
-                  )}
+                <div className="text-xs text-green-600 flex-shrink-0 ml-2">
+                  {job.completed_at && job.started_at
+                    ? formatDuration(job.started_at, job.completed_at)
+                    : 'Complete'
+                  }
                 </div>
               </div>
             ))}
@@ -292,34 +319,47 @@ export function ProcessingStatus({ refreshKey }: ProcessingStatusProps) {
       {/* Failed Jobs */}
       {failedJobs.length > 0 && (
         <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Failed Jobs ({failedJobs.slice(0, 10).length})
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Failed Jobs
+            </h3>
+            <span className="text-sm text-gray-500">
+              {failedJobs.slice(0, 6).length} of {failedJobs.length}
+            </span>
+          </div>
+
           <div className="space-y-3">
-            {failedJobs.slice(0, 10).map((job) => (
-              <div key={job.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-1">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(job.status)}`}>
-                      ✗ {job.status}
-                    </span>
-                    <span className="text-sm font-medium">
-                      {job.document?.title || `Job ${job.id.slice(0, 8)}`}
-                    </span>
-                  </div>
-                  {job.error_message && (
-                    <div className="text-xs text-red-600 ml-3">
-                      {job.error_message}
+            {failedJobs.slice(0, 6).map((job) => (
+              <div key={job.id} className="bg-red-50 border border-red-100 rounded-lg p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <div className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0" />
+                      <span className="text-sm font-medium text-red-800 truncate" title={job.document?.title}>
+                        {job.document?.title || `Job ${job.id.slice(0, 8)}`}
+                      </span>
+                      <span className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded flex-shrink-0">
+                        {job.document?.doc_type || 'document'}
+                      </span>
                     </div>
-                  )}
+                    {job.error_message && (
+                      <div className="text-xs text-red-700 bg-red-100 p-2 rounded border border-red-200">
+                        {job.error_message.length > 100
+                          ? `${job.error_message.substring(0, 100)}...`
+                          : job.error_message
+                        }
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    onClick={() => retryJob(job.id)}
+                    variant="outline"
+                    size="sm"
+                    className="ml-3 text-red-700 border-red-200 hover:bg-red-100 flex-shrink-0"
+                  >
+                    Retry
+                  </Button>
                 </div>
-                <Button
-                  onClick={() => retryJob(job.id)}
-                  variant="outline"
-                  className="text-xs px-2 py-1 ml-2"
-                >
-                  Retry
-                </Button>
               </div>
             ))}
           </div>

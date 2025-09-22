@@ -146,5 +146,9 @@ This project integrates with several MCP (Model Context Protocol) servers to enh
   # Then restart development server
   pnpm dev
   ```
-### gemini-cli MCP
-- use gemini-cli MCP with model 2.5 pro to read and analyze large files (but it won't write to file system) 
+### Gemini CLI Direct Integration
+- **Primary AI tool**: Use direct gemini CLI with non-interactive mode: `gemini -y '[prompt]'`
+- **File system access**: The `-y` option enables non-interactive mode while preserving file system write capabilities
+- **Use cases**: PDF analysis, large document extraction, technical content processing, file writing operations, document analysis
+- **Advantages**: Full file system access, better performance than MCP, handles large files efficiently
+- **IMPORTANT**: Use positional arguments (`gemini -y "prompt"`) NOT the `-p` flag (`gemini -y -p "prompt"`) to avoid gitignore permission prompts 

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 
 interface IngestionStage {
-  stage: 'upload' | 'analysis' | 'chunking' | 'embedding' | 'entities_extraction' | 'entities_consolidation' | 'completed' | 'failed';
+  stage: 'validation' | 'processing' | 'completion' | 'completed' | 'failed';
   progress: number;
   message: string;
   timestamp?: string;
@@ -137,23 +137,17 @@ export function IngestionProgressVisualizer({ batchId, onComplete }: IngestionPr
 
   const getStageColor = (stage: IngestionStage['stage'], isActive: boolean = false) => {
     const baseColors = {
-      upload: 'bg-blue-200 text-blue-800',
-      analysis: 'bg-purple-200 text-purple-800',
-      chunking: 'bg-yellow-200 text-yellow-800',
-      embedding: 'bg-indigo-200 text-indigo-800',
-      entities_extraction: 'bg-teal-200 text-teal-800',
-      entities_consolidation: 'bg-orange-200 text-orange-800',
+      validation: 'bg-blue-200 text-blue-800',
+      processing: 'bg-indigo-200 text-indigo-800',
+      completion: 'bg-purple-200 text-purple-800',
       completed: 'bg-green-200 text-green-800',
       failed: 'bg-red-200 text-red-800'
     };
 
     const activeColors = {
-      upload: 'bg-blue-500 text-white',
-      analysis: 'bg-purple-500 text-white',
-      chunking: 'bg-yellow-500 text-white',
-      embedding: 'bg-indigo-500 text-white',
-      entities_extraction: 'bg-teal-500 text-white',
-      entities_consolidation: 'bg-orange-500 text-white',
+      validation: 'bg-blue-500 text-white',
+      processing: 'bg-indigo-500 text-white',
+      completion: 'bg-purple-500 text-white',
       completed: 'bg-green-500 text-white',
       failed: 'bg-red-500 text-white'
     };
@@ -167,12 +161,9 @@ export function IngestionProgressVisualizer({ batchId, onComplete }: IngestionPr
     }
 
     const icons = {
-      upload: '📤',
-      analysis: '🔍',
-      chunking: '✂️',
-      embedding: '🧠',
-      entities_extraction: '🕷️',
-      entities_consolidation: '🔗',
+      validation: '📋',
+      processing: '⚙️',
+      completion: '🔗',
       completed: '✅',
       failed: '❌'
     };
@@ -192,36 +183,36 @@ export function IngestionProgressVisualizer({ batchId, onComplete }: IngestionPr
   };
 
   const renderStageProgress = (document: DocumentProgress) => {
-    const stages: IngestionStage['stage'][] = ['upload', 'analysis', 'chunking', 'embedding', 'entities_extraction', 'entities_consolidation', 'completed'];
-    const currentStageIndex = stages.indexOf(document.currentStage.stage);
-    
+    const stages: IngestionStage['stage'][] = ['validation', 'processing', 'completion'];
+    const currentStageIndex = getStageIndex(document.currentStage.stage);
+
     return (
-      <div className="flex items-center space-x-2">
-        {stages.slice(0, -1).map((stage, index) => { // Exclude 'completed' from the pipeline
+      <div className="flex items-center space-x-4">
+        {stages.map((stage, index) => {
           const isCompleted = index < currentStageIndex || document.currentStage.stage === 'completed';
           const isActive = index === currentStageIndex && document.currentStage.stage !== 'completed' && document.currentStage.stage !== 'failed';
           const isFailed = document.currentStage.stage === 'failed';
-          
+
           return (
             <div key={stage} className="flex items-center">
               <div
                 className={`
                   flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300
-                  ${isCompleted ? 'bg-green-500 text-white' : 
-                    isActive ? getStageColor(stage, true) : 
+                  ${isCompleted ? 'bg-green-500 text-white' :
+                    isActive ? getStageColor(stage, true) :
                     isFailed ? 'bg-red-200 text-red-600' :
                     'bg-gray-200 text-gray-400'}
                 `}
-                title={stage.charAt(0).toUpperCase() + stage.slice(1)}
+                title={getStageName(stage)}
               >
                 {isCompleted ? '✓' : getStageIcon(stage, isActive)}
               </div>
-              
-              {index < stages.length - 2 && (
+
+              {index < stages.length - 1 && (
                 <div
                   className={`
-                    w-8 h-1 transition-all duration-300
-                    ${isCompleted ? 'bg-green-500' : 
+                    w-12 h-1 transition-all duration-300
+                    ${isCompleted ? 'bg-green-500' :
                       isFailed ? 'bg-red-300' :
                       'bg-gray-200'}
                   `}
@@ -230,10 +221,10 @@ export function IngestionProgressVisualizer({ batchId, onComplete }: IngestionPr
             </div>
           );
         })}
-        
+
         {/* Final status indicator */}
         <div className="flex items-center">
-          <div className="w-8 h-1 bg-gray-200" />
+          <div className="w-12 h-1 bg-gray-200" />
           <div
             className={`
               flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-300
@@ -249,6 +240,28 @@ export function IngestionProgressVisualizer({ batchId, onComplete }: IngestionPr
         </div>
       </div>
     );
+  };
+
+  const getStageIndex = (stage: string): number => {
+    const stageMap = {
+      'validation': 0,
+      'processing': 1,
+      'completion': 2,
+      'completed': 3,
+      'failed': -1
+    };
+    return stageMap[stage as keyof typeof stageMap] ?? 0;
+  };
+
+  const getStageName = (stage: string): string => {
+    const nameMap = {
+      'validation': 'Validation & Upload',
+      'processing': 'Processing',
+      'completion': 'Completion',
+      'completed': 'Completed',
+      'failed': 'Failed'
+    };
+    return nameMap[stage as keyof typeof nameMap] ?? stage;
   };
 
   const renderDocumentDetails = (document: DocumentProgress) => {
@@ -267,7 +280,7 @@ export function IngestionProgressVisualizer({ batchId, onComplete }: IngestionPr
           <div>
             <h4 className="font-medium text-gray-900 mb-2">Progress Details</h4>
             <div className="text-sm text-gray-600 space-y-1">
-              <div>Stage: <span className="font-medium">{document.currentStage.stage}</span></div>
+              <div>Stage: <span className="font-medium">{getStageName(document.currentStage.stage)}</span></div>
               <div>Progress: <span className="font-medium">{Math.round(document.currentStage.progress * 100)}%</span></div>
               {document.currentStage.details?.chunksCreated && (
                 <div>Chunks: <span className="font-medium">{document.currentStage.details.chunksCreated}</span></div>
@@ -277,9 +290,6 @@ export function IngestionProgressVisualizer({ batchId, onComplete }: IngestionPr
               )}
               {document.currentStage.details?.entitiesExtracted && (
                 <div>Entities: <span className="font-medium">{document.currentStage.details.entitiesExtracted}</span></div>
-              )}
-              {document.currentStage.details?.entitiesConsolidated && (
-                <div>Consolidated: <span className="font-medium">{document.currentStage.details.entitiesConsolidated}</span></div>
               )}
             </div>
           </div>
@@ -419,7 +429,7 @@ export function IngestionProgressVisualizer({ batchId, onComplete }: IngestionPr
                 <div className="mb-4">
                   <div className="flex justify-between items-center mb-1">
                     <span className="text-sm font-medium text-gray-700">
-                      {document.currentStage.stage.charAt(0).toUpperCase() + document.currentStage.stage.slice(1)}
+                      {getStageName(document.currentStage.stage)}
                     </span>
                     <span className="text-sm text-gray-500">
                       {Math.round(document.currentStage.progress * 100)}%

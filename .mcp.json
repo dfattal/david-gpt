@@ -43,13 +43,6 @@
                 "mcp-remote",
                 "https://mcp.exa.ai/mcp?exaApiKey=4cee82ba-f0e2-4d53-bb16-f6920696c862"
             ]
-        },
-        "gemini-cli": {
-            "command": "npx",
-            "args": [
-                "-y",
-                "gemini-mcp-tool"
-            ]
         }
     }
 }
