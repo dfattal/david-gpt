@@ -125,13 +125,23 @@ This project integrates with several MCP (Model Context Protocol) servers to enh
 - **Available tools**: `apply_migration`, `execute_sql`, `list_tables`, `get_logs`, etc.
 - **Configuration**: Configured in `.cursor/mcp.json` with project reference `mnjrwjtzfjfixdjrerke`
 
-### Context7 MCP  
+### Context7 MCP
 - **Documentation retrieval**: Use Context7 MCP to pull up-to-date documentation for APIs and libraries
-- **Primary use cases**: 
+- **Primary use cases**:
   - Vercel AI SDK 5 documentation and examples
   - Next.js App Router patterns
   - Supabase client library usage
 - **Workflow**: Always call `resolve-library-id` first, then `get-library-docs` for implementation guidance
+
+### API Documentation Agent
+- **Purpose**: Use the `api-docs-retriever` agent when needing specific technical documentation for API calls, library usage, or implementation guidance
+- **Context efficiency**: This agent is optimized to retrieve precise API documentation without consuming excessive context space
+- **Use cases**:
+  - Specific method parameters and usage patterns
+  - API endpoint documentation
+  - Library implementation examples
+  - Technical reference material
+- **When to use**: Prefer this agent over manual documentation lookup when you need focused API information
 
 ### Playwright MCP
 - **E2E testing**: Use Playwright MCP for browser automation and end-to-end testing

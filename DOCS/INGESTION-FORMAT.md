@@ -92,24 +92,25 @@ extraction_quality: "high"
 ### Academic Papers
 ```yaml
 ---
-title: "Paper Title: Subtitle"
-docType: "paper"
-authorsAffiliations:                      # Author names with affiliations
-  - name: "First Author"
-    affiliation: "University of Example"
+title: "Paper Title: Subtitle"             # REQUIRED: Paper title
+docType: "paper"                          # REQUIRED: Must be "paper"
+authorsAffiliations:                      # REQUIRED: Author names with affiliations
+  - name: "First Author"                  # REQUIRED: Author full name
+    affiliation: "University of Example"  # REQUIRED: Institution name
   - name: "Second Author"
     affiliation: "Research Institute"
-venue: "Nature Photonics"                 # Journal or conference name
-publicationYear: 2023                     # Publication year
-doi: "10.1038/s41566-023-12345-6"        # DOI identifier
-arxivId: "2301.12345"                     # arXiv ID (if applicable)
-citationCount: 42                         # Citation count (if known)
-abstract: "Brief abstract text..."         # Paper abstract
-keywords: ["optics", "displays", "3D"]    # Research keywords
-url: "https://doi.org/10.1038/s41566-023-12345-6"
-scraped_at: "2025-01-18T20:30:00.000Z"
-word_count: 8500
-extraction_quality: "high"
+venue: "Nature Photonics"                 # REQUIRED: Journal or conference name
+publicationYear: 2023                     # REQUIRED: Publication year as integer
+doi: "10.1038/s41566-023-12345-6"        # DOI identifier (null if none)
+arxivId: "2301.12345"                     # arXiv ID (null if none)
+citationCount: 42                         # Citation count (null if unknown)
+abstract: "Brief abstract text..."         # REQUIRED: Paper abstract
+keywords: ["optics", "displays", "3D"]    # REQUIRED: Array format with research keywords
+technologies: ["Photonics", "ML", "CV"]   # REQUIRED: Array format with technologies mentioned
+url: "https://doi.org/10.1038/s41566-023-12345-6" # REQUIRED: Source URL
+scraped_at: "2025-01-18T20:30:00.000Z"   # REQUIRED: ISO timestamp
+word_count: 8500                          # REQUIRED: Approximate word count
+extraction_quality: "high"                # REQUIRED: "high"|"medium"|"low"
 ---
 ```
 
@@ -277,6 +278,39 @@ extraction_quality: "high"
 3. **Abstract/Summary**: Include a clear abstract or summary section
 4. **Structured content**: Use lists, tables, and formatting appropriately
 5. **Citations**: Include inline citations and references where applicable
+
+### Critical Format Rules
+
+**YAML Arrays**: All array fields MUST use consistent inline format:
+```yaml
+# CORRECT - Inline array format
+keywords: ["keyword1", "keyword2", "keyword3"]
+technologies: ["tech1", "tech2", "tech3"]
+
+# INCORRECT - Block array format (causes inconsistency)
+keywords:
+  - "keyword1"
+  - "keyword2"
+  - "keyword3"
+```
+
+**Author Format**: Always use structured `authorsAffiliations` array:
+```yaml
+# CORRECT - Structured format
+authorsAffiliations:
+  - name: "First Author"
+    affiliation: "Institution"
+  - name: "Second Author"
+    affiliation: "Institution"
+
+# INCORRECT - Simple string format
+author: "First Author, Second Author"
+```
+
+**Required vs Optional Fields**:
+- All REQUIRED fields must be present (use `null` for unknown values)
+- Optional fields may be omitted entirely
+- Never use empty strings `""` - use `null` instead
 
 ### Example Structure
 ```markdown
@@ -446,11 +480,26 @@ Use `extraction_quality` to indicate confidence:
 
 Before ingestion, documents must pass:
 
-1. **YAML validation**: Valid frontmatter with required fields
-2. **Content validation**: Proper markdown structure
-3. **Metadata completeness**: All relevant fields populated
-4. **Format consistency**: Follows established patterns
+1. **YAML validation**: Valid frontmatter with ALL required fields
+2. **Format consistency**:
+   - `docType` field (not `doc_type`)
+   - `authorsAffiliations` array (not `author` string)
+   - Inline arrays for `keywords` and `technologies`
+   - ISO timestamps for `scraped_at`
+3. **Content validation**: Proper markdown structure
+4. **Metadata completeness**: All relevant fields populated with correct data types
 5. **Search readiness**: Contains searchable terms and identifiers
+
+### Common Format Errors to Avoid
+
+❌ **Wrong field names**: `doc_type`, `author`, `date`
+✅ **Correct field names**: `docType`, `authorsAffiliations`, `publicationYear`
+
+❌ **Inconsistent arrays**: Mix of block and inline formats
+✅ **Consistent arrays**: Always use inline format `["item1", "item2"]`
+
+❌ **Missing required fields**: `scraped_at`, `word_count`, `extraction_quality`
+✅ **Complete metadata**: All required fields present with valid values
 
 ## Backward Compatibility
 

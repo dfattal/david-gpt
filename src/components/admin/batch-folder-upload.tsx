@@ -161,8 +161,15 @@ export function BatchFolderUpload({ onUploadComplete }: ModernBatchFolderUploadP
     const newRootFolder: Folder = { name: 'root', path: 'root', files: [], subfolders: new Map(), fileCount: 0, isOpen: true };
     const markdownFiles: UploadFile[] = [];
 
+    console.log(`🔧 DEBUG: Processing ${fileList.length} files from browser selection:`);
+
     for (const file of Array.from(fileList)) {
-      if (!file.name.endsWith('.md') || !file.webkitRelativePath) continue;
+      console.log(`🔧 Browser file: ${file.webkitRelativePath || file.name} (size: ${file.size})`);
+
+      if (!file.name.endsWith('.md') || !file.webkitRelativePath) {
+        console.log(`🔧 Skipping non-md file: ${file.name}`);
+        continue;
+      }
 
       const pathParts = file.webkitRelativePath.split('/').slice(0, -1);
       let currentFolder = newRootFolder;
@@ -179,6 +186,7 @@ export function BatchFolderUpload({ onUploadComplete }: ModernBatchFolderUploadP
       const uploadFile: UploadFile = { file, path: file.webkitRelativePath, status: 'validating' };
       currentFolder.files.push(uploadFile);
       markdownFiles.push(uploadFile);
+      console.log(`🔧 Added markdown file: ${file.webkitRelativePath}`);
     }
 
     const updateFileCounts = (folder: Folder): number => {
@@ -247,10 +255,22 @@ export function BatchFolderUpload({ onUploadComplete }: ModernBatchFolderUploadP
     const formData = new FormData();
     formData.append('batchDescription', batchDescription);
 
+    console.log(`🔧 DEBUG: About to upload ${filesToUpload.length} files:`);
+
     // Add files with proper naming for the API
     filesToUpload.forEach((uploadFile, index) => {
+      console.log(`🔧 Adding file ${index}: ${uploadFile.path} (${uploadFile.file.name})`);
       formData.append(`file_${index}`, uploadFile.file, uploadFile.path);
     });
+
+    console.log('🔧 FormData entries:');
+    for (const [key, value] of formData.entries()) {
+      if (value instanceof File) {
+        console.log(`🔧 FormData[${key}]: ${value.name} (size: ${value.size})`);
+      } else {
+        console.log(`🔧 FormData[${key}]: ${value}`);
+      }
+    }
 
     try {
       const response = await fetch('/api/documents/folder-ingest', {

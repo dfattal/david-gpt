@@ -108,9 +108,38 @@ export class UrlListParser {
   }
 
   /**
+   * Check if content has YAML frontmatter structure
+   */
+  private hasYamlFrontmatter(content: string): boolean {
+    if (!content || content.length < 10) return false;
+
+    // Check for YAML frontmatter pattern: starts with ---, contains ---, has content after
+    const frontmatterPattern = /^---\n([\s\S]*?)\n---\n([\s\S]*)/;
+    const match = content.match(frontmatterPattern);
+
+    if (!match) return false;
+
+    // Validate that the frontmatter section contains YAML-like content
+    const frontmatterSection = match[1];
+    const hasYamlStructure = frontmatterSection.includes(':') &&
+                           frontmatterSection.split('\n').some(line =>
+                             line.trim().match(/^[a-zA-Z_][a-zA-Z0-9_]*\s*:/)
+                           );
+
+    return hasYamlStructure;
+  }
+
+  /**
    * Detect if markdown content contains a URL list
    */
   private detectUrlList(content: string): boolean {
+    // First check if this is a structured markdown document with frontmatter
+    // Such documents should NOT be treated as URL lists even if they contain URLs
+    if (this.hasYamlFrontmatter(content)) {
+      console.log('🚫 Skipping URL list detection: document has YAML frontmatter structure');
+      return false;
+    }
+
     // Look for markdown link patterns
     const markdownLinkPattern = /\[([^\]]+)\]\(([^)]+)\)/g;
     const urlPattern = /https?:\/\/[^\s\)]+/g;

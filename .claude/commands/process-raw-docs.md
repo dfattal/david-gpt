@@ -8,6 +8,12 @@ Orchestrates the conversion of raw documents from RAG-RAW-DOCS/ into properly fo
 /process-raw-docs [options]
 ```
 
+**IMPORTANT**: This command now uses the enhanced TypeScript processing pipeline at `/scripts/process-documents.ts` which includes:
+- arXiv API integration for academic papers
+- Direct EXA API calls with 50K character limits
+- Improved error handling and rate limiting
+- Consistent YAML frontmatter formatting per INGESTION-FORMAT.md
+
 ### Options
 
 - `--force` - Reprocess all documents, even if they exist in my-corpus/
@@ -15,7 +21,7 @@ Orchestrates the conversion of raw documents from RAG-RAW-DOCS/ into properly fo
 - `--source <file>` - Process only specific source file from RAG-RAW-DOCS/
 - `--dry-run` - Show what would be processed without actually doing it
 - `--batch-size <n>` - Process documents in batches of n (default: 5)
-- `--skip-parser` - Skip the `rag-doc-parser` sub-agent and directly move to the `markdown-writer` call, if `rag-processing-manifest-comprehensive.json` is present and well-formed. Performs comprehensive validation of manifest structure, content quality, and freshness before proceeding. Use this option for iterative processing when you've already generated a recent comprehensive manifest.
+- `--skip-parser` - Skip the `rag-doc-parser` sub-agent and directly move to processing the comprehensive manifest.
 
 ### Examples
 
@@ -34,8 +40,7 @@ When using the `--skip-parser` option, the following comprehensive validation is
 
 ### File Existence Check
 1. **Primary Requirement**: Check for `rag-processing-manifest-comprehensive.json`
-2. **No Fallback**: Legacy `rag-processing-manifest.json` is NOT accepted
-3. **Error Handling**: If comprehensive manifest doesn't exist, display:
+2. **Error Handling**: If comprehensive manifest doesn't exist, display:
    ```
    ❌ Comprehensive manifest not found.
    Run without --skip-parser to generate rag-processing-manifest-comprehensive.json
@@ -137,13 +142,18 @@ For each validation failure, provide specific error and recovery suggestion:
 
 ### Phase 2: Content Extraction & Formatting
 
-4. **Launch markdown-writer Agent Per Document**
-   - Process manifest documents individually (one agent call per document)
-   - **CRITICAL**: Use dual MCP strategy (EXA + Gemini) to extract FULL content (not summaries)
+4. **Execute Enhanced Processing Pipeline**
+   - Run `/Users/david.fattal/Documents/GitHub/david-gpt/scripts/process-documents.ts` with comprehensive manifest
+   - **ENHANCED FEATURES**:
+     - arXiv API integration for academic papers (metadata + full PDF extraction)
+     - Direct EXA API calls with 50K character limits (not MCP)
+     - Smart fallback chains: arXiv API → EXA → Gemini → WebFetch
+     - Rate limiting with 3-second delays between requests
+     - Automatic markdown code fence cleanup
    - Apply correct YAML frontmatter per INGESTION-FORMAT.md specification
-   - Auto-populate metadata using enhancement patterns from rag-doc-parser
+   - Auto-populate metadata using enhancement patterns from manifest
    - Write formatted files to `/Users/david.fattal/Documents/GitHub/david-gpt/my-corpus/` subdirectories
-   - Create missing corpus folders as needed (articles/, papers/, patents/, notes/, blog/)
+   - Automatically create missing corpus folders (articles/, papers/, patents/, notes/, books/, urls/)
    - Track progress with TodoWrite for each document processed
 
 5. **Validation & Reporting**
@@ -191,7 +201,10 @@ For each validation failure, provide specific error and recovery suggestion:
 ## Integration Points
 
 - **TodoWrite Tool**: Progress tracking throughout the pipeline
-- **Gemini CLI MCP**: Primary content analysis and extraction workhorse
+- **Enhanced Processing Script**: `/scripts/process-documents.ts` with multiple extraction methods
+- **arXiv API**: Direct integration for academic paper metadata and content
+- **EXA API**: Direct API calls (not MCP) with 50K character limits
+- **Gemini CLI**: Full PDF processing and content formatting
 - **File System Operations**: Direct reading/writing for document processing
 - **Validation Tools**: Post-processing quality checks and compliance verification
 
@@ -203,12 +216,16 @@ For each validation failure, provide specific error and recovery suggestion:
 - Handles incremental processing logic and duplicate detection
 - Reports processing priorities and complexity assessments
 
-### markdown-writer Agent
-- **MANDATORY**: Uses Gemini CLI MCP for all content extraction
+### Enhanced TypeScript Processing Pipeline
+- **PRIMARY**: Uses enhanced scripts/process-documents.ts with multiple extraction strategies
+- **arXiv Papers**: arXiv API for metadata + Gemini CLI for full PDF content extraction
+- **Web Articles**: Direct EXA API with 50,000 character limits (not MCP)
+- **Patents**: EXA API primary, Gemini CLI fallback for complex extractions
+- **Local Files**: Gemini CLI direct processing with proper error handling
 - Extracts complete document content (never summaries)
-- Applies structured YAML frontmatter based on document types
+- Applies structured YAML frontmatter based on document types with format validation
 - Implements automatic metadata enhancement using detected patterns
-- Manages file output to appropriate my-corpus/ subdirectories
+- Manages file output to appropriate my-corpus/ subdirectories with smart directory mapping
 
 ## Expected Output Structure
 
@@ -225,9 +242,19 @@ my-corpus/
 
 - **Coverage**: Process all documents in RAG-RAW-DOCS/ (no skipping)
 - **Accuracy**: >95% correct document type classification
-- **Quality**: >90% high-quality content extraction using Gemini CLI MCP
+- **Quality**: >90% high-quality content extraction using enhanced multi-strategy pipeline
 - **Metadata**: >95% accurate auto-population of enhancement patterns
 - **Compliance**: 100% valid YAML frontmatter and markdown structure
 - **Efficiency**: Intelligent incremental processing with change detection
+
+## Execution Command
+
+When using `--skip-parser`, the command will execute:
+
+```bash
+npx tsx /Users/david.fattal/Documents/GitHub/david-gpt/scripts/process-documents.ts /Users/david.fattal/Documents/GitHub/david-gpt/rag-processing-manifest-comprehensive.json
+```
+
+This leverages the enhanced processing pipeline with all the latest improvements for optimal document extraction and formatting.
 
 Start the RAG document processing pipeline following this comprehensive workflow.

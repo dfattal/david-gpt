@@ -7,7 +7,6 @@
  */
 
 import type { DocumentType } from './types';
-import { urlListParser, type UrlListParseResult } from './url-list-parser';
 
 // =======================
 // Document Analysis Types
@@ -29,7 +28,6 @@ export interface DocumentAnalysis {
     hasReferences?: boolean;
   };
   characteristics: string[];
-  urlListAnalysis?: UrlListParseResult;
 }
 
 export interface AnalysisInput {
@@ -52,26 +50,13 @@ export class UnifiedDocumentAnalyzer {
    * Analyze document and determine its type, academic nature, and other characteristics
    */
   async analyzeDocument(input: AnalysisInput): Promise<DocumentAnalysis> {
-    // Check if this is a URL list first
-    let urlListAnalysis: UrlListParseResult | undefined;
-    let documentType = this.detectDocumentType(input);
-    
-    // If it's a markdown file with content, check for URL lists
-    if (input.content && input.fileName?.endsWith('.md')) {
-      urlListAnalysis = urlListParser.parseMarkdownContent(input.content, input.fileName);
-      
-      // If it's a URL list with high confidence, adjust document type
-      if (urlListAnalysis.isUrlList && urlListAnalysis.confidence > 0.7) {
-        documentType = 'url-list' as DocumentType; // We'll need to add this type
-      }
-    }
-    
+    const documentType = this.detectDocumentType(input);
     const isAcademic = this.detectAcademicDocument(input);
     const academicConfidence = this.calculateAcademicConfidence(input);
     const authority = this.determineAuthority(input);
     const metadata = await this.extractMetadata(input);
-    const characteristics = this.identifyCharacteristics(input, urlListAnalysis);
-    
+    const characteristics = this.identifyCharacteristics(input);
+
     return {
       documentType,
       confidence: this.calculateTypeConfidence(input, documentType),
@@ -79,8 +64,7 @@ export class UnifiedDocumentAnalyzer {
       academicConfidence,
       authority,
       metadata,
-      characteristics,
-      urlListAnalysis
+      characteristics
     };
   }
 
@@ -277,7 +261,7 @@ export class UnifiedDocumentAnalyzer {
   /**
    * Identify document characteristics
    */
-  private identifyCharacteristics(input: AnalysisInput, urlListAnalysis?: UrlListParseResult): string[] {
+  private identifyCharacteristics(input: AnalysisInput): string[] {
     const characteristics: string[] = [];
 
     if (input.extractedMetadata?.doi || input.doi) {
@@ -288,23 +272,11 @@ export class UnifiedDocumentAnalyzer {
       characteristics.push('high-authority');
     }
 
-    // URL list specific characteristics
-    if (urlListAnalysis?.isUrlList) {
-      characteristics.push('url-list');
-      characteristics.push(`${urlListAnalysis.listType}-list`);
-      
-      if (urlListAnalysis.urls.length >= 10) {
-        characteristics.push('large-collection');
-      } else if (urlListAnalysis.urls.length >= 5) {
-        characteristics.push('medium-collection');
-      }
-    }
-
     if (input.content) {
       if (this.hasComplexStructure(input.content)) {
         characteristics.push('structured');
       }
-      
+
       if (this.hasTechnicalContent(input.content)) {
         characteristics.push('technical');
       }

@@ -17,7 +17,6 @@ import { extractGooglePatentData, formatPatentContent } from './google-patents-e
 import { extractEntityFromSingleChunk } from './entity-extraction';
 import { IngestionWebhookManager, BatchProgressTracker } from './ingestion-webhook';
 import { documentAnalyzer } from './unified-document-analyzer';
-import { urlListParser } from './url-list-parser';
 import { typeRegistry, DEFAULT_PERSONA } from './type-registry';
 import { templateRegistry } from './metadata-templates';
 import type { DocumentType, DocumentMetadata, ProcessingJob, Persona } from './types';
@@ -137,27 +136,6 @@ export class UnifiedIngestionService {
   ): Promise<IngestionResult> {
     const { supabase, user } = context;
 
-    // Check if this is a URL list document that should be expanded
-    const urlListResult = await this.preprocessUrlList(request, context);
-    if (urlListResult.shouldExpand) {
-      // Convert to batch processing for URL list expansion
-      const batchRequest: BatchIngestionRequest = {
-        type: 'batch',
-        documents: urlListResult.expandedDocuments!,
-        batchDescription: `Expanded from URL list: ${request.title || request.fileName || 'Untitled'}`,
-        userId: user.id,
-        metadata: request.metadata
-      };
-
-      const batchResult = await this.processBatchDocuments(batchRequest, context);
-
-      // Enhance the message to indicate URL list expansion
-      if (batchResult.success) {
-        batchResult.message = `URL list detected and expanded into ${urlListResult.expandedDocuments!.length} documents. ${batchResult.message}`;
-      }
-
-      return batchResult;
-    }
 
     // Continue with normal single document processing
     const finalTitle = await this.generateDocumentTitle(request);
@@ -222,34 +200,28 @@ export class UnifiedIngestionService {
     // Validate batch
     this.validateBatchRequest(request);
     
-    // Pre-process documents to expand URL lists
-    const expandedDocuments = await this.expandUrlLists(request.documents, context);
-    
     // Generate batch IDs
     const batchId = uuidv4();
     const batchJobId = uuidv4();
-    
+
     // Auto-generate titles for documents without titles
-    await this.generateBatchTitles(expandedDocuments);
-    
-    // Create batch progress tracker with expanded document count
-    const batchTracker = new BatchProgressTracker(batchId, user.id, expandedDocuments.length);
+    await this.generateBatchTitles(request.documents);
+
+    // Create batch progress tracker
+    const batchTracker = new BatchProgressTracker(batchId, user.id, request.documents.length);
     
     // Create batch processing job
     const batchJob = await this.createProcessingJob({
       type: 'batch',
       userId: user.id,
       batchId,
-      totalDocuments: expandedDocuments.length,
+      totalDocuments: request.documents.length,
       batchDescription: request.batchDescription
     });
 
-    // Update request with expanded documents
-    const expandedRequest = { ...request, documents: expandedDocuments };
-
     // Start background batch processing asynchronously
-    console.log(`🚀 About to start background batch processing for batch ${batchId} with ${expandedRequest.documents.length} documents`);
-    this.processBatchBackground(batchId, batchJob.id, expandedRequest, { ...context, progressTracker: batchTracker })
+    console.log(`🚀 About to start background batch processing for batch ${batchId} with ${request.documents.length} documents`);
+    this.processBatchBackground(batchId, batchJob.id, request, { ...context, progressTracker: batchTracker })
       .catch(error => {
         console.error(`❌ Background batch processing failed for batch ${batchId}:`, error);
       });
@@ -258,146 +230,12 @@ export class UnifiedIngestionService {
       success: true,
       batchId,
       batchJobId: batchJob.id,
-      totalDocuments: expandedDocuments.length,
-      message: `Batch ingestion started. Processing ${expandedDocuments.length} documents (expanded from ${request.documents.length}) in background.`
+      totalDocuments: request.documents.length,
+      message: `Batch ingestion started. Processing ${request.documents.length} documents in background.`
     };
   }
 
-  /**
-   * Shared URL list preprocessing for both single and batch ingestion
-   */
-  private async preprocessUrlList(
-    request: SingleIngestionRequest | { content?: string; fileName?: string; title?: string },
-    context: ProcessingContext
-  ): Promise<{
-    shouldExpand: boolean;
-    expandedDocuments?: BatchDocumentRequest[];
-    reason?: string;
-  }> {
-    // Check if we have content and it's a markdown file
-    const content = request.content;
-    const fileName = 'fileName' in request ? request.fileName : undefined;
-    const title = 'title' in request ? request.title : undefined;
 
-    if (!content) {
-      return { shouldExpand: false, reason: 'No content to analyze' };
-    }
-
-    // Only check markdown files or files with obvious URL patterns
-    const isMarkdown = fileName?.endsWith('.md') ||
-                      fileName?.endsWith('.markdown') ||
-                      content.includes('[') && content.includes('](') ||
-                      /https?:\/\/[^\s]+/g.test(content);
-
-    if (!isMarkdown) {
-      return { shouldExpand: false, reason: 'Not a markdown file or URL-containing content' };
-    }
-
-    console.log(`🔍 Checking for URL list: ${title || fileName || 'Untitled'} (content length: ${content.length})`);
-
-    const urlListResult = urlListParser.parseMarkdownContent(content, fileName);
-    console.log(`🔍 URL list detection result:`, {
-      isUrlList: urlListResult.isUrlList,
-      confidence: urlListResult.confidence,
-      urlCount: urlListResult.urls.length,
-      listType: urlListResult.listType
-    });
-
-    // Use a slightly lower threshold for single document processing
-    const confidenceThreshold = 0.5;
-
-    if (!urlListResult.isUrlList || urlListResult.confidence < confidenceThreshold) {
-      return {
-        shouldExpand: false,
-        reason: `Not detected as URL list (confidence: ${urlListResult.confidence.toFixed(2)})`
-      };
-    }
-
-    console.log(`📋 Expanding URL list: ${title || fileName} (${urlListResult.urls.length} URLs)`);
-
-    // Create individual documents for each URL
-    const expandedDocuments: BatchDocumentRequest[] = [];
-
-    for (const urlItem of urlListResult.urls) {
-      const expandedDoc: BatchDocumentRequest = {
-        title: urlItem.title,
-        detectedType: urlItem.detectedType,
-        confidence: urlItem.confidence,
-        metadata: {
-          ...urlItem.metadata,
-          sourceUrl: urlItem.url, // Preserve original URL for tracking
-          originalListFile: fileName,
-          originalListTitle: title,
-          originalListType: urlListResult.listType,
-          batch: true,
-          // Set appropriate URL fields based on type
-          ...(urlItem.detectedType === 'patent' && { patentUrl: urlItem.url }),
-          ...(urlItem.detectedType === 'paper' && urlItem.metadata.isDoi && { doi: urlItem.metadata.doi }),
-          ...(urlItem.detectedType === 'paper' && urlItem.metadata.isArxiv && {
-            doi: urlItem.metadata.arxivId,  // Map ArXiv ID to DOI field for enhanced processing
-            arxivId: urlItem.metadata.arxivId,
-            isArxiv: true
-          }),
-          // For non-patent/non-doi/non-arxiv documents, we'll process as URL
-          ...(urlItem.detectedType !== 'patent' && !urlItem.metadata.isDoi && !urlItem.metadata.isArxiv && { url: urlItem.url })
-        }
-      };
-
-      // Add URL to content field for URL-based processing (skip for ArXiv/DOI papers that will use enhanced processing)
-      if (!expandedDoc.metadata.patentUrl && !expandedDoc.metadata.doi && !expandedDoc.metadata.isArxiv) {
-        expandedDoc.content = urlItem.url; // This will trigger URL processing
-      }
-
-      expandedDocuments.push(expandedDoc);
-    }
-
-    console.log(`✅ URL list expansion complete: ${urlListResult.urls.length} documents created from ${title || fileName}`);
-
-    return {
-      shouldExpand: true,
-      expandedDocuments,
-      reason: `Expanded ${urlListResult.urls.length} URLs from ${urlListResult.listType} list`
-    };
-  }
-
-  /**
-   * Expand URL lists in batch documents (now uses shared preprocessing)
-   */
-  private async expandUrlLists(
-    documents: BatchDocumentRequest[],
-    context: ProcessingContext
-  ): Promise<BatchDocumentRequest[]> {
-    const expandedDocs: BatchDocumentRequest[] = [];
-
-    for (const doc of documents) {
-      console.log(`🔍 Checking document: ${doc.title} (fileName: ${doc.metadata?.fileName}, hasContent: ${!!doc.content})`);
-
-      // Use shared preprocessing logic
-      const urlListResult = await this.preprocessUrlList({
-        content: doc.content,
-        fileName: doc.metadata?.fileName,
-        title: doc.title
-      }, context);
-
-      if (urlListResult.shouldExpand && urlListResult.expandedDocuments) {
-        // Merge original document metadata into expanded documents
-        for (const expandedDoc of urlListResult.expandedDocuments) {
-          expandedDoc.metadata = {
-            ...doc.metadata,
-            ...expandedDoc.metadata
-          };
-          expandedDocs.push(expandedDoc);
-        }
-        console.log(`✅ Expanded ${doc.title}: ${urlListResult.expandedDocuments.length} documents created`);
-      } else {
-        // Not a URL list, keep as single document
-        expandedDocs.push(doc);
-      }
-    }
-
-    console.log(`📊 Batch expansion complete: ${documents.length} → ${expandedDocs.length} documents`);
-    return expandedDocs;
-  }
 
   /**
    * Generate appropriate title for document
@@ -668,6 +506,7 @@ export class UnifiedIngestionService {
 
       let processedContent: string;
       let extractedMetadata: Record<string, unknown> = {};
+      let frontmatterMetadata: Record<string, unknown> = {};
 
       // Step 1: Extract content based on type using enhanced DocumentProcessor
       if (request.fileBuffer) {
@@ -678,6 +517,14 @@ export class UnifiedIngestionService {
         if (isTextFile) {
           // For text-based files, read content directly
           processedContent = request.fileBuffer.toString('utf-8');
+
+          // Parse frontmatter from markdown files
+          if (fileName.endsWith('.md')) {
+            const frontmatterResult = this.parseFrontmatter(processedContent);
+            frontmatterMetadata = frontmatterResult.frontmatter;
+            console.log(`✅ Parsed frontmatter metadata:`, Object.keys(frontmatterMetadata));
+          }
+
           extractedMetadata = { fileName };
         } else {
           // For binary files (PDF, etc.) - use enhanced GROBID processing
@@ -692,6 +539,11 @@ export class UnifiedIngestionService {
       } else if (request.content) {
         // Direct markdown content
         processedContent = request.content;
+
+        // Parse frontmatter from markdown content
+        const frontmatterResult = this.parseFrontmatter(processedContent);
+        frontmatterMetadata = frontmatterResult.frontmatter;
+        console.log(`✅ Parsed frontmatter metadata from content:`, Object.keys(frontmatterMetadata));
       } else if (request.patentUrl) {
         // Google Patents URL - use EXA for better extraction
         console.log('Processing patent URL with EXA:', request.patentUrl);
@@ -909,7 +761,7 @@ export class UnifiedIngestionService {
         .eq('document_id', documentId);
 
       // Step 6: Update document with extracted metadata and actors
-      const documentUpdate = await this.buildDocumentUpdate(extractedMetadata, request, actors);
+      const documentUpdate = await this.buildDocumentUpdate(extractedMetadata, request, actors, frontmatterMetadata);
       await this.supabaseAdmin
         .from('documents')
         .update(documentUpdate)
@@ -1081,16 +933,16 @@ export class UnifiedIngestionService {
           status: 'completed',
           completed_at: new Date().toISOString(),
           progress: 1.0,
-          progress_message: `Batch completed: ${totalProcessedCount} documents processed`,
+          progress_message: `Batch completed: ${request.documents.length} documents processed`,
           results: {
-            totalDocuments: totalProcessedCount,
-            completedDocuments: totalProcessedCount,
+            totalDocuments: request.documents.length,
+            completedDocuments: request.documents.length,
             failedDocuments: 0 // TODO: Track failed documents properly
           }
         })
         .eq('id', batchJobId);
       
-      console.log(`✅ Batch processing completed for batch ${batchId}: ${totalProcessedCount} documents processed`);
+      console.log(`✅ Batch processing completed for batch ${batchId}: ${request.documents.length} documents processed`);
 
       // Send final batch completion notification
       if (progressTracker) {
@@ -1340,32 +1192,59 @@ export class UnifiedIngestionService {
   }
 
   /**
-   * Build document update object from extracted metadata using new generic schema
+   * Build document update object from frontmatter and extracted metadata using new generic schema
+   * Prioritizes frontmatter over extracted metadata
    */
   private async buildDocumentUpdate(
     extractedMetadata: Record<string, unknown>,
     request: SingleIngestionRequest,
-    actors?: Record<string, any>
+    actors?: Record<string, any>,
+    frontmatterMetadata?: Record<string, unknown>
   ): Promise<Record<string, any>> {
     const documentUpdate: Record<string, any> = {
       processing_status: 'completed',
       processed_at: new Date().toISOString()
     };
 
-    // Update document title from extraction if available and valid
-    if (extractedMetadata.title &&
+    // Update document title - prioritize frontmatter over extraction
+    if (frontmatterMetadata?.title && typeof frontmatterMetadata.title === 'string' && frontmatterMetadata.title.trim().length > 0) {
+      documentUpdate.title = frontmatterMetadata.title.trim();
+      console.log(`✅ Using document title from frontmatter: "${frontmatterMetadata.title}"`);
+    } else if (extractedMetadata.title &&
         typeof extractedMetadata.title === 'string' &&
         extractedMetadata.title !== 'Untitled' &&
         extractedMetadata.title !== 'PDF-1.5' &&
         extractedMetadata.title.trim().length > 0) {
       documentUpdate.title = extractedMetadata.title.trim();
-      console.log(`✅ Updating document title from extraction: "${extractedMetadata.title}"`);
+      console.log(`✅ Using document title from extraction: "${extractedMetadata.title}"`);
     }
 
-    // Build identifiers JSONB object
+    // Build identifiers JSONB object - prioritize frontmatter
     const identifiers: Record<string, any> = {};
 
-    // Add identifiers based on document type and extracted metadata
+    // First, extract identifiers from frontmatter
+    if (frontmatterMetadata) {
+      if (frontmatterMetadata.doi && typeof frontmatterMetadata.doi === 'string') {
+        identifiers.doi = frontmatterMetadata.doi;
+      }
+      if (frontmatterMetadata.arxiv_id && typeof frontmatterMetadata.arxiv_id === 'string') {
+        identifiers.arxiv_id = frontmatterMetadata.arxiv_id;
+      }
+      if (frontmatterMetadata.patent_no && typeof frontmatterMetadata.patent_no === 'string') {
+        identifiers.patent_no = frontmatterMetadata.patent_no;
+      }
+      if (frontmatterMetadata.application_no && typeof frontmatterMetadata.application_no === 'string') {
+        identifiers.application_no = frontmatterMetadata.application_no;
+      }
+      if (frontmatterMetadata.publication_no && typeof frontmatterMetadata.publication_no === 'string') {
+        identifiers.publication_no = frontmatterMetadata.publication_no;
+      }
+      if (frontmatterMetadata.url && typeof frontmatterMetadata.url === 'string') {
+        identifiers.url = frontmatterMetadata.url;
+      }
+    }
+
+    // Add identifiers based on document type and extracted metadata (fallback)
     if (extractedMetadata.doi && typeof extractedMetadata.doi === 'string') {
       identifiers.doi = extractedMetadata.doi;
     }
@@ -1382,19 +1261,39 @@ export class UnifiedIngestionService {
       identifiers.publication_no = extractedMetadata.publicationNumber;
     }
 
-    // Build dates JSONB object
+    // Build dates JSONB object - prioritize frontmatter
     const dates: Record<string, any> = {};
 
-    if (extractedMetadata.filingDate || extractedMetadata.filed_date) {
+    // First, extract dates from frontmatter
+    if (frontmatterMetadata) {
+      if (frontmatterMetadata.published_date && typeof frontmatterMetadata.published_date === 'string') {
+        dates.published = frontmatterMetadata.published_date;
+      }
+      if (frontmatterMetadata.filed_date && typeof frontmatterMetadata.filed_date === 'string') {
+        dates.filed = frontmatterMetadata.filed_date;
+      }
+      if (frontmatterMetadata.granted_date && typeof frontmatterMetadata.granted_date === 'string') {
+        dates.granted = frontmatterMetadata.granted_date;
+      }
+      if (frontmatterMetadata.priority_date && typeof frontmatterMetadata.priority_date === 'string') {
+        dates.priority = frontmatterMetadata.priority_date;
+      }
+      if (frontmatterMetadata.expires_date && typeof frontmatterMetadata.expires_date === 'string') {
+        dates.expires = frontmatterMetadata.expires_date;
+      }
+    }
+
+    // Fallback to extracted dates if not in frontmatter
+    if (!dates.filed && (extractedMetadata.filingDate || extractedMetadata.filed_date)) {
       dates.filed = extractedMetadata.filingDate || extractedMetadata.filed_date;
     }
-    if (extractedMetadata.grantDate || extractedMetadata.granted_date) {
+    if (!dates.granted && (extractedMetadata.grantDate || extractedMetadata.granted_date)) {
       dates.granted = extractedMetadata.grantDate || extractedMetadata.granted_date;
     }
-    if (extractedMetadata.publicationDate || extractedMetadata.published_date) {
+    if (!dates.published && (extractedMetadata.publicationDate || extractedMetadata.published_date)) {
       dates.published = extractedMetadata.publicationDate || extractedMetadata.published_date;
     }
-    if (extractedMetadata.priorityDate) {
+    if (!dates.priority && extractedMetadata.priorityDate) {
       dates.priority = extractedMetadata.priorityDate;
     }
     if (extractedMetadata.expirationDate) {
@@ -1422,6 +1321,32 @@ export class UnifiedIngestionService {
       }
     }
 
+    // Build actors from frontmatter if available
+    let finalActors = actors || {};
+    if (frontmatterMetadata) {
+      const frontmatterActors: Record<string, any> = {};
+
+      // Map common frontmatter fields to actors
+      if (frontmatterMetadata.inventor && Array.isArray(frontmatterMetadata.inventor)) {
+        frontmatterActors.inventors = frontmatterMetadata.inventor;
+      }
+      if (frontmatterMetadata.assignee && Array.isArray(frontmatterMetadata.assignee)) {
+        frontmatterActors.assignees = frontmatterMetadata.assignee;
+      }
+      if (frontmatterMetadata.author && Array.isArray(frontmatterMetadata.author)) {
+        frontmatterActors.authors = frontmatterMetadata.author;
+      }
+      if (frontmatterMetadata.journalist && Array.isArray(frontmatterMetadata.journalist)) {
+        frontmatterActors.journalists = frontmatterMetadata.journalist;
+      }
+      if (frontmatterMetadata.oem && Array.isArray(frontmatterMetadata.oem)) {
+        frontmatterActors.companies = frontmatterMetadata.oem;
+      }
+
+      // Merge frontmatter actors with extracted actors (frontmatter takes priority)
+      finalActors = { ...finalActors, ...frontmatterActors };
+    }
+
     // Update identifiers, dates, and actors if we have any
     if (Object.keys(identifiers).length > 0) {
       documentUpdate.identifiers = identifiers;
@@ -1429,15 +1354,16 @@ export class UnifiedIngestionService {
     if (Object.keys(dates).length > 0) {
       documentUpdate.dates = dates;
     }
-    if (actors && Object.keys(actors).length > 0) {
-      documentUpdate.actors = actors;
+    if (finalActors && Object.keys(finalActors).length > 0) {
+      documentUpdate.actors = finalActors;
     }
 
-    console.log(`✅ Updated document metadata with generic schema:`, {
+    console.log(`✅ Updated document metadata with frontmatter priority:`, {
       identifiers: Object.keys(identifiers),
       dates: Object.keys(dates),
-      actors: actors ? Object.keys(actors) : [],
-      hasTitle: !!documentUpdate.title
+      actors: finalActors ? Object.keys(finalActors) : [],
+      hasTitle: !!documentUpdate.title,
+      frontmatterFields: frontmatterMetadata ? Object.keys(frontmatterMetadata) : []
     });
 
     return documentUpdate;
@@ -1645,6 +1571,45 @@ export class UnifiedIngestionService {
     } catch (error) {
       console.error(`❌ All fallback extraction strategies failed for ${url}:`, error);
       return null;
+    }
+  }
+
+
+  /**
+   * Parse frontmatter from markdown content
+   */
+  private parseFrontmatter(content: string): {
+    frontmatter: Record<string, unknown>;
+    content: string;
+    hasFrontmatter: boolean;
+  } {
+    const frontmatterRegex = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/;
+    const match = content.match(frontmatterRegex);
+
+    if (!match) {
+      return {
+        frontmatter: {},
+        content: content,
+        hasFrontmatter: false
+      };
+    }
+
+    try {
+      // Use js-yaml to parse the frontmatter
+      const yaml = require('js-yaml');
+      const frontmatter = yaml.load(match[1]) as any;
+      return {
+        frontmatter: frontmatter || {},
+        content: match[2],
+        hasFrontmatter: true
+      };
+    } catch (error) {
+      console.error('Failed to parse frontmatter YAML:', error);
+      return {
+        frontmatter: {},
+        content: content,
+        hasFrontmatter: false
+      };
     }
   }
 }

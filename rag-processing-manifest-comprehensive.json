@@ -1,295 +1,279 @@
 {
   "processing_session_metadata": {
-    "session_id": "rag-session-20250921-1",
-    "timestamp": "2025-09-21T12:00:00Z",
-    "agent_version": "1.0",
-    "purpose": "Comprehensive document processing for RAG system knowledge base."
+    "session_id": "session-20250923-rag-comprehensive",
+    "timestamp": "2025-09-23T18:00:00.000Z",
+    "agent_version": "rag-doc-parser-v1.0",
+    "purpose": "Comprehensive processing of all documents in RAG-RAW-DOCS for David Fattal persona."
   },
   "document_count_summaries": {
-    "total_documents": 34,
+    "total_documents": 32,
     "by_type": {
-      "press_article": 13,
-      "technical_paper": 5,
+      "blog": 4,
       "patent": 4,
-      "blog_post": 0,
-      "direct_markdown": 7,
-      "pdf": 3
+      "paper": 7,
+      "note": 4,
+      "press-article": 13
     },
     "by_status": {
-      "pending": 34,
-      "processed": 0,
-      "exists_in_corpus": 0
-    }
-  },
-  "incremental_processing_status": {
-    "new_documents": 28,
-    "existing_documents": 6,
-    "total_documents": 34
-  },
-  "estimated_processing_time_seconds": {
-    "processing_time_per_document_seconds": 45,
-    "total_estimated_time_seconds": 1260,
-    "breakdown": {
-        "new_documents_time": 1260,
-        "reprocessing_time": 0
+      "pending": 32
     }
   },
   "documents_to_process": [
     {
-      "source_uri": "https://www.theverge.com/circuitbreaker/2017/9/8/16272838/red-hydrogen-one-holographic-display-leia",
-      "document_type": "press_article",
-      "extraction_tool": "exa_mcp",
-      "extraction_strategy": "complete",
-      "status": "pending",
-      "metadata_enhancements": ["OEMs", "Products", "Technologies", "Venues"]
-    },
-    {
-      "source_uri": "https://www.theverge.com/24036574/leia-glasses-free-3d-ces-2024",
-      "document_type": "press_article",
-      "extraction_tool": "exa_mcp",
-      "extraction_strategy": "complete",
-      "status": "pending",
-      "metadata_enhancements": ["OEMs", "Products", "Technologies", "Venues"]
-    },
-    {
-      "source_uri": "https://news.samsung.com/global/samsung-launches-next-gen-odyssey-gaming-monitors-that-showcase-immersive-3d-and-oled-excellence",
-      "document_type": "press_article",
-      "extraction_tool": "exa_mcp",
-      "extraction_strategy": "complete",
-      "status": "pending",
-      "metadata_enhancements": ["OEMs", "Products", "Technologies", "Venues"]
-    },
-    {
-      "source_uri": "https://news.samsung.com/my/interview-transforming-the-monitor-experience-expanding-the-boundaries-with-odyssey-3d",
-      "document_type": "press_article",
-      "extraction_tool": "exa_mcp",
-      "extraction_strategy": "complete",
-      "status": "pending",
-      "metadata_enhancements": ["OEMs", "Products", "Technologies", "Venues"]
-    },
-    {
-      "source_uri": "https://www.wired.com/story/3d-is-back/",
-      "document_type": "press_article",
-      "extraction_tool": "exa_mcp",
-      "extraction_strategy": "complete",
-      "status": "pending",
-      "metadata_enhancements": ["OEMs", "Products", "Technologies", "Venues"]
-    },
-    {
-      "source_uri": "https://www.wired.com/review/samsung-odyssey-3d-27-inch-g90xf/",
-      "document_type": "press_article",
-      "extraction_tool": "exa_mcp",
-      "extraction_strategy": "complete",
-      "status": "pending",
-      "metadata_enhancements": ["OEMs", "Products", "Technologies", "Venues"]
-    },
-    {
-      "source_uri": "https://news.samsung.com/global/gamescom-2025-samsung-odyssey-brings-fans-closer-to-the-games-they-love",
-      "document_type": "press_article",
-      "extraction_tool": "exa_mcp",
-      "extraction_strategy": "complete",
-      "status": "pending",
-      "metadata_enhancements": ["OEMs", "Products", "Technologies", "Venues"]
-    },
-    {
-      "source_uri": "https://www.forbes.com/sites/charliefink/2020/02/28/leia-the-display-of-the-future/",
-      "document_type": "press_article",
-      "extraction_tool": "exa_mcp",
-      "extraction_strategy": "complete",
-      "status": "pending",
-      "metadata_enhancements": ["OEMs", "Products", "Technologies", "Venues"]
-    },
-    {
-      "source_uri": "https://www.forbes.com/sites/charliefink/2020/02/26/how-light-field-makes-holograms-happen/",
-      "document_type": "press_article",
-      "extraction_tool": "exa_mcp",
-      "extraction_strategy": "complete",
-      "status": "pending",
-      "metadata_enhancements": ["OEMs", "Products", "Technologies", "Venues"]
-    },
-    {
-      "source_uri": "https://www.forbes.com/sites/moorinsights/2023/04/05/leia-lume-pad-2-review-the-definitive-3-d-content-creation-and-consumption-tablet/",
-      "document_type": "press_article",
-      "extraction_tool": "exa_mcp",
-      "extraction_strategy": "complete",
-      "status": "pending",
-      "metadata_enhancements": ["OEMs", "Products", "Technologies", "Venues"]
-    },
-    {
-      "source_uri": "https://www.zte.com.cn/global/about/news/zte-nubia-first-3d-ai-tablet-offers-eyewear-free-immersive-3d-experiences-content-creation.html",
-      "document_type": "press_article",
-      "extraction_tool": "exa_mcp",
-      "extraction_strategy": "complete",
-      "status": "pending",
-      "metadata_enhancements": ["OEMs", "Products", "Technologies", "Venues"]
-    },
-    {
-      "source_uri": "https://www.digitaltrends.com/phones/zte-nubia-pad-3d-ii-crazy-android-tablet-mwc-2024-news/",
-      "document_type": "press_article",
-      "extraction_tool": "exa_mcp",
-      "extraction_strategy": "complete",
-      "status": "pending",
-      "metadata_enhancements": ["OEMs", "Products", "Technologies", "Venues"]
-    },
-    {
-      "source_uri": "https://www.zte.com.cn/global/about/news/zte-launches-the-worlds-first-5g-ai-eyewear-free-3d-tablet-nubia-pad-3d-II-at-mwc-2024.html",
-      "document_type": "press_article",
-      "extraction_tool": "exa_mcp",
-      "extraction_strategy": "complete",
-      "status": "pending",
-      "metadata_enhancements": ["OEMs", "Products", "Technologies", "Venues"]
-    },
-    {
-      "source_uri": "https://arxiv.org/pdf/2405.10314",
-      "document_type": "technical_paper",
+      "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/article-list.md",
+      "document_type": "note",
       "extraction_tool": "gemini_direct",
-      "extraction_strategy": "structured",
+      "extraction_strategy": "complete",
       "status": "pending",
-      "metadata_enhancements": ["Technologies", "Venues"]
-    },
-    {
-      "source_uri": "https://arxiv.org/pdf/2503.14489",
-      "document_type": "technical_paper",
-      "extraction_tool": "gemini_direct",
-      "extraction_strategy": "structured",
-      "status": "pending",
-      "metadata_enhancements": ["Technologies", "Venues"]
-    },
-    {
-      "source_uri": "https://arxiv.org/pdf/2003.11172",
-      "document_type": "technical_paper",
-      "extraction_tool": "gemini_direct",
-      "extraction_strategy": "structured",
-      "status": "pending",
-      "metadata_enhancements": ["Technologies", "Venues"]
-    },
-    {
-      "source_uri": "https://arxiv.org/pdf/2401.10891",
-      "document_type": "technical_paper",
-      "extraction_tool": "gemini_direct",
-      "extraction_strategy": "structured",
-      "status": "pending",
-      "metadata_enhancements": ["Technologies", "Venues"]
-    },
-    {
-      "source_uri": "https://www.anjiecheng.me/assets/SR3D/sr3d.pdf",
-      "document_type": "technical_paper",
-      "extraction_tool": "gemini_direct",
-      "extraction_strategy": "structured",
-      "status": "pending",
-      "metadata_enhancements": ["Technologies", "Venues"]
-    },
-    {
-      "source_uri": "https://patents.google.com/patent/US11281020B2/en?oq=WO2012038876A1",
-      "document_type": "patent",
-      "extraction_tool": "gemini_direct",
-      "extraction_strategy": "structured",
-      "status": "pending",
-      "metadata_enhancements": ["Technologies", "Venues"]
-    },
-    {
-      "source_uri": "https://patents.google.com/patent/WO2024145265A1/en?oq=WO2024145265A1",
-      "document_type": "patent",
-      "extraction_tool": "gemini_direct",
-      "extraction_strategy": "structured",
-      "status": "pending",
-      "metadata_enhancements": ["Technologies", "Venues"]
-    },
-    {
-      "source_uri": "https://patents.google.com/patent/US10830939B2/en?oq=US2013052774",
-      "document_type": "patent",
-      "extraction_tool": "gemini_direct",
-      "extraction_strategy": "structured",
-      "status": "pending",
-      "metadata_enhancements": ["Technologies", "Venues"]
-    },
-    {
-      "source_uri": "https://patents.google.com/patent/US10838134B2/en?oq=WO2017131807A1",
-      "document_type": "patent",
-      "extraction_tool": "gemini_direct",
-      "extraction_strategy": "structured",
-      "status": "pending",
-      "metadata_enhancements": ["Technologies", "Venues"]
+      "metadata_enhancements": []
     },
     {
       "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/blogs/blog-1.md",
-      "document_type": "direct_markdown",
+      "document_type": "blog",
       "extraction_tool": "gemini_direct",
       "extraction_strategy": "complete",
       "status": "pending",
-      "metadata_enhancements": ["Technologies", "Venues"]
+      "metadata_enhancements": ["David Fattal"]
     },
     {
       "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/blogs/blog-2.md",
-      "document_type": "direct_markdown",
+      "document_type": "blog",
       "extraction_tool": "gemini_direct",
       "extraction_strategy": "complete",
       "status": "pending",
-      "metadata_enhancements": ["Technologies", "Venues"]
+      "metadata_enhancements": ["David Fattal"]
     },
     {
       "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/blogs/blog-3.md",
-      "document_type": "direct_markdown",
+      "document_type": "blog",
       "extraction_tool": "gemini_direct",
       "extraction_strategy": "complete",
       "status": "pending",
-      "metadata_enhancements": ["Technologies", "Venues"]
+      "metadata_enhancements": ["David Fattal"]
     },
     {
       "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/blogs/blog-4.md",
-      "document_type": "direct_markdown",
+      "document_type": "blog",
       "extraction_tool": "gemini_direct",
       "extraction_strategy": "complete",
       "status": "pending",
-      "metadata_enhancements": ["Technologies", "Venues"]
+      "metadata_enhancements": ["David Fattal"]
     },
     {
-      "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/Immersity (LeiaSR) FAQ.md",
-      "document_type": "direct_markdown",
+      "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/Patents/US11281020.pdf",
+      "document_type": "patent",
       "extraction_tool": "gemini_direct",
       "extraction_strategy": "complete",
       "status": "pending",
-      "metadata_enhancements": ["Products", "Technologies"]
+      "metadata_enhancements": ["David Fattal", "lightfield", "lenticular", "Google Patents"]
     },
     {
-      "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/LIF.md",
-      "document_type": "direct_markdown",
+      "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/Patents/WO2024145265A1.pdf",
+      "document_type": "patent",
       "extraction_tool": "gemini_direct",
       "extraction_strategy": "complete",
       "status": "pending",
-      "metadata_enhancements": ["Products", "Technologies"]
+      "metadata_enhancements": ["David Fattal", "lightfield", "diffractive", "Google Patents"]
     },
     {
-      "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/phase_eng.md",
-      "document_type": "direct_markdown",
+      "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/Patents/US10830939.pdf",
+      "document_type": "patent",
       "extraction_tool": "gemini_direct",
       "extraction_strategy": "complete",
       "status": "pending",
-      "metadata_enhancements": ["Products", "Technologies"]
+      "metadata_enhancements": ["David Fattal", "lightfield", "Google Patents"]
     },
     {
-      "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/Locally Switchable 2D and 3D Displays.pdf",
-      "document_type": "pdf",
+      "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/Patents/US10838134.pdf",
+      "document_type": "patent",
       "extraction_tool": "gemini_direct",
-      "extraction_strategy": "structured",
+      "extraction_strategy": "complete",
       "status": "pending",
-      "metadata_enhancements": ["Technologies", "Venues"]
+      "metadata_enhancements": ["David Fattal", "lightfield", "Google Patents"]
     },
     {
-      "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/Nature_paper.pdf",
-      "document_type": "pdf",
+      "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/Papers/2003.11172v1.pdf",
+      "document_type": "paper",
       "extraction_tool": "gemini_direct",
-      "extraction_strategy": "structured",
+      "extraction_strategy": "complete",
       "status": "pending",
-      "metadata_enhancements": ["Technologies", "Venues"]
+      "metadata_enhancements": ["arXiv", "AI depth estimation"]
     },
     {
-      "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/sr3d.pdf",
-      "document_type": "pdf",
+      "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/Papers/sr3d.pdf",
+      "document_type": "paper",
       "extraction_tool": "gemini_direct",
-      "extraction_strategy": "structured",
+      "extraction_strategy": "complete",
       "status": "pending",
-      "metadata_enhancements": ["Technologies", "Venues"]
+      "metadata_enhancements": ["lightfield", "3D"]
+    },
+    {
+      "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/Papers/2405.10314v1.pdf",
+      "document_type": "paper",
+      "extraction_tool": "gemini_direct",
+      "extraction_strategy": "complete",
+      "status": "pending",
+      "metadata_enhancements": ["arXiv", "AI"]
+    },
+    {
+      "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/Papers/2401.10891v2.pdf",
+      "document_type": "paper",
+      "extraction_tool": "gemini_direct",
+      "extraction_strategy": "complete",
+      "status": "pending",
+      "metadata_enhancements": ["arXiv", "AI"]
+    },
+    {
+      "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/Papers/2503.14489v2.pdf",
+      "document_type": "paper",
+      "extraction_tool": "gemini_direct",
+      "extraction_strategy": "complete",
+      "status": "pending",
+      "metadata_enhancements": ["arXiv", "AI"]
+    },
+    {
+      "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/Papers/Nature_paper.pdf",
+      "document_type": "paper",
+      "extraction_tool": "gemini_direct",
+      "extraction_strategy": "complete",
+      "status": "pending",
+      "metadata_enhancements": ["Nature Photonics", "David Fattal", "lightfield"]
+    },
+    {
+      "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/Papers/Locally Switchable 2D and 3D Displays.pdf",
+      "document_type": "paper",
+      "extraction_tool": "gemini_direct",
+      "extraction_strategy": "complete",
+      "status": "pending",
+      "metadata_enhancements": ["switchable", "2D-to-3D", "lightfield"]
+    },
+    {
+      "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/Notes/LIF.md",
+      "document_type": "note",
+      "extraction_tool": "gemini_direct",
+      "extraction_strategy": "complete",
+      "status": "pending",
+      "metadata_enhancements": ["lightfield"]
+    },
+    {
+      "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/Notes/Immersity (LeiaSR) FAQ.md",
+      "document_type": "note",
+      "extraction_tool": "gemini_direct",
+      "extraction_strategy": "complete",
+      "status": "pending",
+      "metadata_enhancements": ["Immersity AI", "2D-to-3D"]
+    },
+    {
+      "source_uri": "/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/Notes/phase_eng.md",
+      "document_type": "note",
+      "extraction_tool": "gemini_direct",
+      "extraction_strategy": "complete",
+      "status": "pending",
+      "metadata_enhancements": []
+    },
+    {
+      "source_uri": "https://www.theverge.com/circuitbreaker/2017/9/8/16272838/red-hydrogen-one-holographic-display-leia",
+      "document_type": "press-article",
+      "extraction_tool": "exa_mcp",
+      "extraction_strategy": "complete",
+      "status": "pending",
+      "metadata_enhancements": ["The Verge", "RED", "Hydrogen One", "lightfield"]
+    },
+    {
+      "source_uri": "https://www.theverge.com/24036574/leia-glasses-free-3d-ces-2024",
+      "document_type": "press-article",
+      "extraction_tool": "exa_mcp",
+      "extraction_strategy": "complete",
+      "status": "pending",
+      "metadata_enhancements": ["The Verge", "3D"]
+    },
+    {
+      "source_uri": "https://news.samsung.com/global/samsung-launches-next-gen-odyssey-gaming-monitors-that-showcase-immersive-3d-and-oled-excellence",
+      "document_type": "press-article",
+      "extraction_tool": "exa_mcp",
+      "extraction_strategy": "complete",
+      "status": "pending",
+      "metadata_enhancements": ["Samsung", "Odyssey 3D", "OLED", "eye tracking"]
+    },
+    {
+      "source_uri": "https://news.samsung.com/my/interview-transforming-the-monitor-experience-expanding-the-boundaries-with-odyssey-3d",
+      "document_type": "press-article",
+      "extraction_tool": "exa_mcp",
+      "extraction_strategy": "complete",
+      "status": "pending",
+      "metadata_enhancements": ["Samsung", "Odyssey 3D"]
+    },
+    {
+      "source_uri": "https://www.wired.com/story/3d-is-back/",
+      "document_type": "press-article",
+      "extraction_tool": "exa_mcp",
+      "extraction_strategy": "complete",
+      "status": "pending",
+      "metadata_enhancements": ["Wired", "3D"]
+    },
+    {
+      "source_uri": "https://www.wired.com/review/samsung-odyssey-3d-27-inch-g90xf/",
+      "document_type": "press-article",
+      "extraction_tool": "exa_mcp",
+      "extraction_strategy": "complete",
+      "status": "pending",
+      "metadata_enhancements": ["Wired", "Samsung", "Odyssey 3D"]
+    },
+    {
+      "source_uri": "https://news.samsung.com/global/gamescom-2025-samsung-odyssey-brings-fans-closer-to-the-games-they-love",
+      "document_type": "press-article",
+      "extraction_tool": "exa_mcp",
+      "extraction_strategy": "complete",
+      "status": "pending",
+      "metadata_enhancements": ["Samsung", "Odyssey 3D"]
+    },
+    {
+      "source_uri": "https://www.forbes.com/sites/charliefink/2020/02/28/leia-the-display-of-the-future/",
+      "document_type": "press-article",
+      "extraction_tool": "exa_mcp",
+      "extraction_strategy": "complete",
+      "status": "pending",
+      "metadata_enhancements": ["Forbes", "lightfield"]
+    },
+    {
+      "source_uri": "https://www.forbes.com/sites/charliefink/2020/02/26/how-light-field-makes-holograms-happen/",
+      "document_type": "press-article",
+      "extraction_tool": "exa_mcp",
+      "extraction_strategy": "complete",
+      "status": "pending",
+      "metadata_enhancements": ["Forbes", "lightfield"]
+    },
+    {
+      "source_uri": "https://www.forbes.com/sites/moorinsights/2023/04/05/leia-lume-pad-2-review-the-definitive-3-d-content-creation-and-consumption-tablet/",
+      "document_type": "press-article",
+      "extraction_tool": "exa_mcp",
+      "extraction_strategy": "complete",
+      "status": "pending",
+      "metadata_enhancements": ["Forbes", "Lume Pad"]
+    },
+    {
+      "source_uri": "https://www.zte.com.cn/global/about/news/zte-nubia-first-3d-ai-tablet-offers-eyewear-free-immersive-3d-experiences-content-creation.html",
+      "document_type": "press-article",
+      "extraction_tool": "exa_mcp",
+      "extraction_strategy": "complete",
+      "status": "pending",
+      "metadata_enhancements": ["ZTE", "Nubia Pad", "3D", "AI"]
+    },
+    {
+      "source_uri": "https://www.digitaltrends.com/phones/zte-nubia-pad-3d-ii-crazy-android-tablet-mwc-2024-news/",
+      "document_type": "press-article",
+      "extraction_tool": "exa_mcp",
+      "extraction_strategy": "complete",
+      "status": "pending",
+      "metadata_enhancements": ["ZTE", "Nubia Pad", "3D"]
+    },
+    {
+      "source_uri": "https://www.zte.com.cn/global/about/news/zte-launches-the-worlds-first-5g-ai-eyewear-free-3d-tablet-nubia-pad-3d-II-at-mwc-2024.html",
+      "document_type": "press-article",
+      "extraction_tool": "exa_mcp",
+      "extraction_strategy": "complete",
+      "status": "pending",
+      "metadata_enhancements": ["ZTE", "Nubia Pad", "3D", "AI"]
     }
   ]
 }
