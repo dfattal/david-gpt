@@ -14,7 +14,9 @@ The architecture is built on three core pillars:
 
 ## 2. Document Ingestion Pipeline
 
-The ingestion pipeline is designed to handle diverse document types with specialized, domain-aware processing.
+The ingestion pipeline is designed to handle diverse document types with specialized, domain-aware processing. it consists of 2 steps:
+1. **Doc Prep**: Documents must be prepared in a standard ingestion format described in `DOCS/INGESTION-FORMAT.md`
+2. **Doc Ingestion**: the properly formatted markdown files are first validated for format then ingested and metadata / chunks / entitites / edges stored in DB
 
 ### 2.1. Processing Paths
 

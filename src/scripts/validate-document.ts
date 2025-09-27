@@ -141,16 +141,20 @@ function formatValidationResult(result: any, filename: string, options: CLIOptio
     // Show errors
     if (result.errors.length > 0) {
       output += `❌ ${result.errors.length} error(s) found:\n`;
-      result.errors.forEach((error: string, i: number) => {
-        output += `   ${i + 1}. ${error}\n`;
+      result.errors.forEach((error: any, i: number) => {
+        const message = typeof error === 'object' && error.message ? `${error.field}: ${error.message}` : error;
+        output += `   ${i + 1}. ${message}\n`;
       });
     }
 
     // Show warnings if verbose or if there are no errors
     if (result.warnings.length > 0 && (options.verbose || result.errors.length === 0)) {
       output += `⚠️  ${result.warnings.length} warning(s):\n`;
-      result.warnings.forEach((warning: string, i: number) => {
-        output += `   ${i + 1}. ${warning}\n`;
+      result.warnings.forEach((warning: any, i: number) => {
+        const message = typeof warning === 'object' && warning.message
+          ? `[${warning.type}${warning.field ? `: ${warning.field}` : ''}] ${warning.message} (Suggestion: ${warning.suggestion})`
+          : warning;
+        output += `   ${i + 1}. ${message}\n`;
       });
     }
 

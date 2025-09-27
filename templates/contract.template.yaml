@@ -1,0 +1,69 @@
+# Persona Contract Template
+# This template provides the base structure for persona contracts
+# Generated contracts should follow this format
+
+schema_version: 1
+persona_name: "{{PERSONA_NAME}}"
+
+provenance:
+  generated_by: "deterministic"  # deterministic|gemini-cli|hybrid
+  model: null  # set if using gemini-cli
+  generated_at: "{{TIMESTAMP}}"
+  inputs_hash: "{{INPUTS_HASH}}"
+
+global:
+  abstract_max_words: 200
+  metadata_chunk_max_chars: 1200
+  content_chunk_min_chars: 800
+  content_chunk_max_chars: 2000
+  chunk_overlap_percentage: 15
+  require_document_url_if_available: true
+
+metadata:
+  identifiers:
+    - doi
+    - url
+  dates:
+    - published_at
+    - updated_at
+  actor_roles:
+    - author
+    - contributor
+
+kg:
+  entity_kinds:
+    - person
+    - organization
+    - technology
+    - concept
+  edge_types:
+    - type: authored_by
+      src_kinds: [document]
+      dst_kinds: [person]
+      evidence_required: true
+    - type: affiliated_with
+      src_kinds: [person]
+      dst_kinds: [organization]
+      evidence_required: false
+
+doc_types:
+  notes:
+    required_frontmatter:
+      dates: [updated_at]
+    sections_order:
+      - summary
+      - details
+    metadata_section: summary
+    notes: "Basic note structure"
+
+vocab_hints:
+  technologies: []
+  oems: []
+  products: []
+  concepts: []
+
+# Optional: Proposals for new enum values (require approval)
+# proposals:
+#   new_doc_types: []
+#   new_entity_kinds: []
+#   new_edge_types: []

@@ -106,6 +106,7 @@ export type Database = {
           created_at: string | null
           id: string
           last_message_at: string | null
+          persona_id: string | null
           title: string | null
           updated_at: string | null
           user_id: string
@@ -115,6 +116,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           last_message_at?: string | null
+          persona_id?: string | null
           title?: string | null
           updated_at?: string | null
           user_id: string
@@ -124,11 +126,19 @@ export type Database = {
           created_at?: string | null
           id?: string
           last_message_at?: string | null
+          persona_id?: string | null
           title?: string | null
           updated_at?: string | null
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "conversations_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "conversations_user_id_fkey"
             columns: ["user_id"]
@@ -141,12 +151,14 @@ export type Database = {
       document_chunks: {
         Row: {
           chunk_index: number
+          chunk_type: string | null
           content: string
           content_hash: string
           created_at: string | null
           document_id: string
           embedding: string | null
           id: string
+          metadata: Json | null
           overlap_end: number | null
           overlap_start: number | null
           page_end: number | null
@@ -157,12 +169,14 @@ export type Database = {
         }
         Insert: {
           chunk_index: number
+          chunk_type?: string | null
           content: string
           content_hash: string
           created_at?: string | null
           document_id: string
           embedding?: string | null
           id?: string
+          metadata?: Json | null
           overlap_end?: number | null
           overlap_start?: number | null
           page_end?: number | null
@@ -173,12 +187,14 @@ export type Database = {
         }
         Update: {
           chunk_index?: number
+          chunk_type?: string | null
           content?: string
           content_hash?: string
           created_at?: string | null
           document_id?: string
           embedding?: string | null
           id?: string
+          metadata?: Json | null
           overlap_end?: number | null
           overlap_start?: number | null
           page_end?: number | null
@@ -197,150 +213,101 @@ export type Database = {
           },
         ]
       }
+      document_types: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: number
+          name: string
+          persona_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: number
+          name: string
+          persona_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: number
+          name?: string
+          persona_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_types_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
-          abstract: string | null
-          application_no: string | null
-          arxiv_id: string | null
-          assignees: Json | null
-          authority: string | null
-          authors_affiliations: Json | null
-          canonical_url: string | null
-          citation_count: number | null
-          claim_count: number | null
-          classification: Json | null
-          conference_date: string | null
+          actors: Json | null
           created_at: string | null
           created_by: string | null
-          doc_type: Database["public"]["Enums"]["document_type"]
-          doi: string | null
+          dates: Json | null
+          document_type_id: number
           error_message: string | null
-          expiration_date: string | null
-          expiration_is_estimate: boolean | null
           file_hash: string | null
           file_path: string | null
           file_size: number | null
-          filed_date: string | null
-          granted_date: string | null
           id: string
-          impact_factor: number | null
-          independent_claim_count: number | null
-          inventors: Json | null
-          jurisdiction: string | null
-          keywords: Json | null
-          meta_title: string | null
-          open_access: boolean | null
-          original_assignee: string | null
-          patent_no: string | null
-          patent_status: Database["public"]["Enums"]["patent_status_enum"] | null
-          priority_date: string | null
+          identifiers: Json | null
+          persona_id: string | null
           processed_at: string | null
           processing_status: string | null
-          publication_no: string | null
-          publication_year: number | null
-          published_date: string | null
-          source_url: string | null
           status: Database["public"]["Enums"]["document_status"] | null
           title: string
           updated_at: string | null
           url: string | null
-          venue: string | null
         }
         Insert: {
-          abstract?: string | null
-          application_no?: string | null
-          arxiv_id?: string | null
-          assignees?: Json | null
-          authority?: string | null
-          authors_affiliations?: Json | null
-          canonical_url?: string | null
-          citation_count?: number | null
-          claim_count?: number | null
-          classification?: Json | null
-          conference_date?: string | null
+          actors?: Json | null
           created_at?: string | null
           created_by?: string | null
-          doc_type: Database["public"]["Enums"]["document_type"]
-          doi?: string | null
+          dates?: Json | null
+          document_type_id: number
           error_message?: string | null
-          expiration_date?: string | null
-          expiration_is_estimate?: boolean | null
           file_hash?: string | null
           file_path?: string | null
           file_size?: number | null
-          filed_date?: string | null
-          granted_date?: string | null
           id?: string
-          impact_factor?: number | null
-          independent_claim_count?: number | null
-          inventors?: Json | null
-          jurisdiction?: string | null
-          keywords?: Json | null
-          meta_title?: string | null
-          open_access?: boolean | null
-          original_assignee?: string | null
-          patent_no?: string | null
-          patent_status?: Database["public"]["Enums"]["patent_status_enum"] | null
-          priority_date?: string | null
+          identifiers?: Json | null
+          persona_id?: string | null
           processed_at?: string | null
           processing_status?: string | null
-          publication_no?: string | null
-          publication_year?: number | null
-          published_date?: string | null
-          source_url?: string | null
           status?: Database["public"]["Enums"]["document_status"] | null
           title: string
           updated_at?: string | null
           url?: string | null
-          venue?: string | null
         }
         Update: {
-          abstract?: string | null
-          application_no?: string | null
-          arxiv_id?: string | null
-          assignees?: Json | null
-          authority?: string | null
-          authors_affiliations?: Json | null
-          canonical_url?: string | null
-          citation_count?: number | null
-          claim_count?: number | null
-          classification?: Json | null
-          conference_date?: string | null
+          actors?: Json | null
           created_at?: string | null
           created_by?: string | null
-          doc_type?: Database["public"]["Enums"]["document_type"]
-          doi?: string | null
+          dates?: Json | null
+          document_type_id?: number
           error_message?: string | null
-          expiration_date?: string | null
-          expiration_is_estimate?: boolean | null
           file_hash?: string | null
           file_path?: string | null
           file_size?: number | null
-          filed_date?: string | null
-          granted_date?: string | null
           id?: string
-          impact_factor?: number | null
-          independent_claim_count?: number | null
-          inventors?: Json | null
-          jurisdiction?: string | null
-          keywords?: Json | null
-          meta_title?: string | null
-          open_access?: boolean | null
-          original_assignee?: string | null
-          patent_no?: string | null
-          patent_status?: Database["public"]["Enums"]["patent_status_enum"] | null
-          priority_date?: string | null
+          identifiers?: Json | null
+          persona_id?: string | null
           processed_at?: string | null
           processing_status?: string | null
-          publication_no?: string | null
-          publication_year?: number | null
-          published_date?: string | null
-          source_url?: string | null
           status?: Database["public"]["Enums"]["document_status"] | null
           title?: string
           updated_at?: string | null
           url?: string | null
-          venue?: string | null
         }
         Relationships: [
           {
@@ -348,6 +315,20 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_document_type_id_fkey"
+            columns: ["document_type_id"]
+            isOneToOne: false
+            referencedRelation: "document_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
             referencedColumns: ["id"]
           },
         ]
@@ -360,7 +341,7 @@ export type Database = {
           evidence_doc_id: string | null
           evidence_text: string | null
           id: string
-          rel: Database["public"]["Enums"]["relation_type"]
+          relationship_type_id: number
           src_id: string
           src_type: Database["public"]["Enums"]["source_type"]
           weight: number | null
@@ -372,7 +353,7 @@ export type Database = {
           evidence_doc_id?: string | null
           evidence_text?: string | null
           id?: string
-          rel: Database["public"]["Enums"]["relation_type"]
+          relationship_type_id: number
           src_id: string
           src_type: Database["public"]["Enums"]["source_type"]
           weight?: number | null
@@ -384,7 +365,7 @@ export type Database = {
           evidence_doc_id?: string | null
           evidence_text?: string | null
           id?: string
-          rel?: Database["public"]["Enums"]["relation_type"]
+          relationship_type_id?: number
           src_id?: string
           src_type?: Database["public"]["Enums"]["source_type"]
           weight?: number | null
@@ -397,6 +378,13 @@ export type Database = {
             referencedRelation: "documents"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "edges_relationship_type_id_fkey"
+            columns: ["relationship_type_id"]
+            isOneToOne: false
+            referencedRelation: "relationship_types"
+            referencedColumns: ["id"]
+          },
         ]
       }
       entities: {
@@ -404,8 +392,8 @@ export type Database = {
           authority_score: number | null
           created_at: string | null
           description: string | null
+          entity_kind_id: number
           id: string
-          kind: Database["public"]["Enums"]["entity_kind"] | null
           mention_count: number | null
           name: string
           updated_at: string | null
@@ -414,8 +402,8 @@ export type Database = {
           authority_score?: number | null
           created_at?: string | null
           description?: string | null
+          entity_kind_id: number
           id?: string
-          kind?: Database["public"]["Enums"]["entity_kind"] | null
           mention_count?: number | null
           name: string
           updated_at?: string | null
@@ -424,13 +412,56 @@ export type Database = {
           authority_score?: number | null
           created_at?: string | null
           description?: string | null
+          entity_kind_id?: number
           id?: string
-          kind?: Database["public"]["Enums"]["entity_kind"] | null
           mention_count?: number | null
           name?: string
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "entities_entity_kind_id_fkey"
+            columns: ["entity_kind_id"]
+            isOneToOne: false
+            referencedRelation: "entity_kinds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entity_kinds: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: number
+          name: string
+          persona_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: number
+          name: string
+          persona_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: number
+          name?: string
+          persona_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entity_kinds_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       events: {
         Row: {
@@ -585,6 +616,144 @@ export type Database = {
           },
         ]
       }
+      persona_document_type_permissions: {
+        Row: {
+          created_at: string | null
+          document_type_id: number
+          persona_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          document_type_id: number
+          persona_id: string
+        }
+        Update: {
+          created_at?: string | null
+          document_type_id?: number
+          persona_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "persona_document_type_permissions_document_type_id_fkey"
+            columns: ["document_type_id"]
+            isOneToOne: false
+            referencedRelation: "document_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "persona_document_type_permissions_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      persona_entity_kind_permissions: {
+        Row: {
+          created_at: string | null
+          entity_kind_id: number
+          persona_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          entity_kind_id: number
+          persona_id: string
+        }
+        Update: {
+          created_at?: string | null
+          entity_kind_id?: number
+          persona_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "persona_entity_kind_permissions_entity_kind_id_fkey"
+            columns: ["entity_kind_id"]
+            isOneToOne: false
+            referencedRelation: "entity_kinds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "persona_entity_kind_permissions_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      persona_relationship_type_permissions: {
+        Row: {
+          created_at: string | null
+          persona_id: string
+          relationship_type_id: number
+        }
+        Insert: {
+          created_at?: string | null
+          persona_id: string
+          relationship_type_id: number
+        }
+        Update: {
+          created_at?: string | null
+          persona_id?: string
+          relationship_type_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "persona_relationship_type_permissions_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "persona_relationship_type_permissions_relationship_type_id_fkey"
+            columns: ["relationship_type_id"]
+            isOneToOne: false
+            referencedRelation: "relationship_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      personas: {
+        Row: {
+          avatar_url: string | null
+          content: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          metadata: Json | null
+          persona_id: string
+          updated_at: string | null
+          validation_errors: string[] | null
+          validation_status: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          content: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          persona_id: string
+          updated_at?: string | null
+          validation_errors?: string[] | null
+          validation_status?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          persona_id?: string
+          updated_at?: string | null
+          validation_errors?: string[] | null
+          validation_status?: string | null
+        }
+        Relationships: []
+      }
       processing_jobs: {
         Row: {
           attempts: number | null
@@ -656,6 +825,41 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      relationship_types: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: number
+          name: string
+          persona_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: number
+          name: string
+          persona_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: number
+          name?: string
+          persona_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "relationship_types_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
             referencedColumns: ["id"]
           },
         ]
@@ -792,6 +996,10 @@ export type Database = {
           relations_deleted: number
         }[]
       }
+      exec_sql: {
+        Args: { sql: string }
+        Returns: string
+      }
       find_orphaned_entities: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -801,9 +1009,39 @@ export type Database = {
           type: string
         }[]
       }
+      get_active_personas_with_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          avatar_url: string
+          conversations: number
+          description: string
+          documents: number
+          expertise_domains: string[]
+          is_active: boolean
+          last_active: string
+          name: string
+          persona_id: string
+        }[]
+      }
+      get_conversation_metrics: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          conversations_this_week: number
+          conversations_today: number
+          total_conversations: number
+        }[]
+      }
       get_current_user_id: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_document_metrics: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          documents_this_week: number
+          documents_today: number
+          total_documents: number
+        }[]
       }
       get_habit_conversation_insights: {
         Args: { target_user_id?: string }
@@ -812,6 +1050,56 @@ export type Database = {
           conversation_count: number
           habit_keywords: string[]
           last_mention: string
+        }[]
+      }
+      get_message_metrics: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          avg_response_time: number
+          messages_last_hour: number
+          messages_today: number
+          total_messages: number
+        }[]
+      }
+      get_persona_activity_realtime: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          active_users: number
+          avg_response_time: number
+          conversations_last_hour: number
+          messages_last_hour: number
+          name: string
+          persona_id: string
+        }[]
+      }
+      get_persona_analytics: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          conversations: number
+          documents: number
+          kg_entities: number
+          kg_relationships: number
+          last_active: string
+          monthly_conversations: number
+          persona_id: string
+          persona_identifier: string
+          total_messages: number
+          weekly_conversations: number
+        }[]
+      }
+      get_persona_counts: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          active_personas: number
+          total_personas: number
+        }[]
+      }
+      get_recent_activity_metrics: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          active_users_this_hour: number
+          active_users_today: number
+          error_rate: number
         }[]
       }
       get_user_conversation_ids: {
@@ -986,15 +1274,39 @@ export type Database = {
         | "granted"
         | "expired"
         | "superseded"
-      document_type: "pdf" | "paper" | "patent" | "note" | "url" | "book"
-      entity_kind:
+      document_type_deprecated:
+        | "pdf"
+        | "paper"
+        | "patent"
+        | "note"
+        | "url"
+        | "book"
+        | "press-article"
+      document_type_enum:
+        | "academic-paper"
+        | "preprint"
+        | "thesis"
+        | "conference-paper"
+        | "patent"
+        | "legal-document"
+        | "press-release"
+        | "news-article"
+        | "blog-post"
+        | "white-paper"
+        | "datasheet"
+        | "manual"
+        | "internal-note"
+        | "report"
+        | "presentation"
+        | "book"
+        | "magazine-article"
+      entity_kind_deprecated:
         | "person"
         | "organization"
         | "product"
         | "technology"
         | "component"
         | "document"
-      patent_status_enum: "filed" | "active" | "expired"
       event_type:
         | "filed"
         | "published"
@@ -1015,7 +1327,8 @@ export type Database = {
         | "embedding_generation"
         | "kg_processing"
         | "reindexing"
-      relation_type:
+      patent_status_enum: "filed" | "active" | "expired"
+      relation_type_deprecated:
         | "author_of"
         | "inventor_of"
         | "assignee_of"
@@ -1032,6 +1345,9 @@ export type Database = {
         | "enhances"
         | "evolved_to"
         | "alternative_to"
+        | "affiliated_with"
+        | "made_by"
+        | "supplied_by"
       source_type: "entity" | "document"
       user_role: "admin" | "member" | "guest"
     }
@@ -1168,8 +1484,35 @@ export const Constants = {
         "expired",
         "superseded",
       ],
-      document_type: ["pdf", "paper", "patent", "note", "url", "book"],
-      entity_kind: [
+      document_type_deprecated: [
+        "pdf",
+        "paper",
+        "patent",
+        "note",
+        "url",
+        "book",
+        "press-article",
+      ],
+      document_type_enum: [
+        "academic-paper",
+        "preprint",
+        "thesis",
+        "conference-paper",
+        "patent",
+        "legal-document",
+        "press-release",
+        "news-article",
+        "blog-post",
+        "white-paper",
+        "datasheet",
+        "manual",
+        "internal-note",
+        "report",
+        "presentation",
+        "book",
+        "magazine-article",
+      ],
+      entity_kind_deprecated: [
         "person",
         "organization",
         "product",
@@ -1177,7 +1520,6 @@ export const Constants = {
         "component",
         "document",
       ],
-      patent_status_enum: ["filed", "active", "expired"],
       event_type: [
         "filed",
         "published",
@@ -1195,7 +1537,8 @@ export const Constants = {
         "kg_processing",
         "reindexing",
       ],
-      relation_type: [
+      patent_status_enum: ["filed", "active", "expired"],
+      relation_type_deprecated: [
         "author_of",
         "inventor_of",
         "assignee_of",
@@ -1212,6 +1555,9 @@ export const Constants = {
         "enhances",
         "evolved_to",
         "alternative_to",
+        "affiliated_with",
+        "made_by",
+        "supplied_by",
       ],
       source_type: ["entity", "document"],
       user_role: ["admin", "member", "guest"],

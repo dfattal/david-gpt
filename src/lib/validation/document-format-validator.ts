@@ -80,6 +80,11 @@ export interface CitationAnalysis {
 // Core Metadata Schemas
 // ===========================
 
+const AuthorSchema = z.array(z.object({
+  name: z.string(),
+  affiliation: z.string().optional(),
+}));
+
 const BaseDocumentSchema = z.object({
   title: z.string().min(5).max(200),
   docType: z.string(),
@@ -88,25 +93,24 @@ const BaseDocumentSchema = z.object({
   scraped_at: z.string().datetime({ offset: true }),
   word_count: z.number().positive(),
   extraction_quality: z.enum(['high', 'medium', 'low']),
+  authors: AuthorSchema.optional(),
 });
 
-const PaperMetadataSchema = BaseDocumentSchema.extend({
-  docType: z.literal('paper'),
-  authorsAffiliations: z.array(z.object({
-    name: z.string(),
-    affiliation: z.string().optional(),
-  })),
+const AcademicPaperSchema = BaseDocumentSchema.extend({
+  docType: z.enum(['academic-paper', 'preprint', 'thesis', 'conference-paper']),
+  authors: AuthorSchema.min(1, { message: "authors is required and must contain at least one author." }),
   venue: z.string().optional(),
   publicationYear: z.number().min(1900).max(2030).optional(),
   doi: z.string().regex(/^10\.\d+\/[^\s]+$/).optional(),
   arxivId: z.string().regex(/^\d{4}\.\d{4,5}(v\d+)?$/).optional(),
-  abstract: z.string().optional(),
-  keywords: z.array(z.string()).optional(),
+  abstract: z.string().min(1, { message: "abstract is required and cannot be empty." }),
+  keywords: z.array(z.string()).min(1, { message: "keywords array is required and cannot be empty." }),
+  url: z.string().url({ message: "A valid URL is required." }),
 });
 
 const PatentMetadataSchema = BaseDocumentSchema.extend({
   docType: z.literal('patent'),
-  patentNo: z.string().regex(/^(US|EP|JP|WO|CN)\s*\d+\s*[A-Z]?\d*$/),
+  patentNo: z.string().regex(/^(US|EP|JP|WO|CN|KR|DE)\s*\d+\s*[A-Z]?\d*$/),
   inventors: z.array(z.string()),
   assignees: z.array(z.string()),
   filedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -114,17 +118,14 @@ const PatentMetadataSchema = BaseDocumentSchema.extend({
   patentFamily: z.array(z.string()).optional(),
 });
 
-const TechnicalSpecSchema = BaseDocumentSchema.extend({
-  docType: z.literal('technical-spec'),
-  apiVersion: z.string().optional(),
-  framework: z.string().optional(),
-  language: z.union([z.string(), z.array(z.string())]).optional(),
-  repository: z.string().url().optional(),
+const InternalNoteSchema = BaseDocumentSchema.extend({
+  docType: z.literal('internal-note'),
+  category: z.string().optional(),
+  tags: z.array(z.string()).optional(),
 });
 
 const PressArticleSchema = BaseDocumentSchema.extend({
-  docType: z.literal('press-article'),
-  author: z.string().optional(),
+  docType: z.enum(['press-release', 'news-article', 'blog-post', 'magazine-article']),
   outlet: z.string().optional(),
   published_date: z.string().datetime({ offset: true }).optional(),
   domain: z.string().optional(),
@@ -132,10 +133,6 @@ const PressArticleSchema = BaseDocumentSchema.extend({
 
 const BookSchema = BaseDocumentSchema.extend({
   docType: z.literal('book'),
-  authorsAffiliations: z.array(z.object({
-    name: z.string(),
-    affiliation: z.string().optional(),
-  })).optional(),
   venue: z.string(), // Publisher
   publicationYear: z.number().min(1900).max(2030).optional(),
   isbn: z.string().optional(),
@@ -143,31 +140,22 @@ const BookSchema = BaseDocumentSchema.extend({
 });
 
 const LegalDocSchema = BaseDocumentSchema.extend({
-  docType: z.enum(['legal-doc', 'case-law', 'statute', 'legal-brief']),
+  docType: z.literal('legal-document'),
   caseNumber: z.string().optional(),
   courtLevel: z.enum(['Supreme Court', 'Appeals', 'District', 'State', 'Federal']).optional(),
   jurisdiction: z.string().optional(),
   legalCitation: z.string().optional(),
 });
 
-const MedicalDocSchema = BaseDocumentSchema.extend({
-  docType: z.enum(['medical-paper', 'clinical-trial', 'medical-guideline', 'case-report']),
-  clinicalTrialId: z.string().regex(/^NCT\d{8}$/).optional(),
-  pubmedId: z.string().regex(/^PMID\d+$/).optional(),
-  meshTerms: z.array(z.string()).optional(),
-  studyType: z.enum(['RCT', 'Observational', 'Meta-Analysis', 'Case Series']).optional(),
+const TechnicalDocSchema = BaseDocumentSchema.extend({
+  docType: z.enum(['white-paper', 'datasheet', 'manual', 'report', 'presentation']),
+  version: z.string().optional(),
+  framework: z.string().optional(),
+  language: z.union([z.string(), z.array(z.string())]).optional(),
+  repository: z.string().url().optional(),
 });
 
-const UrlSchema = BaseDocumentSchema.extend({
-  docType: z.literal('url'),
-  author: z.string().optional(),
-  domain: z.string().optional(),
-  published_date: z.string().datetime({ offset: true }).optional(),
-});
 
-const NoteSchema = BaseDocumentSchema.extend({
-  docType: z.literal('note'),
-});
 
 // ===========================
 // Document Format Validator
@@ -175,10 +163,11 @@ const NoteSchema = BaseDocumentSchema.extend({
 
 export class DocumentFormatValidator {
   private static readonly SUPPORTED_DOC_TYPES = [
-    'paper', 'patent', 'technical-spec', 'press-article', 'book',
-    'legal-doc', 'case-law', 'statute', 'legal-brief',
-    'medical-paper', 'clinical-trial', 'medical-guideline', 'case-report',
-    'url', 'note'
+    'academic-paper', 'preprint', 'thesis', 'conference-paper',
+    'patent', 'legal-document',
+    'press-release', 'news-article', 'blog-post', 'magazine-article',
+    'white-paper', 'datasheet', 'manual', 'report', 'presentation',
+    'internal-note', 'book'
   ];
 
   private static readonly REQUIRED_SECTIONS = ['title'];
@@ -198,7 +187,7 @@ export class DocumentFormatValidator {
 
     try {
       // Parse frontmatter and content
-      const { frontmatter, content: markdownContent, hasFrontmatter } = this.parseFrontmatter(content);
+      const { frontmatter, content: markdownContent, hasFrontmatter, rawFrontmatter } = this.parseFrontmatter(content);
 
       if (!hasFrontmatter) {
         result.errors.push({
@@ -212,7 +201,7 @@ export class DocumentFormatValidator {
       }
 
       // Validate frontmatter
-      const frontmatterValidation = this.validateFrontmatter(frontmatter);
+      const frontmatterValidation = this.validateFrontmatter(frontmatter, rawFrontmatter);
       result.errors.push(...frontmatterValidation.errors);
       result.warnings.push(...frontmatterValidation.warnings);
 
@@ -258,6 +247,7 @@ export class DocumentFormatValidator {
     frontmatter: any;
     content: string;
     hasFrontmatter: boolean;
+    rawFrontmatter: string | null;
   } {
     const frontmatterRegex = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/;
     const match = content.match(frontmatterRegex);
@@ -266,16 +256,19 @@ export class DocumentFormatValidator {
       return {
         frontmatter: {},
         content: content,
-        hasFrontmatter: false
+        hasFrontmatter: false,
+        rawFrontmatter: null,
       };
     }
 
     try {
-      const frontmatter = yaml.load(match[1]) as any;
+      const rawFrontmatter = match[1];
+      const frontmatter = yaml.load(rawFrontmatter) as any;
       return {
         frontmatter: frontmatter || {},
         content: match[2],
-        hasFrontmatter: true
+        hasFrontmatter: true,
+        rawFrontmatter: rawFrontmatter,
       };
     } catch (error) {
       throw new Error(`Invalid YAML frontmatter: ${error instanceof Error ? error.message : 'Parse error'}`);
@@ -285,7 +278,7 @@ export class DocumentFormatValidator {
   /**
    * Validate YAML frontmatter against schema
    */
-  private static validateFrontmatter(frontmatter: any): {
+  private static validateFrontmatter(frontmatter: any, rawFrontmatter: string | null): {
     errors: ValidationError[];
     warnings: ValidationWarning[];
   } {
@@ -322,6 +315,22 @@ export class DocumentFormatValidator {
       warnings.push(...schemaValidation.warnings);
     }
 
+    // Check for block arrays for simple string arrays
+    if (rawFrontmatter) {
+      const arrayKeys = ['keywords', 'technologies', 'patentFamily', 'inventors', 'assignees', 'meshTerms'];
+      for (const key of arrayKeys) {
+        const blockArrayRegex = new RegExp(`^\\s*${key}:\\s*\\n(\\s*-\\s+.*)+`, 'm');
+        if (blockArrayRegex.test(rawFrontmatter)) {
+          errors.push({
+            type: 'yaml',
+            field: key,
+            message: `Field '${key}' must use inline array format (e.g., ["item1", "item2"])`,
+            severity: 'error'
+          });
+        }
+      }
+    }
+
     // Check persona validity
     if (frontmatter.persona) {
       const personaConfig = typeRegistry.getPersonaConfig(frontmatter.persona);
@@ -353,38 +362,36 @@ export class DocumentFormatValidator {
       let schema;
 
       switch (docType) {
-        case 'paper':
-          schema = PaperMetadataSchema;
+        case 'academic-paper':
+        case 'preprint':
+        case 'thesis':
+        case 'conference-paper':
+          schema = AcademicPaperSchema;
           break;
         case 'patent':
           schema = PatentMetadataSchema;
           break;
-        case 'technical-spec':
-          schema = TechnicalSpecSchema;
-          break;
-        case 'press-article':
+        case 'press-release':
+        case 'news-article':
+        case 'blog-post':
+        case 'magazine-article':
           schema = PressArticleSchema;
           break;
         case 'book':
           schema = BookSchema;
           break;
-        case 'legal-doc':
-        case 'case-law':
-        case 'statute':
-        case 'legal-brief':
+        case 'legal-document':
           schema = LegalDocSchema;
           break;
-        case 'medical-paper':
-        case 'clinical-trial':
-        case 'medical-guideline':
-        case 'case-report':
-          schema = MedicalDocSchema;
+        case 'white-paper':
+        case 'datasheet':
+        case 'manual':
+        case 'report':
+        case 'presentation':
+          schema = TechnicalDocSchema;
           break;
-        case 'url':
-          schema = UrlSchema;
-          break;
-        case 'note':
-          schema = NoteSchema;
+        case 'internal-note':
+          schema = InternalNoteSchema;
           break;
         default:
           schema = BaseDocumentSchema;
@@ -490,20 +497,20 @@ export class DocumentFormatValidator {
     const warnings: ValidationWarning[] = [];
 
     // Check for search-critical fields
-    const searchFields = ['keywords', 'abstract', 'author', 'venue'];
+    const searchFields = ['keywords', 'abstract', 'authors', 'venue'];
     const missingSearchFields = searchFields.filter(field => !frontmatter[field]);
 
     if (missingSearchFields.length > 0) {
       warnings.push({
         type: 'incomplete',
         message: `Missing search-critical fields: ${missingSearchFields.join(', ')}`,
-        suggestion: 'Add keywords, abstract, and author information to improve search performance'
+        suggestion: 'Add keywords, abstract, and authors information to improve search performance'
       });
     }
 
     // Check for domain-specific metadata
     const docType = frontmatter.docType;
-    if (docType === 'paper' && !frontmatter.doi && !frontmatter.arxivId) {
+    if (['academic-paper', 'preprint', 'thesis', 'conference-paper'].includes(docType) && !frontmatter.doi && !frontmatter.arxivId) {
       warnings.push({
         type: 'incomplete',
         field: 'doi',
@@ -586,7 +593,7 @@ export class DocumentFormatValidator {
     // Bonus for completeness
     const hasAbstract = content.toLowerCase().includes('abstract');
     const hasKeywords = frontmatter.keywords && frontmatter.keywords.length > 0;
-    const hasAuthor = frontmatter.author || frontmatter.authorsAffiliations;
+    const hasAuthor = frontmatter.authors && frontmatter.authors.length > 0;
 
     if (hasAbstract) score += 5;
     if (hasKeywords) score += 5;
@@ -625,7 +632,7 @@ export class DocumentFormatValidator {
 
     // Domain-specific suggestions
     const docType = frontmatter.docType;
-    if (docType === 'paper' && !frontmatter.doi) {
+    if (['academic-paper', 'preprint', 'thesis', 'conference-paper'].includes(docType) && !frontmatter.doi) {
       suggestions.push('Add DOI for better academic citation tracking');
     }
 
@@ -659,21 +666,23 @@ export class DocumentFormatValidator {
    */
   static getSchemaForDocType(docType: string): z.ZodSchema | null {
     switch (docType) {
-      case 'paper': return PaperMetadataSchema;
+      case 'academic-paper':
+      case 'preprint':
+      case 'thesis':
+      case 'conference-paper': return AcademicPaperSchema;
       case 'patent': return PatentMetadataSchema;
-      case 'technical-spec': return TechnicalSpecSchema;
-      case 'press-article': return PressArticleSchema;
+      case 'press-release':
+      case 'news-article':
+      case 'blog-post':
+      case 'magazine-article': return PressArticleSchema;
       case 'book': return BookSchema;
-      case 'legal-doc':
-      case 'case-law':
-      case 'statute':
-      case 'legal-brief': return LegalDocSchema;
-      case 'medical-paper':
-      case 'clinical-trial':
-      case 'medical-guideline':
-      case 'case-report': return MedicalDocSchema;
-      case 'url': return UrlSchema;
-      case 'note': return NoteSchema;
+      case 'legal-document': return LegalDocSchema;
+      case 'white-paper':
+      case 'datasheet':
+      case 'manual':
+      case 'report':
+      case 'presentation': return TechnicalDocSchema;
+      case 'internal-note': return InternalNoteSchema;
       default: return BaseDocumentSchema;
     }
   }
@@ -690,8 +699,11 @@ export class DocumentFormatValidator {
 
     // Add document-specific required fields
     switch (docType) {
-      case 'paper':
-        return [...baseRequired, 'authorsAffiliations'];
+      case 'academic-paper':
+      case 'preprint':
+      case 'thesis':
+      case 'conference-paper':
+        return [...baseRequired, 'authors', 'abstract', 'keywords', 'url'];
       case 'patent':
         return [...baseRequired, 'patentNo', 'inventors', 'assignees', 'filedDate'];
       case 'book':

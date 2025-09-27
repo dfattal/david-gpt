@@ -327,7 +327,7 @@ export async function searchEventsByPeriod(
       .from('events')
       .select(`
         *,
-        entities (*),
+        entities (*, entity_kinds(name)),
         documents (*)
       `)
       .gte('event_date', startDate.toISOString().split('T')[0])
@@ -345,8 +345,9 @@ export async function searchEventsByPeriod(
     // Filter by entity types if specified
     let filteredEvents = events;
     if (entityTypes && entityTypes.length > 0) {
-      filteredEvents = events.filter(event => 
-        event.entities && entityTypes.includes(event.entities.kind)
+      filteredEvents = events.filter(event =>
+        event.entities && event.entities.entity_kinds &&
+        entityTypes.includes(event.entities.entity_kinds.name as EntityKind)
       );
     }
     
@@ -502,7 +503,7 @@ async function findAffiliations(authorId: string): Promise<EntitySearchResult[]>
       .from('edges')
       .select(`
         dst_id,
-        entities!edges_dst_id_fkey (*)
+        entities!edges_dst_id_fkey (*, entity_kinds(name))
       `)
       .eq('src_id', authorId)
       .eq('rel', 'affiliated_with')
@@ -512,7 +513,7 @@ async function findAffiliations(authorId: string): Promise<EntitySearchResult[]>
     
     if (relationships) {
       for (const rel of relationships) {
-        if (rel.entities && rel.entities.kind === 'org') {
+        if (rel.entities && rel.entities.entity_kinds && rel.entities.entity_kinds.name === 'org') {
           affiliations.push({
             entity: rel.entities as any,
             aliases: [],
@@ -542,7 +543,7 @@ async function findTechnologyImplementations(technologyId: string): Promise<Enti
       .from('edges')
       .select(`
         dst_id,
-        entities!edges_dst_id_fkey (*)
+        entities!edges_dst_id_fkey (*, entity_kinds(name))
       `)
       .eq('src_id', technologyId)
       .eq('rel', 'used_in')
@@ -552,7 +553,7 @@ async function findTechnologyImplementations(technologyId: string): Promise<Enti
     
     if (relationships) {
       for (const rel of relationships) {
-        if (rel.entities && rel.entities.kind === 'product') {
+        if (rel.entities && rel.entities.entity_kinds && rel.entities.entity_kinds.name === 'product') {
           implementations.push({
             entity: rel.entities as any,
             aliases: [],
@@ -582,7 +583,7 @@ async function findRelatedTechnologies(technologyId: string, limit: number): Pro
       .from('edges')
       .select(`
         dst_id,
-        entities!edges_dst_id_fkey (*)
+        entities!edges_dst_id_fkey (*, entity_kinds(name))
       `)
       .eq('src_id', technologyId)
       .eq('rel', 'similar_to')
@@ -592,7 +593,7 @@ async function findRelatedTechnologies(technologyId: string, limit: number): Pro
     
     if (relationships) {
       for (const rel of relationships) {
-        if (rel.entities && rel.entities.kind === 'algorithm') {
+        if (rel.entities && rel.entities.entity_kinds && rel.entities.entity_kinds.name === 'algorithm') {
           relatedTech.push({
             entity: rel.entities as any,
             aliases: [],

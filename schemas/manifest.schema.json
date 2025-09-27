@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Ingestion Manifest Schema",
+  "description": "Schema for persona-specific document ingestion manifests",
+  "type": "object",
+  "required": ["schema_version", "persona", "items"],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "persona": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*$"
+    },
+    "defaults": {
+      "type": "object",
+      "properties": {
+        "processor": {
+          "enum": ["auto", "gemini", "exa", "html", "pdf", "passthrough"]
+        },
+        "priority": {
+          "enum": ["low", "normal", "high"]
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/manifestItem"
+      }
+    }
+  },
+  "definitions": {
+    "manifestItem": {
+      "type": "object",
+      "required": ["id", "source", "proposed_doctype", "output", "status"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-_]{3,64}$"
+        },
+        "source": {
+          "type": "object",
+          "required": ["kind", "path"],
+          "properties": {
+            "kind": {
+              "enum": ["file", "url", "text"]
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "proposed_doctype": {
+          "type": "string",
+          "enum": ["papers", "patents", "notes", "press-articles", "books", "urls"]
+        },
+        "processor": {
+          "enum": ["auto", "gemini", "exa", "html", "pdf", "passthrough"]
+        },
+        "metadata_hints": {
+          "type": "object",
+          "properties": {
+            "technologies": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "oems": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "authors": {
+              "type": "array",
+              "items": {"type": "string"}
+            }
+          }
+        },
+        "output": {
+          "type": "object",
+          "required": ["path"],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "status": {
+          "enum": ["draft", "validated", "processed", "ingested", "failed"]
+        },
+        "retries": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

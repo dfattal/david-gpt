@@ -85,6 +85,12 @@ export default function AdminLayout({
       current: pathname.startsWith('/admin/kg'),
     },
     {
+      name: 'Canonical Entities',
+      href: '/admin/canonical-entities',
+      description: 'Manage canonical entities and aliases',
+      current: pathname.startsWith('/admin/canonical-entities'),
+    },
+    {
       name: 'Users',
       href: '/admin/users',
       description: 'User management and permissions',

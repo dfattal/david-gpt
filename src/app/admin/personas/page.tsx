@@ -3,13 +3,15 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Plus, Upload, Download, Eye, Edit, Trash2, AlertCircle, CheckCircle, FileText, User } from 'lucide-react';
+import { Plus, Upload, Download, Eye, Edit, Trash2, AlertCircle, CheckCircle, FileText, User, MessageSquare, Database, Users, Activity, BarChart3, TrendingUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { validatePersona } from '@/lib/validation/persona-validator';
-import { parsePersona } from '@/lib/personas/persona-parser';
+import { parsePersonaContent } from '@/lib/personas/persona-parser';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { usePersonaAnalytics } from '@/hooks/use-personas';
+import { AvatarUpload } from '@/components/ui/avatar-upload';
 
 interface PersonaRecord {
   id: string;
@@ -21,6 +23,20 @@ interface PersonaRecord {
   validation_status: 'valid' | 'invalid' | 'warning' | null;
   validation_errors: string[];
   metadata?: any;
+  avatar_url?: string | null;
+}
+
+interface PersonaAnalytics {
+  persona_id: string;
+  conversations: number;
+  total_messages: number;
+  documents: number;
+  kg_entities: number;
+  kg_relationships: number;
+  avg_rating: number;
+  last_active: string | null;
+  weekly_conversations: number;
+  monthly_conversations: number;
 }
 
 interface ValidationResult {
@@ -40,9 +56,13 @@ export default function PersonasPage() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isAnalyticsDialogOpen, setIsAnalyticsDialogOpen] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [editPersonaId, setEditPersonaId] = useState('');
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+
+  // Use React Query for analytics data
+  const { data: analytics = [], isLoading: analyticsLoading, error: analyticsError } = usePersonaAnalytics();
 
   useEffect(() => {
     loadPersonas();
@@ -63,6 +83,7 @@ export default function PersonasPage() {
       setLoading(false);
     }
   };
+
 
   const validatePersonaContent = (content: string, personaId: string): ValidationResult => {
     try {
@@ -102,7 +123,7 @@ export default function PersonasPage() {
       // Parse persona
       let parsedPersona;
       try {
-        parsedPersona = parsePersona(content, personaId);
+        parsedPersona = parsePersonaContent(content, personaId);
       } catch (error) {
         console.warn('Parser failed, but validation passed:', error);
       }
@@ -156,7 +177,7 @@ export default function PersonasPage() {
       // Parse persona
       let parsedPersona;
       try {
-        parsedPersona = parsePersona(editContent, editPersonaId);
+        parsedPersona = parsePersonaContent(editContent, editPersonaId);
       } catch (error) {
         console.warn('Parser failed:', error);
       }
@@ -209,7 +230,7 @@ export default function PersonasPage() {
       // Parse persona
       let parsedPersona;
       try {
-        parsedPersona = parsePersona(editContent, selectedPersona.persona_id);
+        parsedPersona = parsePersonaContent(editContent, selectedPersona.persona_id);
       } catch (error) {
         console.warn('Parser failed:', error);
       }
@@ -305,6 +326,35 @@ export default function PersonasPage() {
     setEditPersonaId('');
     setValidationResult(null);
     setIsCreateDialogOpen(true);
+  };
+
+  const openAnalyticsDialog = (persona: PersonaRecord) => {
+    setSelectedPersona(persona);
+    setIsAnalyticsDialogOpen(true);
+  };
+
+  const getPersonaAnalytics = (personaId: string): PersonaAnalytics | undefined => {
+    return analytics.find(a => a.persona_id === personaId);
+  };
+
+  const getTotalAnalytics = () => {
+    return analytics.reduce((total, persona) => ({
+      conversations: total.conversations + persona.conversations,
+      total_messages: total.total_messages + persona.total_messages,
+      documents: total.documents + persona.documents,
+      kg_entities: total.kg_entities + persona.kg_entities,
+      kg_relationships: total.kg_relationships + persona.kg_relationships,
+      weekly_conversations: total.weekly_conversations + persona.weekly_conversations,
+      monthly_conversations: total.monthly_conversations + persona.monthly_conversations,
+    }), {
+      conversations: 0,
+      total_messages: 0,
+      documents: 0,
+      kg_entities: 0,
+      kg_relationships: 0,
+      weekly_conversations: 0,
+      monthly_conversations: 0,
+    });
   };
 
   const getStatusBadge = (persona: PersonaRecord) => {
@@ -417,7 +467,7 @@ export default function PersonasPage() {
       </div>
 
       {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg border">
           <div className="flex items-center justify-between">
             <div>
@@ -462,6 +512,64 @@ export default function PersonasPage() {
         </div>
       </div>
 
+      {/* RAG + KG Analytics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div className="bg-white p-4 rounded-lg border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Total Conversations</p>
+              <p className="text-2xl font-bold">{getTotalAnalytics().conversations}</p>
+            </div>
+            <MessageSquare className="w-8 h-8 text-purple-500" />
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-lg border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Total Messages</p>
+              <p className="text-2xl font-bold">{getTotalAnalytics().total_messages}</p>
+            </div>
+            <Users className="w-8 h-8 text-indigo-500" />
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-lg border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Total Documents</p>
+              <p className="text-2xl font-bold">{getTotalAnalytics().documents}</p>
+            </div>
+            <FileText className="w-8 h-8 text-orange-500" />
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-lg border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">KG Entities</p>
+              <p className="text-2xl font-bold">{getTotalAnalytics().kg_entities}</p>
+            </div>
+            <Database className="w-8 h-8 text-cyan-500" />
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-lg border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">KG Relationships</p>
+              <p className="text-2xl font-bold">{getTotalAnalytics().kg_relationships}</p>
+            </div>
+            <Activity className="w-8 h-8 text-pink-500" />
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-lg border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Weekly Active</p>
+              <p className="text-2xl font-bold">{getTotalAnalytics().weekly_conversations}</p>
+            </div>
+            <TrendingUp className="w-8 h-8 text-green-500" />
+          </div>
+        </div>
+      </div>
+
       {/* Personas List */}
       <div className="bg-white rounded-lg border">
         <div className="px-6 py-4 border-b">
@@ -478,7 +586,10 @@ export default function PersonasPage() {
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Quality
+                  Usage Stats
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  RAG + KG Data
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Updated
@@ -494,9 +605,21 @@ export default function PersonasPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-8 w-8">
-                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                          <User className="w-4 h-4 text-blue-600" />
-                        </div>
+                        <AvatarUpload
+                          currentAvatar={persona.avatar_url}
+                          personaId={persona.persona_id}
+                          personaName={persona.metadata?.name || persona.persona_id}
+                          onAvatarChange={(newUrl) => {
+                            // Update local state
+                            setPersonas(prev => prev.map(p =>
+                              p.id === persona.id
+                                ? { ...p, avatar_url: newUrl }
+                                : p
+                            ));
+                          }}
+                          size="sm"
+                          showLabel={false}
+                        />
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">
@@ -516,14 +639,48 @@ export default function PersonasPage() {
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {persona.metadata?.qualityScore || 0}/100
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {(() => {
+                      const analytics = getPersonaAnalytics(persona.persona_id);
+                      return (
+                        <div className="text-sm">
+                          <div className="text-gray-900">{analytics?.conversations || 0} conversations</div>
+                          <div className="text-gray-500">{analytics?.total_messages || 0} messages</div>
+                          {analytics?.weekly_conversations ? (
+                            <div className="text-green-600 text-xs">{analytics.weekly_conversations} this week</div>
+                          ) : null}
+                        </div>
+                      );
+                    })()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {(() => {
+                      const analytics = getPersonaAnalytics(persona.persona_id);
+                      return (
+                        <div className="text-sm">
+                          <div className="text-gray-900">{analytics?.documents || 0} docs</div>
+                          <div className="text-gray-500">
+                            {analytics?.kg_entities || 0} entities, {analytics?.kg_relationships || 0} relations
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            Quality: {persona.metadata?.qualityScore || 0}/100
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(persona.updated_at).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openAnalyticsDialog(persona)}
+                      >
+                        <BarChart3 className="w-4 h-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -696,6 +853,211 @@ export default function PersonasPage() {
               </div>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Analytics Dialog */}
+      <Dialog open={isAnalyticsDialogOpen} onOpenChange={setIsAnalyticsDialogOpen}>
+        <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              Analytics: {selectedPersona?.persona_id}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedPersona && (() => {
+            const analytics = getPersonaAnalytics(selectedPersona.persona_id);
+            return (
+              <div className="space-y-6">
+                {/* Overview Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-blue-600">Conversations</p>
+                        <p className="text-2xl font-bold text-blue-900">{analytics?.conversations || 0}</p>
+                      </div>
+                      <MessageSquare className="w-8 h-8 text-blue-500" />
+                    </div>
+                  </div>
+                  <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-purple-600">Messages</p>
+                        <p className="text-2xl font-bold text-purple-900">{analytics?.total_messages || 0}</p>
+                      </div>
+                      <Users className="w-8 h-8 text-purple-500" />
+                    </div>
+                  </div>
+                  <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-orange-600">Documents</p>
+                        <p className="text-2xl font-bold text-orange-900">{analytics?.documents || 0}</p>
+                      </div>
+                      <FileText className="w-8 h-8 text-orange-500" />
+                    </div>
+                  </div>
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-green-600">Quality Score</p>
+                        <p className="text-2xl font-bold text-green-900">{selectedPersona.metadata?.qualityScore || 0}/100</p>
+                      </div>
+                      <CheckCircle className="w-8 h-8 text-green-500" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Activity Metrics */}
+                <div className="bg-white p-6 rounded-lg border">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Activity className="w-5 h-5" />
+                    Activity Metrics
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="text-center p-4 bg-gray-50 rounded-lg">
+                      <p className="text-2xl font-bold text-green-600">{analytics?.weekly_conversations || 0}</p>
+                      <p className="text-sm text-gray-600">This Week</p>
+                    </div>
+                    <div className="text-center p-4 bg-gray-50 rounded-lg">
+                      <p className="text-2xl font-bold text-blue-600">{analytics?.monthly_conversations || 0}</p>
+                      <p className="text-sm text-gray-600">This Month</p>
+                    </div>
+                    <div className="text-center p-4 bg-gray-50 rounded-lg">
+                      <p className="text-sm text-gray-600">Last Active</p>
+                      <p className="font-medium">
+                        {analytics?.last_active ? new Date(analytics.last_active).toLocaleDateString() : 'Never'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Knowledge Graph Analytics */}
+                <div className="bg-white p-6 rounded-lg border">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Database className="w-5 h-5" />
+                    Knowledge Graph Data
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="font-medium mb-3">Entities</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">Total Entities:</span>
+                          <span className="font-medium">{analytics?.kg_entities || 0}</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-cyan-500 h-2 rounded-full"
+                            style={{width: `${Math.min((analytics?.kg_entities || 0) / 100 * 100, 100)}%`}}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="font-medium mb-3">Relationships</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">Total Relations:</span>
+                          <span className="font-medium">{analytics?.kg_relationships || 0}</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-pink-500 h-2 rounded-full"
+                            style={{width: `${Math.min((analytics?.kg_relationships || 0) / 50 * 100, 100)}%`}}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Performance Insights */}
+                <div className="bg-white p-6 rounded-lg border">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5" />
+                    Performance Insights
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="font-medium mb-3">Usage Trends</h4>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                          <span className="text-sm">Avg. messages per conversation</span>
+                          <span className="font-bold text-green-700">
+                            {analytics?.conversations ? Math.round((analytics.total_messages || 0) / analytics.conversations) : 0}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                          <span className="text-sm">Documents per conversation</span>
+                          <span className="font-bold text-blue-700">
+                            {analytics?.conversations ? Math.round((analytics.documents || 0) / Math.max(analytics.conversations, 1)) : 0}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="font-medium mb-3">Data Richness</h4>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between p-3 bg-cyan-50 rounded-lg">
+                          <span className="text-sm">KG entities per document</span>
+                          <span className="font-bold text-cyan-700">
+                            {analytics?.documents ? Math.round((analytics.kg_entities || 0) / Math.max(analytics.documents, 1)) : 0}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between p-3 bg-pink-50 rounded-lg">
+                          <span className="text-sm">Relations per entity</span>
+                          <span className="font-bold text-pink-700">
+                            {analytics?.kg_entities ? ((analytics.kg_relationships || 0) / Math.max(analytics.kg_entities, 1)).toFixed(1) : 0}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status Information */}
+                <div className="bg-white p-6 rounded-lg border">
+                  <h3 className="text-lg font-semibold mb-4">Status & Configuration</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Status</p>
+                      <div className="mt-1">
+                        {getStatusBadge(selectedPersona)}
+                        {!selectedPersona.is_active && (
+                          <Badge variant="secondary" className="ml-2">Inactive</Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Last Updated</p>
+                      <p className="font-medium mt-1">{new Date(selectedPersona.updated_at).toLocaleDateString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Created</p>
+                      <p className="font-medium mt-1">{new Date(selectedPersona.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Parsed Name</p>
+                      <p className="font-medium mt-1">{selectedPersona.metadata?.name || 'Unknown'}</p>
+                    </div>
+                  </div>
+
+                  {selectedPersona.validation_errors.length > 0 && (
+                    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded">
+                      <div className="text-sm font-medium text-red-800 mb-1">Validation Errors:</div>
+                      <ul className="text-sm text-red-700 list-disc list-inside">
+                        {selectedPersona.validation_errors.map((error, i) => (
+                          <li key={i}>{error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

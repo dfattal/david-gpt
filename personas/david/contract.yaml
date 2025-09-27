@@ -1,0 +1,270 @@
+schema_version: 1
+persona_name: david
+provenance:
+  generated_by: deterministic
+  model: null
+  generated_at: 2025-09-26T00:56:31.209Z
+  inputs_hash: 43a3aeb0f994a1761799bf4b86089ba6f8375c5e51c2d3010e765c349355998c
+global:
+  abstract_max_words: 200
+  metadata_chunk_max_chars: 1200
+  content_chunk_min_chars: 800
+  content_chunk_max_chars: 2000
+  chunk_overlap_percentage: 15
+  require_document_url_if_available: true
+metadata:
+  identifiers:
+    - doi
+    - patent_number
+    - arxiv_id
+    - model_name
+    - product_name
+    - dataset_name
+  dates:
+    - published_at
+    - filed_at
+    - granted_at
+    - priority_at
+    - updated_at
+  actor_roles:
+    - author
+    - inventor
+    - assignee
+    - affiliation
+    - maintainer
+kg:
+  entity_kinds:
+    - person
+    - organization
+    - technology
+    - product
+    - component
+  edge_types:
+    - type: develops
+      src_kinds:
+        - organization
+        - person
+      dst_kinds:
+        - technology
+        - product
+      evidence_required: true
+    - type: uses_component
+      src_kinds:
+        - organization
+        - product
+        - technology
+      dst_kinds:
+        - component
+        - technology
+      evidence_required: true
+    - type: inventor_of
+      src_kinds:
+        - person
+      dst_kinds:
+        - technology
+        - product
+        - patent
+      evidence_required: true
+    - type: authored_by
+      src_kinds:
+        - paper
+        - patent
+      dst_kinds:
+        - person
+      evidence_required: true
+    - type: affiliated_with
+      src_kinds:
+        - person
+      dst_kinds:
+        - organization
+      evidence_required: false
+    - type: competes_with
+      src_kinds:
+        - organization
+        - product
+      dst_kinds:
+        - organization
+        - product
+      evidence_required: false
+    - type: cites
+      src_kinds:
+        - paper
+        - patent
+      dst_kinds:
+        - paper
+        - patent
+      evidence_required: true
+    - type: improves_upon
+      src_kinds:
+        - technology
+        - product
+      dst_kinds:
+        - technology
+        - product
+      evidence_required: true
+    - type: enables_3d
+      src_kinds:
+        - organization
+        - person
+      dst_kinds:
+        - technology
+        - product
+      evidence_required: true
+    - type: integrates_with
+      src_kinds:
+        - organization
+        - person
+      dst_kinds:
+        - technology
+        - product
+      evidence_required: true
+    - type: enhances
+      src_kinds:
+        - organization
+        - person
+      dst_kinds:
+        - technology
+        - product
+      evidence_required: true
+doc_types:
+  patents:
+    required_frontmatter:
+      identifiers:
+        - patent_number
+      dates_any_of:
+        - filed_at
+        - granted_at
+        - priority_at
+      actors_any_of:
+        - inventors
+        - assignees
+    sections_order:
+      - claim_summary
+      - independent_claims
+      - embodiments
+      - prior_art
+    metadata_section: claim_summary
+    must_include:
+      - full_claims
+    notes: Patent documents with claims and technical descriptions
+    require_full_claims: true
+    require_priority_date: true
+    require_assignee: true
+    require_inventors: true
+    focus_technologies:
+      - 3D display
+      - lightfield
+      - holographic
+      - spatial computing
+  papers:
+    required_frontmatter:
+      identifiers:
+        - doi
+      dates:
+        - published_at
+      actors:
+        - authors
+    sections_order:
+      - abstract
+      - methods
+      - results
+      - limitations
+      - references
+    metadata_section: abstract
+    notes: Academic papers and research documents
+    require_doi: true
+    require_published_at: true
+    require_authors: true
+    require_abstract: true
+    focus_areas:
+      - optics
+      - displays
+      - 3D
+      - computer vision
+      - photonics
+  press-articles:
+    required_frontmatter:
+      dates:
+        - published_at
+      actors:
+        - authors
+    sections_order:
+      - summary
+      - content
+      - quotes
+      - sources
+    metadata_section: summary
+    notes: News articles and press releases
+    require_oem: true
+    require_product_info: true
+    focus_topics:
+      - Samsung
+      - Acer
+      - Lenovo
+      - Leia
+      - 3D displays
+  books:
+    required_frontmatter:
+      identifiers:
+        - isbn
+      dates:
+        - published_at
+      actors:
+        - authors
+    sections_order:
+      - summary
+      - key_concepts
+      - chapters
+      - conclusions
+    metadata_section: summary
+    notes: Books and long-form publications
+  urls:
+    required_frontmatter:
+      identifiers:
+        - url
+      dates:
+        - scraped_at
+    sections_order:
+      - summary
+      - content
+    metadata_section: summary
+    notes: Web content and online resources
+  notes:
+    required_frontmatter:
+      dates:
+        - updated_at
+    sections_order:
+      - summary
+      - details
+      - decisions
+      - open_questions
+    metadata_section: summary
+    notes: Personal notes and documentation
+    require_updated_at: true
+    min_word_count: 100
+vocab_hints:
+  technologies:
+    - lightfield
+    - 3D display
+    - spatial computing
+    - eye tracking
+    - depth perception
+    - holographic
+  oems:
+    - Leia Inc
+    - Samsung
+    - Acer
+    - HP Labs
+    - Lenovo
+    - Leia
+    - 3D displays
+  products:
+    - Hydrogen One
+    - LumePad
+    - Immersity AI
+  concepts:
+    - optics
+    - displays
+    - 3D
+    - computer vision
+    - photonics

@@ -11,9 +11,10 @@ Your core responsibilities:
 
 **Document Discovery & Analysis:**
 - Scan `/Users/david.fattal/Documents/GitHub/david-gpt/RAG-RAW-DOCS/` for all files and URL lists
-- Parse document list files (article-list.md, paper-list.md, patent-url-list.md, etc.)
-- Identify PDFs and direct document files
+- Parse document list files (article-list.md, paper-list.md, patent-url-list.md, etc.) **FOR URL EXTRACTION ONLY**
+- Identify PDFs and direct document files for processing
 - Extract and validate URLs from markdown lists
+- **EXCLUDE INDEX FILES**: Never include list files themselves (article-list.md, paper-list.md, patent-url-list.md, etc.) in processing manifest
 
 **Persona-Based Classification:**
 - Analyze `/Users/david.fattal/Documents/GitHub/david-gpt/DOCS/Persona.md` for David Fattal's expertise domains:
@@ -144,16 +145,17 @@ PERSONA CONTEXT (from Persona.md):
 - Technical domains: optics, photonics, display systems, AI depth estimation, spatial computing
 
 CLASSIFICATION & EXTRACTION STRATEGY REQUIREMENTS:
-1. Analyze each document/URL for content type and relevance to David's expertise
-2. Classify according to document types defined in INGESTION-FORMAT.md
-3. Apply content quality standards from CONTENT_GUIDE.md
-4. SELECT OPTIMAL EXTRACTION TOOL based on document characteristics:
+1. **EXCLUDE INDEX/LIST FILES**: Do NOT include files ending in -list.md (article-list.md, paper-list.md, patent-url-list.md) in processing manifest - these are source lists only
+2. Analyze each document/URL for content type and relevance to David's expertise
+3. Classify according to document types defined in INGESTION-FORMAT.md
+4. Apply content quality standards from CONTENT_GUIDE.md
+5. SELECT OPTIMAL EXTRACTION TOOL based on document characteristics:
    - Web content (articles, blogs, news) → EXA MCP
    - Technical content (papers, patents, PDFs) → GEMINI CLI DIRECT
-5. Estimate document length and complexity for extraction strategy
-6. Identify metadata enhancement opportunities per persona requirements
-7. Generate processing priorities optimized for batch workflow
-8. Create manifest optimized for markdown-writer batch processing
+6. Estimate document length and complexity for extraction strategy
+7. Identify metadata enhancement opportunities per persona requirements
+8. Generate processing priorities optimized for batch workflow
+9. Create manifest optimized for markdown-writer batch processing
 
 BATCH PROCESSING OPTIMIZATION:
 - Group documents by extraction tool for efficient processing

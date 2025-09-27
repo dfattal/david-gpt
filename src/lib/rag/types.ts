@@ -379,9 +379,14 @@ export const EntityKindSchema = z.enum([
 export const RelationTypeSchema = z.enum([
   'affiliated_with',  // person → organization
   'made_by',         // product → organization
+  'created_by',      // technology → person
+  'developed_by',    // technology → organization
+  'authored_by',     // technology → person
   'implements',      // technology → product
   'uses_component',  // product → component
-  'supplied_by'      // component → organization
+  'supplied_by',     // component → organization
+  'related_to',      // technology → technology
+  'based_on'         // technology → technology
 ]);
 
 // Legacy relations (kept for backward compatibility but not extracted)
@@ -461,9 +466,14 @@ export const EDGE_VALIDATION_MATRIX: Record<RelationType, {
 }> = {
   'affiliated_with': { srcType: 'person', dstType: 'organization' },
   'made_by': { srcType: 'product', dstType: 'organization' },
+  'created_by': { srcType: 'technology', dstType: 'person' },
+  'developed_by': { srcType: 'technology', dstType: 'organization' },
+  'authored_by': { srcType: 'technology', dstType: 'person' },
   'implements': { srcType: 'technology', dstType: 'product' },
   'uses_component': { srcType: 'product', dstType: 'component' },
-  'supplied_by': { srcType: 'component', dstType: 'organization' }
+  'supplied_by': { srcType: 'component', dstType: 'organization' },
+  'related_to': { srcType: 'technology', dstType: 'technology' },
+  'based_on': { srcType: 'technology', dstType: 'technology' }
 };
 
 // Combined extraction result

@@ -145,7 +145,25 @@ const CONSOLIDATION_RULES: ConsolidationRule[] = [
 ];
 
 export class EntityConsolidator {
-  
+
+  /**
+   * Resolve entity kind name to entity_kind_id
+   */
+  private async getEntityKindId(kindName: string, personaId: string): Promise<number> {
+    const { data: entityKind, error } = await supabaseAdmin
+      .from('entity_kinds')
+      .select('id')
+      .eq('name', kindName)
+      .eq('persona_id', personaId)
+      .single();
+
+    if (error || !entityKind) {
+      throw new Error(`Entity kind '${kindName}' not found`);
+    }
+
+    return entityKind.id;
+  }
+
   /**
    * Consolidate a single entity during ingestion (continuous consolidation)
    * Uses UPSERT with ON CONFLICT to prevent race conditions during concurrent processing
@@ -153,6 +171,7 @@ export class EntityConsolidator {
   async consolidateEntityOnIngestion(
     name: string,
     kind: EntityKind,
+    personaId: string,
     description?: string
   ): Promise<{
     entityId: string;
@@ -162,9 +181,9 @@ export class EntityConsolidator {
     // Check aliases first (these won't have race conditions since they reference existing entities)
     const { data: aliasMatch } = await supabaseAdmin
       .from('aliases')
-      .select('entity_id, entities!inner(name)')
+      .select('entity_id, entities!inner(name, entity_kinds!inner(name))')
       .eq('alias', name)
-      .eq('entities.kind', kind)
+      .eq('entities.entity_kinds.name', kind)
       .single();
 
     if (aliasMatch) {
@@ -186,17 +205,20 @@ export class EntityConsolidator {
     );
 
     if (rule) {
+      // Get entity_kind_id for the kind
+      const entityKindId = await this.getEntityKindId(rule.kind, personaId);
+
       // Use UPSERT for primary entity to handle race conditions
       const { data: primaryEntity } = await supabaseAdmin
         .from('entities')
         .upsert({
           name: rule.primaryName,
-          kind: rule.kind,
+          entity_kind_id: entityKindId,
           description: rule.description || description,
           mention_count: 1,
           authority_score: 0.8
         }, {
-          onConflict: 'name,kind',
+          onConflict: 'name,entity_kind_id',
           ignoreDuplicates: false
         })
         .select('id, name, mention_count')
@@ -266,21 +288,28 @@ export class EntityConsolidator {
       };
     }
 
+    // Get entity_kind_id for the kind
+    const entityKindId = await this.getEntityKindId(kind, personaId);
+
     // Use UPSERT to create new entity, handling race conditions atomically
-    const { data: newEntity } = await supabaseAdmin
+    const { data: newEntity, error } = await supabaseAdmin
       .from('entities')
       .upsert({
         name,
-        kind,
+        entity_kind_id: entityKindId,
         description: description || `${kind} entity`,
         mention_count: 1,
         authority_score: 0.3
       }, {
-        onConflict: 'name,kind',
+        onConflict: 'name,entity_kind_id',
         ignoreDuplicates: false
       })
       .select('id, mention_count')
       .single();
+
+    if (error) {
+      throw new Error(`Failed to upsert entity: ${name} (${kind}) - ${error.message}`);
+    }
 
     if (!newEntity) {
       throw new Error(`Failed to upsert entity: ${name} (${kind})`);
@@ -383,8 +412,8 @@ export class EntityConsolidator {
     // Find all entities matching the variants
     const { data: entities, error } = await supabaseAdmin
       .from('entities')
-      .select('*')
-      .eq('kind', rule.kind)
+      .select('*, entity_kinds!inner(name)')
+      .eq('entity_kinds.name', rule.kind)
       .in('name', rule.variants);
       
     if (error || !entities || entities.length <= 1) {
@@ -401,11 +430,14 @@ export class EntityConsolidator {
       const combinedMentions = entities.reduce((sum, e) => sum + (e.mention_count || 0), 0);
       const maxAuthority = Math.max(...entities.map(e => e.authority_score || 0));
       
+      // Get entity_kind_id for the kind
+      const entityKindId = await this.getEntityKindId(rule.kind);
+
       const { data: created, error: createError } = await supabaseAdmin
         .from('entities')
         .insert({
           name: rule.primaryName,
-          kind: rule.kind,
+          entity_kind_id: entityKindId,
           description: rule.description || `${rule.kind} entity`,
           mention_count: combinedMentions,
           authority_score: Math.min(maxAuthority + 0.1, 0.95) // Boost primary

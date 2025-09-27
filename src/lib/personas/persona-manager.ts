@@ -1,368 +1,674 @@
 /**
- * Persona Management Service
+ * Persona Manager Service
  *
- * Orchestrates loading, caching, and access to enhanced persona configurations
- * from markdown files and integrates with the existing type registry system.
+ * Core service for managing personas in the multi-persona RAG system.
+ * Handles CRUD operations, validation, and persona lifecycle management.
  */
 
-import { existsSync } from 'fs';
-import { PersonaParser, type PersonaParseResult } from './persona-parser';
-import { typeRegistry } from '@/lib/rag/type-registry';
-import type { EnhancedPersonaConfig, Persona } from '@/lib/rag/types';
-
-export interface PersonaLoadResult {
-  success: boolean;
-  persona?: EnhancedPersonaConfig;
-  errors: string[];
-  warnings: string[];
-}
+import { createOptimizedAdminClient } from '@/lib/supabase/server';
+import { PersonaValidator } from './persona-validator';
+import { ConstraintsParser } from './constraints-parser';
+import type {
+  PersonaRecord,
+  PersonaDefinition,
+  PersonaValidationResult,
+  PersonaConstraints,
+  CreatePersonaRequest,
+  UpdatePersonaRequest,
+  PersonaListFilters,
+  PersonaOperationResult,
+  PersonaOperation,
+  PersonaConfig,
+  PersonaConfigResult,
+  DocumentProcessingConfig,
+  SearchConfig
+} from './types';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export class PersonaManager {
-  private static instance: PersonaManager;
-  private enhancedPersonas = new Map<Persona, EnhancedPersonaConfig>();
-  private personaFilePaths = new Map<Persona, string>();
+  private supabase: SupabaseClient;
+  private validator: PersonaValidator;
+  private constraintsParser: ConstraintsParser;
 
-  private constructor() {
-    this.initializeDefaultPaths();
+  constructor(supabase?: SupabaseClient) {
+    this.supabase = supabase || createOptimizedAdminClient();
+    this.validator = new PersonaValidator();
+    this.constraintsParser = new ConstraintsParser();
   }
 
-  static getInstance(): PersonaManager {
-    if (!PersonaManager.instance) {
-      PersonaManager.instance = new PersonaManager();
-    }
-    return PersonaManager.instance;
-  }
+  // =======================
+  // CRUD Operations
+  // =======================
 
   /**
-   * Initialize default persona file paths
+   * Create a new persona
    */
-  private initializeDefaultPaths() {
-    this.personaFilePaths.set('david', '/Users/david.fattal/Documents/GitHub/david-gpt/DOCS/Persona.md');
-    // Add more default paths as needed
-  }
-
-  /**
-   * Register a persona file path
-   */
-  registerPersonaFile(persona: Persona, filePath: string): void {
-    this.personaFilePaths.set(persona, filePath);
-  }
-
-  /**
-   * Load a persona from its markdown file
-   */
-  async loadPersonaFromMarkdown(persona: Persona, filePath?: string): Promise<PersonaLoadResult> {
-    const result: PersonaLoadResult = {
-      success: false,
-      errors: [],
-      warnings: []
-    };
-
+  async createPersona(request: CreatePersonaRequest): Promise<PersonaOperationResult> {
     try {
-      // Use provided path or default path
-      const personaFilePath = filePath || this.personaFilePaths.get(persona);
+      const { persona_id, content, validate = true } = request;
 
-      if (!personaFilePath) {
-        result.errors.push(`No file path configured for persona: ${persona}`);
-        return result;
+      // Check if persona already exists
+      const existing = await this.getPersona(persona_id);
+      if (existing.success) {
+        return {
+          success: false,
+          errors: [`Persona '${persona_id}' already exists`]
+        };
       }
 
-      if (!existsSync(personaFilePath)) {
-        result.errors.push(`Persona file not found: ${personaFilePath}`);
-        return result;
+      // Validate persona definition if requested
+      let validationResult: PersonaValidationResult | null = null;
+      if (validate) {
+        validationResult = await this.validator.validatePersona({ persona_id, content });
+        if (!validationResult.isValid) {
+          return {
+            success: false,
+            errors: validationResult.errors,
+            warnings: validationResult.warnings
+          };
+        }
       }
 
-      // Parse the persona file
-      const parseResult = PersonaParser.parsePersonaFile(personaFilePath, persona);
+      // Create persona record
+      const personaData = {
+        persona_id,
+        content,
+        validation_status: validate ? (validationResult?.isValid ? 'valid' : 'invalid') : null,
+        validation_errors: validationResult?.errors || [],
+        metadata: validationResult?.extractedMetadata || {},
+        is_active: true
+      };
 
-      if (!parseResult.success || !parseResult.config) {
-        result.errors.push(...parseResult.errors);
-        result.warnings.push(...parseResult.warnings);
-        return result;
+      const { data, error } = await this.supabase
+        .from('personas')
+        .insert(personaData)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
       }
 
-      // Cache the enhanced persona
-      this.enhancedPersonas.set(persona, parseResult.config);
+      await this.logPersonaOperation('create', persona_id, { success: true });
 
-      // Update the type registry with the enhanced configuration
-      typeRegistry.registerPersona(persona, parseResult.config);
-
-      result.success = true;
-      result.persona = parseResult.config;
-      result.warnings.push(...parseResult.warnings);
-
-      console.log(`✅ Successfully loaded enhanced persona: ${persona}`);
+      return {
+        success: true,
+        persona: data,
+        warnings: validationResult?.warnings
+      };
 
     } catch (error) {
-      result.errors.push(`Failed to load persona ${persona}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await this.logPersonaOperation('create', request.persona_id, { success: false, error: errorMessage });
+
+      return {
+        success: false,
+        errors: [errorMessage]
+      };
     }
-
-    return result;
   }
 
   /**
-   * Get enhanced persona configuration
+   * Get a persona by ID
    */
-  getEnhancedPersona(persona: Persona): EnhancedPersonaConfig | undefined {
-    return this.enhancedPersonas.get(persona);
-  }
+  async getPersona(persona_id: string): Promise<PersonaOperationResult> {
+    try {
+      const { data, error } = await this.supabase
+        .from('personas')
+        .select('*')
+        .eq('persona_id', persona_id)
+        .single();
 
-  /**
-   * Get all enhanced personas
-   */
-  getAllEnhancedPersonas(): Map<Persona, EnhancedPersonaConfig> {
-    return new Map(this.enhancedPersonas);
-  }
-
-  /**
-   * Generate dynamic system prompt for chat
-   */
-  generateSystemPrompt(persona: Persona, ragContext?: any): string {
-    const enhancedPersona = this.enhancedPersonas.get(persona);
-
-    if (enhancedPersona) {
-      // Use the rich system prompt from the enhanced persona
-      let systemPrompt = enhancedPersona.chat.systemPrompt;
-
-      // Enhance with RAG context if provided
-      if (ragContext && ragContext.results && ragContext.results.length > 0) {
-        systemPrompt += `\n\nRELEVANT CONTEXT:\nYou have access to the following relevant information from the document corpus:\n\n`;
-
-        ragContext.results.forEach((result: any, index: number) => {
-          systemPrompt += `[${index + 1}] ${result.title}\n${result.content}\n\n`;
-        });
-
-        systemPrompt += `Use this context to provide accurate, well-sourced responses with appropriate citations [1], [2], etc.
-
-IMPORTANT: When including mathematical expressions, use LaTeX with dollar sign delimiters:
-- Use $...$ for inline math (e.g., $E = mc^2$)
-- Use $$...$$ for display math (e.g., $$\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$$)
-- Do NOT use square brackets [ ] for math expressions`;
-      } else {
-        // Add math formatting instructions even without RAG context
-        systemPrompt += `
-
-IMPORTANT: When including mathematical expressions, use LaTeX with dollar sign delimiters:
-- Use $...$ for inline math (e.g., $E = mc^2$)
-- Use $$...$$ for display math (e.g., $$\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$$)
-- Do NOT use square brackets [ ] for math expressions`;
+      if (error) {
+        if (error.code === 'PGRST116') { // Not found
+          return {
+            success: false,
+            errors: [`Persona '${persona_id}' not found`]
+          };
+        }
+        throw error;
       }
 
-      return systemPrompt;
+      return {
+        success: true,
+        persona: data
+      };
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return {
+        success: false,
+        errors: [errorMessage]
+      };
     }
+  }
 
-    // Fallback to basic persona configuration
-    const basicPersona = typeRegistry.getPersonaConfig(persona);
-    if (basicPersona) {
-      return this.generateBasicSystemPrompt(basicPersona, ragContext);
+  /**
+   * List personas with optional filters
+   */
+  async listPersonas(filters?: PersonaListFilters): Promise<{
+    success: boolean;
+    personas?: PersonaRecord[];
+    errors?: string[];
+  }> {
+    try {
+      let query = this.supabase
+        .from('personas')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      // Apply filters
+      if (filters?.is_active !== undefined) {
+        query = query.eq('is_active', filters.is_active);
+      }
+
+      if (filters?.validation_status) {
+        query = query.eq('validation_status', filters.validation_status);
+      }
+
+      if (filters?.expertise_domain) {
+        query = query.contains('metadata->expertise_domains', [filters.expertise_domain]);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        throw error;
+      }
+
+      return {
+        success: true,
+        personas: data || []
+      };
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return {
+        success: false,
+        errors: [errorMessage]
+      };
     }
-
-    // Ultimate fallback
-    return this.getDefaultSystemPrompt(persona, ragContext);
   }
 
   /**
-   * Generate basic system prompt for non-enhanced personas
+   * Update a persona
    */
-  private generateBasicSystemPrompt(persona: any, ragContext?: any): string {
-    let prompt = `You are an AI assistant specialized in ${persona.name}.
+  async updatePersona(persona_id: string, request: UpdatePersonaRequest): Promise<PersonaOperationResult> {
+    try {
+      const { content, is_active, validate = true } = request;
 
-EXPERTISE: ${persona.description}
+      // Check if persona exists
+      const existing = await this.getPersona(persona_id);
+      if (!existing.success) {
+        return existing;
+      }
 
-COMMUNICATION STYLE:
-- Maintain professional and knowledgeable tone
-- Provide accurate information with proper citations
-- Focus on ${persona.name.toLowerCase()} domain expertise
+      const updateData: Partial<PersonaRecord> = {
+        updated_at: new Date().toISOString()
+      };
 
-When responding:
-1. Draw upon specialized knowledge in your domain
-2. Provide well-sourced information with citations
-3. Maintain accuracy and professional tone
-4. Help users understand complex concepts clearly
+      // Update content if provided
+      if (content) {
+        updateData.content = content;
 
-IMPORTANT: When including mathematical expressions, use LaTeX with dollar sign delimiters:
-- Use $...$ for inline math (e.g., $E = mc^2$)
-- Use $$...$$ for display math (e.g., $$\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$$)
-- Do NOT use square brackets [ ] for math expressions`;
+        // Revalidate if requested
+        if (validate) {
+          const validationResult = await this.validator.validatePersona({ persona_id, content });
+          updateData.validation_status = validationResult.isValid ? 'valid' : 'invalid';
+          updateData.validation_errors = validationResult.errors;
+          updateData.metadata = validationResult.extractedMetadata || {};
+        }
+      }
 
-    if (ragContext && ragContext.results && ragContext.results.length > 0) {
-      prompt += `\n\nRELEVANT CONTEXT:\n`;
-      ragContext.results.forEach((result: any, index: number) => {
-        prompt += `[${index + 1}] ${result.title}\n${result.content}\n\n`;
-      });
+      // Update active status if provided
+      if (is_active !== undefined) {
+        updateData.is_active = is_active;
+      }
+
+      const { data, error } = await this.supabase
+        .from('personas')
+        .update(updateData)
+        .eq('persona_id', persona_id)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      await this.logPersonaOperation('update', persona_id, { success: true });
+
+      return {
+        success: true,
+        persona: data
+      };
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await this.logPersonaOperation('update', persona_id, { success: false, error: errorMessage });
+
+      return {
+        success: false,
+        errors: [errorMessage]
+      };
     }
-
-    return prompt;
   }
 
   /**
-   * Get default system prompt
+   * Delete a persona
    */
-  private getDefaultSystemPrompt(persona: Persona, ragContext?: any): string {
-    const prompts = {
-      david: `IMPORTANT FORMATTING: When including mathematical expressions, use LaTeX with dollar sign delimiters:
-- Use $...$ for inline math (e.g., $E = mc^2$)
-- Use $$...$$ for display math (e.g., $$\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$$)
-- Do NOT use square brackets [ ] for math expressions
+  async deletePersona(persona_id: string): Promise<PersonaOperationResult> {
+    try {
+      // Check if persona exists
+      const existing = await this.getPersona(persona_id);
+      if (!existing.success) {
+        return existing;
+      }
 
-You are David-GPT, an AI assistant that answers in David Fattal's voice and style. David is a technology entrepreneur and Spatial AI enthusiast.
+      // Check if persona has associated documents
+      const { data: documents } = await this.supabase
+        .from('documents')
+        .select('id')
+        .eq('persona_id', persona_id)
+        .limit(1);
 
-Key aspects of David's communication style:
-- Direct and technical when appropriate
-- Enthusiastic about emerging technologies, especially AI and spatial computing
-- Business-minded with deep technical knowledge
+      if (documents && documents.length > 0) {
+        return {
+          success: false,
+          errors: [`Cannot delete persona '${persona_id}': it has associated documents`]
+        };
+      }
 
-Always provide accurate, helpful responses with transparent sourcing. Be engaging, knowledgeable, and maintain David's entrepreneurial and technical perspective.
+      const { error } = await this.supabase
+        .from('personas')
+        .delete()
+        .eq('persona_id', persona_id);
 
-IMPORTANT: When including mathematical expressions, use LaTeX with dollar sign delimiters:
-- Use $...$ for inline math (e.g., $E = mc^2$)
-- Use $$...$$ for display math (e.g., $$\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$$)
-- Do NOT use square brackets [ ] for math expressions`,
+      if (error) {
+        throw error;
+      }
 
-      legal: `You are a Legal Expert AI assistant. You provide accurate legal information and analysis while maintaining professional standards.
+      await this.logPersonaOperation('delete', persona_id, { success: true });
 
-Communication guidelines:
-- Use precise legal terminology
-- Cite relevant cases and statutes
-- Maintain objectivity and accuracy
-- Clarify when providing general information vs. legal advice`,
+      return {
+        success: true
+      };
 
-      medical: `You are a Medical Expert AI assistant. You provide evidence-based medical information and research insights.
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await this.logPersonaOperation('delete', persona_id, { success: false, error: errorMessage });
 
-Communication guidelines:
-- Use appropriate medical terminology
-- Cite peer-reviewed sources
-- Emphasize evidence-based medicine
-- Clarify limitations of general medical information`
-    };
-
-    let prompt = prompts[persona] || prompts.david;
-
-    if (ragContext && ragContext.results && ragContext.results.length > 0) {
-      prompt += `\n\nRELEVANT CONTEXT:\n`;
-      ragContext.results.forEach((result: any, index: number) => {
-        prompt += `[${index + 1}] ${result.title}\n${result.content}\n\n`;
-      });
+      return {
+        success: false,
+        errors: [errorMessage]
+      };
     }
+  }
 
-    return prompt;
+  // =======================
+  // Validation & Parsing
+  // =======================
+
+  /**
+   * Validate a persona definition
+   */
+  async validatePersona(definition: PersonaDefinition): Promise<PersonaValidationResult> {
+    return this.validator.validatePersona(definition);
   }
 
   /**
-   * Get persona domain boosts for search
+   * Parse persona constraints from content
    */
-  getPersonaDomainBoosts(persona: Persona): Record<string, number> {
-    const enhancedPersona = this.enhancedPersonas.get(persona);
-    if (enhancedPersona) {
-      return enhancedPersona.chat.domainBoosts;
+  async parsePersonaConstraints(persona_id: string): Promise<{
+    success: boolean;
+    constraints?: PersonaConstraints;
+    errors?: string[];
+  }> {
+    try {
+      const persona = await this.getPersona(persona_id);
+      if (!persona.success || !persona.persona) {
+        return {
+          success: false,
+          errors: [`Persona '${persona_id}' not found`]
+        };
+      }
+
+      const constraints = await this.constraintsParser.parseConstraints(
+        persona.persona.content,
+        persona.persona.metadata
+      );
+
+      return {
+        success: true,
+        constraints
+      };
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return {
+        success: false,
+        errors: [errorMessage]
+      };
     }
-
-    // Fallback to basic search boosts
-    const basicPersona = typeRegistry.getPersonaConfig(persona);
-    return basicPersona?.searchBoosts || {};
   }
 
   /**
-   * Update persona configuration
+   * Get active personas for selection UI
    */
-  updatePersonaConfig(persona: Persona, config: EnhancedPersonaConfig): void {
-    this.enhancedPersonas.set(persona, config);
-    typeRegistry.registerPersona(persona, config);
-  }
+  async getActivePersonas(): Promise<{
+    success: boolean;
+    personas?: Array<{
+      persona_id: string;
+      name: string;
+      description?: string;
+      expertise_domains: string[];
+    }>;
+    errors?: string[];
+  }> {
+    try {
+      const result = await this.listPersonas({ is_active: true, validation_status: 'valid' });
 
-  /**
-   * Check if persona is enhanced
-   */
-  isEnhanced(persona: Persona): boolean {
-    return this.enhancedPersonas.has(persona);
-  }
+      if (!result.success) {
+        return result;
+      }
 
-  /**
-   * Get persona expertise domains
-   */
-  getPersonaExpertise(persona: Persona): Array<{name: string, keywords: string[]}> {
-    const enhancedPersona = this.enhancedPersonas.get(persona);
-    if (enhancedPersona) {
-      return enhancedPersona.expertise.domains.map(domain => ({
-        name: domain.name,
-        keywords: domain.keywords
+      const personas = result.personas!.map(p => ({
+        persona_id: p.persona_id,
+        name: p.metadata.name,
+        description: p.metadata.description,
+        expertise_domains: p.metadata.expertise_domains
       }));
+
+      return {
+        success: true,
+        personas
+      };
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return {
+        success: false,
+        errors: [errorMessage]
+      };
     }
-    return [];
   }
 
-  /**
-   * Get communication style for persona
-   */
-  getCommunicationStyle(persona: Persona): any {
-    const enhancedPersona = this.enhancedPersonas.get(persona);
-    return enhancedPersona?.communicationStyle || null;
-  }
+  // =======================
+  // Configuration Loading (for RAG Pipeline)
+  // =======================
 
   /**
-   * Initialize all configured personas
+   * Get comprehensive persona configuration for RAG pipeline
+   * This is the primary method used by document processing and chat services
    */
-  async initializeAllPersonas(): Promise<void> {
-    const results = await Promise.allSettled(
-      Array.from(this.personaFilePaths.keys()).map(persona =>
-        this.loadPersonaFromMarkdown(persona)
-      )
-    );
-
-    results.forEach((result, index) => {
-      const persona = Array.from(this.personaFilePaths.keys())[index];
-      if (result.status === 'fulfilled' && result.value.success) {
-        console.log(`✅ Initialized enhanced persona: ${persona}`);
-      } else if (result.status === 'fulfilled') {
-        console.warn(`⚠️ Failed to initialize persona ${persona}:`, result.value.errors);
-      } else {
-        console.error(`❌ Error initializing persona ${persona}:`, result.reason);
+  async getPersonaConfig(persona_id: string): Promise<PersonaConfigResult> {
+    try {
+      // Get persona from database
+      const personaResult = await this.getPersona(persona_id);
+      if (!personaResult.success || !personaResult.persona) {
+        return {
+          success: false,
+          errors: [`Persona '${persona_id}' not found in database`]
+        };
       }
-    });
+
+      const persona = personaResult.persona;
+
+      // Check if persona is active
+      if (!persona.is_active) {
+        return {
+          success: false,
+          errors: [`Persona '${persona_id}' is not active`]
+        };
+      }
+
+      // Load constraints from filesystem
+      const constraintsResult = await ConstraintsParser.parseFromPersonaFolder(
+        `personas/${persona_id}`
+      );
+
+      if (!constraintsResult.success || !constraintsResult.constraints) {
+        return {
+          success: false,
+          errors: [
+            `Failed to load constraints for persona '${persona_id}'`,
+            ...(constraintsResult.errors || [])
+          ],
+          warnings: constraintsResult.warnings
+        };
+      }
+
+      // Load metadata from filesystem
+      const validationResult = await PersonaValidator.validateFromDisk(
+        `personas/${persona_id}`
+      );
+
+      if (!validationResult.isValid) {
+        return {
+          success: false,
+          errors: [
+            `Persona '${persona_id}' validation failed`,
+            ...validationResult.errors
+          ],
+          warnings: validationResult.warnings
+        };
+      }
+
+      // Construct comprehensive config
+      const config: PersonaConfig = {
+        persona_id,
+        metadata: validationResult.metadata!,
+        constraints: constraintsResult.constraints,
+        database_id: persona.id,
+        is_active: persona.is_active,
+        validation_status: persona.validation_status
+      };
+
+      return {
+        success: true,
+        config,
+        warnings: [...(constraintsResult.warnings || []), ...(validationResult.warnings || [])]
+      };
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return {
+        success: false,
+        errors: [`Failed to load persona config: ${errorMessage}`]
+      };
+    }
   }
 
   /**
-   * Refresh a persona from its source file
+   * Get document processing configuration for a persona
    */
-  async refreshPersona(persona: Persona): Promise<PersonaLoadResult> {
-    const filePath = this.personaFilePaths.get(persona);
-    return this.loadPersonaFromMarkdown(persona, filePath);
-  }
+  async getDocumentProcessingConfig(persona_id: string): Promise<{
+    success: boolean;
+    config?: DocumentProcessingConfig;
+    errors?: string[];
+  }> {
+    const result = await this.getPersonaConfig(persona_id);
 
-  /**
-   * Get persona statistics
-   */
-  getPersonaStats(persona: Persona): any {
-    const enhancedPersona = this.enhancedPersonas.get(persona);
-    if (!enhancedPersona) return null;
+    if (!result.success || !result.config) {
+      return {
+        success: false,
+        errors: result.errors
+      };
+    }
+
+    const { constraints } = result.config;
+
+    const processingConfig: DocumentProcessingConfig = {
+      persona_id,
+      document_types: constraints.required_doc_types,
+      chunk_constraints: ConstraintsParser.extractChunkConstraints(constraints),
+      entity_requirements: ConstraintsParser.extractEntityRequirements(constraints),
+      quality_gates: ConstraintsParser.extractQualityGates(constraints),
+      default_processor: constraints.default_processor,
+      fallback_processors: constraints.fallback_processors,
+      doctype_overrides: constraints.doctype_overrides
+    };
 
     return {
-      name: enhancedPersona.name,
-      domains: enhancedPersona.expertise.domains.length,
-      keywords: enhancedPersona.expertise.domains.reduce((sum, d) => sum + d.keywords.length, 0),
-      concepts: enhancedPersona.expertise.domains.reduce((sum, d) => sum + d.concepts.length, 0),
-      achievements: enhancedPersona.expertise.achievements.length,
-      values: enhancedPersona.coreValues.length,
-      lastModified: enhancedPersona.source?.lastModified,
-      sourceFile: enhancedPersona.source?.filePath
+      success: true,
+      config: processingConfig
     };
+  }
+
+  /**
+   * Get search configuration for RAG retrieval
+   */
+  async getSearchConfig(persona_id: string): Promise<{
+    success: boolean;
+    config?: SearchConfig;
+    errors?: string[];
+  }> {
+    try {
+      const result = await this.getPersonaConfig(persona_id);
+
+      if (!result.success || !result.config) {
+        return {
+          success: false,
+          errors: result.errors
+        };
+      }
+
+      // Get allowed types from database permissions
+      const [docTypes, entityKinds, relTypes] = await Promise.all([
+        this.getAllowedDocumentTypes(persona_id),
+        this.getAllowedEntityKinds(persona_id),
+        this.getAllowedRelationshipTypes(persona_id)
+      ]);
+
+      const searchConfig: SearchConfig = {
+        persona_id,
+        allowed_document_types: docTypes,
+        allowed_entity_kinds: entityKinds,
+        allowed_relationship_types: relTypes,
+        reranking_config: {
+          max_results: 20,
+          diversity_threshold: 0.7
+        }
+      };
+
+      return {
+        success: true,
+        config: searchConfig
+      };
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return {
+        success: false,
+        errors: [`Failed to build search config: ${errorMessage}`]
+      };
+    }
+  }
+
+  /**
+   * Get allowed document types for a persona from database
+   */
+  private async getAllowedDocumentTypes(persona_id: string): Promise<string[]> {
+    try {
+      const { data } = await this.supabase
+        .from('persona_document_type_permissions')
+        .select(`
+          document_types!inner(name),
+          personas!inner(persona_id)
+        `)
+        .eq('personas.persona_id', persona_id);
+
+      return data?.map(item => item.document_types.name) || [];
+    } catch (error) {
+      console.error('Error fetching allowed document types:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get allowed entity kinds for a persona from database
+   */
+  private async getAllowedEntityKinds(persona_id: string): Promise<string[]> {
+    try {
+      const { data } = await this.supabase
+        .from('persona_entity_kind_permissions')
+        .select(`
+          entity_kinds!inner(name),
+          personas!inner(persona_id)
+        `)
+        .eq('personas.persona_id', persona_id);
+
+      return data?.map(item => item.entity_kinds.name) || [];
+    } catch (error) {
+      console.error('Error fetching allowed entity kinds:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get allowed relationship types for a persona from database
+   */
+  private async getAllowedRelationshipTypes(persona_id: string): Promise<string[]> {
+    try {
+      const { data } = await this.supabase
+        .from('persona_relationship_type_permissions')
+        .select(`
+          relationship_types!inner(name),
+          personas!inner(persona_id)
+        `)
+        .eq('personas.persona_id', persona_id);
+
+      return data?.map(item => item.relationship_types.name) || [];
+    } catch (error) {
+      console.error('Error fetching allowed relationship types:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Validate that a document type is allowed for a persona
+   */
+  async validateDocumentType(persona_id: string, doc_type: string): Promise<boolean> {
+    const allowedTypes = await this.getAllowedDocumentTypes(persona_id);
+    return allowedTypes.includes(doc_type);
+  }
+
+  /**
+   * Get effective processor for a document type and persona
+   */
+  async getEffectiveProcessor(persona_id: string, doc_type?: string): Promise<string> {
+    const result = await this.getPersonaConfig(persona_id);
+
+    if (!result.success || !result.config) {
+      return 'auto'; // fallback
+    }
+
+    return ConstraintsParser.getEffectiveProcessor(result.config.constraints, doc_type);
+  }
+
+  /**
+   * Log persona operations for audit trail
+   */
+  private async logPersonaOperation(
+    operation: PersonaOperation,
+    persona_id: string,
+    result: { success: boolean; error?: string }
+  ): Promise<void> {
+    try {
+      console.log(`📝 Persona ${operation}: ${persona_id} - ${result.success ? 'SUCCESS' : 'FAILED'}`, {
+        operation,
+        persona_id,
+        success: result.success,
+        error: result.error,
+        timestamp: new Date().toISOString()
+      });
+
+      // Could also store in a personas_audit_log table if needed
+    } catch (error) {
+      console.error('Failed to log persona operation:', error);
+    }
   }
 }
 
 // Export singleton instance
-export const personaManager = PersonaManager.getInstance();
-
-// Export convenience functions
-export const {
-  loadPersonaFromMarkdown,
-  generateSystemPrompt,
-  getPersonaDomainBoosts,
-  getEnhancedPersona,
-  isEnhanced
-} = {
-  loadPersonaFromMarkdown: (persona: Persona, filePath?: string) => personaManager.loadPersonaFromMarkdown(persona, filePath),
-  generateSystemPrompt: (persona: Persona, ragContext?: any) => personaManager.generateSystemPrompt(persona, ragContext),
-  getPersonaDomainBoosts: (persona: Persona) => personaManager.getPersonaDomainBoosts(persona),
-  getEnhancedPersona: (persona: Persona) => personaManager.getEnhancedPersona(persona),
-  isEnhanced: (persona: Persona) => personaManager.isEnhanced(persona)
-};
+export const personaManager = new PersonaManager();

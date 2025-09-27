@@ -1,0 +1,155 @@
+# David Fattal Persona Processing Constraints
+# Specialized for 3D display technology, patents, and research papers
+
+# Document Types
+required_doc_types:
+  - patent
+  - paper
+  - press-article
+  - book
+  - note
+
+# Chunk Constraints
+abstract_max_words: 200
+metadata_chunk_max_chars: 1200
+content_chunk_min_chars: 800
+content_chunk_max_chars: 2000
+chunk_overlap_percentage: 15
+
+# Knowledge Graph Requirements
+kg_required_entities:
+  - person
+  - organization
+  - technology
+  - product
+  - component
+
+kg_required_edges:
+  - develops
+  - uses_component
+  - inventor_of
+  - authored_by
+  - affiliated_with
+  - competes_with
+  - cites
+  - improves_upon
+  - enables_3d
+  - integrates_with
+  - enhances
+
+# Additional Identifiers (3D display specific)
+extra_identifiers:
+  - doi
+  - patent_number
+  - arxiv_id
+  - model_name
+  - product_name
+  - dataset_name
+
+# Quality Gates
+require_document_url_if_available: true
+min_entities_per_document: 3
+min_edges_per_document: 2
+require_evidence_for_edges: true
+
+# Document Type Specific Overrides
+doctype_overrides:
+  patent:
+    require_full_claims: true
+    require_priority_date: true
+    require_assignee: true
+    require_inventors: true
+    focus_technologies: ["3D display", "lightfield", "holographic", "spatial computing"]
+  paper:
+    require_doi: true
+    require_published_at: true
+    require_authors: true
+    require_abstract: true
+    focus_areas: ["optics", "displays", "3D", "computer vision", "photonics"]
+  press-article:
+    require_oem: true
+    require_product_info: true
+    focus_topics: ["Samsung", "Acer", "Lenovo", "Leia", "3D displays"]
+  note:
+    require_updated_at: true
+    min_word_count: 100
+
+# Processing Preferences
+default_processor: gemini cli  # Prefer Gemini CLI for local files
+online_processor: exa api # Exa API for online files
+
+# Quality Thresholds (Higher standards for technical accuracy)
+quality_gates:
+  min_completion_percentage: 90
+  max_error_rate: 5
+  require_metadata_chunk: true
+  require_content_chunks: true
+  min_citation_coverage: 95
+  require_technical_accuracy: true
+
+# Domain-Specific Entity Patterns
+entity_patterns:
+  technology:
+    - "lightfield"
+    - "3D display"
+    - "spatial computing"
+    - "eye tracking"
+    - "depth perception"
+  organization:
+    - "Leia Inc"
+    - "Samsung"
+    - "Acer"
+    - "HP Labs"
+  product:
+    - "Hydrogen One"
+    - "LumePad"
+    - "Immersity AI"
+
+# Canonical Entity Definitions with Aliases
+canonical_entities:
+  technology:
+    "Pixel Mapping Algorithm":
+      description: "Algorithm that assigns stereo pixel values to display given head position, 3D image and calibration data"
+      aliases: ["pixel mapping", "subpixel mapping", "stereo view mapping", "view mapping", "weaving", "interlacing"]
+      priority: 10
+      domain: "spatial_computing"
+    "Switchable LC Optical Layer":
+      description: "Switchable liquid crystal optical layer add-on that makes a display switch from 2D to 3D"
+      aliases: ["3D Cell", "2D3D switchable Cell", "2D3D switchable layer"]
+      priority: 9
+      domain: "spatial_computing"
+    "Lightfield Display Technology":
+      description: "Display technology that creates multiple views to simulate 3D depth without glasses"
+      aliases: ["lightfield display", "light field display", "autostereoscopic display", "glasses-free 3D"]
+      priority: 8
+      domain: "spatial_computing"
+
+  component:
+    "Eye Tracking Sensor Array":
+      description: "Multi-camera sensor system for precise gaze tracking"
+      aliases: ["eye tracker array", "gaze sensor array", "multi-point eye tracking"]
+      priority: 8
+      domain: "spatial_computing"
+    "Liquid Crystal Cell":
+      description: "Electro-optical component that can be switched to control light direction"
+      aliases: ["LC cell", "liquid crystal cell", "electro-optic cell", "switchable cell"]
+      priority: 7
+      domain: "spatial_computing"
+
+# Entity Relationship Templates
+canonical_relationships:
+  - from: "Pixel Mapping Algorithm"
+    relation: "enables"
+    to: "Lightfield Display Technology"
+    confidence: 0.95
+    context: "Core algorithm for view synthesis"
+  - from: "Eye Tracking Sensor Array"
+    relation: "enhances"
+    to: "Pixel Mapping Algorithm"
+    confidence: 0.9
+    context: "Provides precise head position data"
+  - from: "Switchable LC Optical Layer"
+    relation: "implements"
+    to: "Lightfield Display Technology"
+    confidence: 0.85
+    context: "Physical layer that enables 3D switching"

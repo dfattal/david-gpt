@@ -1,0 +1,608 @@
+schema_version: 1
+persona: david
+defaults:
+  processor: auto
+  priority: normal
+items:
+  - id: immersity--leiasr--f-d9d9450e
+    source:
+      kind: file
+      path: RAG-RAW-DOCS/Notes/Immersity (LeiaSR) FAQ.md
+    proposed_doctype: note
+    processor: passthrough
+    metadata_hints:
+      technologies:
+        - lightfield
+        - autostereoscopic
+        - display technology
+        - LeiaSR
+      oems:
+        - hp labs
+        - leia
+        - Leia Inc.
+      products:
+        - hydrogen one
+      concepts:
+        - 3d
+        - 3D display
+        - FAQ
+    output:
+      path: formatted/immersity--leiasr--f-d9d9450e.md
+    status: draft
+    retries: 0
+  - id: lif-64e6582e
+    source:
+      kind: file
+      path: RAG-RAW-DOCS/Notes/LIF.md
+    proposed_doctype: note
+    processor: passthrough
+    metadata_hints:
+      oems:
+        - leia
+        - Leia Inc.
+      concepts:
+        - displays
+        - 3d
+        - Light Field
+        - autostereoscopic display
+      technologies:
+        - lightfield
+    output:
+      path: formatted/lif-64e6582e.md
+    status: draft
+    retries: 0
+  - id: leia-evolution-c99ffbfc
+    source:
+      kind: file
+      path: RAG-RAW-DOCS/Notes/Leia-Evolution.md
+    proposed_doctype: note
+    processor: passthrough
+    metadata_hints:
+      technologies:
+        - holographic
+        - lightfield
+        - nanotechnology
+      oems:
+        - leia inc
+        - hp labs
+        - leia
+      concepts:
+        - 3d
+        - display evolution
+        - technology roadmap
+        - autostereoscopic
+    output:
+      path: formatted/leia-evolution-c99ffbfc.md
+    status: draft
+    retries: 0
+  - id: phase-eng-acd57dce
+    source:
+      kind: file
+      path: RAG-RAW-DOCS/Notes/phase_eng.md
+    proposed_doctype: note
+    processor: passthrough
+    metadata_hints:
+      technologies:
+        - 3d display
+        - phase engineering
+        - optics
+        - nanotechnology
+      oems:
+        - Leia Inc.
+        - HP Labs
+      concepts:
+        - displays
+        - 3d
+        - phase modulation
+        - optical engineering
+    output:
+      path: formatted/phase-eng-acd57dce.md
+    status: draft
+    retries: 0
+  - id: 2003-11172v1-eb378c18
+    source:
+      kind: file
+      path: RAG-RAW-DOCS/Papers/2003.11172v1.pdf
+    proposed_doctype: paper
+    processor: pdf
+    metadata_hints:
+      technologies:
+        - lightfield
+        - autostereoscopic displays
+        - holography
+        - computer vision
+      concepts:
+        - scientific paper
+        - research
+        - optics
+        - 3d imaging
+      document_source:
+        - academic
+        - arxiv
+    output:
+      path: formatted/2003-11172v1-eb378c18.md
+    status: draft
+    retries: 0
+  - id: 2401-10891v2-7d709277
+    source:
+      kind: file
+      path: RAG-RAW-DOCS/Papers/2401.10891v2.pdf
+    proposed_doctype: paper
+    processor: pdf
+    metadata_hints:
+      technologies:
+        - lightfield
+        - autostereoscopic displays
+        - holography
+        - computer vision
+      concepts:
+        - scientific paper
+        - research
+        - optics
+        - 3d imaging
+      document_source:
+        - academic
+        - arxiv
+    output:
+      path: formatted/2401-10891v2-7d709277.md
+    status: draft
+    retries: 0
+  - id: 2405-10314v1-48ad9d54
+    source:
+      kind: file
+      path: RAG-RAW-DOCS/Papers/2405.10314v1.pdf
+    proposed_doctype: paper
+    processor: pdf
+    metadata_hints:
+      technologies:
+        - lightfield
+        - autostereoscopic displays
+        - holography
+        - computer vision
+      concepts:
+        - scientific paper
+        - research
+        - optics
+        - 3d imaging
+      document_source:
+        - academic
+        - arxiv
+    output:
+      path: formatted/2405-10314v1-48ad9d54.md
+    status: draft
+    retries: 0
+  - id: 2503-14489v2-f2ecdaff
+    source:
+      kind: file
+      path: RAG-RAW-DOCS/Papers/2503.14489v2.pdf
+    proposed_doctype: paper
+    processor: pdf
+    metadata_hints:
+      technologies:
+        - lightfield
+        - autostereoscopic displays
+        - holography
+        - computer vision
+      concepts:
+        - scientific paper
+        - research
+        - optics
+        - 3d imaging
+      document_source:
+        - academic
+        - arxiv
+    output:
+      path: formatted/2503-14489v2-f2ecdaff.md
+    status: draft
+    retries: 0
+  - id: locally-switchable-2-05e4b568
+    source:
+      kind: file
+      path: RAG-RAW-DOCS/Papers/Locally Switchable 2D and 3D Displays.pdf
+    proposed_doctype: paper
+    processor: pdf
+    metadata_hints:
+      technologies:
+        - lightfield
+        - autostereoscopic displays
+        - 2D/3D switching
+        - display technology
+      concepts:
+        - scientific paper
+        - research
+        - optics
+        - 3d imaging
+      document_source:
+        - academic
+    output:
+      path: formatted/locally-switchable-2-05e4b568.md
+    status: draft
+    retries: 0
+  - id: nature-paper-dadf073d
+    source:
+      kind: file
+      path: RAG-RAW-DOCS/Papers/Nature_paper.pdf
+    proposed_doctype: paper
+    processor: pdf
+    metadata_hints:
+      technologies:
+        - lightfield
+        - autostereoscopic displays
+        - holography
+        - nanotechnology
+      concepts:
+        - scientific paper
+        - research
+        - optics
+        - photonics
+      document_source:
+        - academic
+        - Nature
+    output:
+      path: formatted/nature-paper-dadf073d.md
+    status: draft
+    retries: 0
+  - id: sr3d-4e0c5b96
+    source:
+      kind: file
+      path: RAG-RAW-DOCS/Papers/sr3d.pdf
+    proposed_doctype: paper
+    processor: pdf
+    metadata_hints:
+      technologies:
+        - lightfield
+        - autostereoscopic displays
+        - super-resolution
+        - 3D reconstruction
+      concepts:
+        - scientific paper
+        - research
+        - computer graphics
+        - 3d imaging
+      document_source:
+        - academic
+    output:
+      path: formatted/sr3d-4e0c5b96.md
+    status: draft
+    retries: 0
+  - id: us10830939-f5e45a12
+    source:
+      kind: file
+      path: RAG-RAW-DOCS/Patents/US10830939.pdf
+    proposed_doctype: patent
+    processor: pdf
+    metadata_hints:
+      technologies:
+        - optical systems
+        - display technology
+        - lightfield
+        - backlight unit
+      concepts:
+        - intellectual property
+        - patent
+        - prior art
+        - inventions
+      document_source:
+        - USPTO
+    output:
+      path: formatted/us10830939-f5e45a12.md
+    status: draft
+    retries: 0
+  - id: us10838134-30a80265
+    source:
+      kind: file
+      path: RAG-RAW-DOCS/Patents/US10838134.pdf
+    proposed_doctype: patent
+    processor: pdf
+    metadata_hints:
+      technologies:
+        - optical systems
+        - display technology
+        - lightfield
+        - viewing angle
+      concepts:
+        - intellectual property
+        - patent
+        - prior art
+        - inventions
+      document_source:
+        - USPTO
+    output:
+      path: formatted/us10838134-30a80265.md
+    status: draft
+    retries: 0
+  - id: us11281020-70f51bf5
+    source:
+      kind: file
+      path: RAG-RAW-DOCS/Patents/US11281020.pdf
+    proposed_doctype: patent
+    processor: pdf
+    metadata_hints:
+      technologies:
+        - optical systems
+        - display technology
+        - lightfield
+        - directional display
+      concepts:
+        - intellectual property
+        - patent
+        - prior art
+        - inventions
+      document_source:
+        - USPTO
+    output:
+      path: formatted/us11281020-70f51bf5.md
+    status: draft
+    retries: 0
+  - id: wo2024145265a1-a662ed9c
+    source:
+      kind: file
+      path: RAG-RAW-DOCS/Patents/WO2024145265A1.pdf
+    proposed_doctype: patent
+    processor: pdf
+    metadata_hints:
+      technologies:
+        - optical systems
+        - display technology
+        - lightfield
+        - holographic optical elements
+      concepts:
+        - intellectual property
+        - patent application
+        - prior art
+        - inventions
+      document_source:
+        - WIPO
+    output:
+      path: formatted/wo2024145265a1-a662ed9c.md
+    status: draft
+    retries: 0
+  - id: blog-1-5e560b50
+    source:
+      kind: file
+      path: RAG-RAW-DOCS/blogs/blog-1.md
+    proposed_doctype: press-article
+    processor: passthrough
+    output:
+      path: formatted/blog-1-5e560b50.md
+    status: draft
+    retries: 0
+  - id: blog-2-fd818c57
+    source:
+      kind: file
+      path: RAG-RAW-DOCS/blogs/blog-2.md
+    proposed_doctype: press-article
+    processor: passthrough
+    output:
+      path: formatted/blog-2-fd818c57.md
+    status: draft
+    retries: 0
+  - id: blog-3-0c51f26f
+    source:
+      kind: file
+      path: RAG-RAW-DOCS/blogs/blog-3.md
+    proposed_doctype: press-article
+    processor: passthrough
+    metadata_hints:
+      concepts:
+        - 3d
+    output:
+      path: formatted/blog-3-0c51f26f.md
+    status: draft
+    retries: 0
+  - id: blog-4-2915c0ed
+    source:
+      kind: file
+      path: RAG-RAW-DOCS/blogs/blog-4.md
+    proposed_doctype: press-article
+    processor: passthrough
+    metadata_hints:
+      concepts:
+        - 3d
+    output:
+      path: formatted/blog-4-2915c0ed.md
+    status: draft
+    retries: 0
+  - id: red-hydrogen-one-hol-16837660
+    source:
+      kind: url
+      path: https://www.theverge.com/circuitbreaker/2017/9/8/16272838/red-hydrogen-one-holographic-display-leia
+    proposed_doctype: press-article
+    processor: exa
+    metadata_hints:
+      title: RED-LEIA announcement
+      technologies:
+        - holographic
+      oems:
+        - leia
+    output:
+      path: formatted/red-hydrogen-one-hol-16837660.md
+    status: draft
+    retries: 0
+  - id: leia-glasses-free-3d-371bfe7b
+    source:
+      kind: url
+      path: https://www.theverge.com/24036574/leia-glasses-free-3d-ces-2024
+    proposed_doctype: press-article
+    processor: exa
+    metadata_hints:
+      title: The Verge CES 2024
+      oems:
+        - leia
+      concepts:
+        - 3d
+    output:
+      path: formatted/leia-glasses-free-3d-371bfe7b.md
+    status: draft
+    retries: 0
+  - id: samsung-launches-nex-032723f2
+    source:
+      kind: url
+      path: https://news.samsung.com/global/samsung-launches-next-gen-odyssey-gaming-monitors-that-showcase-immersive-3d-and-oled-excellence
+    proposed_doctype: press-article
+    processor: exa
+    metadata_hints:
+      title: Samsung Odyssey 3D annoucement
+      oems:
+        - samsung
+      concepts:
+        - 3d
+    output:
+      path: formatted/samsung-launches-nex-032723f2.md
+    status: draft
+    retries: 0
+  - id: interview-transformi-7598e227
+    source:
+      kind: url
+      path: https://news.samsung.com/my/interview-transforming-the-monitor-experience-expanding-the-boundaries-with-odyssey-3d
+    proposed_doctype: press-article
+    processor: exa
+    metadata_hints:
+      title: Samsung Odyssey 3D technology (explained by Samsung)
+      oems:
+        - samsung
+      concepts:
+        - 3d
+    output:
+      path: formatted/interview-transformi-7598e227.md
+    status: draft
+    retries: 0
+  - id: 3d-is-back-08e81179
+    source:
+      kind: url
+      path: https://www.wired.com/story/3d-is-back/
+    proposed_doctype: press-article
+    processor: exa
+    metadata_hints:
+      title: Wired 3D is Back
+      concepts:
+        - 3d
+    output:
+      path: formatted/3d-is-back-08e81179.md
+    status: draft
+    retries: 0
+  - id: samsung-odyssey-3d-2-6d791589
+    source:
+      kind: url
+      path: https://www.wired.com/review/samsung-odyssey-3d-27-inch-g90xf/
+    proposed_doctype: press-article
+    processor: exa
+    metadata_hints:
+      title: Wired Odyssey 3D review
+      oems:
+        - samsung
+      concepts:
+        - 3d
+    output:
+      path: formatted/samsung-odyssey-3d-2-6d791589.md
+    status: draft
+    retries: 0
+  - id: gamescom-2025-samsun-30670f44
+    source:
+      kind: url
+      path: https://news.samsung.com/global/gamescom-2025-samsung-odyssey-brings-fans-closer-to-the-games-they-love
+    proposed_doctype: press-article
+    processor: exa
+    metadata_hints:
+      title: Samsung Odyssey 3D at Gamescon 2025
+      oems:
+        - samsung
+      concepts:
+        - 3d
+    output:
+      path: formatted/gamescom-2025-samsun-30670f44.md
+    status: draft
+    retries: 0
+  - id: -65a058242270-886fbd91
+    source:
+      kind: url
+      path: https://www.forbes.com/sites/charliefink/2020/02/28/leia-the-display-of-the-future/#65a058242270
+    proposed_doctype: press-article
+    processor: exa
+    metadata_hints:
+      title: Forbes
+      oems:
+        - leia
+    output:
+      path: formatted/-65a058242270-886fbd91.md
+    status: draft
+    retries: 0
+  - id: how-light-field-make-94e08c1e
+    source:
+      kind: url
+      path: https://www.forbes.com/sites/charliefink/2020/02/26/how-light-field-makes-holograms-happen/
+    proposed_doctype: press-article
+    processor: exa
+    metadata_hints:
+      title: Forbes origin story
+    output:
+      path: formatted/how-light-field-make-94e08c1e.md
+    status: draft
+    retries: 0
+  - id: leia-lume-pad-2-revi-97a8b3c4
+    source:
+      kind: url
+      path: https://www.forbes.com/sites/moorinsights/2023/04/05/leia-lume-pad-2-review-the-definitive-3-d-content-creation-and-consumption-tablet/
+    proposed_doctype: press-article
+    processor: exa
+    metadata_hints:
+      title: Forbes Lume Pad 2
+      oems:
+        - leia
+    output:
+      path: formatted/leia-lume-pad-2-revi-97a8b3c4.md
+    status: draft
+    retries: 0
+  - id: zte-nubia-first-3d-a-85cfb41c
+    source:
+      kind: url
+      path: https://www.zte.com.cn/global/about/news/zte-nubia-first-3d-ai-tablet-offers-eyewear-free-immersive-3d-experiences-content-creation.html
+    proposed_doctype: press-article
+    processor: exa
+    metadata_hints:
+      title: Nubia Pad
+      concepts:
+        - 3d
+    output:
+      path: formatted/zte-nubia-first-3d-a-85cfb41c.md
+    status: draft
+    retries: 0
+  - id: zte-nubia-pad-3d-ii--dfe05841
+    source:
+      kind: url
+      path: https://www.digitaltrends.com/phones/zte-nubia-pad-3d-ii-crazy-android-tablet-mwc-2024-news/
+    proposed_doctype: press-article
+    processor: exa
+    metadata_hints:
+      title: Nubia Pad 2 Review
+      concepts:
+        - 3d
+    output:
+      path: formatted/zte-nubia-pad-3d-ii--dfe05841.md
+    status: draft
+    retries: 0
+  - id: zte-launches-the-wor-f686bdef
+    source:
+      kind: url
+      path: https://www.zte.com.cn/global/about/news/zte-launches-the-worlds-first-5g-ai-eyewear-free-3d-tablet-nubia-pad-3d-II-at-mwc-2024.html
+    proposed_doctype: press-article
+    processor: exa
+    metadata_hints:
+      title: Nubia Pad 2
+      concepts:
+        - 3d
+    output:
+      path: formatted/zte-launches-the-wor-f686bdef.md
+    status: draft
+    retries: 0
+generated_at: 2025-09-26T00:17:40.239Z
+total_documents: 32
+documents_by_type:
+  note: 4
+  paper: 8
+  patent: 4
+  press-article: 16
+documents_by_processor:
+  passthrough: 8
+  pdf: 11
+  exa: 13

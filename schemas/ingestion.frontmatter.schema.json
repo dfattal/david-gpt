@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Ingestion Frontmatter Schema",
+  "description": "Schema for YAML frontmatter in formatted markdown files",
+  "type": "object",
+  "required": ["doctype", "title", "identifiers", "dates"],
+  "properties": {
+    "doctype": {
+      "enum": ["papers", "patents", "notes", "press-articles", "books", "urls"]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "identifiers": {
+      "type": "object",
+      "properties": {
+        "doi": {"type": "string"},
+        "patent_number": {"type": "string"},
+        "arxiv_id": {"type": "string"},
+        "model_name": {"type": "string"},
+        "dataset_name": {"type": "string"},
+        "url": {"type": "string", "format": "uri"},
+        "isbn": {"type": "string"},
+        "issn": {"type": "string"}
+      }
+    },
+    "dates": {
+      "type": "object",
+      "properties": {
+        "published_at": {"type": "string", "format": "date"},
+        "filed_at": {"type": "string", "format": "date"},
+        "granted_at": {"type": "string", "format": "date"},
+        "priority_at": {"type": "string", "format": "date"},
+        "updated_at": {"type": "string", "format": "date-time"},
+        "expires_at": {"type": "string", "format": "date"}
+      }
+    },
+    "actors": {
+      "type": "object",
+      "properties": {
+        "authors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": {"type": "string"},
+              "role": {"type": "string"},
+              "affiliation": {"type": "string"}
+            }
+          }
+        },
+        "inventors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": {"type": "string"},
+              "role": {"type": "string"},
+              "affiliation": {"type": "string"}
+            }
+          }
+        },
+        "assignees": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "aliases": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "tags": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "version": {
+      "type": "string"
+    },
+    "document_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "extraction_quality": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "word_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "scraped_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

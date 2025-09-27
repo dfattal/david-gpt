@@ -39,26 +39,36 @@ For entities, include:
 • confidence: 0–1 estimate of extraction confidence
 • temp_id: unique identifier (e1, e2, e3, etc.) for linking to edges
 
-For relationships, extract edges using ONLY these five types:
+For relationships, extract edges using ONLY these types:
 • affiliated_with: person → organization (person works at/for organization)
 • made_by: product → organization (organization creates/manufactures product)
+• created_by: technology → person (person created/invented technology)
+• developed_by: technology → organization (organization developed technology)
+• authored_by: technology → person (person authored/researched technology)
 • implements: technology → product (product implements/uses technology)
 • uses_component: product → component (product contains/uses component)
-• supplied_by: component → organization (organization supplies/makes component)
+• supplied_by: component → organization (organization supplies/making component)
+• related_to: technology → technology (technologies are related/similar)
+• based_on: technology → technology (technology builds upon another)
 
 For edges, include:
 • src_temp_id: temp_id of source entity
 • dst_temp_id: temp_id of destination entity
-• relation: one of the five types above
+• relation: one of the types above
 • evidence: short snippet (≤40 words) supporting this relationship
 • confidence: 0–1 estimate of relationship confidence
 
 Only extract edges that follow the strict type constraints:
 - affiliated_with: person → organization
 - made_by: product → organization
+- created_by: technology → person
+- developed_by: technology → organization
+- authored_by: technology → person
 - implements: technology → product
 - uses_component: product → component
 - supplied_by: component → organization
+- related_to: technology → technology
+- based_on: technology → technology
 
 Return JSON with "entities" and "edges" arrays. No prose.`,
 
@@ -100,26 +110,36 @@ For entities, include:
 • confidence: 0–1 estimate of extraction confidence
 • temp_id: unique identifier (e1, e2, e3, etc.) for linking to edges
 
-For relationships, extract edges using ONLY these five types:
+For relationships, extract edges using ONLY these types:
 • affiliated_with: person → organization (person works at/for organization)
 • made_by: product → organization (organization creates/manufactures product)
+• created_by: technology → person (person created/invented technology)
+• developed_by: technology → organization (organization developed technology)
+• authored_by: technology → person (person authored/researched technology)
 • implements: technology → product (product implements/uses technology)
 • uses_component: product → component (product contains/uses component)
-• supplied_by: component → organization (organization supplies/makes component)
+• supplied_by: component → organization (organization supplies/making component)
+• related_to: technology → technology (technologies are related/similar)
+• based_on: technology → technology (technology builds upon another)
 
 For edges, include:
 • src_temp_id: temp_id of source entity
 • dst_temp_id: temp_id of destination entity
-• relation: one of the five types above
+• relation: one of the types above
 • evidence: short snippet (≤40 words) supporting this relationship
 • confidence: 0–1 estimate of relationship confidence
 
 Only extract edges that follow the strict type constraints:
 - affiliated_with: person → organization
 - made_by: product → organization
+- created_by: technology → person
+- developed_by: technology → organization
+- authored_by: technology → person
 - implements: technology → product
 - uses_component: product → component
 - supplied_by: component → organization
+- related_to: technology → technology
+- based_on: technology → technology
 
 Return JSON with "entities" and "edges" arrays. No prose.`,
 
@@ -168,7 +188,7 @@ For relationships, extract edges using ONLY these five types:
 For edges, include:
 • src_temp_id: temp_id of source entity
 • dst_temp_id: temp_id of destination entity
-• relation: one of the five types above
+• relation: one of the types above
 • evidence: short snippet (≤40 words) supporting this relationship
 • confidence: 0–1 estimate of relationship confidence
 
@@ -221,7 +241,7 @@ For relationships, extract edges using ONLY these five types:
 For edges, include:
 • src_temp_id: temp_id of source entity
 • dst_temp_id: temp_id of destination entity
-• relation: one of the five types above
+• relation: one of the types above
 • evidence: short snippet (≤40 words) supporting this relationship
 • confidence: 0–1 estimate of relationship confidence
 

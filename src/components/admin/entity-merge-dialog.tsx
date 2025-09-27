@@ -58,11 +58,17 @@ export function EntityMergeDialog({
   const [newName, setNewName] = useState<string>('');
   const [newDescription, setNewDescription] = useState<string>('');
   const [createAliases, setCreateAliases] = useState<boolean>(true);
+  const [promoteToCanonical, setPromoteToCanonical] = useState<boolean>(false);
+  const [canonicalDomain, setCanonicalDomain] = useState<string>('spatial_computing');
+  const [canonicalPriority, setCanonicalPriority] = useState<number>(5);
+  const [canonicalDescription, setCanonicalDescription] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [duplicates, setDuplicates] = useState<DuplicateGroup[]>([]);
   const [loadingDuplicates, setLoadingDuplicates] = useState(false);
+  const [availableCanonicals, setAvailableCanonicals] = useState<string[]>([]);
+  const [loadingCanonicals, setLoadingCanonicals] = useState(false);
 
   // Calculate string similarity using Levenshtein distance
   const calculateSimilarity = (str1: string, str2: string): number => {
@@ -156,6 +162,33 @@ export function EntityMergeDialog({
     }
   }, [open, selectedEntities]);
 
+  // Load available canonical entities for suggestion
+  const loadCanonicalEntities = async () => {
+    if (selectedEntities.length === 0) return;
+
+    setLoadingCanonicals(true);
+    try {
+      const entityKind = selectedEntities[0].kind;
+      const response = await fetch(`/api/admin/personas/david/canonical-entities`);
+
+      if (response.ok) {
+        const data = await response.json();
+        const canonicalsForKind = data.canonical_entities?.[entityKind] || {};
+        setAvailableCanonicals(Object.keys(canonicalsForKind));
+      }
+    } catch (error) {
+      console.error('Error loading canonical entities:', error);
+    } finally {
+      setLoadingCanonicals(false);
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      loadCanonicalEntities();
+    }
+  }, [open, selectedEntities]);
+
   const handleMerge = async () => {
     if (!targetEntityId || selectedEntities.length < 2) {
       setError('Please select a target entity and at least one source entity');
@@ -186,7 +219,13 @@ export function EntityMergeDialog({
           sourceEntityIds,
           newName: newName.trim() || undefined,
           newDescription: newDescription.trim() || undefined,
-          createAliases
+          createAliases,
+          promoteToCanonical,
+          canonicalOptions: promoteToCanonical ? {
+            domain: canonicalDomain,
+            priority: canonicalPriority,
+            description: canonicalDescription.trim()
+          } : undefined
         })
       });
 
@@ -404,6 +443,85 @@ export function EntityMergeDialog({
                 <label htmlFor="createAliases" className="text-sm font-medium text-gray-700">
                   Create aliases from source entity names
                 </label>
+              </div>
+
+              {/* Canonicalization Options */}
+              <div className="border-t pt-4">
+                <div className="flex items-center space-x-2 mb-4">
+                  <Checkbox
+                    id="promoteToCanonical"
+                    checked={promoteToCanonical}
+                    onCheckedChange={setPromoteToCanonical}
+                  />
+                  <label htmlFor="promoteToCanonical" className="text-sm font-medium text-gray-700">
+                    Promote to canonical entity
+                  </label>
+                </div>
+
+                {promoteToCanonical && (
+                  <div className="ml-6 space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-700 mb-3">
+                      This will create a canonical entity definition that can be used for future entity consolidation.
+                    </p>
+
+                    {/* Show existing canonical entities */}
+                    {availableCanonicals.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-sm font-medium text-blue-800 mb-2">
+                          Existing canonical entities for {selectedEntities[0]?.kind}:
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {availableCanonicals.map((canonical) => (
+                            <Badge key={canonical} variant="outline" className="text-xs">
+                              {canonical}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label htmlFor="canonicalDescription" className="block text-sm font-medium text-blue-700 mb-1">
+                        Canonical Description
+                      </label>
+                      <Textarea
+                        id="canonicalDescription"
+                        value={canonicalDescription}
+                        onChange={(e) => setCanonicalDescription(e.target.value)}
+                        placeholder="Describe this canonical entity for future reference"
+                        rows={2}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="canonicalPriority" className="block text-sm font-medium text-blue-700 mb-1">
+                          Priority (1-10)
+                        </label>
+                        <Input
+                          id="canonicalPriority"
+                          type="number"
+                          min={1}
+                          max={10}
+                          value={canonicalPriority}
+                          onChange={(e) => setCanonicalPriority(parseInt(e.target.value) || 5)}
+                        />
+                      </div>
+
+                      <div>
+                        <label htmlFor="canonicalDomain" className="block text-sm font-medium text-blue-700 mb-1">
+                          Domain
+                        </label>
+                        <Input
+                          id="canonicalDomain"
+                          value={canonicalDomain}
+                          onChange={(e) => setCanonicalDomain(e.target.value)}
+                          placeholder="e.g., spatial_computing"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

@@ -6,22 +6,29 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { MessageBubble } from "./message-bubble";
 import { useAuth } from "@/components/auth/auth-provider";
 import { formatDate } from "@/lib/utils";
-import { Send } from "lucide-react";
+import { getPersonaAvatar } from "@/lib/avatar-utils";
+import { Send, Settings, User } from "lucide-react";
 import type { Conversation } from "@/lib/types";
+import type { PersonaOption } from "./persona-selector";
 
 interface ChatInterfaceProps {
   conversation?: Conversation;
   onConversationUpdate?: (conversation: Conversation) => void;
+  selectedPersona?: PersonaOption | null;
+  onPersonaSelect?: () => void;
 }
 
 export function ChatInterface({
   conversation,
   onConversationUpdate,
+  selectedPersona,
+  onPersonaSelect,
 }: ChatInterfaceProps) {
   const { user } = useAuth();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -36,6 +43,7 @@ export function ChatInterface({
     streamProtocol: "text", // Match backend toTextStreamResponse()
     body: {
       conversationId: conversation?.id,
+      personaId: selectedPersona?.persona_id,
     },
     onFinish: async () => {
       // After a successful response, update conversation if needed
@@ -181,17 +189,47 @@ export function ChatInterface({
       <div className="px-4 pt-4 pb-4 border-b bg-background">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-2">
-              <h2 className="font-semibold text-lg truncate">
-                {conversation ? (conversation.title || "New Chat") : "New Chat"}
-              </h2>
-            </div>
+            {/* Persona indicator */}
+            {selectedPersona ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onPersonaSelect}
+                className="flex items-center space-x-2 px-3"
+              >
+                <Avatar className="w-6 h-6">
+                  <AvatarImage
+                    src={getPersonaAvatar(selectedPersona)}
+                    alt={selectedPersona.name}
+                  />
+                  <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                    {selectedPersona.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm font-medium">{selectedPersona.name}</span>
+                <Settings className="w-3 h-3 opacity-60" />
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" onClick={onPersonaSelect}>
+                <User className="w-4 h-4 mr-2" />
+                Select Assistant
+              </Button>
+            )}
+
+            <div className="h-6 w-px bg-border" />
+
+            <h2 className="font-semibold text-lg truncate">
+              {conversation ? (conversation.title || "New Chat") : "New Chat"}
+            </h2>
           </div>
-          {conversation && (
-            <div className="text-xs text-muted-foreground">
-              {formatDate(conversation.created_at)}
-            </div>
-          )}
+
+          <div className="flex items-center space-x-3">
+            {conversation && (
+              <div className="text-xs text-muted-foreground">
+                {formatDate(conversation.created_at)}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -211,42 +249,84 @@ export function ChatInterface({
             </div>
           ) : messages.length === 0 ? (
             <div className="flex items-center justify-center h-full">
-              <Card className="max-w-2xl mx-auto border-0 shadow-none bg-transparent">
-                <CardContent className="flex flex-col items-center text-center space-y-6 py-12">
-                  {/* David's Profile Image */}
-                  <Avatar className="w-32 h-32 border-4 border-border shadow-lg">
-                    <AvatarImage
-                      src="/David_pic_128.jpg"
-                      alt="David Fattal"
-                      className="object-cover"
-                    />
-                    <AvatarFallback className="text-2xl font-bold bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                      DF
-                    </AvatarFallback>
-                  </Avatar>
+              {selectedPersona ? (
+                <Card className="max-w-2xl mx-auto border-0 shadow-none bg-transparent">
+                  <CardContent className="flex flex-col items-center text-center space-y-6 py-12">
+                    {/* Persona Profile Image */}
+                    <Avatar className="w-32 h-32 border-4 border-border shadow-lg">
+                      <AvatarImage
+                        src={getPersonaAvatar(selectedPersona)}
+                        alt={selectedPersona.name}
+                        className="object-cover"
+                      />
+                      <AvatarFallback className="text-2xl font-bold bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                        {selectedPersona.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                      </AvatarFallback>
+                    </Avatar>
 
-                  {/* Welcome Section */}
-                  <div className="space-y-4">
-                    <h1 className="text-4xl font-bold tracking-tight">
-                      Welcome to David-GPT
-                    </h1>
+                    {/* Welcome Section */}
+                    <div className="space-y-4">
+                      <h1 className="text-4xl font-bold tracking-tight">
+                        Welcome to {selectedPersona.name}
+                      </h1>
 
-                    <p className="text-lg text-muted-foreground max-w-lg leading-relaxed">
-                      I&apos;m David Fattal, a technology entrepreneur and
-                      Spatial AI enthusiast. Ask me anything about AI, Immersive
-                      Tech, or just chat!
-                    </p>
+                      <p className="text-lg text-muted-foreground max-w-lg leading-relaxed">
+                        {selectedPersona.description}
+                      </p>
 
-                    <Separator className="my-6" />
+                      {/* Expertise badges */}
+                      {selectedPersona.expertise_domains.length > 0 && (
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          {selectedPersona.expertise_domains.slice(0, 4).map((domain) => (
+                            <Badge key={domain} variant="secondary" className="text-sm">
+                              {domain}
+                            </Badge>
+                          ))}
+                          {selectedPersona.expertise_domains.length > 4 && (
+                            <Badge variant="outline" className="text-sm">
+                              +{selectedPersona.expertise_domains.length - 4} more
+                            </Badge>
+                          )}
+                        </div>
+                      )}
 
-                    <p className="text-sm text-muted-foreground">
-                      {isGuest
-                        ? "You&apos;re browsing as a guest with limited corpus access. Start a conversation below."
-                        : "Start a conversation by typing a message below."}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+                      <Separator className="my-6" />
+
+                      <p className="text-sm text-muted-foreground">
+                        {isGuest
+                          ? "You're browsing as a guest with limited access. Start a conversation below."
+                          : `Ask me anything about ${selectedPersona.expertise_domains.slice(0, 2).join(' or ')} - or just chat!`}
+                      </p>
+
+                      {/* Switch persona button */}
+                      <Button variant="outline" size="sm" onClick={onPersonaSelect}>
+                        <User className="w-4 h-4 mr-2" />
+                        Switch Assistant
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="max-w-2xl mx-auto border-0 shadow-none bg-transparent">
+                  <CardContent className="flex flex-col items-center text-center space-y-6 py-12">
+                    <div className="w-32 h-32 rounded-full bg-muted flex items-center justify-center">
+                      <User className="w-16 h-16 text-muted-foreground" />
+                    </div>
+                    <div className="space-y-4">
+                      <h1 className="text-4xl font-bold tracking-tight">
+                        Welcome to Multi-GPT
+                      </h1>
+                      <p className="text-lg text-muted-foreground max-w-lg leading-relaxed">
+                        Select an AI assistant to start your conversation
+                      </p>
+                      <Button onClick={onPersonaSelect} size="lg" className="mt-4">
+                        <User className="w-4 h-4 mr-2" />
+                        Choose Your Assistant
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           ) : (
             <div className="space-y-6 py-6 px-4 max-w-4xl mx-auto">
@@ -271,9 +351,12 @@ export function ChatInterface({
               {isLoading && (
                 <div className="flex items-center justify-center space-x-3 py-4">
                   <Avatar className="w-8 h-8">
-                    <AvatarImage src="/David_pic_128.jpg" alt="David Fattal" />
+                    <AvatarImage
+                      src={getPersonaAvatar(selectedPersona)}
+                      alt={selectedPersona?.name}
+                    />
                     <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                      DF
+                      {selectedPersona?.name.split(' ').map(n => n[0]).join('').slice(0, 2) || 'AI'}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex items-center space-x-2 text-muted-foreground">
@@ -282,7 +365,7 @@ export function ChatInterface({
                       <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]" />
                       <div className="w-2 h-2 bg-current rounded-full animate-bounce" />
                     </div>
-                    <span className="text-sm">David is thinking...</span>
+                    <span className="text-sm">{selectedPersona?.name || 'AI'} is thinking...</span>
                   </div>
                 </div>
               )}
@@ -307,7 +390,7 @@ export function ChatInterface({
                 onKeyDown={handleKeyDown}
                 placeholder={
                   !conversation && messages.length === 0
-                    ? "Start a new conversation with David..." 
+                    ? `Start a new conversation with ${selectedPersona?.name || 'your AI assistant'}...`
                     : "Continue conversation..."
                 }
                 className="min-h-[52px] max-h-32 resize-none border-2 focus:border-primary transition-colors"
@@ -327,7 +410,9 @@ export function ChatInterface({
 
           <div className="flex justify-between items-center text-xs text-muted-foreground mt-3 px-1">
             <span>Press Enter to send, Shift+Enter for new line</span>
-            <span className="font-medium">David-GPT • Powered by GPT-4</span>
+            <span className="font-medium">
+              {selectedPersona?.name || 'Multi-GPT'} • Powered by GPT-4
+            </span>
           </div>
 
           {error && (

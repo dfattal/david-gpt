@@ -1,0 +1,133 @@
+📋 🚀 Starting manifest document processing...
+📋 📄 Loading manifest...
+✅ ✅ Loaded manifest with 32 items
+📋 📝 Loading ingestion format...
+✅ ✅ Loaded ingestion format with 5 document types: patent, paper, press-article, book, note
+📋 📊 Found 32 documents to process
+📋 
+[1/32] Processing: immersity--leiasr--f-d9d9450e
+✅ ✅ Success: passthrough → 1677 words
+📋 
+[2/32] Processing: lif-64e6582e
+✅ ✅ Success: passthrough → 1151 words
+📋 
+[3/32] Processing: leia-evolution-c99ffbfc
+✅ ✅ Success: passthrough → 1401 words
+📋 
+[4/32] Processing: phase-eng-acd57dce
+✅ ✅ Success: passthrough → 913 words
+📋 
+[5/32] Processing: 2003-11172v1-eb378c18
+✅ ✅ Success: gemini → 1784 words
+📋 
+[6/32] Processing: 2401-10891v2-7d709277
+✅ ✅ Success: gemini → 2232 words
+📋 
+[7/32] Processing: 2405-10314v1-48ad9d54
+Error executing tool read_file: File size exceeds the 20MB limit: /Users/david.fattal/Documents/GitHub/david-gpt/personas/david/RAG-RAW-DOCS/Papers/2405.10314v1.pdf (30.34MB)
+✅ ✅ Success: gemini → 528 words
+📋 
+[8/32] Processing: 2503-14489v2-f2ecdaff
+Error executing tool read_file: File size exceeds the 20MB limit: /Users/david.fattal/Documents/GitHub/david-gpt/personas/david/RAG-RAW-DOCS/Papers/2503.14489v2.pdf (35.98MB)
+Error executing tool list_directory: Error listing directory: ENOENT: no such file or directory, stat '/Users/david.fattal/Documents/GitHub/david-gpt/scripts'
+Error executing tool list_directory: Path must be within one of the workspace directories: /Users/david.fattal/Documents/GitHub/david-gpt
+Error executing tool read_file: File path must be within one of the workspace directories: /Users/david.fattal/Documents/GitHub/david-gpt or within the project temp directory: /Users/david.fattal/.gemini/tmp/3ff0a33e576faa5213f97c5ff400b6f245d917474dfc3cdbd11f4f1cc3b8a8b5
+Error executing tool read_file: File path must be within one of the workspace directories: /Users/david.fattal/Documents/GitHub/david-gpt or within the project temp directory: /Users/david.fattal/.gemini/tmp/3ff0a33e576faa5213f97c5ff400b6f245d917474dfc3cdbd11f4f1cc3b8a8b5
+❌ ❌ Failed: Gemini CLI extraction failed: spawnSync /bin/sh ETIMEDOUT
+   [2025-09-26T20:00:37.988Z]
+📋 
+[9/32] Processing: locally-switchable-2-05e4b568
+⚠️ ⚠️  Missing required fields: keywords, technologies
+✅ ⚠️ Success: gemini → 2494 words (1 warnings)
+📋 
+[10/32] Processing: nature-paper-dadf073d
+⚠️ ⚠️  Missing required fields: url
+✅ ⚠️ Success: gemini → 3098 words (1 warnings)
+📋 
+[11/32] Processing: sr3d-4e0c5b96
+⚠️ ⚠️  Missing required fields: url
+✅ ⚠️ Success: gemini → 7338 words (1 warnings)
+📋 
+[12/32] Processing: us10830939-f5e45a12
+✅ ✅ Success: gemini → 1773 words
+📋 
+[13/32] Processing: us10838134-30a80265
+✅ ✅ Success: gemini → 3361 words
+📋 
+[14/32] Processing: us11281020-70f51bf5
+✅ ✅ Success: gemini → 5912 words
+📋 
+[15/32] Processing: wo2024145265a1-a662ed9c
+✅ ✅ Success: gemini → 7577 words
+📋 
+[16/32] Processing: blog-1-5e560b50
+✅ ✅ Success: passthrough → 732 words
+📋 
+[17/32] Processing: blog-2-fd818c57
+✅ ✅ Success: passthrough → 642 words
+📋 
+[18/32] Processing: blog-3-0c51f26f
+✅ ✅ Success: passthrough → 556 words
+📋 
+[19/32] Processing: blog-4-2915c0ed
+✅ ✅ Success: passthrough → 1454 words
+📋 
+[20/32] Processing: red-hydrogen-one-hol-16837660
+✅ ✅ Success: exa → 690 words
+📋 
+[21/32] Processing: leia-glasses-free-3d-371bfe7b
+✅ ✅ Success: exa → 2656 words
+📋 
+[22/32] Processing: samsung-launches-nex-032723f2
+✅ ✅ Success: exa → 1406 words
+📋 
+[23/32] Processing: interview-transformi-7598e227
+✅ ✅ Success: exa → 1341 words
+📋 
+[24/32] Processing: 3d-is-back-08e81179
+✅ ✅ Success: exa → 1569 words
+📋 
+[25/32] Processing: samsung-odyssey-3d-2-6d791589
+✅ ✅ Success: exa → 1947 words
+📋 
+[26/32] Processing: gamescom-2025-samsun-30670f44
+✅ ✅ Success: exa → 1613 words
+📋 
+[27/32] Processing: -65a058242270-886fbd91
+⚠️ ⚠️ EXA failed, falling back to Gemini CLI
+✅ ✅ Success: gemini-fallback → 845 words
+📋 
+[28/32] Processing: how-light-field-make-94e08c1e
+⚠️ ⚠️ EXA failed, falling back to Gemini CLI
+✅ ✅ Success: gemini-fallback → 1350 words
+📋 
+[29/32] Processing: leia-lume-pad-2-revi-97a8b3c4
+⚠️ ⚠️ EXA failed, falling back to Gemini CLI
+✅ ✅ Success: gemini-fallback → 1847 words
+📋 
+[30/32] Processing: zte-nubia-first-3d-a-85cfb41c
+✅ ✅ Success: exa → 1022 words
+📋 
+[31/32] Processing: zte-nubia-pad-3d-ii--dfe05841
+✅ ✅ Success: exa → 740 words
+📋 
+[32/32] Processing: zte-launches-the-wor-f686bdef
+✅ ✅ Success: exa → 1319 words
+
+==================================================
+✅ 📊 PROCESSING COMPLETE
+==================================================
+⏱️  Duration: 31 minutes
+📁 Total documents: 32
+✅ Successfully processed: 31
+⏭️  Skipped (existing): 0
+❌ Failed: 1
+
+❌ ERRORS:
+1. 2503-14489v2-f2ecdaff
+   Error: Gemini CLI extraction failed: spawnSync /bin/sh ETIMEDOUT
+
+
+🎯 Success rate: 97%
+
+🎉 Document processing completed successfully!

@@ -65,7 +65,7 @@ const ExtractedEntitySchema = z.object({
 const ExtractedEdgeSchema = z.object({
   src_temp_id: z.string().min(1).max(10),
   dst_temp_id: z.string().min(1).max(10),
-  relation: z.enum(['affiliated_with', 'made_by', 'implements', 'uses_component', 'supplied_by']),
+  relation: z.enum(['affiliated_with', 'made_by', 'created_by', 'developed_by', 'authored_by', 'implements', 'uses_component', 'supplied_by', 'related_to', 'based_on']),
   evidence: z.string().max(200),
   confidence: z.number().min(0).max(1)
 });

@@ -1,0 +1,37 @@
+# Processor Registry Configuration
+processors:
+  pdf:
+    enabled: true
+    tool: "grobid"
+    fallback: "gemini"
+    timeout: 120
+
+  html:
+    enabled: true
+    tool: "local"
+    timeout: 60
+
+  exa:
+    enabled: true
+    api_key_env: "EXA_API_KEY"
+    max_chars: 50000
+    timeout: 90
+
+  gemini:
+    enabled: true
+    binary: "gemini"
+    args: ["-y"]
+    timeout: 180
+
+  passthrough:
+    enabled: true
+    description: "Direct markdown processing without extraction"
+
+auto:
+  order: ["pdf", "html", "exa", "gemini"]
+  fallback_chain: true
+
+rate_limiting:
+  exa_delay_seconds: 3
+  gemini_delay_seconds: 2
+  max_concurrent: 4

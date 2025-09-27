@@ -168,7 +168,8 @@ export class UnifiedIngestionService {
       canonicalUrl: null,
       arxivId: null,
       userId: user.id,
-      processingStatus: 'pending'
+      processingStatus: 'pending',
+      personaId: request.persona?.persona_id || null
     });
 
     // Update job with document ID
@@ -178,7 +179,7 @@ export class UnifiedIngestionService {
       .eq('id', job.id);
 
     // Start background processing
-    this.processDocumentBackground(document.id, request, context);
+    await this.processDocumentBackground(document.id, request, context);
 
     return {
       success: true,
@@ -422,6 +423,39 @@ export class UnifiedIngestionService {
   }
 
   /**
+   * Resolve document type name to database ID with legacy mapping
+   */
+  private async resolveDocumentTypeId(docType: string): Promise<number | null> {
+    try {
+      // Legacy document type mapping for backward compatibility
+      const legacyMapping: Record<string, string> = {
+        'paper': 'academic-paper',
+        'press-article': 'press-release',
+        'note': 'internal-note'
+      };
+
+      // Use mapped type or original type
+      const mappedType = legacyMapping[docType] || docType;
+
+      const { data, error } = await this.supabaseAdmin
+        .from('document_types')
+        .select('id')
+        .eq('name', mappedType)
+        .single();
+
+      if (error || !data) {
+        console.warn(`⚠️ Document type not found: ${docType} (mapped to: ${mappedType})`);
+        return null;
+      }
+
+      return data.id;
+    } catch (error) {
+      console.error('Error resolving document type:', error);
+      return null;
+    }
+  }
+
+  /**
    * Create document record with deduplication
    */
   private async createDocumentRecord(config: {
@@ -435,6 +469,7 @@ export class UnifiedIngestionService {
     arxivId?: string | null;
     userId: string;
     processingStatus: string;
+    personaId?: string | null;
   }) {
     // Check for existing document using new schema
     const existingDoc = await this.findExistingDocument({
@@ -459,17 +494,24 @@ export class UnifiedIngestionService {
     // Build dates JSONB object (will be populated during processing)
     const dates: Record<string, string> = {};
 
+    // Resolve document type to ID
+    const documentTypeId = await this.resolveDocumentTypeId(config.docType);
+    if (!documentTypeId) {
+      throw new Error(`Unknown document type: ${config.docType}`);
+    }
+
     // Create new document with generic schema
     const { data: document, error } = await this.supabaseAdmin
       .from('documents')
       .insert({
         title: config.title,
-        doc_type: config.docType,
+        document_type_id: documentTypeId,
         url: config.url,
         identifiers,
         dates,
         processing_status: config.processingStatus,
-        created_by: config.userId
+        created_by: config.userId,
+        persona_id: config.personaId
       })
       .select()
       .single();
@@ -687,8 +729,8 @@ export class UnifiedIngestionService {
         })
         .eq('document_id', documentId);
 
-      // Extract actors information from metadata
-      const actors = this.extractActors(extractedMetadata, request);
+      // Extract actors information from metadata (include frontmatter for better extraction)
+      const actors = this.extractActors(extractedMetadata, request, frontmatterMetadata);
 
       // Generate metadata chunk for SQL tier fast lookups
       const metadataChunk = this.generateMetadataChunk(extractedMetadata, request, actors);
@@ -975,7 +1017,8 @@ export class UnifiedIngestionService {
         canonicalUrl: doc.metadata?.canonicalUrl || null,
         arxivId: doc.metadata?.arxivId || null,
         userId: context.user.id,
-        processingStatus: 'pending'
+        processingStatus: 'pending',
+        personaId: request.persona?.persona_id || null
       });
 
       // Create processing job
@@ -1050,12 +1093,78 @@ export class UnifiedIngestionService {
    */
   private extractActors(
     extractedMetadata: Record<string, unknown>,
-    request: SingleIngestionRequest
+    request: SingleIngestionRequest,
+    frontmatterMetadata?: Record<string, unknown>
   ): Record<string, any> {
     const actors: Record<string, any> = {};
 
-    // Extract inventors from patent metadata
-    if (extractedMetadata.inventors && Array.isArray(extractedMetadata.inventors)) {
+    // Priority 1: Extract actors from frontmatter (highest priority)
+    if (frontmatterMetadata) {
+      // Handle authors from frontmatter (both 'authors' and 'author' fields)
+      if (frontmatterMetadata.authors && Array.isArray(frontmatterMetadata.authors)) {
+        actors.authors = frontmatterMetadata.authors.map((author: any, index: number) => ({
+          name: typeof author === 'string' ? author : author.name,
+          role: 'author',
+          primary: index === 0,
+          type: 'person',
+          affiliation: typeof author === 'object' ? author.affiliation : null
+        })).filter(author => author.name);
+        console.log(`✅ Extracted ${actors.authors.length} authors from frontmatter`);
+      } else if (frontmatterMetadata.author && Array.isArray(frontmatterMetadata.author)) {
+        actors.authors = frontmatterMetadata.author.map((author: any, index: number) => ({
+          name: typeof author === 'string' ? author : author.name,
+          role: 'author',
+          primary: index === 0,
+          type: 'person',
+          affiliation: typeof author === 'object' ? author.affiliation : null
+        })).filter(author => author.name);
+        console.log(`✅ Extracted ${actors.authors.length} authors from frontmatter (singular field)`);
+      }
+
+      // Handle inventors from frontmatter
+      if (frontmatterMetadata.inventor && Array.isArray(frontmatterMetadata.inventor)) {
+        actors.inventors = frontmatterMetadata.inventor.map((inventor: any, index: number) => ({
+          name: typeof inventor === 'string' ? inventor : inventor.name,
+          role: 'inventor',
+          primary: index === 0,
+          type: 'person',
+          affiliation: typeof inventor === 'object' ? inventor.affiliation : null
+        })).filter(inventor => inventor.name);
+      }
+
+      // Handle assignees from frontmatter
+      if (frontmatterMetadata.assignee && Array.isArray(frontmatterMetadata.assignee)) {
+        actors.assignees = frontmatterMetadata.assignee.map((assignee: any) => ({
+          name: typeof assignee === 'string' ? assignee : assignee.name,
+          role: 'assignee',
+          type: 'organization'
+        })).filter(assignee => assignee.name);
+      }
+
+      // Handle journalists from frontmatter
+      if (frontmatterMetadata.journalist && Array.isArray(frontmatterMetadata.journalist)) {
+        actors.journalists = frontmatterMetadata.journalist.map((journalist: any, index: number) => ({
+          name: typeof journalist === 'string' ? journalist : journalist.name,
+          role: 'journalist',
+          primary: index === 0,
+          type: 'person',
+          affiliation: typeof journalist === 'object' ? journalist.affiliation : null
+        })).filter(journalist => journalist.name);
+      }
+
+      // Handle companies/OEMs from frontmatter
+      if (frontmatterMetadata.oem && Array.isArray(frontmatterMetadata.oem)) {
+        actors.companies = frontmatterMetadata.oem.map((company: any) => ({
+          name: typeof company === 'string' ? company : company.name,
+          role: 'company',
+          type: 'organization'
+        })).filter(company => company.name);
+      }
+    }
+
+    // Priority 2: Extract from extracted metadata (fallback if not in frontmatter)
+    // Extract inventors from patent metadata (only if not already set from frontmatter)
+    if (!actors.inventors && extractedMetadata.inventors && Array.isArray(extractedMetadata.inventors)) {
       actors.inventors = extractedMetadata.inventors.map((inventor: any, index: number) => ({
         name: typeof inventor === 'string' ? inventor : inventor.name || inventor.fullName,
         role: 'inventor',
@@ -1064,14 +1173,14 @@ export class UnifiedIngestionService {
       })).filter(inv => inv.name);
     }
 
-    // Extract assignees from patent metadata
-    if (extractedMetadata.assignees && Array.isArray(extractedMetadata.assignees)) {
+    // Extract assignees from patent metadata (only if not already set from frontmatter)
+    if (!actors.assignees && extractedMetadata.assignees && Array.isArray(extractedMetadata.assignees)) {
       actors.assignees = extractedMetadata.assignees.map((assignee: any) => ({
         name: typeof assignee === 'string' ? assignee : assignee.name,
         role: 'assignee',
         type: 'organization'
       })).filter(assignee => assignee.name);
-    } else if (extractedMetadata.assignee) {
+    } else if (!actors.assignees && extractedMetadata.assignee) {
       actors.assignees = [{
         name: extractedMetadata.assignee,
         role: 'assignee',
@@ -1079,8 +1188,8 @@ export class UnifiedIngestionService {
       }];
     }
 
-    // Extract authors from academic papers
-    if (extractedMetadata.authors && Array.isArray(extractedMetadata.authors)) {
+    // Extract authors from academic papers (only if not already set from frontmatter)
+    if (!actors.authors && extractedMetadata.authors && Array.isArray(extractedMetadata.authors)) {
       actors.authors = extractedMetadata.authors.map((author: any, index: number) => ({
         name: typeof author === 'string' ? author : author.fullName || author.name || `${author.firstName || ''} ${author.surname || ''}`.trim(),
         role: 'author',
@@ -1088,7 +1197,7 @@ export class UnifiedIngestionService {
         type: 'person',
         affiliation: author.affiliation || null
       })).filter(author => author.name);
-    } else if (extractedMetadata.authorsAffiliations && Array.isArray(extractedMetadata.authorsAffiliations)) {
+    } else if (!actors.authors && extractedMetadata.authorsAffiliations && Array.isArray(extractedMetadata.authorsAffiliations)) {
       actors.authors = extractedMetadata.authorsAffiliations.map((author: any, index: number) => ({
         name: author.name,
         role: 'author',
@@ -1098,8 +1207,8 @@ export class UnifiedIngestionService {
       })).filter(author => author.name);
     }
 
-    // Extract editors, contributors, etc. for other document types
-    if (extractedMetadata.editors && Array.isArray(extractedMetadata.editors)) {
+    // Extract editors, contributors, etc. for other document types (only if not already set from frontmatter)
+    if (!actors.editors && extractedMetadata.editors && Array.isArray(extractedMetadata.editors)) {
       actors.editors = extractedMetadata.editors.map((editor: any) => ({
         name: typeof editor === 'string' ? editor : editor.name,
         role: 'editor',
@@ -1111,7 +1220,10 @@ export class UnifiedIngestionService {
       inventors: actors.inventors?.length || 0,
       assignees: actors.assignees?.length || 0,
       authors: actors.authors?.length || 0,
-      editors: actors.editors?.length || 0
+      editors: actors.editors?.length || 0,
+      journalists: actors.journalists?.length || 0,
+      companies: actors.companies?.length || 0,
+      fromFrontmatter: !!frontmatterMetadata
     });
 
     return actors;
@@ -1266,8 +1378,18 @@ export class UnifiedIngestionService {
 
     // First, extract dates from frontmatter
     if (frontmatterMetadata) {
+      // Handle both published_date and publicationYear formats
       if (frontmatterMetadata.published_date && typeof frontmatterMetadata.published_date === 'string') {
         dates.published = frontmatterMetadata.published_date;
+      } else if (frontmatterMetadata.publicationYear) {
+        const year = typeof frontmatterMetadata.publicationYear === 'number' ?
+          frontmatterMetadata.publicationYear :
+          parseInt(frontmatterMetadata.publicationYear as string, 10);
+
+        if (!isNaN(year) && year > 1900 && year < 2100) {
+          dates.published = `${year}-01-01`;
+          console.log(`✅ Set publication year from frontmatter: ${year}`);
+        }
       }
       if (frontmatterMetadata.filed_date && typeof frontmatterMetadata.filed_date === 'string') {
         dates.filed = frontmatterMetadata.filed_date;
@@ -1333,8 +1455,13 @@ export class UnifiedIngestionService {
       if (frontmatterMetadata.assignee && Array.isArray(frontmatterMetadata.assignee)) {
         frontmatterActors.assignees = frontmatterMetadata.assignee;
       }
-      if (frontmatterMetadata.author && Array.isArray(frontmatterMetadata.author)) {
+      // Handle both 'author' (singular) and 'authors' (plural) fields
+      if (frontmatterMetadata.authors && Array.isArray(frontmatterMetadata.authors)) {
+        frontmatterActors.authors = frontmatterMetadata.authors;
+        console.log(`✅ Extracted ${frontmatterMetadata.authors.length} authors from frontmatter`);
+      } else if (frontmatterMetadata.author && Array.isArray(frontmatterMetadata.author)) {
         frontmatterActors.authors = frontmatterMetadata.author;
+        console.log(`✅ Extracted ${frontmatterMetadata.author.length} authors from frontmatter (singular field)`);
       }
       if (frontmatterMetadata.journalist && Array.isArray(frontmatterMetadata.journalist)) {
         frontmatterActors.journalists = frontmatterMetadata.journalist;

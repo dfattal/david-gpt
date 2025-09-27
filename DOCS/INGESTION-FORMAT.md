@@ -94,9 +94,9 @@ extraction_quality: "high"
 ---
 title: "Paper Title: Subtitle"             # REQUIRED: Paper title
 docType: "paper"                          # REQUIRED: Must be "paper"
-authorsAffiliations:                      # REQUIRED: Author names with affiliations
+authors:                                  # REQUIRED: Author names with optional affiliations
   - name: "First Author"                  # REQUIRED: Author full name
-    affiliation: "University of Example"  # REQUIRED: Institution name
+    affiliation: "University of Example"  # Optional: Institution name
   - name: "Second Author"
     affiliation: "Research Institute"
 venue: "Nature Photonics"                 # REQUIRED: Journal or conference name
@@ -119,7 +119,9 @@ extraction_quality: "high"                # REQUIRED: "high"|"medium"|"low"
 ---
 title: "Article Headline"
 docType: "press-article"
-author: "Reporter Name"                    # Primary author/journalist
+authors:
+  - name: "Reporter Name"
+  - name: "Co-Author"
 journalist: ["Reporter Name", "Co-Author"] # All journalists
 outlet: "TechCrunch"                      # Publication outlet
 published_date: "2025-01-15T00:00:00.000Z" # Publication date
@@ -148,9 +150,9 @@ extraction_quality: "high"
 ---
 title: "Book Title: Subtitle"
 docType: "book"
-authorsAffiliations:                      # Authors (affiliation optional for books)
+authors:
   - name: "Author Name"
-    affiliation: "Institution"
+    affiliation: "Institution"            # Optional
 venue: "Publisher Name"                   # Publisher
 publicationYear: 2023                    # Publication year
 isbn: "978-0123456789"                   # ISBN (if applicable)
@@ -168,7 +170,8 @@ extraction_quality: "high"
 ---
 title: "Web Article Title"
 docType: "url"
-author: "Author Name"                     # Article author
+authors:
+  - name: "Author Name"
 date: "2025-01-15"                       # Publication date
 domain: "example.com"                    # Source domain
 extraction_method: "exa|manual|other"    # Extraction method used
@@ -281,29 +284,32 @@ extraction_quality: "high"
 
 ### Critical Format Rules
 
-**YAML Arrays**: All array fields MUST use consistent inline format:
+**Simple Arrays**: Simple arrays (strings only) MUST use inline format:
 ```yaml
-# CORRECT - Inline array format
+# CORRECT - Inline format for simple arrays
 keywords: ["keyword1", "keyword2", "keyword3"]
 technologies: ["tech1", "tech2", "tech3"]
+leiaFeature: ["Eye Tracking", "Lenticular Lens"]
 
-# INCORRECT - Block array format (causes inconsistency)
+# INCORRECT - Block format for simple arrays (causes inconsistency)
 keywords:
   - "keyword1"
   - "keyword2"
   - "keyword3"
 ```
 
-**Author Format**: Always use structured `authorsAffiliations` array:
+**Complex Object Arrays**: Arrays containing objects with multiple fields MUST use block format:
 ```yaml
-# CORRECT - Structured format
+# CORRECT - Block format for complex objects
+authors:
+  - name: "First Author"
+    affiliation: "Institution" # Optional
+  - name: "Second Author"
+
+# INCORRECT - Deprecated formats
 authorsAffiliations:
   - name: "First Author"
     affiliation: "Institution"
-  - name: "Second Author"
-    affiliation: "Institution"
-
-# INCORRECT - Simple string format
 author: "First Author, Second Author"
 ```
 
@@ -483,7 +489,7 @@ Before ingestion, documents must pass:
 1. **YAML validation**: Valid frontmatter with ALL required fields
 2. **Format consistency**:
    - `docType` field (not `doc_type`)
-   - `authorsAffiliations` array (not `author` string)
+   - `authors` array (not `author` string or `authorsAffiliations`)
    - Inline arrays for `keywords` and `technologies`
    - ISO timestamps for `scraped_at`
 3. **Content validation**: Proper markdown structure
@@ -492,8 +498,8 @@ Before ingestion, documents must pass:
 
 ### Common Format Errors to Avoid
 
-❌ **Wrong field names**: `doc_type`, `author`, `date`
-✅ **Correct field names**: `docType`, `authorsAffiliations`, `publicationYear`
+❌ **Wrong field names**: `doc_type`, `author`, `authorsAffiliations`, `date`
+✅ **Correct field names**: `docType`, `authors`, `publicationYear`
 
 ❌ **Inconsistent arrays**: Mix of block and inline formats
 ✅ **Consistent arrays**: Always use inline format `["item1", "item2"]`

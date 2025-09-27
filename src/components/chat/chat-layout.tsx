@@ -1,27 +1,47 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { ChatInterface } from "./chat-interface";
 import { ConversationSidebar } from "./conversation-sidebar";
+import { PersonaSelector, type PersonaOption } from "./persona-selector";
 import { useAuth } from "@/components/auth/auth-provider";
+import { usePersonaState, useConversationState, useSidebarState } from "@/contexts/app-context";
+import { useActivePersonas } from "@/hooks/use-personas";
 import type { Conversation } from "@/lib/types";
 
 export function ChatLayout() {
   const { user } = useAuth();
-  const [currentConversation, setCurrentConversation] =
-    useState<Conversation | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { currentConversation, setCurrentConversation } = useConversationState();
+  const { sidebarOpen, setSidebarOpen, toggleSidebar } = useSidebarState();
+  const { selectedPersona, isPersonaSelectorOpen, setSelectedPersona, setPersonaSelectorOpen } = usePersonaState();
+  const { data: personas = [], isLoading: personasLoading } = useActivePersonas();
+
   const sidebarRef = useRef<{
     refreshConversations: () => void;
     setTitleGenerating: (conversationId: string, isGenerating: boolean) => void;
   } | null>(null);
 
-  // Reset conversation when user changes
+  // Show persona selector on initial load if no persona selected
+  useEffect(() => {
+    if (user && !selectedPersona && !personasLoading) {
+      setPersonaSelectorOpen(true);
+    }
+  }, [user, selectedPersona, personasLoading, setPersonaSelectorOpen]);
+
+  // Reset conversation when user changes or persona changes
   useEffect(() => {
     if (!user) {
       setCurrentConversation(null);
+      setSelectedPersona(null);
     }
-  }, [user]);
+  }, [user, setCurrentConversation, setSelectedPersona]);
+
+  useEffect(() => {
+    // Reset conversation when switching personas
+    if (selectedPersona) {
+      setCurrentConversation(null);
+    }
+  }, [selectedPersona?.persona_id, setCurrentConversation]);
 
   const handleConversationSelect = (conversation: Conversation | null) => {
     setCurrentConversation(conversation);
@@ -45,7 +65,7 @@ export function ChatLayout() {
     <div className="flex h-screen bg-background">
       {/* Mobile sidebar toggle - hidden on desktop */}
       <button
-        onClick={() => setSidebarOpen(!sidebarOpen)}
+        onClick={toggleSidebar}
         className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-background border shadow-sm"
       >
         <svg
@@ -92,8 +112,23 @@ export function ChatLayout() {
         <ChatInterface
           conversation={currentConversation}
           onConversationUpdate={handleConversationUpdate}
+          selectedPersona={selectedPersona}
+          onPersonaSelect={() => setPersonaSelectorOpen(true)}
         />
       </div>
+
+      {/* Persona Selector Modal */}
+      <PersonaSelector
+        personas={personas}
+        selectedPersona={selectedPersona}
+        onPersonaSelect={(persona) => {
+          setSelectedPersona(persona);
+          setPersonaSelectorOpen(false);
+        }}
+        isOpen={isPersonaSelectorOpen}
+        onClose={() => setPersonaSelectorOpen(false)}
+        loading={personasLoading}
+      />
     </div>
   );
 }

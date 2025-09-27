@@ -194,7 +194,7 @@ export class EntityExtractionService {
     try {
       const { data: entities, error } = await supabaseAdmin
         .from('entities')
-        .select('id, name, kind, description, authority_score, mention_count, created_at, updated_at')
+        .select('id, name, entity_kinds(name), description, authority_score, mention_count, created_at, updated_at')
         .order('authority_score', { ascending: false })
         .limit(1000); // Get top 1000 entities for deduplication
 
@@ -206,7 +206,7 @@ export class EntityExtractionService {
       return (entities || []).map(e => ({
         id: e.id,
         name: e.name,
-        kind: e.kind,
+        kind: e.entity_kinds?.name || 'unknown',
         description: e.description,
         authorityScore: e.authority_score,
         mentionCount: e.mention_count,
@@ -267,6 +267,7 @@ export class EntityExtractionService {
    */
   async saveEntities(
     documentId: string,
+    personaId: string,
     entities: Partial<Entity>[],
     aliases: Partial<EntityAlias>[],
     relationships: Array<any>,
@@ -277,8 +278,9 @@ export class EntityExtractionService {
       confidence: number;
       evidenceText: string;
     }>
-  ): Promise<void> {
+  ): Promise<Map<Partial<Entity>, any>> {
     console.log(`💾 Saving ${entities.length} entities to database...`);
+    const savedEntitiesMap = new Map<Partial<Entity>, any>();
 
     try {
       // Import consolidators
@@ -310,8 +312,11 @@ export class EntityExtractionService {
         const consolidationResult = await entityConsolidator.consolidateEntityOnIngestion(
           entity.name,
           entity.kind,
+          personaId,
           entity.description
         );
+
+        savedEntitiesMap.set(entity, consolidationResult);
 
         if (consolidationResult.wasReused) {
           reusedCount++;
@@ -338,6 +343,7 @@ export class EntityExtractionService {
       console.error('Error saving entities:', error);
       throw error;
     }
+    return savedEntitiesMap;
   }
 
   /**
@@ -388,7 +394,7 @@ export class EntityExtractionService {
               evidence_text: rel.evidenceText,
               evidence_doc_id: documentId
             }, {
-              onConflict: 'src_id,src_type,rel,dst_id,dst_type',
+              onConflict: 'src_id,src_type,relationship_type_id,dst_id,dst_type',
               ignoreDuplicates: false
             });
 
@@ -429,21 +435,37 @@ export class EntityExtractionService {
           continue;
         }
 
+        // Get relationship type ID
+        console.log(`🔍 Looking up relationship type: ${edge.relation}`);
+        const { data: relationshipType, error: relationshipError } = await supabaseAdmin
+          .from('relationship_types')
+          .select('id')
+          .eq('name', edge.relation)
+          .is('persona_id', null) // Use global relationship types
+          .single();
+
+        if (relationshipError) {
+          console.warn(`🔄 Relationship lookup error for '${edge.relation}':`, relationshipError);
+        }
+
+        if (!relationshipType) {
+          console.warn(`🔄 Skipping edge: relationship type '${edge.relation}' not found`);
+          failCount++;
+          continue;
+        }
+
         // Create edge in database (using existing 'edges' table)
         const { error } = await supabaseAdmin
           .from('edges')
-          .upsert({
+          .insert({
             src_id: edge.srcEntityId,
             src_type: 'entity',
-            rel: edge.relation,
+            relationship_type_id: relationshipType.id,
             dst_id: edge.dstEntityId,
             dst_type: 'entity',
             weight: edge.confidence,
             evidence_text: edge.evidenceText,
             evidence_doc_id: documentId
-          }, {
-            onConflict: 'src_id,src_type,rel,dst_id,dst_type',
-            ignoreDuplicates: false
           });
 
         if (error) {
@@ -470,6 +492,7 @@ export class EntityExtractionService {
     documentId: string,
     rawLLMEdges: Array<any>,
     extractedEntities: Partial<Entity>[],
+    savedEntitiesMap: Map<Partial<Entity>, any>,
     originalEntitiesWithTempIds?: Array<any>
   ): Promise<void> {
     console.log(`🔗 Processing ${rawLLMEdges.length} LLM edges after entity persistence...`);
@@ -479,6 +502,7 @@ export class EntityExtractionService {
       const tempIdToEntityId = await this.createTempIdMapping(
         rawLLMEdges,
         extractedEntities,
+        savedEntitiesMap,
         originalEntitiesWithTempIds
       );
 
@@ -529,6 +553,7 @@ export class EntityExtractionService {
   private async createTempIdMapping(
     rawLLMEdges: Array<any>,
     extractedEntities: Partial<Entity>[],
+    savedEntitiesMap: Map<Partial<Entity>, any>,
     originalEntitiesWithTempIds?: Array<any>
   ): Promise<Record<string, string>> {
     const mapping: Record<string, string> = {};
@@ -541,13 +566,30 @@ export class EntityExtractionService {
 
       for (const originalEntity of originalEntitiesWithTempIds) {
         if (originalEntity.temp_id && originalEntity.name && originalEntity.type) {
-          // Find this entity in the database
-          const dbEntity = await this.findEntityByNameAndType(originalEntity.name, originalEntity.type);
-          if (dbEntity) {
-            mapping[originalEntity.temp_id] = dbEntity.id;
-            console.log(`✅ Mapped temp_id ${originalEntity.temp_id} (${originalEntity.name}) to entity ID ${dbEntity.id}`);
+          // Find this entity in the saved entities map by name
+          let savedEntity = null;
+          console.log(`🔍 Looking for temp_id ${originalEntity.temp_id}: ${originalEntity.name} (${originalEntity.type})`);
+          for (const [extractedEntity, dbEntity] of savedEntitiesMap.entries()) {
+            console.log(`   Checking against saved: ${extractedEntity.name} (${extractedEntity.kind})`);
+            if (extractedEntity.name === originalEntity.name && extractedEntity.kind === originalEntity.type) {
+              savedEntity = dbEntity;
+              console.log(`   ✅ Found match! DB entity ID: ${dbEntity.entityId}`);
+              break;
+            }
+          }
+
+          if (savedEntity) {
+            mapping[originalEntity.temp_id] = savedEntity.entityId;
+            console.log(`✅ Mapped temp_id ${originalEntity.temp_id} (${originalEntity.name}) to entity ID ${savedEntity.entityId}`);
           } else {
-            console.log(`⚠️ Could not find database entity for temp_id ${originalEntity.temp_id} (${originalEntity.name})`);
+            // Fallback to database query if not in map
+            const dbEntity = await this.findEntityByNameAndType(originalEntity.name, originalEntity.type);
+            if (dbEntity) {
+              mapping[originalEntity.temp_id] = dbEntity.id;
+              console.log(`✅ Mapped temp_id ${originalEntity.temp_id} (${originalEntity.name}) to entity ID ${dbEntity.id} (via fallback)`);
+            } else {
+              console.log(`⚠️ Could not find database entity for temp_id ${originalEntity.temp_id} (${originalEntity.name})`);
+            }
           }
         }
       }
@@ -657,7 +699,7 @@ export async function processDocumentEntitiesModern(documentId: string): Promise
     ) as any;
 
     // Save entities to database first
-    await modernEntityExtractor.saveEntities(documentId, entities, aliases, relationships, edges);
+    const savedEntitiesMap = await modernEntityExtractor.saveEntities(documentId, document.persona_id, entities, aliases, relationships, edges);
 
     // Process LLM edges after entities are persisted
     if (rawLLMEdges && rawLLMEdges.length > 0) {
@@ -665,6 +707,7 @@ export async function processDocumentEntitiesModern(documentId: string): Promise
         documentId,
         rawLLMEdges,
         entities,
+        savedEntitiesMap,
         originalEntitiesWithTempIds
       );
     }
