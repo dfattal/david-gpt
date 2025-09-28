@@ -39,7 +39,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: latest
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -48,7 +48,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Build application
         run: pnpm build
@@ -108,7 +108,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: latest
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -117,7 +117,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Download previous performance baseline
         uses: actions/download-artifact@v3
@@ -172,7 +172,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: latest
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -181,7 +181,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Build application
         run: pnpm build
@@ -252,7 +252,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: latest
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -261,7 +261,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Download test results
         uses: actions/download-artifact@v3

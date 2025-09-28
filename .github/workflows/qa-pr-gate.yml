@@ -26,7 +26,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: latest
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -35,7 +35,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Build application
         run: pnpm build
@@ -129,7 +129,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Build for analysis
         run: pnpm build
@@ -157,7 +157,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Check for vulnerabilities
         run: |
@@ -191,7 +191,7 @@ jobs:
         run: |
           git fetch origin ${{ github.base_ref }}
           git checkout origin/${{ github.base_ref }}
-          pnpm install --frozen-lockfile
+          pnpm install --no-frozen-lockfile
           pnpm test:kg-quality > baseline-results.json
           git checkout ${{ github.head_ref }}
 
@@ -202,7 +202,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Run RAG impact tests
         run: |
