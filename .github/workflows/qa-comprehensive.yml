@@ -36,29 +36,34 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build application
-        run: npm run build
+        run: pnpm build
 
       - name: Run comprehensive RAG tests
-        run: npm run test:comprehensive
+        run: pnpm test:comprehensive
 
       - name: Run citation accuracy validation
-        run: npm run test:quality
+        run: pnpm test:quality
 
       - name: Run performance benchmarks
-        run: npm run test:performance
+        run: pnpm test:performance
 
       - name: Generate quality report
-        run: npm run qa:generate-report
+        run: pnpm qa:generate-report
 
       - name: Upload comprehensive test results
         uses: actions/upload-artifact@v3
@@ -100,14 +105,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Download previous performance baseline
         uses: actions/download-artifact@v3
@@ -117,10 +127,10 @@ jobs:
         continue-on-error: true
 
       - name: Run performance tests
-        run: npm run test:performance
+        run: pnpm test:performance
 
       - name: Compare with baseline
-        run: npm run qa:compare-performance
+        run: pnpm qa:compare-performance
 
       - name: Upload new performance baseline
         uses: actions/upload-artifact@v3
@@ -159,41 +169,46 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build application
-        run: npm run build
+        run: pnpm build
 
       - name: Start application for E2E tests
         run: |
-          npm start &
+          pnpm start &
           sleep 30
         env:
           NODE_ENV: production
 
       - name: Run full RAG test suite
         run: |
-          npm run test:comprehensive
-          npm run test:kg-quality
-          npm run test:architecture
-          npm run test:integration
+          pnpm test:comprehensive
+          pnpm test:kg-quality
+          pnpm test:architecture
+          pnpm test:integration
 
       - name: Run multi-turn conversation tests
         run: ./run-multiturn-tests.sh
 
       - name: Run E2E tests
-        run: npm run test:e2e
+        run: pnpm test:e2e
         continue-on-error: true
 
       - name: Generate weekly quality report
-        run: npm run qa:weekly-report
+        run: pnpm qa:weekly-report
 
       - name: Upload full test results
         uses: actions/upload-artifact@v3
@@ -234,14 +249,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Download test results
         uses: actions/download-artifact@v3
@@ -251,10 +271,10 @@ jobs:
         continue-on-error: true
 
       - name: Process quality metrics
-        run: npm run qa:process-metrics
+        run: pnpm qa:process-metrics
 
       - name: Update quality dashboard data
-        run: npm run qa:update-dashboard
+        run: pnpm qa:update-dashboard
 
       - name: Commit quality metrics
         run: |
