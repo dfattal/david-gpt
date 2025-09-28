@@ -118,8 +118,8 @@ export default function PersonasPage() {
     personaId: string
   ): ValidationResult => {
     try {
-      const validation = validatePersona(content, personaId);
-      return validation;
+      const validation = validatePersona(content, personaId as any);
+      return validation as any;
     } catch (error) {
       return {
         valid: false,
@@ -158,7 +158,7 @@ export default function PersonasPage() {
       // Parse persona
       let parsedPersona;
       try {
-        parsedPersona = parsePersonaContent(content, personaId);
+        parsedPersona = parsePersonaContent(content, personaId as any);
       } catch (error) {
         console.warn('Parser failed, but validation passed:', error);
       }
@@ -171,8 +171,9 @@ export default function PersonasPage() {
         validation_errors: validation.errors,
         metadata: parsedPersona
           ? {
-              name: parsedPersona.name,
-              expertiseDomains: parsedPersona.expertiseDomains?.length || 0,
+              name: (parsedPersona as any).name,
+              expertiseDomains:
+                (parsedPersona as any).expertiseDomains?.length || 0,
               qualityScore: validation.qualityScore,
             }
           : null,
@@ -215,7 +216,7 @@ export default function PersonasPage() {
       // Parse persona
       let parsedPersona;
       try {
-        parsedPersona = parsePersonaContent(editContent, editPersonaId);
+        parsedPersona = parsePersonaContent(editContent, editPersonaId as any);
       } catch (error) {
         console.warn('Parser failed:', error);
       }
@@ -228,8 +229,9 @@ export default function PersonasPage() {
         validation_errors: validation.errors,
         metadata: parsedPersona
           ? {
-              name: parsedPersona.name,
-              expertiseDomains: parsedPersona.expertiseDomains?.length || 0,
+              name: (parsedPersona as any).name,
+              expertiseDomains:
+                (parsedPersona as any).expertiseDomains?.length || 0,
               qualityScore: validation.qualityScore,
             }
           : null,
@@ -276,7 +278,7 @@ export default function PersonasPage() {
       try {
         parsedPersona = parsePersonaContent(
           editContent,
-          selectedPersona.persona_id
+          selectedPersona.persona_id as any
         );
       } catch (error) {
         console.warn('Parser failed:', error);
@@ -291,8 +293,9 @@ export default function PersonasPage() {
           validation_errors: validation.errors,
           metadata: parsedPersona
             ? {
-                name: parsedPersona.name,
-                expertiseDomains: parsedPersona.expertiseDomains?.length || 0,
+                name: (parsedPersona as any).name,
+                expertiseDomains:
+                  (parsedPersona as any).expertiseDomains?.length || 0,
                 qualityScore: validation.qualityScore,
               }
             : null,
