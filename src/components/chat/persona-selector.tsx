@@ -1,17 +1,22 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { Check, User, ArrowRight, Sparkles } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useActivePersonas } from "@/hooks/use-personas";
-import { getPersonaAvatar } from "@/lib/avatar-utils";
+import { useState, useEffect } from 'react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { Check, User, ArrowRight, Sparkles } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useActivePersonas } from '@/hooks/use-personas';
+import { getPersonaAvatar } from '@/lib/avatar-utils';
 
 export interface PersonaOption {
   persona_id: string;
@@ -42,7 +47,7 @@ export function PersonaSelector({
   onPersonaSelect,
   isOpen,
   onClose,
-  loading = false
+  loading = false,
 }: PersonaSelectorProps) {
   const [hoveredPersona, setHoveredPersona] = useState<string | null>(null);
 
@@ -51,18 +56,22 @@ export function PersonaSelector({
     onPersonaSelect(persona);
   };
 
-
   const getPersonaFallback = (persona: PersonaOption) => {
-    return persona.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    return persona.name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   const getPersonaTheme = (personaId: string) => {
     const themes: Record<string, string> = {
-      'david': 'from-blue-500 to-purple-600',
-      'legal': 'from-blue-600 to-indigo-700',
-      'medical': 'from-green-500 to-teal-600',
-      'financial': 'from-yellow-500 to-orange-600',
-      'technical': 'from-gray-600 to-slate-700',
+      david: 'from-blue-500 to-purple-600',
+      legal: 'from-blue-600 to-indigo-700',
+      medical: 'from-green-500 to-teal-600',
+      financial: 'from-yellow-500 to-orange-600',
+      technical: 'from-gray-600 to-slate-700',
     };
     return themes[personaId] || 'from-gray-500 to-gray-600';
   };
@@ -98,7 +107,9 @@ export function PersonaSelector({
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
-              <DialogTitle className="text-xl">Choose Your AI Expert</DialogTitle>
+              <DialogTitle className="text-xl">
+                Choose Your AI Expert
+              </DialogTitle>
               <p className="text-sm text-muted-foreground mt-1">
                 Select a specialized assistant for your questions
               </p>
@@ -114,16 +125,17 @@ export function PersonaSelector({
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-              {personas.map((persona) => (
+              {personas.map(persona => (
                 <Card
                   key={persona.persona_id}
                   className={cn(
-                    "relative overflow-hidden transition-all duration-200 cursor-pointer group",
+                    'relative overflow-hidden transition-all duration-200 cursor-pointer group',
                     {
-                      "ring-2 ring-primary shadow-lg": selectedPersona?.persona_id === persona.persona_id,
-                      "hover:shadow-md hover:scale-[1.02]": persona.is_active,
-                      "opacity-60 cursor-not-allowed": !persona.is_active,
-                      "bg-muted/20": hoveredPersona === persona.persona_id
+                      'ring-2 ring-primary shadow-lg':
+                        selectedPersona?.persona_id === persona.persona_id,
+                      'hover:shadow-md hover:scale-[1.02]': persona.is_active,
+                      'opacity-60 cursor-not-allowed': !persona.is_active,
+                      'bg-muted/20': hoveredPersona === persona.persona_id,
                     }
                   )}
                   onClick={() => handlePersonaClick(persona)}
@@ -133,7 +145,7 @@ export function PersonaSelector({
                   {/* Background gradient */}
                   <div
                     className={cn(
-                      "absolute inset-0 bg-gradient-to-br opacity-5",
+                      'absolute inset-0 bg-gradient-to-br opacity-5',
                       getPersonaTheme(persona.persona_id)
                     )}
                   />
@@ -148,7 +160,10 @@ export function PersonaSelector({
                   {/* Inactive overlay */}
                   {!persona.is_active && (
                     <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
-                      <Badge variant="secondary" className="pointer-events-none">
+                      <Badge
+                        variant="secondary"
+                        className="pointer-events-none"
+                      >
                         Inactive
                       </Badge>
                     </div>
@@ -165,7 +180,7 @@ export function PersonaSelector({
                         />
                         <AvatarFallback
                           className={cn(
-                            "text-white font-semibold bg-gradient-to-br",
+                            'text-white font-semibold bg-gradient-to-br',
                             getPersonaTheme(persona.persona_id)
                           )}
                         >
@@ -185,7 +200,7 @@ export function PersonaSelector({
 
                       {/* Expertise Domains */}
                       <div className="flex flex-wrap gap-1 justify-center min-h-[2rem]">
-                        {persona.expertise_domains.slice(0, 3).map((domain) => (
+                        {persona.expertise_domains.slice(0, 3).map(domain => (
                           <Badge
                             key={domain}
                             variant="secondary"
@@ -195,7 +210,10 @@ export function PersonaSelector({
                           </Badge>
                         ))}
                         {persona.expertise_domains.length > 3 && (
-                          <Badge variant="outline" className="text-xs px-2 py-0.5">
+                          <Badge
+                            variant="outline"
+                            className="text-xs px-2 py-0.5"
+                          >
                             +{persona.expertise_domains.length - 3}
                           </Badge>
                         )}
@@ -242,7 +260,7 @@ export function PersonaSelector({
                     />
                     <AvatarFallback
                       className={cn(
-                        "text-white text-xs bg-gradient-to-br",
+                        'text-white text-xs bg-gradient-to-br',
                         getPersonaTheme(selectedPersona.persona_id)
                       )}
                     >
@@ -250,8 +268,12 @@ export function PersonaSelector({
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-medium text-sm">{selectedPersona.name}</p>
-                    <p className="text-xs text-muted-foreground">Selected assistant</p>
+                    <p className="font-medium text-sm">
+                      {selectedPersona.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Selected assistant
+                    </p>
                   </div>
                 </div>
                 <Button onClick={onClose} size="sm">
@@ -269,11 +291,17 @@ export function PersonaSelector({
 
 // Hook for managing persona selector state
 export function usePersonaSelector() {
-  const [selectedPersona, setSelectedPersona] = useState<PersonaOption | null>(null);
+  const [selectedPersona, setSelectedPersona] = useState<PersonaOption | null>(
+    null
+  );
   const [isOpen, setIsOpen] = useState(false);
 
   // Use React Query to fetch personas
-  const { data: personas = [], isLoading: loading, error } = useActivePersonas();
+  const {
+    data: personas = [],
+    isLoading: loading,
+    error,
+  } = useActivePersonas();
 
   // Auto-select first active persona if none selected
   useEffect(() => {
@@ -298,6 +326,6 @@ export function usePersonaSelector() {
     setIsOpen,
     loading,
     loadPersonas,
-    error
+    error,
   };
 }

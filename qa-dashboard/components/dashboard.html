@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>David-GPT Quality Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8fafc;
+        }
+        .dashboard {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .metric-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .metric-card h3 {
+            margin: 0 0 10px 0;
+            color: #374151;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .metric-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 5px;
+        }
+        .metric-trend {
+            font-size: 14px;
+            color: #6b7280;
+        }
+        .alerts {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .alert {
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+        }
+        .alert-high {
+            background-color: #fef2f2;
+            border-left: 4px solid #ef4444;
+            color: #991b1b;
+        }
+        .alert-medium {
+            background-color: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            color: #92400e;
+        }
+        .last-updated {
+            text-align: center;
+            color: #6b7280;
+            font-size: 12px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>David-GPT Quality Dashboard</h1>
+            <p>Real-time quality monitoring and analytics</p>
+        </div>
+
+        <div class="metrics-grid">
+            
+        <div class="metric-card">
+          <h3>Build Success Rate</h3>
+          <div class="metric-value">89.6</div>
+          <div class="metric-trend">➖ -1.3%</div>
+          <canvas id="chart-buildSuccess" width="400" height="200"></canvas>
+        </div>
+      
+        </div>
+
+        
+
+        <div class="last-updated">
+            Last updated: 9/27/2025, 9:08:16 PM
+        </div>
+    </div>
+
+    <script>
+        // Chart initialization
+        const chartData = {"buildSuccess":{"labels":["8/29/2025","8/30/2025","8/31/2025","9/1/2025","9/2/2025","9/3/2025","9/4/2025","9/5/2025","9/6/2025","9/7/2025","9/8/2025","9/9/2025","9/10/2025","9/11/2025","9/12/2025","9/13/2025","9/14/2025","9/15/2025","9/16/2025","9/17/2025","9/18/2025","9/19/2025","9/20/2025","9/21/2025","9/22/2025","9/23/2025","9/24/2025","9/25/2025","9/26/2025","9/27/2025"],"datasets":[{"label":"Build Success Rate","data":[92.54402179396105,88.8753020428283,94.72952416476099,85.22087545059226,92.33203139496372,90.29378566715243,86.97538236506058,88.58753543269782,86.58732550735375,85.7055992205332,95.40524653031494,88.1880158172196,96.85555772640971,91.53069119771204,96.84597176716147,87.01741456762302,93.8750220401749,92.65680785308538,91.71084994722433,91.00725604438608,87.22645104593329,91.75742387707503,96.2648294980159,97.72428241298498,92.38112273793533,86.9874104148903,86.58462769958226,95.08964454311032,87.51594362071747,89.57865414483257],"borderColor":"rgba(34, 197, 94, 1)","backgroundColor":"rgba(34, 197, 94, 0.1)","fill":true}]}};
+
+        Object.entries(chartData).forEach(([metric, data]) => {
+            const ctx = document.getElementById('chart-' + metric);
+            if (ctx) {
+                new Chart(ctx, {
+                    type: 'line',
+                    data: data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        }
+                    }
+                });
+            }
+        });
+
+        // Auto-refresh every 5 minutes
+        setTimeout(() => {
+            window.location.reload();
+        }, 300000);
+    </script>
+</body>
+</html>

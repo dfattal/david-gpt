@@ -78,7 +78,7 @@ export function useRealtimeAnalytics() {
           console.log('📡 Real-time analytics connected');
         };
 
-        eventSource.onmessage = (event) => {
+        eventSource.onmessage = event => {
           try {
             const data = JSON.parse(event.data);
 
@@ -94,7 +94,7 @@ export function useRealtimeAnalytics() {
           }
         };
 
-        eventSource.onerror = (error) => {
+        eventSource.onerror = error => {
           console.error('SSE connection error:', error);
           setIsConnected(false);
           eventSource.close();
@@ -102,7 +102,6 @@ export function useRealtimeAnalytics() {
           // Reconnect after 5 seconds
           setTimeout(connectSSE, 5000);
         };
-
       } catch (error) {
         console.error('Failed to establish SSE connection:', error);
         setIsConnected(false);
@@ -110,8 +109,9 @@ export function useRealtimeAnalytics() {
     };
 
     // Only connect SSE in production or when explicitly enabled
-    const enableSSE = process.env.NODE_ENV === 'production' ||
-                     process.env.NEXT_PUBLIC_ENABLE_SSE === 'true';
+    const enableSSE =
+      process.env.NODE_ENV === 'production' ||
+      process.env.NEXT_PUBLIC_ENABLE_SSE === 'true';
 
     if (enableSSE) {
       connectSSE();

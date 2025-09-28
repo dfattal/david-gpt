@@ -51,15 +51,19 @@ export function generatePatentMetadataChunk(
     const inventorList = formatNameList(normalizedInventors);
 
     // Add inventor details with context
-    const inventorDetails = normalizedInventors.map(inventor => {
-      // Could be enhanced with inventor research areas, other patents, etc.
-      return inventor;
-    }).join(', ');
+    const inventorDetails = normalizedInventors
+      .map(inventor => {
+        // Could be enhanced with inventor research areas, other patents, etc.
+        return inventor;
+      })
+      .join(', ');
 
     parts.push(`Inventors: ${inventorDetails}`);
 
     if (options.includeContext) {
-      parts.push(`Research Focus: Optical systems, display technology, computational imaging`);
+      parts.push(
+        `Research Focus: Optical systems, display technology, computational imaging`
+      );
     }
   }
 
@@ -68,8 +72,11 @@ export function generatePatentMetadataChunk(
     parts.push(`Assignee: ${document.assignees.join(', ')}`);
   }
 
-  if (document.originalAssignee &&
-      (!document.assignees || !document.assignees.includes(document.originalAssignee))) {
+  if (
+    document.originalAssignee &&
+    (!document.assignees ||
+      !document.assignees.includes(document.originalAssignee))
+  ) {
     parts.push(`Originally Assigned: ${document.originalAssignee}`);
   }
 
@@ -106,8 +113,8 @@ export function generatePatentMetadataChunk(
     const classInfo = Array.isArray(document.classification)
       ? document.classification.join(', ')
       : typeof document.classification === 'object'
-      ? Object.values(document.classification).join(', ')
-      : document.classification;
+        ? Object.values(document.classification).join(', ')
+        : document.classification;
     parts.push(`Classification: ${classInfo}`);
   }
 
@@ -122,21 +129,28 @@ export function generatePatentMetadataChunk(
 
   // Abstract summary (if available)
   if (document.abstract) {
-    const abstractPreview = document.abstract.length > 200
-      ? document.abstract.substring(0, 200) + '...'
-      : document.abstract;
+    const abstractPreview =
+      document.abstract.length > 200
+        ? document.abstract.substring(0, 200) + '...'
+        : document.abstract;
     parts.push(`Summary: ${abstractPreview}`);
   }
 
   // Technology area and applications
   if (options.includeContext) {
-    parts.push(`Technology Area: Display systems, 3D visualization, optical computing`);
-    parts.push(`Applications: Gaming monitors, mobile displays, AR/VR headsets, professional imaging`);
+    parts.push(
+      `Technology Area: Display systems, 3D visualization, optical computing`
+    );
+    parts.push(
+      `Applications: Gaming monitors, mobile displays, AR/VR headsets, professional imaging`
+    );
   }
 
   // Related patents and prior art (placeholder for future enhancement)
   if (options.includeRelationships) {
-    parts.push(`Related Patents: Patent family analysis and citation network available`);
+    parts.push(
+      `Related Patents: Patent family analysis and citation network available`
+    );
   }
 
   const content = parts.join('\n\n');
@@ -152,8 +166,8 @@ export function generatePatentMetadataChunk(
       inventors: document.inventors,
       assignees: document.assignees,
       status: document.patentStatus,
-      jurisdiction: document.jurisdiction
-    }
+      jurisdiction: document.jurisdiction,
+    },
   };
 }
 
@@ -172,12 +186,14 @@ export function generatePaperMetadataChunk(
 
   // Authors and affiliations
   if (document.authorsAffiliations && document.authorsAffiliations.length > 0) {
-    const authorDetails = document.authorsAffiliations.map(author => {
-      if (author.affiliation) {
-        return `${author.name} (${author.affiliation})`;
-      }
-      return author.name;
-    }).join(', ');
+    const authorDetails = document.authorsAffiliations
+      .map(author => {
+        if (author.affiliation) {
+          return `${author.name} (${author.affiliation})`;
+        }
+        return author.name;
+      })
+      .join(', ');
 
     parts.push(`Authors: ${authorDetails}`);
 
@@ -248,21 +264,28 @@ export function generatePaperMetadataChunk(
 
   // Abstract summary
   if (document.abstract) {
-    const abstractPreview = document.abstract.length > 300
-      ? document.abstract.substring(0, 300) + '...'
-      : document.abstract;
+    const abstractPreview =
+      document.abstract.length > 300
+        ? document.abstract.substring(0, 300) + '...'
+        : document.abstract;
     parts.push(`Abstract: ${abstractPreview}`);
   }
 
   // Research context
   if (options.includeContext) {
-    parts.push(`Research Field: Computer science, optics, display technology, computational imaging`);
-    parts.push(`Methodology: Experimental research, theoretical analysis, system implementation`);
+    parts.push(
+      `Research Field: Computer science, optics, display technology, computational imaging`
+    );
+    parts.push(
+      `Methodology: Experimental research, theoretical analysis, system implementation`
+    );
   }
 
   // Related work (placeholder for future enhancement)
   if (options.includeRelationships) {
-    parts.push(`Citation Network: Citation analysis and related paper recommendations available`);
+    parts.push(
+      `Citation Network: Citation analysis and related paper recommendations available`
+    );
   }
 
   const content = parts.join('\n\n');
@@ -278,8 +301,8 @@ export function generatePaperMetadataChunk(
       authors: document.authorsAffiliations,
       venue: document.venue,
       citationCount: document.citationCount,
-      keywords: document.keywords
-    }
+      keywords: document.keywords,
+    },
   };
 }
 
@@ -334,8 +357,12 @@ export function generatePressMetadataChunk(
 
   // Technology focus (for tech press)
   if (options.includeContext) {
-    parts.push(`Technology Focus: Consumer electronics, display technology, 3D visualization, gaming hardware`);
-    parts.push(`Industry Context: Product launches, market analysis, technology trends, competitive landscape`);
+    parts.push(
+      `Technology Focus: Consumer electronics, display technology, 3D visualization, gaming hardware`
+    );
+    parts.push(
+      `Industry Context: Product launches, market analysis, technology trends, competitive landscape`
+    );
   }
 
   // Source and credibility
@@ -360,8 +387,8 @@ export function generatePressMetadataChunk(
       outlet: document.identifiers.outlet,
       journalist: document.identifiers.journalist,
       url: document.identifiers.url,
-      publishedDate: document.dates.published
-    }
+      publishedDate: document.dates.published,
+    },
   };
 }
 
@@ -412,8 +439,12 @@ export function generateLegalMetadataChunk(
 
   // Legal context
   if (options.includeContext) {
-    parts.push(`Legal Area: Intellectual property, patent litigation, technology law, corporate law`);
-    parts.push(`Document Type: Court filing, legal brief, motion, judgment, settlement agreement`);
+    parts.push(
+      `Legal Area: Intellectual property, patent litigation, technology law, corporate law`
+    );
+    parts.push(
+      `Document Type: Court filing, legal brief, motion, judgment, settlement agreement`
+    );
   }
 
   const content = parts.join('\n\n');
@@ -427,8 +458,8 @@ export function generateLegalMetadataChunk(
       docType: document.docType,
       caseNo: document.identifiers.case_no,
       court: document.identifiers.court,
-      filedDate: document.dates.filed
-    }
+      filedDate: document.dates.filed,
+    },
   };
 }
 
@@ -510,9 +541,10 @@ function generateGenericMetadataChunk(
 
   // Abstract if available
   if (document.abstract) {
-    const abstractPreview = document.abstract.length > 200
-      ? document.abstract.substring(0, 200) + '...'
-      : document.abstract;
+    const abstractPreview =
+      document.abstract.length > 200
+        ? document.abstract.substring(0, 200) + '...'
+        : document.abstract;
     parts.push(`Summary: ${abstractPreview}`);
   }
 
@@ -526,8 +558,8 @@ function generateGenericMetadataChunk(
     metadata: {
       docType: document.docType,
       identifiers: document.identifiers,
-      dates: document.dates
-    }
+      dates: document.dates,
+    },
   };
 }
 
@@ -551,7 +583,7 @@ function formatDate(dateString: string): string {
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
     });
   } catch {
     return dateString; // Return original if parsing fails
@@ -588,8 +620,13 @@ function extractProductInfo(document: GenericDocumentMetadata): string | null {
   }
 
   // Leia-specific features
-  if ((document as any).leiaFeature && (document as any).leiaFeature.length > 0) {
-    productParts.push(`3D Features: ${(document as any).leiaFeature.join(', ')}`);
+  if (
+    (document as any).leiaFeature &&
+    (document as any).leiaFeature.length > 0
+  ) {
+    productParts.push(
+      `3D Features: ${(document as any).leiaFeature.join(', ')}`
+    );
   }
 
   return productParts.length > 0 ? productParts.join(' | ') : null;
@@ -627,6 +664,6 @@ export function validateMetadataChunk(chunk: MetadataChunk): {
 
   return {
     valid: errors.length === 0,
-    errors
+    errors,
   };
 }

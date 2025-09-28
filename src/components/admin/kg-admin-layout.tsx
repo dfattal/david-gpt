@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
 import { useState } from 'react';
-import { 
-  Database, 
-  Network, 
-  BarChart3, 
+import {
+  Database,
+  Network,
+  BarChart3,
   Settings,
   ChevronRight,
   Users,
   GitMerge,
   Eye,
-  AlertTriangle
+  AlertTriangle,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,9 @@ interface KGAdminLayoutProps {
   initialTab?: KGAdminTab;
 }
 
-export function KGAdminLayout({ initialTab = 'dashboard' }: KGAdminLayoutProps) {
+export function KGAdminLayout({
+  initialTab = 'dashboard',
+}: KGAdminLayoutProps) {
   const [activeTab, setActiveTab] = useState<KGAdminTab>(initialTab);
   const [showResetDialog, setShowResetDialog] = useState(false);
 
@@ -56,7 +58,8 @@ export function KGAdminLayout({ initialTab = 'dashboard' }: KGAdminLayoutProps) 
       id: 'settings' as const,
       label: 'KG Settings',
       icon: Settings,
-      description: 'Configure knowledge graph parameters and database management',
+      description:
+        'Configure knowledge graph parameters and database management',
       badge: null,
     },
   ];
@@ -89,17 +92,22 @@ export function KGAdminLayout({ initialTab = 'dashboard' }: KGAdminLayoutProps) 
                     <AlertTriangle className="w-6 h-6 text-red-600" />
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900 mb-2">Database Reset</h4>
+                    <h4 className="font-semibold text-gray-900 mb-2">
+                      Database Reset
+                    </h4>
                     <p className="text-gray-600 text-sm mb-4">
-                      Permanently delete all data from the database. This action cannot be undone and should only be used in testing environments.
+                      Permanently delete all data from the database. This action
+                      cannot be undone and should only be used in testing
+                      environments.
                     </p>
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
                       <p className="text-yellow-800 text-sm">
-                        <strong>Warning:</strong> This will delete all entities, relationships, documents, conversations, and user data.
+                        <strong>Warning:</strong> This will delete all entities,
+                        relationships, documents, conversations, and user data.
                       </p>
                     </div>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       onClick={() => setShowResetDialog(true)}
                       className="text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400"
                     >
@@ -130,8 +138,8 @@ export function KGAdminLayout({ initialTab = 'dashboard' }: KGAdminLayoutProps) 
           </p>
         </div>
         <div className="flex items-center space-x-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => setShowResetDialog(true)}
             className="text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400"
           >
@@ -148,19 +156,20 @@ export function KGAdminLayout({ initialTab = 'dashboard' }: KGAdminLayoutProps) 
       {/* Navigation Tabs */}
       <div className="border-b border-gray-200">
         <div className="flex space-x-8">
-          {tabs.map((tab) => {
+          {tabs.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
-            
+
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`
                   flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors
-                  ${isActive 
-                    ? 'border-blue-500 text-blue-600' 
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ${
+                    isActive
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }
                 `}
                 disabled={false}
@@ -184,9 +193,7 @@ export function KGAdminLayout({ initialTab = 'dashboard' }: KGAdminLayoutProps) 
       </div>
 
       {/* Main Content */}
-      <div className="py-6">
-        {renderTabContent()}
-      </div>
+      <div className="py-6">{renderTabContent()}</div>
 
       {/* Help Cards for first-time users */}
       {activeTab === 'dashboard' && (
@@ -197,10 +204,11 @@ export function KGAdminLayout({ initialTab = 'dashboard' }: KGAdminLayoutProps) 
               <h3 className="font-semibold text-gray-900">Entity Management</h3>
             </div>
             <p className="text-gray-600 text-sm mb-4">
-              Browse and manage all entities in your knowledge graph. Search, filter, edit, and merge duplicate entities.
+              Browse and manage all entities in your knowledge graph. Search,
+              filter, edit, and merge duplicate entities.
             </p>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => setActiveTab('entities')}
             >
@@ -215,10 +223,11 @@ export function KGAdminLayout({ initialTab = 'dashboard' }: KGAdminLayoutProps) 
               <h3 className="font-semibold text-gray-900">Relationships</h3>
             </div>
             <p className="text-gray-600 text-sm mb-4">
-              Manage connections between entities. Create, edit, and delete relationships to improve graph connectivity.
+              Manage connections between entities. Create, edit, and delete
+              relationships to improve graph connectivity.
             </p>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => setActiveTab('relationships')}
             >
@@ -233,13 +242,10 @@ export function KGAdminLayout({ initialTab = 'dashboard' }: KGAdminLayoutProps) 
               <h3 className="font-semibold text-gray-900">Quality Tools</h3>
             </div>
             <p className="text-gray-600 text-sm mb-4">
-              Use automated tools to detect duplicates, orphaned entities, and other quality issues for systematic cleanup.
+              Use automated tools to detect duplicates, orphaned entities, and
+              other quality issues for systematic cleanup.
             </p>
-            <Button 
-              variant="outline" 
-              size="sm"
-              disabled
-            >
+            <Button variant="outline" size="sm" disabled>
               <AlertTriangle className="w-4 h-4 mr-2" />
               Auto-Cleanup (Coming Soon)
             </Button>

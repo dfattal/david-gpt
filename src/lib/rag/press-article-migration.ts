@@ -1,6 +1,6 @@
 /**
  * Press Article Metadata Migration Script
- * 
+ *
  * Migrates existing URL documents that are actually press articles to the new
  * press-article document type with enhanced Leia technology metadata.
  */
@@ -11,15 +11,17 @@ import { injectMetadataIntoContent } from './metadata-templates';
 import type { DocumentMetadata } from './types';
 
 // Use environment variables or provide fallback values
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://mnjrwjtzfjfixdjrerke.supabase.co';
+const supabaseUrl =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  'https://mnjrwjtzfjfixdjrerke.supabase.co';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 export class PressArticleMigration {
   private supabase = createClient(supabaseUrl, supabaseServiceKey);
-  
+
   private pressOutletPatterns = [
     'techcrunch.com',
-    'theverge.com', 
+    'theverge.com',
     'cnet.com',
     'engadget.com',
     'arstechnica.com',
@@ -56,7 +58,7 @@ export class PressArticleMigration {
     'reuters.com',
     'bloomberg.com',
     'wsj.com',
-    'nytimes.com'
+    'nytimes.com',
   ];
 
   /**
@@ -67,12 +69,14 @@ export class PressArticleMigration {
     migrated: number;
     errors: Array<{ documentId: string; error: string }>;
   }> {
-    console.log(`Starting press article migration ${dryRun ? '(DRY RUN)' : '(LIVE)'}`);
-    
+    console.log(
+      `Starting press article migration ${dryRun ? '(DRY RUN)' : '(LIVE)'}`
+    );
+
     const results = {
       processed: 0,
       migrated: 0,
-      errors: [] as Array<{ documentId: string; error: string }>
+      errors: [] as Array<{ documentId: string; error: string }>,
     };
 
     try {
@@ -97,38 +101,46 @@ export class PressArticleMigration {
 
       for (const doc of documents) {
         results.processed++;
-        
+
         try {
           if (await this.shouldMigrateDocument(doc)) {
-            console.log(`Document ${doc.id} (${doc.title}) is a press article candidate`);
-            
+            console.log(
+              `Document ${doc.id} (${doc.title}) is a press article candidate`
+            );
+
             if (!dryRun) {
               await this.migrateDocument(doc);
             }
-            
+
             results.migrated++;
-            console.log(`${dryRun ? 'Would migrate' : 'Migrated'} document: ${doc.title}`);
+            console.log(
+              `${dryRun ? 'Would migrate' : 'Migrated'} document: ${doc.title}`
+            );
           }
         } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          const errorMsg =
+            error instanceof Error ? error.message : 'Unknown error';
           results.errors.push({ documentId: doc.id, error: errorMsg });
           console.error(`Error processing document ${doc.id}:`, errorMsg);
         }
 
         // Progress reporting
         if (results.processed % 10 === 0) {
-          console.log(`Processed ${results.processed}/${documents.length} documents`);
+          console.log(
+            `Processed ${results.processed}/${documents.length} documents`
+          );
         }
       }
 
-      console.log(`Migration complete: ${results.migrated} articles ${dryRun ? 'identified' : 'migrated'} out of ${results.processed} processed`);
-      
+      console.log(
+        `Migration complete: ${results.migrated} articles ${dryRun ? 'identified' : 'migrated'} out of ${results.processed} processed`
+      );
+
       if (results.errors.length > 0) {
         console.log(`${results.errors.length} errors encountered`);
       }
 
       return results;
-      
     } catch (error) {
       console.error('Migration failed:', error);
       throw error;
@@ -141,28 +153,35 @@ export class PressArticleMigration {
   private async shouldMigrateDocument(doc: any): Promise<boolean> {
     // Check if URL matches press outlet patterns
     if (!doc.url) return false;
-    
+
     try {
       const hostname = new URL(doc.url).hostname.toLowerCase();
-      const isNewsOutlet = this.pressOutletPatterns.some(outlet => 
-        hostname.includes(outlet) || hostname.endsWith(outlet)
+      const isNewsOutlet = this.pressOutletPatterns.some(
+        outlet => hostname.includes(outlet) || hostname.endsWith(outlet)
       );
-      
+
       if (!isNewsOutlet) return false;
 
       // Additional checks for Leia technology content
       const title = doc.title || '';
       const metaTitle = doc.meta_title || '';
-      
+
       // Look for Leia-related keywords in title or metadata
       const leiaKeywords = [
-        'leia', '3d display', 'lightfield', 'holographic', 'glasses-free',
-        'autostereoscopic', 'immersive display', 'depth sensing'
+        'leia',
+        '3d display',
+        'lightfield',
+        'holographic',
+        'glasses-free',
+        'autostereoscopic',
+        'immersive display',
+        'depth sensing',
       ];
-      
-      const hasLeiaContent = leiaKeywords.some(keyword => 
-        title.toLowerCase().includes(keyword) || 
-        metaTitle.toLowerCase().includes(keyword)
+
+      const hasLeiaContent = leiaKeywords.some(
+        keyword =>
+          title.toLowerCase().includes(keyword) ||
+          metaTitle.toLowerCase().includes(keyword)
       );
 
       // Also check if document content contains technology keywords
@@ -174,19 +193,24 @@ export class PressArticleMigration {
           .limit(3); // Check first few chunks
 
         if (!error && chunks) {
-          const combinedContent = chunks.map(c => c.content).join(' ').toLowerCase();
-          const hasLeiaInContent = leiaKeywords.some(keyword => 
+          const combinedContent = chunks
+            .map(c => c.content)
+            .join(' ')
+            .toLowerCase();
+          const hasLeiaInContent = leiaKeywords.some(keyword =>
             combinedContent.includes(keyword)
           );
-          
+
           if (hasLeiaInContent) return true;
         }
       }
 
       return hasLeiaContent;
-      
     } catch (error) {
-      console.warn(`Could not evaluate document ${doc.id} for migration:`, error);
+      console.warn(
+        `Could not evaluate document ${doc.id} for migration:`,
+        error
+      );
       return false;
     }
   }
@@ -208,7 +232,7 @@ export class PressArticleMigration {
       }
 
       const combinedContent = chunks?.map(c => c.content).join('\n') || '';
-      
+
       // Extract Leia technology metadata
       const leiaMetadata = leiaArticleExtractor.extractMetadata(
         doc.title || 'Untitled Article',
@@ -222,17 +246,29 @@ export class PressArticleMigration {
         // Map extracted metadata to document fields
         ...(leiaMetadata.oem && { oem: leiaMetadata.oem }),
         ...(leiaMetadata.model && { model: leiaMetadata.model }),
-        ...(leiaMetadata.displaySize && { displaySize: leiaMetadata.displaySize }),
-        ...(leiaMetadata.displayType && { displayType: leiaMetadata.displayType }),
-        ...(leiaMetadata.refreshRate && { refreshRate: leiaMetadata.refreshRate }),
-        ...(leiaMetadata.leiaFeature && { leiaFeature: leiaMetadata.leiaFeature }),
-        ...(leiaMetadata.productCategory && { productCategory: leiaMetadata.productCategory }),
+        ...(leiaMetadata.displaySize && {
+          displaySize: leiaMetadata.displaySize,
+        }),
+        ...(leiaMetadata.displayType && {
+          displayType: leiaMetadata.displayType,
+        }),
+        ...(leiaMetadata.refreshRate && {
+          refreshRate: leiaMetadata.refreshRate,
+        }),
+        ...(leiaMetadata.leiaFeature && {
+          leiaFeature: leiaMetadata.leiaFeature,
+        }),
+        ...(leiaMetadata.productCategory && {
+          productCategory: leiaMetadata.productCategory,
+        }),
         ...(leiaMetadata.journalist && { journalist: leiaMetadata.journalist }),
         ...(leiaMetadata.outlet && { outlet: leiaMetadata.outlet }),
         ...(leiaMetadata.launchYear && { launchYear: leiaMetadata.launchYear }),
-        ...(leiaMetadata.marketRegion && { marketRegion: leiaMetadata.marketRegion }),
+        ...(leiaMetadata.marketRegion && {
+          marketRegion: leiaMetadata.marketRegion,
+        }),
         ...(leiaMetadata.priceRange && { priceRange: leiaMetadata.priceRange }),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       };
 
       const { error: updateError } = await this.supabase
@@ -247,17 +283,23 @@ export class PressArticleMigration {
       // Update abstract chunks with metadata injection
       await this.updateChunksWithMetadata(doc.id, leiaMetadata);
 
-      console.log(`Successfully migrated document ${doc.id} to press-article type`);
-      
+      console.log(
+        `Successfully migrated document ${doc.id} to press-article type`
+      );
     } catch (error) {
-      throw new Error(`Migration failed for document ${doc.id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Migration failed for document ${doc.id}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
   /**
    * Update abstract chunks with injected metadata
    */
-  private async updateChunksWithMetadata(documentId: string, leiaMetadata: any): Promise<void> {
+  private async updateChunksWithMetadata(
+    documentId: string,
+    leiaMetadata: any
+  ): Promise<void> {
     try {
       // Find abstract or first chunk
       const { data: chunks, error } = await this.supabase
@@ -288,26 +330,31 @@ export class PressArticleMigration {
         outlet: leiaMetadata.outlet,
         launchYear: leiaMetadata.launchYear,
         marketRegion: leiaMetadata.marketRegion,
-        priceRange: leiaMetadata.priceRange
+        priceRange: leiaMetadata.priceRange,
       };
 
-      const enhancedContent = injectMetadataIntoContent(chunk.content, simpleMetadata);
+      const enhancedContent = injectMetadataIntoContent(
+        chunk.content,
+        simpleMetadata
+      );
 
       // Update chunk content
       const { error: updateError } = await this.supabase
         .from('document_chunks')
         .update({
           content: enhancedContent,
-          updated_at: new Date()
+          updated_at: new Date(),
         })
         .eq('id', chunk.id);
 
       if (updateError) {
         throw new Error(`Failed to update chunk: ${updateError.message}`);
       }
-
     } catch (error) {
-      console.warn(`Failed to update chunks for document ${documentId}:`, error);
+      console.warn(
+        `Failed to update chunks for document ${documentId}:`,
+        error
+      );
       // Don't throw - metadata injection is nice to have but not critical
     }
   }
@@ -334,7 +381,7 @@ export class PressArticleMigration {
           launch_year: null,
           market_region: null,
           price_range: null,
-          updated_at: new Date()
+          updated_at: new Date(),
         })
         .eq('id', documentId);
 
@@ -343,7 +390,6 @@ export class PressArticleMigration {
       }
 
       console.log(`Successfully rolled back document ${documentId}`);
-
     } catch (error) {
       console.error(`Rollback failed for document ${documentId}:`, error);
       throw error;
@@ -357,8 +403,9 @@ export const pressArticleMigration = new PressArticleMigration();
 if (require.main === module) {
   const args = process.argv.slice(2);
   const dryRun = !args.includes('--execute');
-  
-  pressArticleMigration.migrateArticles(dryRun)
+
+  pressArticleMigration
+    .migrateArticles(dryRun)
     .then(results => {
       console.log('Migration results:', results);
       process.exit(0);

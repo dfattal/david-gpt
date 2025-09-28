@@ -11,7 +11,11 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { runAllQualityTests, runQuickSmokeTest, createTestRunner } from '../lib/rag/tests/comprehensive-test-runner';
+import {
+  runAllQualityTests,
+  runQuickSmokeTest,
+  createTestRunner,
+} from '../lib/rag/tests/comprehensive-test-runner';
 import type { TestConfiguration } from '../lib/rag/tests/comprehensive-test-runner';
 
 // =======================
@@ -49,8 +53,12 @@ async function main() {
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      console.error('❌ Missing Supabase configuration. Please check your environment variables.');
-      console.error('Required: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY');
+      console.error(
+        '❌ Missing Supabase configuration. Please check your environment variables.'
+      );
+      console.error(
+        'Required: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY'
+      );
       process.exit(1);
     }
 
@@ -58,7 +66,10 @@ async function main() {
 
     // Verify database connection
     console.log('🔌 Verifying database connection...');
-    const { data, error } = await supabase.from('documents').select('id').limit(1);
+    const { data, error } = await supabase
+      .from('documents')
+      .select('id')
+      .limit(1);
     if (error) {
       console.error('❌ Database connection failed:', error.message);
       process.exit(1);
@@ -98,7 +109,6 @@ async function main() {
         }
       }
     }
-
   } catch (error) {
     console.error('\n❌ Test execution failed:', error);
     process.exit(1);
@@ -115,7 +125,7 @@ function parseArgs(): CLIOptions {
     smoke: false,
     persona: 'david',
     verbose: true,
-    help: false
+    help: false,
   };
 
   for (const arg of args) {
@@ -153,11 +163,11 @@ function buildCustomConfiguration(options: CLIOptions): TestConfiguration {
       'Who invented lightfield displays?',
       'How do 3D displays work?',
       'Patents by David Fattal',
-      'Leia Inc technology'
+      'Leia Inc technology',
     ],
     abTestSampleSize: 4,
     loadTestDuration: 60,
-    verbose: options.verbose
+    verbose: options.verbose,
   };
 
   // Apply include/exclude filters
@@ -171,11 +181,15 @@ function buildCustomConfiguration(options: CLIOptions): TestConfiguration {
   }
 
   if (options.exclude) {
-    if (options.exclude.includes('conversations')) config.includeConversationTests = false;
-    if (options.exclude.includes('kg-quality')) config.includeKGQualityTests = false;
-    if (options.exclude.includes('citations')) config.includeCitationTests = false;
+    if (options.exclude.includes('conversations'))
+      config.includeConversationTests = false;
+    if (options.exclude.includes('kg-quality'))
+      config.includeKGQualityTests = false;
+    if (options.exclude.includes('citations'))
+      config.includeCitationTests = false;
     if (options.exclude.includes('ab-tests')) config.includeABTests = false;
-    if (options.exclude.includes('performance')) config.includePerformanceTests = false;
+    if (options.exclude.includes('performance'))
+      config.includePerformanceTests = false;
     if (options.exclude.includes('load-tests')) config.includeLoadTests = false;
   }
 

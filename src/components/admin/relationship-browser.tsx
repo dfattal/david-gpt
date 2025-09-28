@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
@@ -7,17 +7,17 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { RelationshipEditorDialog } from './relationship-editor-dialog';
-import { 
-  Search, 
-  Filter, 
-  Edit, 
-  Trash2, 
+import {
+  Search,
+  Filter,
+  Edit,
+  Trash2,
   Plus,
   ChevronLeft,
   ChevronRight,
   AlertCircle,
   ArrowRight,
-  Eye
+  Eye,
 } from 'lucide-react';
 
 interface Entity {
@@ -52,7 +52,7 @@ interface RelationshipSearchParams {
 
 const RELATION_TYPES = [
   'author_of',
-  'inventor_of', 
+  'inventor_of',
   'assignee_of',
   'cites',
   'supersedes',
@@ -66,7 +66,7 @@ const RELATION_TYPES = [
   'can_use',
   'enhances',
   'evolved_to',
-  'alternative_to'
+  'alternative_to',
 ];
 
 const RELATION_COLORS: Record<string, string> = {
@@ -101,32 +101,35 @@ export function RelationshipBrowser() {
   const [relationships, setRelationships] = useState<Relationship[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedRelationships, setSelectedRelationships] = useState<Set<string>>(new Set());
-  
+  const [selectedRelationships, setSelectedRelationships] = useState<
+    Set<string>
+  >(new Set());
+
   const [searchParams, setSearchParams] = useState<RelationshipSearchParams>({
     entityId: '',
     relation: '',
     limit: 25,
-    offset: 0
+    offset: 0,
   });
-  
+
   const [pagination, setPagination] = useState({
     total: 0,
     offset: 0,
-    limit: 25
+    limit: 25,
   });
 
   const [showFilters, setShowFilters] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
   const [entitySearchQuery, setEntitySearchQuery] = useState('');
   const [showEditorDialog, setShowEditorDialog] = useState(false);
-  const [editingRelationship, setEditingRelationship] = useState<Relationship | null>(null);
+  const [editingRelationship, setEditingRelationship] =
+    useState<Relationship | null>(null);
 
   // Fetch relationships from API
   const fetchRelationships = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const params = new URLSearchParams();
       if (searchParams.entityId) params.set('entityId', searchParams.entityId);
@@ -136,20 +139,23 @@ export function RelationshipBrowser() {
 
       const response = await fetch(`/api/admin/relationships?${params}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token') || 'dummy_token'}`
-        }
+          Authorization: `Bearer ${localStorage.getItem('auth_token') || 'dummy_token'}`,
+        },
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch relationships: ${response.statusText}`);
+        throw new Error(
+          `Failed to fetch relationships: ${response.statusText}`
+        );
       }
 
       const data = await response.json();
       setRelationships(data.relationships || []);
       setPagination(data.pagination || { total: 0, offset: 0, limit: 25 });
-      
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch relationships');
+      setError(
+        err instanceof Error ? err.message : 'Failed to fetch relationships'
+      );
       console.error('Error fetching relationships:', err);
     } finally {
       setLoading(false);
@@ -168,7 +174,7 @@ export function RelationshipBrowser() {
     setSearchParams(prev => ({
       ...prev,
       entityId: value,
-      offset: 0
+      offset: 0,
     }));
   };
 
@@ -177,7 +183,7 @@ export function RelationshipBrowser() {
     setSearchParams(prev => ({
       ...prev,
       relation: relation === prev.relation ? '' : relation,
-      offset: 0
+      offset: 0,
     }));
   };
 
@@ -185,7 +191,7 @@ export function RelationshipBrowser() {
   const handlePageChange = (newOffset: number) => {
     setSearchParams(prev => ({
       ...prev,
-      offset: newOffset
+      offset: newOffset,
     }));
   };
 
@@ -204,7 +210,10 @@ export function RelationshipBrowser() {
 
   // Handle select all
   const toggleSelectAll = () => {
-    if (selectedRelationships.size === relationships.length && relationships.length > 0) {
+    if (
+      selectedRelationships.size === relationships.length &&
+      relationships.length > 0
+    ) {
       setSelectedRelationships(new Set());
     } else {
       setSelectedRelationships(new Set(relationships.map(r => r.id)));
@@ -218,17 +227,22 @@ export function RelationshipBrowser() {
     }
 
     setDeleteLoading(relationshipId);
-    
+
     try {
-      const response = await fetch(`/api/admin/relationships/${relationshipId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token') || 'dummy_token'}`
+      const response = await fetch(
+        `/api/admin/relationships/${relationshipId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('auth_token') || 'dummy_token'}`,
+          },
         }
-      });
+      );
 
       if (!response.ok) {
-        throw new Error(`Failed to delete relationship: ${response.statusText}`);
+        throw new Error(
+          `Failed to delete relationship: ${response.statusText}`
+        );
       }
 
       // Refresh relationships list
@@ -238,9 +252,10 @@ export function RelationshipBrowser() {
         newSet.delete(relationshipId);
         return newSet;
       });
-      
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete relationship');
+      setError(
+        err instanceof Error ? err.message : 'Failed to delete relationship'
+      );
       console.error('Error deleting relationship:', err);
     } finally {
       setDeleteLoading(null);
@@ -250,32 +265,38 @@ export function RelationshipBrowser() {
   // Handle bulk delete
   const handleBulkDelete = async () => {
     if (selectedRelationships.size === 0) return;
-    
+
     const relationshipCount = selectedRelationships.size;
-    if (!confirm(`Are you sure you want to delete ${relationshipCount} relationships?`)) {
+    if (
+      !confirm(
+        `Are you sure you want to delete ${relationshipCount} relationships?`
+      )
+    ) {
       return;
     }
 
     setDeleteLoading('bulk');
-    
+
     try {
-      const deletePromises = Array.from(selectedRelationships).map(relationshipId =>
-        fetch(`/api/admin/relationships/${relationshipId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token') || 'dummy_token'}`
-          }
-        })
+      const deletePromises = Array.from(selectedRelationships).map(
+        relationshipId =>
+          fetch(`/api/admin/relationships/${relationshipId}`, {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('auth_token') || 'dummy_token'}`,
+            },
+          })
       );
 
       await Promise.all(deletePromises);
-      
+
       // Refresh relationships list
       await fetchRelationships();
       setSelectedRelationships(new Set());
-      
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete relationships');
+      setError(
+        err instanceof Error ? err.message : 'Failed to delete relationships'
+      );
       console.error('Error deleting relationships:', err);
     } finally {
       setDeleteLoading(null);
@@ -310,7 +331,9 @@ export function RelationshipBrowser() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Knowledge Graph Relationships</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Knowledge Graph Relationships
+          </h1>
           <p className="text-gray-600 mt-1">
             Browse and manage relationships between entities
           </p>
@@ -331,7 +354,7 @@ export function RelationshipBrowser() {
               <Input
                 placeholder="Search by entity ID or name..."
                 value={entitySearchQuery}
-                onChange={(e) => handleEntitySearch(e.target.value)}
+                onChange={e => handleEntitySearch(e.target.value)}
                 className="pl-10"
               />
             </div>
@@ -350,7 +373,9 @@ export function RelationshipBrowser() {
               {RELATION_TYPES.map(relation => (
                 <Badge
                   key={relation}
-                  variant={searchParams.relation === relation ? "default" : "outline"}
+                  variant={
+                    searchParams.relation === relation ? 'default' : 'outline'
+                  }
                   className="cursor-pointer"
                   onClick={() => handleRelationFilter(relation)}
                 >
@@ -367,8 +392,8 @@ export function RelationshipBrowser() {
                 {selectedRelationships.size} relationships selected
               </span>
               <div className="flex space-x-2">
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   variant="destructive"
                   onClick={handleBulkDelete}
                   disabled={deleteLoading === 'bulk'}
@@ -418,28 +443,43 @@ export function RelationshipBrowser() {
                 <div className="col-span-1">
                   <input
                     type="checkbox"
-                    checked={selectedRelationships.size === relationships.length && relationships.length > 0}
+                    checked={
+                      selectedRelationships.size === relationships.length &&
+                      relationships.length > 0
+                    }
                     onChange={toggleSelectAll}
                     className="rounded border-gray-300"
                   />
                 </div>
                 <div className="col-span-3">
-                  <span className="text-sm font-medium text-gray-700">Source Entity</span>
+                  <span className="text-sm font-medium text-gray-700">
+                    Source Entity
+                  </span>
                 </div>
                 <div className="col-span-2">
-                  <span className="text-sm font-medium text-gray-700">Relationship</span>
+                  <span className="text-sm font-medium text-gray-700">
+                    Relationship
+                  </span>
                 </div>
                 <div className="col-span-3">
-                  <span className="text-sm font-medium text-gray-700">Target Entity</span>
+                  <span className="text-sm font-medium text-gray-700">
+                    Target Entity
+                  </span>
                 </div>
                 <div className="col-span-1">
-                  <span className="text-sm font-medium text-gray-700">Weight</span>
+                  <span className="text-sm font-medium text-gray-700">
+                    Weight
+                  </span>
                 </div>
                 <div className="col-span-1">
-                  <span className="text-sm font-medium text-gray-700">Evidence</span>
+                  <span className="text-sm font-medium text-gray-700">
+                    Evidence
+                  </span>
                 </div>
                 <div className="col-span-1">
-                  <span className="text-sm font-medium text-gray-700">Actions</span>
+                  <span className="text-sm font-medium text-gray-700">
+                    Actions
+                  </span>
                 </div>
               </div>
             </div>
@@ -451,14 +491,19 @@ export function RelationshipBrowser() {
                   No relationships found. Try adjusting your search criteria.
                 </div>
               ) : (
-                relationships.map((relationship) => (
-                  <div key={relationship.id} className="px-6 py-4 hover:bg-gray-50">
+                relationships.map(relationship => (
+                  <div
+                    key={relationship.id}
+                    className="px-6 py-4 hover:bg-gray-50"
+                  >
                     <div className="grid grid-cols-12 gap-4 items-center">
                       <div className="col-span-1">
                         <input
                           type="checkbox"
                           checked={selectedRelationships.has(relationship.id)}
-                          onChange={() => toggleRelationshipSelection(relationship.id)}
+                          onChange={() =>
+                            toggleRelationshipSelection(relationship.id)
+                          }
                           className="rounded border-gray-300"
                         />
                       </div>
@@ -466,20 +511,33 @@ export function RelationshipBrowser() {
                         <div className="flex flex-col">
                           <div className="flex items-center space-x-2">
                             <span className="font-medium text-gray-900">
-                              {relationship.src_entity?.name || relationship.src_id}
+                              {relationship.src_entity?.name ||
+                                relationship.src_id}
                             </span>
                             {relationship.src_entity?.kind && (
-                              <Badge className={KIND_COLORS[relationship.src_entity.kind] || 'bg-gray-100 text-gray-800'}>
+                              <Badge
+                                className={
+                                  KIND_COLORS[relationship.src_entity.kind] ||
+                                  'bg-gray-100 text-gray-800'
+                                }
+                              >
                                 {relationship.src_entity.kind}
                               </Badge>
                             )}
                           </div>
-                          <span className="text-xs text-gray-500">{relationship.src_type}</span>
+                          <span className="text-xs text-gray-500">
+                            {relationship.src_type}
+                          </span>
                         </div>
                       </div>
                       <div className="col-span-2">
                         <div className="flex items-center">
-                          <Badge className={RELATION_COLORS[relationship.rel] || 'bg-gray-100 text-gray-800'}>
+                          <Badge
+                            className={
+                              RELATION_COLORS[relationship.rel] ||
+                              'bg-gray-100 text-gray-800'
+                            }
+                          >
                             {relationship.rel.replace('_', ' ')}
                           </Badge>
                           <ArrowRight className="w-4 h-4 text-gray-400 ml-2" />
@@ -489,15 +547,23 @@ export function RelationshipBrowser() {
                         <div className="flex flex-col">
                           <div className="flex items-center space-x-2">
                             <span className="font-medium text-gray-900">
-                              {relationship.dst_entity?.name || relationship.dst_id}
+                              {relationship.dst_entity?.name ||
+                                relationship.dst_id}
                             </span>
                             {relationship.dst_entity?.kind && (
-                              <Badge className={KIND_COLORS[relationship.dst_entity.kind] || 'bg-gray-100 text-gray-800'}>
+                              <Badge
+                                className={
+                                  KIND_COLORS[relationship.dst_entity.kind] ||
+                                  'bg-gray-100 text-gray-800'
+                                }
+                              >
                                 {relationship.dst_entity.kind}
                               </Badge>
                             )}
                           </div>
-                          <span className="text-xs text-gray-500">{relationship.dst_type}</span>
+                          <span className="text-xs text-gray-500">
+                            {relationship.dst_type}
+                          </span>
                         </div>
                       </div>
                       <div className="col-span-1">
@@ -515,7 +581,11 @@ export function RelationshipBrowser() {
                       </div>
                       <div className="col-span-1">
                         {relationship.evidence_text ? (
-                          <Button variant="ghost" size="sm" title={relationship.evidence_text}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title={relationship.evidence_text}
+                          >
                             <Eye className="w-4 h-4 text-green-600" />
                           </Button>
                         ) : (
@@ -524,8 +594,8 @@ export function RelationshipBrowser() {
                       </div>
                       <div className="col-span-1">
                         <div className="flex space-x-1">
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => handleEditRelationship(relationship)}
                           >
@@ -534,7 +604,9 @@ export function RelationshipBrowser() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDeleteRelationship(relationship.id)}
+                            onClick={() =>
+                              handleDeleteRelationship(relationship.id)
+                            }
                             disabled={deleteLoading === relationship.id}
                           >
                             {deleteLoading === relationship.id ? (
@@ -556,13 +628,22 @@ export function RelationshipBrowser() {
               <div className="bg-gray-50 px-6 py-3 border-t border-gray-200">
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-gray-700">
-                    Showing {pagination.offset + 1} to {Math.min(pagination.offset + pagination.limit, pagination.total)} of {pagination.total} relationships
+                    Showing {pagination.offset + 1} to{' '}
+                    {Math.min(
+                      pagination.offset + pagination.limit,
+                      pagination.total
+                    )}{' '}
+                    of {pagination.total} relationships
                   </div>
                   <div className="flex items-center space-x-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handlePageChange(Math.max(0, pagination.offset - pagination.limit))}
+                      onClick={() =>
+                        handlePageChange(
+                          Math.max(0, pagination.offset - pagination.limit)
+                        )
+                      }
                       disabled={pagination.offset === 0}
                     >
                       <ChevronLeft className="w-4 h-4" />
@@ -574,8 +655,12 @@ export function RelationshipBrowser() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handlePageChange(pagination.offset + pagination.limit)}
-                      disabled={pagination.offset + pagination.limit >= pagination.total}
+                      onClick={() =>
+                        handlePageChange(pagination.offset + pagination.limit)
+                      }
+                      disabled={
+                        pagination.offset + pagination.limit >= pagination.total
+                      }
                     >
                       Next
                       <ChevronRight className="w-4 h-4" />

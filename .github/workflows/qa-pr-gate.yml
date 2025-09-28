@@ -1,0 +1,262 @@
+name: Pull Request Quality Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [ main, develop ]
+
+jobs:
+  quality-gate:
+    name: Quality Gate Assessment
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Run quality gate tests
+        id: quality-tests
+        run: |
+          echo "Running PR Quality Gate..."
+
+          # Run core quality checks
+          npm run test:kg-smoke
+          npm run test:architecture
+
+          # Store results for later use
+          echo "quality_score=$(npm run qa:calculate-score)" >> $GITHUB_OUTPUT
+
+      - name: Run RAG quality validation
+        run: npm run test:quality
+
+      - name: Check performance impact
+        run: |
+          npm run test:performance
+          npm run qa:performance-diff
+
+      - name: Generate PR quality report
+        id: quality-report
+        run: |
+          npm run qa:pr-report > pr-quality-report.md
+          echo "report_path=pr-quality-report.md" >> $GITHUB_OUTPUT
+
+      - name: Comment PR with quality results
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const reportPath = '${{ steps.quality-report.outputs.report_path }}';
+
+            if (fs.existsSync(reportPath)) {
+              const report = fs.readFileSync(reportPath, 'utf8');
+
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `## 🧪 Quality Gate Results\n\n${report}`
+              });
+            }
+
+      - name: Check quality thresholds
+        run: |
+          QUALITY_SCORE="${{ steps.quality-tests.outputs.quality_score }}"
+
+          if [ "$QUALITY_SCORE" -lt "75" ]; then
+            echo "❌ Quality score ($QUALITY_SCORE) below minimum threshold (75)"
+            echo "::error::Quality gate failed - score too low"
+            exit 1
+          fi
+
+          echo "✅ Quality gate passed - score: $QUALITY_SCORE"
+
+      - name: Upload PR test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: pr-qa-results-${{ github.event.number }}
+          path: |
+            pr-quality-report.md
+            test-results/
+            coverage/
+
+  security-analysis:
+    name: Security Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/init@v2
+        with:
+          languages: typescript, javascript
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build for analysis
+        run: npm run build
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+
+      - name: Check for secrets in diff
+        run: |
+          git diff origin/main...HEAD | grep -E "(api_key|secret|password|token)" && exit 1 || exit 0
+
+  dependency-check:
+    name: Dependency Security Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check for vulnerabilities
+        run: |
+          npm audit --audit-level=moderate
+
+      - name: Check for outdated dependencies
+        run: |
+          npm outdated || true
+
+      - name: License compliance check
+        run: |
+          npx license-checker --onlyAllow "MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC" || exit 1
+
+  rag-impact-analysis:
+    name: RAG Impact Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: contains(github.event.pull_request.changed_files, 'src/lib/rag/')
+
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+
+      - name: Checkout base branch
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          git checkout origin/${{ github.base_ref }}
+          npm ci
+          npm run test:kg-quality > baseline-results.json
+          git checkout ${{ github.head_ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run RAG impact tests
+        run: |
+          npm run test:kg-quality > pr-results.json
+          npm run qa:compare-rag-results baseline-results.json pr-results.json
+
+      - name: Generate impact report
+        run: npm run qa:rag-impact-report
+
+      - name: Comment with RAG impact
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+
+            if (fs.existsSync('rag-impact-report.md')) {
+              const report = fs.readFileSync('rag-impact-report.md', 'utf8');
+
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `## 🔬 RAG Impact Analysis\n\n${report}`
+              });
+            }
+
+  final-approval:
+    name: Final Quality Approval
+    runs-on: ubuntu-latest
+    needs: [quality-gate, security-analysis, dependency-check]
+    if: always()
+
+    steps:
+      - name: Check all quality gates
+        run: |
+          if [[ "${{ needs.quality-gate.result }}" != "success" ]]; then
+            echo "❌ Quality gate failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.security-analysis.result }}" != "success" ]]; then
+            echo "❌ Security analysis failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.dependency-check.result }}" != "success" ]]; then
+            echo "❌ Dependency check failed"
+            exit 1
+          fi
+
+          echo "✅ All quality gates passed - PR approved for merge"
+
+      - name: Add approval label
+        uses: actions/github-script@v6
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['qa-approved']
+            });

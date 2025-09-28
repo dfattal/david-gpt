@@ -1,6 +1,6 @@
-import { useEffect, useRef, useCallback } from "react";
-import type { User } from "@supabase/supabase-js";
-import type { Conversation } from "@/lib/types";
+import { useEffect, useRef, useCallback } from 'react';
+import type { User } from '@supabase/supabase-js';
+import type { Conversation } from '@/lib/types';
 
 interface UseSSEProps {
   user: User | null;
@@ -19,7 +19,7 @@ export function useSSE({
 
   const setupSSEConnection = useCallback(() => {
     if (!user) {
-      console.log("⏭️ Skipping SSE setup - no user authenticated");
+      console.log('⏭️ Skipping SSE setup - no user authenticated');
       return;
     }
 
@@ -34,48 +34,48 @@ export function useSSE({
       `🔗 Setting up SSE connection for user: ${user.id} (Development resilient)`
     );
 
-    const eventSource = new EventSource("/api/conversations/title-updates", {
+    const eventSource = new EventSource('/api/conversations/title-updates', {
       withCredentials: true,
     });
 
     eventSourceRef.current = eventSource;
 
     eventSource.onopen = () => {
-      console.log("✅ SSE connection established successfully");
+      console.log('✅ SSE connection established successfully');
       isConnectedRef.current = true;
     };
 
-    eventSource.onmessage = (event) => {
+    eventSource.onmessage = event => {
       try {
         const data = JSON.parse(event.data);
-        console.log("📡 Received SSE event:", data);
+        console.log('📡 Received SSE event:', data);
 
-        if (data.type === "title-update") {
+        if (data.type === 'title-update') {
           console.log(
             `🏷️ Received title update for conversation ${data.conversationId}: "${data.title}"`
           );
           onTitleUpdate(data.conversationId, data.title);
-        } else if (data.type === "connected") {
+        } else if (data.type === 'connected') {
           console.log(`🤝 SSE connection confirmed for user: ${data.userId}`);
         }
       } catch (error) {
-        console.error("Error parsing SSE message:", error);
+        console.error('Error parsing SSE message:', error);
       }
     };
 
-    eventSource.onerror = (error) => {
-      console.error("❌ SSE connection error:", error);
-      console.error("📊 EventSource readyState:", eventSource.readyState);
+    eventSource.onerror = error => {
+      console.error('❌ SSE connection error:', error);
+      console.error('📊 EventSource readyState:', eventSource.readyState);
 
       isConnectedRef.current = false;
 
       if (eventSource.readyState === EventSource.CLOSED) {
-        console.log("🔄 SSE connection closed, setting up fallback");
+        console.log('🔄 SSE connection closed, setting up fallback');
 
         // Set up fallback polling
         const fallbackInterval = setInterval(() => {
           console.log(
-            "🔄 Fallback: Refreshing conversations for title updates"
+            '🔄 Fallback: Refreshing conversations for title updates'
           );
           fetchConversations();
         }, 5000);
@@ -84,9 +84,9 @@ export function useSSE({
         (eventSource as any)._fallbackInterval = fallbackInterval;
 
         // Try to reconnect in development mode
-        if (process.env.NODE_ENV === "development") {
+        if (process.env.NODE_ENV === 'development') {
           reconnectTimeoutRef.current = setTimeout(() => {
-            console.log("🔄 Attempting SSE reconnection...");
+            console.log('🔄 Attempting SSE reconnection...');
             setupSSEConnection();
           }, 3000);
         }
@@ -97,7 +97,7 @@ export function useSSE({
   }, [user, onTitleUpdate, fetchConversations]);
 
   const cleanup = useCallback(() => {
-    console.log("🧹 Cleaning up SSE connection");
+    console.log('🧹 Cleaning up SSE connection');
 
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);

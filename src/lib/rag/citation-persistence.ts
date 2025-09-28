@@ -1,16 +1,16 @@
 /**
  * Enhanced Citation Persistence System
- * 
+ *
  * Manages citation storage, retrieval, and fact summarization persistence
  * for multi-turn conversation context management.
  */
 
 import { supabase } from '@/lib/supabase';
-import type { 
+import type {
   FactSummary,
   SearchResult,
   MessageCitation,
-  ConversationSource 
+  ConversationSource,
 } from './types';
 
 // =======================
@@ -69,7 +69,7 @@ export class CitationPersistenceManager {
       updateCarryScore: true,
       maintainCitationOrder: true,
       enableFactSummarization: true,
-      ...options
+      ...options,
     };
   }
 
@@ -81,31 +81,41 @@ export class CitationPersistenceManager {
     searchResults: SearchResult[],
     factSummaries: FactSummary[] = []
   ): Promise<CitationBatch> {
-    console.log(`💾 Persisting ${searchResults.length} citations for message ${messageId}`);
+    console.log(
+      `💾 Persisting ${searchResults.length} citations for message ${messageId}`
+    );
 
     const citations: EnhancedCitation[] = [];
     let factsExtracted = 0;
 
     for (let i = 0; i < searchResults.length; i++) {
       const result = searchResults[i];
-      const factSummary = factSummaries.find(f => f.sourceId === result.documentId);
-      
+      const factSummary = factSummaries.find(
+        f => f.sourceId === result.documentId
+      );
+
       // Generate stable citation ID
-      const stableCitationId = this.generateStableCitationId(result.documentId, result.docType);
-      
+      const stableCitationId = this.generateStableCitationId(
+        result.documentId,
+        result.docType
+      );
+
       // Extract key facts if fact summarization is enabled
       let extractedFacts: string[] = [];
       let factSummaryText = '';
-      
+
       if (this.options.enableFactSummarization && factSummary) {
         extractedFacts = factSummary.bullets;
         factSummaryText = extractedFacts.join(' • ');
         factsExtracted++;
       } else if (this.options.extractFacts) {
         // Fallback: extract simple fact from content
-        const sentences = result.content.split(/[.!?]+/).filter(s => s.trim().length > 20);
-        const topSentence = sentences
-          .sort((a, b) => this.scoreSentence(b) - this.scoreSentence(a))[0];
+        const sentences = result.content
+          .split(/[.!?]+/)
+          .filter(s => s.trim().length > 20);
+        const topSentence = sentences.sort(
+          (a, b) => this.scoreSentence(b) - this.scoreSentence(a)
+        )[0];
         if (topSentence) {
           extractedFacts = [topSentence.trim()];
           factSummaryText = topSentence.trim();
@@ -131,8 +141,8 @@ export class CitationPersistenceManager {
           title: result.title,
           docType: result.docType,
           publishedDate: this.extractPublishedDate(result),
-          authorityLevel: this.getAuthorityLevel(result)
-        }
+          authorityLevel: this.getAuthorityLevel(result),
+        },
       };
 
       citations.push(citation);
@@ -151,10 +161,12 @@ export class CitationPersistenceManager {
       conversationId: this.conversationId,
       citations,
       totalCitations: citations.length,
-      factsExtracted
+      factsExtracted,
     };
 
-    console.log(`✅ Citation persistence complete: ${citations.length} citations, ${factsExtracted} facts`);
+    console.log(
+      `✅ Citation persistence complete: ${citations.length} citations, ${factsExtracted} facts`
+    );
     return batch;
   }
 
@@ -166,19 +178,18 @@ export class CitationPersistenceManager {
     options: CitationRetrievalOptions = {
       includeFactSummaries: true,
       includeMetadata: true,
-      sortByRelevance: true
+      sortByRelevance: true,
     }
   ): Promise<EnhancedCitation[]> {
-    let query = supabase
-      .from('message_citations')
-      .select(`
+    let query = supabase.from('message_citations').select(`
         *,
         documents (
           title,
-          doc_type,
+          document_type_id,
           published_date,
           granted_date,
-          filed_date
+          filed_date,
+          document_types!inner(name)
         )
       `);
 
@@ -213,27 +224,41 @@ export class CitationPersistenceManager {
     }
 
     // Transform to enhanced citations
-    const enhancedCitations: EnhancedCitation[] = (citations || []).map(citation => ({
-      id: citation.id,
-      messageId: citation.message_id,
-      documentId: citation.document_id,
-      chunkId: citation.chunk_id,
-      marker: citation.marker,
-      factSummary: citation.fact_summary,
-      pageRange: citation.page_range,
-      relevanceScore: citation.relevance_score,
-      citationOrder: citation.citation_order,
-      createdAt: new Date(citation.created_at),
-      stableCitationId: this.generateStableCitationId(citation.document_id, citation.documents?.doc_type || 'unknown'),
-      authorityScore: this.calculateAuthorityScoreFromMetadata(citation.documents),
-      extractedFacts: citation.fact_summary ? [citation.fact_summary] : [],
-      documentMetadata: citation.documents ? {
-        title: citation.documents.title,
-        docType: citation.documents.doc_type,
-        publishedDate: citation.documents.published_date || citation.documents.granted_date || citation.documents.filed_date,
-        authorityLevel: this.getAuthorityLevelFromDocType(citation.documents.doc_type)
-      } : undefined
-    }));
+    const enhancedCitations: EnhancedCitation[] = (citations || []).map(
+      citation => ({
+        id: citation.id,
+        messageId: citation.message_id,
+        documentId: citation.document_id,
+        chunkId: citation.chunk_id,
+        marker: citation.marker,
+        factSummary: citation.fact_summary,
+        pageRange: citation.page_range,
+        relevanceScore: citation.relevance_score,
+        citationOrder: citation.citation_order,
+        createdAt: new Date(citation.created_at),
+        stableCitationId: this.generateStableCitationId(
+          citation.document_id,
+          citation.documents?.document_types?.name || 'unknown'
+        ),
+        authorityScore: this.calculateAuthorityScoreFromMetadata(
+          citation.documents
+        ),
+        extractedFacts: citation.fact_summary ? [citation.fact_summary] : [],
+        documentMetadata: citation.documents
+          ? {
+              title: citation.documents.title,
+              docType: citation.documents.document_types?.name || 'unknown',
+              publishedDate:
+                citation.documents.published_date ||
+                citation.documents.granted_date ||
+                citation.documents.filed_date,
+              authorityLevel: this.getAuthorityLevelFromDocType(
+                citation.documents.document_types?.name || 'unknown'
+              ),
+            }
+          : undefined,
+      })
+    );
 
     console.log(`📖 Retrieved ${enhancedCitations.length} citations`);
     return enhancedCitations;
@@ -248,7 +273,11 @@ export class CitationPersistenceManager {
     averageRelevanceScore: number;
     factsWithSummaries: number;
     authorityDistribution: Record<string, number>;
-    mostCitedDocuments: Array<{ documentId: string; title: string; count: number }>;
+    mostCitedDocuments: Array<{
+      documentId: string;
+      title: string;
+      count: number;
+    }>;
   }> {
     // Get all citations for conversation
     const { data: messages } = await supabase
@@ -263,7 +292,7 @@ export class CitationPersistenceManager {
         averageRelevanceScore: 0,
         factsWithSummaries: 0,
         authorityDistribution: {},
-        mostCitedDocuments: []
+        mostCitedDocuments: [],
       };
     }
 
@@ -271,10 +300,16 @@ export class CitationPersistenceManager {
 
     const { data: citations } = await supabase
       .from('message_citations')
-      .select(`
+      .select(
+        `
         *,
-        documents (title, doc_type)
-      `)
+        documents (
+          title,
+          document_type_id,
+          document_types!inner(name)
+        )
+      `
+      )
       .in('message_id', messageIds);
 
     if (!citations) {
@@ -284,23 +319,27 @@ export class CitationPersistenceManager {
         averageRelevanceScore: 0,
         factsWithSummaries: 0,
         authorityDistribution: {},
-        mostCitedDocuments: []
+        mostCitedDocuments: [],
       };
     }
 
     // Calculate statistics
     const uniqueDocuments = new Set(citations.map(c => c.document_id)).size;
-    const averageRelevanceScore = citations
-      .filter(c => c.relevance_score !== null)
-      .reduce((sum, c) => sum + (c.relevance_score || 0), 0) / citations.length;
-    
+    const averageRelevanceScore =
+      citations
+        .filter(c => c.relevance_score !== null)
+        .reduce((sum, c) => sum + (c.relevance_score || 0), 0) /
+      citations.length;
+
     const factsWithSummaries = citations.filter(c => c.fact_summary).length;
 
     // Authority distribution
     const authorityDistribution: Record<string, number> = {};
     citations.forEach(c => {
-      if (c.documents?.doc_type) {
-        const level = this.getAuthorityLevelFromDocType(c.documents.doc_type);
+      if (c.documents?.document_types?.name) {
+        const level = this.getAuthorityLevelFromDocType(
+          c.documents.document_types.name
+        );
         authorityDistribution[level] = (authorityDistribution[level] || 0) + 1;
       }
     });
@@ -312,7 +351,7 @@ export class CitationPersistenceManager {
         const existing = documentCounts.get(c.document_id);
         documentCounts.set(c.document_id, {
           title: c.documents.title,
-          count: existing ? existing.count + 1 : 1
+          count: existing ? existing.count + 1 : 1,
         });
       }
     });
@@ -328,7 +367,7 @@ export class CitationPersistenceManager {
       averageRelevanceScore: Math.round(averageRelevanceScore * 100) / 100,
       factsWithSummaries,
       authorityDistribution,
-      mostCitedDocuments
+      mostCitedDocuments,
     };
   }
 
@@ -368,7 +407,9 @@ export class CitationPersistenceManager {
   // Private Helper Methods
   // =======================
 
-  private async storeCitationsInDatabase(citations: EnhancedCitation[]): Promise<void> {
+  private async storeCitationsInDatabase(
+    citations: EnhancedCitation[]
+  ): Promise<void> {
     const citationData = citations.map(c => ({
       message_id: c.messageId,
       document_id: c.documentId,
@@ -377,7 +418,7 @@ export class CitationPersistenceManager {
       fact_summary: c.factSummary,
       page_range: c.pageRange,
       relevance_score: c.relevanceScore,
-      citation_order: c.citationOrder
+      citation_order: c.citationOrder,
     }));
 
     const { error } = await supabase
@@ -395,21 +436,23 @@ export class CitationPersistenceManager {
     factSummaries: FactSummary[]
   ): Promise<void> {
     const sourceUpdates = searchResults.map(result => {
-      const factSummary = factSummaries.find(f => f.sourceId === result.documentId);
+      const factSummary = factSummaries.find(
+        f => f.sourceId === result.documentId
+      );
       return {
         conversation_id: this.conversationId,
         document_id: result.documentId,
         last_used_at: new Date().toISOString(),
         carry_score: Math.max(result.score, factSummary?.authorityScore || 0.5),
         pinned: false,
-        turns_inactive: 0
+        turns_inactive: 0,
       };
     });
 
     const { error } = await supabase
       .from('conversation_sources')
-      .upsert(sourceUpdates, { 
-        onConflict: 'conversation_id,document_id' 
+      .upsert(sourceUpdates, {
+        onConflict: 'conversation_id,document_id',
       });
 
     if (error) {
@@ -417,69 +460,83 @@ export class CitationPersistenceManager {
     }
   }
 
-  private generateStableCitationId(documentId: string, docType: string): string {
-    const typePrefix = {
-      'paper': 'P',
-      'patent': 'T', 
-      'note': 'N',
-      'url': 'U',
-      'book': 'B',
-      'pdf': 'D'
-    }[docType] || 'X';
-    
+  private generateStableCitationId(
+    documentId: string,
+    docType: string
+  ): string {
+    const typePrefix =
+      {
+        paper: 'P',
+        patent: 'T',
+        note: 'N',
+        url: 'U',
+        book: 'B',
+        pdf: 'D',
+      }[docType] || 'X';
+
     const shortId = documentId.substring(0, 8).replace(/-/g, '').toUpperCase();
     return `${typePrefix}${shortId}`;
   }
 
   private scoreSentence(sentence: string): number {
     let score = sentence.length / 100; // Base score from length
-    
+
     if (/\d+/.test(sentence)) score += 2; // Numbers boost
-    if (/method|process|result|finding|conclude|demonstrate|show|reveal|discover/i.test(sentence)) score += 3;
+    if (
+      /method|process|result|finding|conclude|demonstrate|show|reveal|discover/i.test(
+        sentence
+      )
+    )
+      score += 3;
     if (sentence.length < 30 || sentence.length > 300) score *= 0.5; // Penalize extremes
-    
+
     return score;
   }
 
   private calculateAuthorityScore(result: SearchResult): number {
     const score = 0.5 + Math.min(result.score, 0.3);
-    
-    const typeAuthority = {
-      'patent': 0.9,
-      'paper': 0.8,
-      'book': 0.7,
-      'pdf': 0.6,
-      'note': 0.4,
-      'url': 0.3
-    }[result.docType] || 0.5;
-    
+
+    const typeAuthority =
+      {
+        patent: 0.9,
+        paper: 0.8,
+        book: 0.7,
+        pdf: 0.6,
+        note: 0.4,
+        url: 0.3,
+      }[result.docType] || 0.5;
+
     return Math.min(score * 0.7 + typeAuthority * 0.3, 1.0);
   }
 
   private calculateAuthorityScoreFromMetadata(metadata: any): number {
     if (!metadata) return 0.5;
-    
+
     let score = 0.5;
-    const typeAuthority = {
-      'patent': 0.9,
-      'paper': 0.8,
-      'book': 0.7,
-      'pdf': 0.6,
-      'note': 0.4,
-      'url': 0.3
-    }[metadata.doc_type] || 0.5;
-    
+    const typeAuthority =
+      {
+        patent: 0.9,
+        paper: 0.8,
+        book: 0.7,
+        pdf: 0.6,
+        note: 0.4,
+        url: 0.3,
+      }[metadata.doc_type] || 0.5;
+
     score = typeAuthority;
     if (metadata.published_date || metadata.granted_date) score += 0.1;
-    
+
     return Math.min(score, 1.0);
   }
 
   private extractPublishedDate(result: SearchResult): string | undefined {
     const metadata = result.metadata;
-    if (metadata?.publishedDate) return metadata.publishedDate.toISOString().split('T')[0];
-    if (metadata?.grantedDate) return metadata.grantedDate.toISOString().split('T')[0];
-    if (metadata?.filedDate) return metadata.filedDate.toISOString().split('T')[0];
+    if (metadata?.publishedDate)
+      return metadata.publishedDate.toISOString().split('T')[0];
+    if (metadata?.grantedDate)
+      return metadata.grantedDate.toISOString().split('T')[0];
+    if (metadata?.filedDate)
+      return metadata.filedDate.toISOString().split('T')[0];
     return undefined;
   }
 
@@ -490,10 +547,12 @@ export class CitationPersistenceManager {
     return 'low';
   }
 
-  private getAuthorityLevelFromDocType(docType: string): 'high' | 'medium' | 'low' {
+  private getAuthorityLevelFromDocType(
+    docType: string
+  ): 'high' | 'medium' | 'low' {
     const highAuthority = ['patent', 'paper'];
     const mediumAuthority = ['book', 'pdf'];
-    
+
     if (highAuthority.includes(docType)) return 'high';
     if (mediumAuthority.includes(docType)) return 'medium';
     return 'low';
@@ -538,7 +597,7 @@ export async function getCitationsWithFacts(
   return manager.retrieveCitations(messageId, {
     includeFactSummaries: true,
     includeMetadata: true,
-    sortByRelevance: true
+    sortByRelevance: true,
   });
 }
 
@@ -553,7 +612,11 @@ export async function getConversationCitationStats(
   averageRelevanceScore: number;
   factsWithSummaries: number;
   authorityDistribution: Record<string, number>;
-  mostCitedDocuments: Array<{ documentId: string; title: string; count: number }>;
+  mostCitedDocuments: Array<{
+    documentId: string;
+    title: string;
+    count: number;
+  }>;
 }> {
   const manager = createCitationManager(conversationId);
   return manager.getCitationStatistics();

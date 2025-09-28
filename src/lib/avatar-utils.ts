@@ -1,4 +1,4 @@
-import type { PersonaOption } from "@/components/chat/persona-selector";
+import type { PersonaOption } from '@/components/chat/persona-selector';
 
 export function getPersonaAvatar(persona: PersonaOption | null): string {
   if (!persona) {
@@ -34,16 +34,19 @@ export function getPersonaInitials(persona: PersonaOption): string {
     .slice(0, 2);
 }
 
-export function getPersonaThemeColors(personaId: string): { bg: string; text: string } {
+export function getPersonaThemeColors(personaId: string): {
+  bg: string;
+  text: string;
+} {
   const themes: Record<string, { bg: string; text: string }> = {
-    'david': { bg: '6366f1', text: 'ffffff' }, // indigo
-    'legal': { bg: '1e40af', text: 'ffffff' }, // blue
-    'medical': { bg: '059669', text: 'ffffff' }, // emerald
-    'financial': { bg: 'ea580c', text: 'ffffff' }, // orange
-    'technical': { bg: '475569', text: 'ffffff' }, // slate
-    'marketing': { bg: 'dc2626', text: 'ffffff' }, // red
-    'design': { bg: '7c3aed', text: 'ffffff' }, // violet
-    'academic': { bg: '0891b2', text: 'ffffff' }, // cyan
+    david: { bg: '6366f1', text: 'ffffff' }, // indigo
+    legal: { bg: '1e40af', text: 'ffffff' }, // blue
+    medical: { bg: '059669', text: 'ffffff' }, // emerald
+    financial: { bg: 'ea580c', text: 'ffffff' }, // orange
+    technical: { bg: '475569', text: 'ffffff' }, // slate
+    marketing: { bg: 'dc2626', text: 'ffffff' }, // red
+    design: { bg: '7c3aed', text: 'ffffff' }, // violet
+    academic: { bg: '0891b2', text: 'ffffff' }, // cyan
   };
   return themes[personaId] || { bg: '6b7280', text: 'ffffff' }; // gray default
 }

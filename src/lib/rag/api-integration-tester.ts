@@ -26,7 +26,11 @@ const supabase = createClient(
 interface IntegrationTest {
   name: string;
   description: string;
-  testType: 'api_endpoint' | 'fallback_mechanism' | 'error_handling' | 'tier_routing';
+  testType:
+    | 'api_endpoint'
+    | 'fallback_mechanism'
+    | 'error_handling'
+    | 'tier_routing';
   query: string;
   expectedTier: 'sql' | 'vector' | 'content';
   fallbackScenario?: {
@@ -49,134 +53,134 @@ interface IntegrationTest {
 const INTEGRATION_TESTS: IntegrationTest[] = [
   // API Endpoint Tests
   {
-    name: "SQL Tier API Integration",
-    description: "Test SQL tier through complete API flow",
+    name: 'SQL Tier API Integration',
+    description: 'Test SQL tier through complete API flow',
     testType: 'api_endpoint',
-    query: "Patent US11234567",
+    query: 'Patent US11234567',
     expectedTier: 'sql',
     expectedBehavior: {
       shouldReturnResults: true,
       shouldHaveTierMetadata: true,
-      shouldHaveExecutionTime: true
-    }
+      shouldHaveExecutionTime: true,
+    },
   },
   {
-    name: "Vector Tier API Integration",
-    description: "Test vector tier through complete API flow",
+    name: 'Vector Tier API Integration',
+    description: 'Test vector tier through complete API flow',
     testType: 'api_endpoint',
-    query: "Who invented lightfield displays?",
+    query: 'Who invented lightfield displays?',
     expectedTier: 'vector',
     expectedBehavior: {
       shouldReturnResults: true,
       shouldHaveTierMetadata: true,
-      shouldHaveExecutionTime: true
-    }
+      shouldHaveExecutionTime: true,
+    },
   },
   {
-    name: "Content Tier API Integration",
-    description: "Test content tier through complete API flow",
+    name: 'Content Tier API Integration',
+    description: 'Test content tier through complete API flow',
     testType: 'api_endpoint',
-    query: "How do lightfield displays work?",
+    query: 'How do lightfield displays work?',
     expectedTier: 'content',
     expectedBehavior: {
       shouldReturnResults: true,
       shouldHaveTierMetadata: true,
-      shouldHaveExecutionTime: true
-    }
+      shouldHaveExecutionTime: true,
+    },
   },
 
   // Tier Routing Tests
   {
-    name: "Automatic Tier Selection",
-    description: "Test automatic tier selection with various query types",
+    name: 'Automatic Tier Selection',
+    description: 'Test automatic tier selection with various query types',
     testType: 'tier_routing',
-    query: "DOI 10.1038/s41566-023-01234",
+    query: 'DOI 10.1038/s41566-023-01234',
     expectedTier: 'sql',
     expectedBehavior: {
       shouldReturnResults: true,
       shouldHaveTierMetadata: true,
-      shouldHaveExecutionTime: true
-    }
+      shouldHaveExecutionTime: true,
+    },
   },
   {
-    name: "Entity Query Routing",
-    description: "Test entity queries route to vector tier",
+    name: 'Entity Query Routing',
+    description: 'Test entity queries route to vector tier',
     testType: 'tier_routing',
-    query: "David Fattal patents about 3D displays",
+    query: 'David Fattal patents about 3D displays',
     expectedTier: 'vector',
     expectedBehavior: {
       shouldReturnResults: true,
       shouldHaveTierMetadata: true,
-      shouldHaveExecutionTime: true
-    }
+      shouldHaveExecutionTime: true,
+    },
   },
   {
-    name: "Technical Explanation Routing",
-    description: "Test technical queries route to content tier",
+    name: 'Technical Explanation Routing',
+    description: 'Test technical queries route to content tier',
     testType: 'tier_routing',
-    query: "Explain the principles of diffractive optics",
+    query: 'Explain the principles of diffractive optics',
     expectedTier: 'content',
     expectedBehavior: {
       shouldReturnResults: true,
       shouldHaveTierMetadata: true,
-      shouldHaveExecutionTime: true
-    }
+      shouldHaveExecutionTime: true,
+    },
   },
 
   // Fallback Mechanism Tests
   {
-    name: "SQL to Vector Fallback",
-    description: "Test fallback from SQL to Vector when no exact matches",
+    name: 'SQL to Vector Fallback',
+    description: 'Test fallback from SQL to Vector when no exact matches',
     testType: 'fallback_mechanism',
-    query: "Patent US99999999", // Non-existent patent
+    query: 'Patent US99999999', // Non-existent patent
     expectedTier: 'sql',
     fallbackScenario: {
       forceFallback: true,
-      expectedFallbackTier: 'vector'
+      expectedFallbackTier: 'vector',
     },
     expectedBehavior: {
       shouldReturnResults: false, // No exact match
       shouldHaveTierMetadata: true,
       shouldHaveExecutionTime: true,
-      shouldHaveFallbackInfo: true
-    }
+      shouldHaveFallbackInfo: true,
+    },
   },
   {
-    name: "Vector to Content Fallback",
-    description: "Test fallback from Vector to Content when entities not found",
+    name: 'Vector to Content Fallback',
+    description: 'Test fallback from Vector to Content when entities not found',
     testType: 'fallback_mechanism',
-    query: "Who invented the impossible technology?", // Non-existent entity
+    query: 'Who invented the impossible technology?', // Non-existent entity
     expectedTier: 'vector',
     fallbackScenario: {
       forceFallback: true,
-      expectedFallbackTier: 'content'
+      expectedFallbackTier: 'content',
     },
     expectedBehavior: {
       shouldReturnResults: false, // No entity match
       shouldHaveTierMetadata: true,
       shouldHaveExecutionTime: true,
-      shouldHaveFallbackInfo: true
-    }
+      shouldHaveFallbackInfo: true,
+    },
   },
 
   // Error Handling Tests
   {
-    name: "Graceful Error Handling",
-    description: "Test graceful error handling with invalid queries",
+    name: 'Graceful Error Handling',
+    description: 'Test graceful error handling with invalid queries',
     testType: 'error_handling',
-    query: "", // Empty query
+    query: '', // Empty query
     expectedTier: 'content', // Default fallback
     errorScenario: {
       simulateError: true,
-      expectedErrorHandling: 'graceful'
+      expectedErrorHandling: 'graceful',
     },
     expectedBehavior: {
       shouldReturnResults: false,
       shouldHaveTierMetadata: true,
       shouldHaveExecutionTime: true,
-      shouldHandleErrors: true
-    }
-  }
+      shouldHandleErrors: true,
+    },
+  },
 ];
 
 // =======================
@@ -221,7 +225,9 @@ export class APIIntegrationTester {
    */
   async runIntegrationTests(): Promise<IntegrationTestSummary> {
     console.log('🔧 Starting Three-Tier Search API Integration Tests...\n');
-    console.log(`Testing ${INTEGRATION_TESTS.length} integration scenarios...\n`);
+    console.log(
+      `Testing ${INTEGRATION_TESTS.length} integration scenarios...\n`
+    );
 
     // Clear analytics for clean testing
     searchAnalytics.clearData();
@@ -238,10 +244,14 @@ export class APIIntegrationTester {
       this.results.push(result);
 
       const status = result.passed ? '✅ PASS' : '❌ FAIL';
-      console.log(`${status} (Score: ${result.score}/100) | ${result.details.tierUsed.toUpperCase()} tier | ${result.details.resultCount} results | ${result.executionTime}ms`);
+      console.log(
+        `${status} (Score: ${result.score}/100) | ${result.details.tierUsed.toUpperCase()} tier | ${result.details.resultCount} results | ${result.executionTime}ms`
+      );
 
       if (result.details.fallbackUsed) {
-        console.log(`🔄 Fallback used: ${result.details.fallbackTier?.toUpperCase()}`);
+        console.log(
+          `🔄 Fallback used: ${result.details.fallbackTier?.toUpperCase()}`
+        );
       }
 
       if (result.issues.length > 0) {
@@ -255,21 +265,23 @@ export class APIIntegrationTester {
   /**
    * Run a single integration test
    */
-  private async runSingleIntegrationTest(test: IntegrationTest): Promise<IntegrationTestResult> {
+  private async runSingleIntegrationTest(
+    test: IntegrationTest
+  ): Promise<IntegrationTestResult> {
     const issues: string[] = [];
     let score = 0;
     const startTime = Date.now();
 
     try {
       // Handle error scenarios
-      if (test.errorScenario?.simulateError && test.query === "") {
+      if (test.errorScenario?.simulateError && test.query === '') {
         return this.handleErrorTest(test, startTime);
       }
 
       // Execute three-tier search
       const searchResult = await threeTierSearch(test.query, supabase, {
         limit: 5,
-        tier: 'auto'
+        tier: 'auto',
       });
 
       const executionTime = Date.now() - startTime;
@@ -283,7 +295,9 @@ export class APIIntegrationTester {
 
       // Validate tier routing
       if (tierUsed !== test.expectedTier && !fallbackUsed) {
-        issues.push(`Expected ${test.expectedTier.toUpperCase()} tier, got ${tierUsed.toUpperCase()}`);
+        issues.push(
+          `Expected ${test.expectedTier.toUpperCase()} tier, got ${tierUsed.toUpperCase()}`
+        );
       } else {
         score += 30; // Correct tier routing
       }
@@ -292,7 +306,10 @@ export class APIIntegrationTester {
       if (test.fallbackScenario) {
         if (test.fallbackScenario.forceFallback && !fallbackUsed) {
           issues.push('Expected fallback but none occurred');
-        } else if (fallbackUsed && fallbackTier === test.fallbackScenario.expectedFallbackTier) {
+        } else if (
+          fallbackUsed &&
+          fallbackTier === test.fallbackScenario.expectedFallbackTier
+        ) {
           score += 25; // Correct fallback
         }
       }
@@ -300,7 +317,10 @@ export class APIIntegrationTester {
       // Validate expected behavior
       if (test.expectedBehavior.shouldReturnResults && resultCount === 0) {
         issues.push('Expected results but none found');
-      } else if (!test.expectedBehavior.shouldReturnResults && resultCount > 0) {
+      } else if (
+        !test.expectedBehavior.shouldReturnResults &&
+        resultCount > 0
+      ) {
         // This is actually good for fallback scenarios
         score += 10;
       } else if (test.expectedBehavior.shouldReturnResults && resultCount > 0) {
@@ -326,12 +346,11 @@ export class APIIntegrationTester {
           fallbackTier,
           resultCount,
           hasMetadata,
-          errorHandled: false
+          errorHandled: false,
         },
         issues,
-        score: Math.min(score, 100)
+        score: Math.min(score, 100),
       };
-
     } catch (error) {
       const executionTime = Date.now() - startTime;
 
@@ -345,10 +364,12 @@ export class APIIntegrationTester {
           fallbackUsed: false,
           resultCount: 0,
           hasMetadata: false,
-          errorHandled: true
+          errorHandled: true,
         },
-        issues: [`Integration test failed: ${error instanceof Error ? error.message : 'Unknown error'}`],
-        score: 0
+        issues: [
+          `Integration test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        ],
+        score: 0,
       };
     }
   }
@@ -356,11 +377,14 @@ export class APIIntegrationTester {
   /**
    * Handle error test scenarios
    */
-  private handleErrorTest(test: IntegrationTest, startTime: number): IntegrationTestResult {
+  private handleErrorTest(
+    test: IntegrationTest,
+    startTime: number
+  ): IntegrationTestResult {
     const executionTime = Date.now() - startTime;
 
     // For empty query test, this should be handled gracefully
-    const errorHandled = test.query === ""; // Empty query is a known error case
+    const errorHandled = test.query === ''; // Empty query is a known error case
 
     return {
       testName: test.name,
@@ -372,10 +396,10 @@ export class APIIntegrationTester {
         fallbackUsed: false,
         resultCount: 0,
         hasMetadata: false,
-        errorHandled
+        errorHandled,
       },
       issues: errorHandled ? [] : ['Error not handled gracefully'],
-      score: errorHandled ? 100 : 0
+      score: errorHandled ? 100 : 0,
     };
   }
 
@@ -385,14 +409,17 @@ export class APIIntegrationTester {
   private generateIntegrationSummary(): IntegrationTestSummary {
     const totalTests = this.results.length;
     const passedTests = this.results.filter(r => r.passed).length;
-    const overallScore = this.results.reduce((sum, r) => sum + r.score, 0) / totalTests;
+    const overallScore =
+      this.results.reduce((sum, r) => sum + r.score, 0) / totalTests;
 
     // Calculate test type scores
     const testTypes = [...new Set(this.results.map(r => r.testType))];
     const testTypeScores: Record<string, number> = {};
     testTypes.forEach(testType => {
       const testTypeResults = this.results.filter(r => r.testType === testType);
-      testTypeScores[testType] = testTypeResults.reduce((sum, r) => sum + r.score, 0) / testTypeResults.length;
+      testTypeScores[testType] =
+        testTypeResults.reduce((sum, r) => sum + r.score, 0) /
+        testTypeResults.length;
     });
 
     const recommendations = this.generateRecommendations();
@@ -403,7 +430,7 @@ export class APIIntegrationTester {
       testTypeScores,
       overallScore,
       results: this.results,
-      recommendations
+      recommendations,
     };
   }
 
@@ -415,22 +442,36 @@ export class APIIntegrationTester {
     const failedResults = this.results.filter(r => !r.passed);
 
     if (failedResults.length > 0) {
-      const apiFailures = failedResults.filter(r => r.testType === 'api_endpoint');
+      const apiFailures = failedResults.filter(
+        r => r.testType === 'api_endpoint'
+      );
       if (apiFailures.length > 0) {
-        recommendations.push('Review API endpoint integration for proper three-tier search flow');
+        recommendations.push(
+          'Review API endpoint integration for proper three-tier search flow'
+        );
       }
 
-      const tierRoutingFailures = failedResults.filter(r => r.testType === 'tier_routing');
+      const tierRoutingFailures = failedResults.filter(
+        r => r.testType === 'tier_routing'
+      );
       if (tierRoutingFailures.length > 0) {
-        recommendations.push('Improve query classification accuracy for better tier routing');
+        recommendations.push(
+          'Improve query classification accuracy for better tier routing'
+        );
       }
 
-      const fallbackFailures = failedResults.filter(r => r.testType === 'fallback_mechanism');
+      const fallbackFailures = failedResults.filter(
+        r => r.testType === 'fallback_mechanism'
+      );
       if (fallbackFailures.length > 0) {
-        recommendations.push('Enhance fallback mechanisms for better query coverage');
+        recommendations.push(
+          'Enhance fallback mechanisms for better query coverage'
+        );
       }
 
-      const errorHandlingFailures = failedResults.filter(r => r.testType === 'error_handling');
+      const errorHandlingFailures = failedResults.filter(
+        r => r.testType === 'error_handling'
+      );
       if (errorHandlingFailures.length > 0) {
         recommendations.push('Improve error handling and graceful degradation');
       }
@@ -449,15 +490,21 @@ export class APIIntegrationTester {
 
     // Overall Results
     console.log('\n📊 Integration Test Summary:');
-    console.log(`✅ Passed Tests: ${summary.passedTests}/${summary.totalTests} (${((summary.passedTests/summary.totalTests)*100).toFixed(1)}%)`);
+    console.log(
+      `✅ Passed Tests: ${summary.passedTests}/${summary.totalTests} (${((summary.passedTests / summary.totalTests) * 100).toFixed(1)}%)`
+    );
     console.log(`🎯 Overall Score: ${summary.overallScore.toFixed(1)}/100`);
 
     // Test Type Breakdown
     console.log('\n🧪 Test Type Performance:');
     Object.entries(summary.testTypeScores).forEach(([testType, score]) => {
-      const testTypeResults = summary.results.filter(r => r.testType === testType);
+      const testTypeResults = summary.results.filter(
+        r => r.testType === testType
+      );
       const passed = testTypeResults.filter(r => r.passed).length;
-      console.log(`  ${testType}: ${score.toFixed(1)}/100 (${passed}/${testTypeResults.length} passed)`);
+      console.log(
+        `  ${testType}: ${score.toFixed(1)}/100 (${passed}/${testTypeResults.length} passed)`
+      );
     });
 
     // Tier Usage Analysis
@@ -471,9 +518,13 @@ export class APIIntegrationTester {
     const fallbackTests = summary.results.filter(r => r.details.fallbackUsed);
     if (fallbackTests.length > 0) {
       console.log('\n🔄 Fallback Mechanism Analysis:');
-      console.log(`  Fallback used in: ${fallbackTests.length}/${summary.totalTests} tests`);
+      console.log(
+        `  Fallback used in: ${fallbackTests.length}/${summary.totalTests} tests`
+      );
       fallbackTests.forEach(test => {
-        console.log(`    ${test.testName}: ${test.details.fallbackTier?.toUpperCase()} fallback`);
+        console.log(
+          `    ${test.testName}: ${test.details.fallbackTier?.toUpperCase()} fallback`
+        );
       });
     }
 
@@ -498,9 +549,15 @@ export class APIIntegrationTester {
     const analytics = searchAnalytics.getCurrentTierDistribution();
     console.log('\n📊 Search Analytics During Testing:');
     console.log(`  Total Queries: ${analytics.total}`);
-    console.log(`  SQL Tier: ${analytics.sql.count} (${analytics.sql.percentage.toFixed(1)}%)`);
-    console.log(`  Vector Tier: ${analytics.vector.count} (${analytics.vector.percentage.toFixed(1)}%)`);
-    console.log(`  Content Tier: ${analytics.content.count} (${analytics.content.percentage.toFixed(1)}%)`);
+    console.log(
+      `  SQL Tier: ${analytics.sql.count} (${analytics.sql.percentage.toFixed(1)}%)`
+    );
+    console.log(
+      `  Vector Tier: ${analytics.vector.count} (${analytics.vector.percentage.toFixed(1)}%)`
+    );
+    console.log(
+      `  Content Tier: ${analytics.content.count} (${analytics.content.percentage.toFixed(1)}%)`
+    );
 
     console.log('\n' + '='.repeat(80));
   }
@@ -508,7 +565,9 @@ export class APIIntegrationTester {
   /**
    * Analyze tier usage across tests
    */
-  private analyzeTierUsage(results: IntegrationTestResult[]): Record<string, number> {
+  private analyzeTierUsage(
+    results: IntegrationTestResult[]
+  ): Record<string, number> {
     const usage: Record<string, number> = {};
 
     results.forEach(result => {
@@ -533,11 +592,18 @@ export async function runAPIIntegrationTests(): Promise<void> {
 
     // Success criteria evaluation
     console.log('\n🎯 Integration Test Success Criteria:');
-    console.log(`✅ Pass Rate: ${summary.passedTests >= summary.totalTests * 0.8 ? 'PASS' : 'FAIL'} (${((summary.passedTests/summary.totalTests)*100).toFixed(1)}% >= 80%)`);
-    console.log(`✅ Overall Score: ${summary.overallScore >= 70 ? 'PASS' : 'FAIL'} (${summary.overallScore.toFixed(1)} >= 70)`);
-    console.log(`✅ API Endpoints: ${summary.testTypeScores.api_endpoint >= 80 ? 'PASS' : 'FAIL'} (${summary.testTypeScores.api_endpoint?.toFixed(1) || 0}/100)`);
-    console.log(`✅ Tier Routing: ${summary.testTypeScores.tier_routing >= 80 ? 'PASS' : 'FAIL'} (${summary.testTypeScores.tier_routing?.toFixed(1) || 0}/100)`);
-
+    console.log(
+      `✅ Pass Rate: ${summary.passedTests >= summary.totalTests * 0.8 ? 'PASS' : 'FAIL'} (${((summary.passedTests / summary.totalTests) * 100).toFixed(1)}% >= 80%)`
+    );
+    console.log(
+      `✅ Overall Score: ${summary.overallScore >= 70 ? 'PASS' : 'FAIL'} (${summary.overallScore.toFixed(1)} >= 70)`
+    );
+    console.log(
+      `✅ API Endpoints: ${summary.testTypeScores.api_endpoint >= 80 ? 'PASS' : 'FAIL'} (${summary.testTypeScores.api_endpoint?.toFixed(1) || 0}/100)`
+    );
+    console.log(
+      `✅ Tier Routing: ${summary.testTypeScores.tier_routing >= 80 ? 'PASS' : 'FAIL'} (${summary.testTypeScores.tier_routing?.toFixed(1) || 0}/100)`
+    );
   } catch (error) {
     console.error('❌ API integration tests failed:', error);
     process.exit(1);

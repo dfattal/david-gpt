@@ -1,6 +1,6 @@
 /**
  * Admin API Route for Entity Merging
- * 
+ *
  * Merges multiple entities into a single canonical entity
  */
 
@@ -34,14 +34,23 @@ export async function POST(request: NextRequest) {
   // Check admin permissions
   const authCheck = await checkAdminPermissions(request);
   if (authCheck.error) {
-    return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
+    return NextResponse.json(
+      { error: authCheck.error },
+      { status: authCheck.status }
+    );
   }
 
   try {
     const body = await request.json();
     const validatedData = MergeEntitiesSchema.parse(body);
 
-    const { targetEntityId, sourceEntityIds, newName, newDescription, createAliases } = validatedData;
+    const {
+      targetEntityId,
+      sourceEntityIds,
+      newName,
+      newDescription,
+      createAliases,
+    } = validatedData;
 
     // Validate that all entities exist and are the same kind
     const allEntityIds = [targetEntityId, ...sourceEntityIds];
@@ -51,7 +60,10 @@ export async function POST(request: NextRequest) {
       .in('id', allEntityIds);
 
     if (fetchError || !entities || entities.length !== allEntityIds.length) {
-      return NextResponse.json({ error: 'One or more entities not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'One or more entities not found' },
+        { status: 404 }
+      );
     }
 
     // Check that all entities are the same kind
@@ -67,16 +79,27 @@ export async function POST(request: NextRequest) {
     const sourceEntities = entities.filter(e => sourceEntityIds.includes(e.id));
 
     if (!targetEntity) {
-      return NextResponse.json({ error: 'Target entity not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Target entity not found' },
+        { status: 404 }
+      );
     }
 
     // Calculate new authority score and mention count
-    const totalAuthorityScore = entities.reduce((sum, e) => sum + (e.authority_score || 0), 0);
-    const totalMentionCount = entities.reduce((sum, e) => sum + (e.mention_count || 0), 0);
+    const totalAuthorityScore = entities.reduce(
+      (sum, e) => sum + (e.authority_score || 0),
+      0
+    );
+    const totalMentionCount = entities.reduce(
+      (sum, e) => sum + (e.mention_count || 0),
+      0
+    );
     const avgAuthorityScore = totalAuthorityScore / entities.length;
 
     // Start the merge process
-    console.log(`🔄 Starting merge of entities ${sourceEntityIds.join(', ')} into ${targetEntityId}`);
+    console.log(
+      `🔄 Starting merge of entities ${sourceEntityIds.join(', ')} into ${targetEntityId}`
+    );
 
     // 1. Create aliases from source entity names (if requested)
     if (createAliases) {
@@ -110,7 +133,10 @@ export async function POST(request: NextRequest) {
         .eq('src_type', 'entity');
 
       if (outgoingError) {
-        console.warn(`Failed to transfer outgoing relationships from ${sourceEntityId}:`, outgoingError);
+        console.warn(
+          `Failed to transfer outgoing relationships from ${sourceEntityId}:`,
+          outgoingError
+        );
       }
 
       // Update incoming relationships (where source entity is the dst)
@@ -121,7 +147,10 @@ export async function POST(request: NextRequest) {
         .eq('dst_type', 'entity');
 
       if (incomingError) {
-        console.warn(`Failed to transfer incoming relationships to ${sourceEntityId}:`, incomingError);
+        console.warn(
+          `Failed to transfer incoming relationships to ${sourceEntityId}:`,
+          incomingError
+        );
       }
     }
 
@@ -133,7 +162,10 @@ export async function POST(request: NextRequest) {
         .eq('entity_id', sourceEntityId);
 
       if (transferAliasError) {
-        console.warn(`Failed to transfer aliases from ${sourceEntityId}:`, transferAliasError);
+        console.warn(
+          `Failed to transfer aliases from ${sourceEntityId}:`,
+          transferAliasError
+        );
       }
     }
 
@@ -145,13 +177,19 @@ export async function POST(request: NextRequest) {
         .eq('entity_id', sourceEntityId);
 
       if (transferEventError) {
-        console.warn(`Failed to transfer events from ${sourceEntityId}:`, transferEventError);
+        console.warn(
+          `Failed to transfer events from ${sourceEntityId}:`,
+          transferEventError
+        );
       }
     }
 
     // 5. Update target entity with new information
     const updateData: any = {
-      authority_score: Math.max(avgAuthorityScore, targetEntity.authority_score || 0),
+      authority_score: Math.max(
+        avgAuthorityScore,
+        targetEntity.authority_score || 0
+      ),
       mention_count: totalMentionCount,
       updated_at: new Date().toISOString(),
     };
@@ -168,7 +206,10 @@ export async function POST(request: NextRequest) {
 
     if (updateError) {
       console.error('Failed to update target entity:', updateError);
-      return NextResponse.json({ error: 'Failed to update target entity' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to update target entity' },
+        { status: 500 }
+      );
     }
 
     // 6. Delete source entities
@@ -179,24 +220,34 @@ export async function POST(request: NextRequest) {
 
     if (deleteError) {
       console.error('Failed to delete source entities:', deleteError);
-      return NextResponse.json({ error: 'Failed to delete source entities' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to delete source entities' },
+        { status: 500 }
+      );
     }
 
-    console.log(`✅ Successfully merged ${sourceEntityIds.length} entities into ${targetEntityId}`);
+    console.log(
+      `✅ Successfully merged ${sourceEntityIds.length} entities into ${targetEntityId}`
+    );
 
     return NextResponse.json({
       message: 'Entities merged successfully',
       mergedEntity: updatedEntity,
       mergedEntityIds: sourceEntityIds,
       aliasesCreated: createAliases ? sourceEntities.length : 0,
-      relationshipsTransferred: true
+      relationshipsTransferred: true,
     });
-
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid input', details: error.errors }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid input', details: error.errors },
+        { status: 400 }
+      );
     }
     console.error('Error in POST /api/admin/entities/merge:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

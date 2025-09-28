@@ -6,7 +6,8 @@ import { existsSync } from 'fs';
 
 // Test script to check what documents would be processed
 async function testProcessor() {
-  const manifestPath = '/Users/david.fattal/Documents/GitHub/david-gpt/rag-processing-manifest-comprehensive.json';
+  const manifestPath =
+    '/Users/david.fattal/Documents/GitHub/david-gpt/rag-processing-manifest-comprehensive.json';
 
   if (!existsSync(manifestPath)) {
     console.error(`❌ Manifest file not found: ${manifestPath}`);
@@ -19,7 +20,9 @@ async function testProcessor() {
     const content = await readFile(manifestPath, 'utf-8');
     const manifest = JSON.parse(content);
 
-    console.log(`📊 Total documents in manifest: ${manifest.documents_to_process.length}`);
+    console.log(
+      `📊 Total documents in manifest: ${manifest.documents_to_process.length}`
+    );
     console.log(`📋 Document types breakdown:`);
 
     const typeCount: Record<string, number> = {};
@@ -50,7 +53,8 @@ async function testProcessor() {
 
     console.log(`\n📁 Current corpus status:`);
     // Check how many files already exist in my-corpus
-    const corpusPath = '/Users/david.fattal/Documents/GitHub/david-gpt/my-corpus';
+    const corpusPath =
+      '/Users/david.fattal/Documents/GitHub/david-gpt/my-corpus';
 
     let totalExisting = 0;
     const subdirs = ['articles', 'papers', 'patents', 'notes', 'blog'];
@@ -68,17 +72,20 @@ async function testProcessor() {
     }
 
     console.log(`  📝 Total existing: ${totalExisting} documents`);
-    console.log(`  🆕 Potential new: ${manifest.documents_to_process.length - totalExisting} documents`);
+    console.log(
+      `  🆕 Potential new: ${manifest.documents_to_process.length - totalExisting} documents`
+    );
 
     console.log(`\n⏭️  Sample documents that would be processed:`);
-    manifest.documents_to_process.slice(0, 5).forEach((doc: any, index: number) => {
-      const source = doc.source_uri.startsWith('http')
-        ? new URL(doc.source_uri).hostname
-        : 'local file';
-      console.log(`  ${index + 1}. [${doc.document_type}] ${source}`);
-      console.log(`     ${doc.source_uri.substring(0, 80)}...`);
-    });
-
+    manifest.documents_to_process
+      .slice(0, 5)
+      .forEach((doc: any, index: number) => {
+        const source = doc.source_uri.startsWith('http')
+          ? new URL(doc.source_uri).hostname
+          : 'local file';
+        console.log(`  ${index + 1}. [${doc.document_type}] ${source}`);
+        console.log(`     ${doc.source_uri.substring(0, 80)}...`);
+      });
   } catch (error) {
     console.error(`❌ Error analyzing manifest: ${error}`);
   }

@@ -9,7 +9,10 @@ export async function POST(
 ) {
   try {
     const supabase = await createClient();
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
     if (userError || !user) {
       throw new AppError('Authentication required', 401);
@@ -34,33 +37,37 @@ export async function POST(
       throw new AppError(`Persona '${personaId}' not found`, 404);
     }
 
-    console.log(`🚀 Starting document processing from manifest for persona: ${personaId}`);
+    console.log(
+      `🚀 Starting document processing from manifest for persona: ${personaId}`
+    );
 
     // Initialize document processor with persona configuration
     const processor = new DocumentProcessor({
       personaId,
       persona: persona,
       userId: user.id,
-      ...options
+      ...options,
     });
 
     // Process the manifest
     const result = await processor.processManifest(manifestPath);
 
-    return NextResponse.json({
-      success: true,
-      personaId,
-      manifestPath,
-      totalDocuments: result.totalDocuments,
-      successCount: result.successCount,
-      failureCount: result.failureCount,
-      skippedCount: result.skippedCount,
-      duration: result.duration,
-      successRate: result.successRate,
-      errors: result.errors.slice(0, 10), // Limit errors in response
-      message: `Processing completed for ${personaId} persona`
-    }, { status: 200 });
-
+    return NextResponse.json(
+      {
+        success: true,
+        personaId,
+        manifestPath,
+        totalDocuments: result.totalDocuments,
+        successCount: result.successCount,
+        failureCount: result.failureCount,
+        skippedCount: result.skippedCount,
+        duration: result.duration,
+        successRate: result.successRate,
+        errors: result.errors.slice(0, 10), // Limit errors in response
+        message: `Processing completed for ${personaId} persona`,
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error('❌ Process manifest error:', error);
     return handleApiError(error);
@@ -73,7 +80,10 @@ export async function GET(
 ) {
   try {
     const supabase = await createClient();
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
     if (userError || !user) {
       throw new AppError('Authentication required', 401);
@@ -97,9 +107,8 @@ export async function GET(
     return NextResponse.json({
       personaId,
       recentJobs: jobs || [],
-      message: `Processing status for ${personaId} persona`
+      message: `Processing status for ${personaId} persona`,
     });
-
   } catch (error) {
     return handleApiError(error);
   }

@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { AppError, handleApiError } from "@/lib/utils";
-import { generateConversationTitle } from "@/lib/title-generation";
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { AppError, handleApiError } from '@/lib/utils';
+import { generateConversationTitle } from '@/lib/title-generation';
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
 
     if (!conversationId || !firstMessage) {
       return NextResponse.json(
-        { error: "Conversation ID and first message are required" },
+        { error: 'Conversation ID and first message are required' },
         { status: 400 }
       );
     }
@@ -23,19 +23,19 @@ export async function POST(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      throw new AppError("Authentication required", 401);
+      throw new AppError('Authentication required', 401);
     }
 
     // Verify the conversation belongs to the user
     const { data: conversation, error: conversationError } = await supabase
-      .from("conversations")
-      .select("id, user_id")
-      .eq("id", conversationId)
-      .eq("user_id", user.id)
+      .from('conversations')
+      .select('id, user_id')
+      .eq('id', conversationId)
+      .eq('user_id', user.id)
       .single();
 
     if (conversationError || !conversation) {
-      throw new AppError("Conversation not found", 404);
+      throw new AppError('Conversation not found', 404);
     }
 
     // Use the shared title generation function
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     );
 
     if (!result.success) {
-      throw new AppError(result.error || "Title generation failed", 500);
+      throw new AppError(result.error || 'Title generation failed', 500);
     }
 
     return NextResponse.json({
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       conversationId,
     });
   } catch (error) {
-    console.error("Title generation error:", error);
+    console.error('Title generation error:', error);
     return handleApiError(error);
   }
 }

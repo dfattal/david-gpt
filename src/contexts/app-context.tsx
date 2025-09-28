@@ -1,6 +1,12 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  ReactNode,
+} from 'react';
 import type { PersonaOption } from '@/components/chat/persona-selector';
 import type { Conversation } from '@/lib/types';
 
@@ -38,9 +44,12 @@ interface AppProviderProps {
 }
 
 export function AppProvider({ children }: AppProviderProps) {
-  const [selectedPersona, setSelectedPersona] = useState<PersonaOption | null>(null);
+  const [selectedPersona, setSelectedPersona] = useState<PersonaOption | null>(
+    null
+  );
   const [isPersonaSelectorOpen, setIsPersonaSelectorOpen] = useState(false);
-  const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
+  const [currentConversation, setCurrentConversation] =
+    useState<Conversation | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const setPersonaSelectorOpen = useCallback((open: boolean) => {
@@ -67,9 +76,7 @@ export function AppProvider({ children }: AppProviderProps) {
   };
 
   return (
-    <AppContext.Provider value={contextValue}>
-      {children}
-    </AppContext.Provider>
+    <AppContext.Provider value={contextValue}>{children}</AppContext.Provider>
   );
 }
 
@@ -83,7 +90,12 @@ export function useAppContext() {
 
 // Convenience hooks for specific parts of the state
 export function usePersonaState() {
-  const { selectedPersona, isPersonaSelectorOpen, setSelectedPersona, setPersonaSelectorOpen } = useAppContext();
+  const {
+    selectedPersona,
+    isPersonaSelectorOpen,
+    setSelectedPersona,
+    setPersonaSelectorOpen,
+  } = useAppContext();
   return {
     selectedPersona,
     isPersonaSelectorOpen,

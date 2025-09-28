@@ -1,20 +1,31 @@
-"use client";
+'use client';
 
-import { useEffect, useRef } from "react";
-import { ChatInterface } from "./chat-interface";
-import { ConversationSidebar } from "./conversation-sidebar";
-import { PersonaSelector, type PersonaOption } from "./persona-selector";
-import { useAuth } from "@/components/auth/auth-provider";
-import { usePersonaState, useConversationState, useSidebarState } from "@/contexts/app-context";
-import { useActivePersonas } from "@/hooks/use-personas";
-import type { Conversation } from "@/lib/types";
+import { useEffect, useRef } from 'react';
+import { ChatInterface } from './chat-interface';
+import { ConversationSidebar } from './conversation-sidebar';
+import { PersonaSelector, type PersonaOption } from './persona-selector';
+import { useAuth } from '@/components/auth/auth-provider';
+import {
+  usePersonaState,
+  useConversationState,
+  useSidebarState,
+} from '@/contexts/app-context';
+import { useActivePersonas } from '@/hooks/use-personas';
+import type { Conversation } from '@/lib/types';
 
 export function ChatLayout() {
   const { user } = useAuth();
-  const { currentConversation, setCurrentConversation } = useConversationState();
+  const { currentConversation, setCurrentConversation } =
+    useConversationState();
   const { sidebarOpen, setSidebarOpen, toggleSidebar } = useSidebarState();
-  const { selectedPersona, isPersonaSelectorOpen, setSelectedPersona, setPersonaSelectorOpen } = usePersonaState();
-  const { data: personas = [], isLoading: personasLoading } = useActivePersonas();
+  const {
+    selectedPersona,
+    isPersonaSelectorOpen,
+    setSelectedPersona,
+    setPersonaSelectorOpen,
+  } = usePersonaState();
+  const { data: personas = [], isLoading: personasLoading } =
+    useActivePersonas();
 
   const sidebarRef = useRef<{
     refreshConversations: () => void;
@@ -56,7 +67,7 @@ export function ChatLayout() {
     // Immediately refresh the sidebar to show the new conversation
     sidebarRef.current?.refreshConversations();
     // Start title generation loading state for new conversations with "New Chat" title
-    if (conversation.title === "New Chat") {
+    if (conversation.title === 'New Chat') {
       sidebarRef.current?.setTitleGenerating(conversation.id, true);
     }
   };
@@ -86,7 +97,7 @@ export function ChatLayout() {
       {/* Sidebar */}
       <div
         className={`
-        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0 transition-transform duration-300 ease-in-out
         fixed lg:relative inset-y-0 left-0 z-40 lg:z-0
       `}
@@ -121,7 +132,7 @@ export function ChatLayout() {
       <PersonaSelector
         personas={personas}
         selectedPersona={selectedPersona}
-        onPersonaSelect={(persona) => {
+        onPersonaSelect={persona => {
           setSelectedPersona(persona);
           setPersonaSelectorOpen(false);
         }}

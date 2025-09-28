@@ -1,21 +1,21 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useRef } from "react";
-import { useChat } from "@ai-sdk/react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { MessageBubble } from "./message-bubble";
-import { useAuth } from "@/components/auth/auth-provider";
-import { formatDate } from "@/lib/utils";
-import { getPersonaAvatar } from "@/lib/avatar-utils";
-import { Send, Settings, User } from "lucide-react";
-import type { Conversation } from "@/lib/types";
-import type { PersonaOption } from "./persona-selector";
+import { useState, useEffect, useRef } from 'react';
+import { useChat } from '@ai-sdk/react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { MessageBubble } from './message-bubble';
+import { useAuth } from '@/components/auth/auth-provider';
+import { formatDate } from '@/lib/utils';
+import { getPersonaAvatar } from '@/lib/avatar-utils';
+import { Send, Settings, User } from 'lucide-react';
+import type { Conversation } from '@/lib/types';
+import type { PersonaOption } from './persona-selector';
 
 interface ChatInterfaceProps {
   conversation?: Conversation;
@@ -34,13 +34,15 @@ export function ChatInterface({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [loadingMessages, setLoadingMessages] = useState(false);
-  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [currentConversationId, setCurrentConversationId] = useState<
+    string | null
+  >(null);
 
   // AI SDK pattern: manage input state manually, use append
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('');
   const chatHook = useChat({
-    api: "/api/chat",
-    streamProtocol: "text", // Match backend toTextStreamResponse()
+    api: '/api/chat',
+    streamProtocol: 'text', // Match backend toTextStreamResponse()
     body: {
       conversationId: conversation?.id,
       personaId: selectedPersona?.persona_id,
@@ -55,12 +57,12 @@ export function ChatInterface({
             onConversationUpdate(updatedConversation);
           }
         } catch (error) {
-          console.error("Failed to update conversation:", error);
+          console.error('Failed to update conversation:', error);
         }
       }
     },
-    onError: (error) => {
-      console.error("Chat streaming error:", error);
+    onError: error => {
+      console.error('Chat streaming error:', error);
     },
   });
 
@@ -71,7 +73,7 @@ export function ChatInterface({
   useEffect(() => {
     const loadConversationMessages = async () => {
       const newConversationId = conversation?.id || null;
-      
+
       if (!newConversationId) {
         // Clear messages when no conversation is selected (new chat)
         setMessages([]);
@@ -82,7 +84,7 @@ export function ChatInterface({
       // Only show loading if this is actually a different conversation
       // This prevents the flash when the conversation object gets updated after sending a message
       const isNewConversation = currentConversationId !== newConversationId;
-      
+
       // Show loading when switching to a different conversation, but not during active generation
       if (isNewConversation && !isLoading) {
         setLoadingMessages(true);
@@ -92,7 +94,7 @@ export function ChatInterface({
         const response = await fetch(`/api/conversations/${newConversationId}`);
         if (response.ok) {
           const { messages: conversationMessages } = await response.json();
-          
+
           // Convert database messages to chat hook format
           const formattedMessages = conversationMessages.map((msg: any) => ({
             id: msg.id,
@@ -100,19 +102,19 @@ export function ChatInterface({
             content: msg.content,
             createdAt: new Date(msg.created_at),
           }));
-          
+
           // Update messages when switching to a different conversation
           // Only skip if we're in an active generation (isLoading) to prevent overwriting streaming messages
           if (isNewConversation && !isLoading) {
             setMessages(formattedMessages);
           }
-          
+
           setCurrentConversationId(newConversationId);
         } else {
-          console.error("Failed to load conversation messages");
+          console.error('Failed to load conversation messages');
         }
       } catch (error) {
-        console.error("Error loading conversation messages:", error);
+        console.error('Error loading conversation messages:', error);
       } finally {
         if (isNewConversation && !isLoading) {
           setLoadingMessages(false);
@@ -125,13 +127,13 @@ export function ChatInterface({
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
   }, [input]);
@@ -142,20 +144,20 @@ export function ChatInterface({
     if (!input.trim() || isLoading) return;
 
     const messageContent = input.trim();
-    setInput(""); // Clear input immediately (v5 pattern)
+    setInput(''); // Clear input immediately (v5 pattern)
 
     // Send message immediately - no blocking conversation creation
-    append({ role: "user", content: messageContent });
+    append({ role: 'user', content: messageContent });
 
     // Create conversation in background for authenticated users (non-blocking)
     if (!conversation && user) {
       // Don't await - let this happen in background
-      fetch("/api/conversations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ firstMessage: messageContent }),
       })
-        .then(async (response) => {
+        .then(async response => {
           if (response.ok) {
             const { conversation: newConversation } = await response.json();
             onConversationUpdate?.(newConversation);
@@ -168,14 +170,14 @@ export function ChatInterface({
             console.log(`🔄 Triggering immediate sidebar refresh`);
           }
         })
-        .catch((error) => {
-          console.error("Failed to create conversation:", error);
+        .catch(error => {
+          console.error('Failed to create conversation:', error);
         });
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleFormSubmit(e);
     }
@@ -203,10 +205,16 @@ export function ChatInterface({
                     alt={selectedPersona.name}
                   />
                   <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                    {selectedPersona.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                    {selectedPersona.name
+                      .split(' ')
+                      .map(n => n[0])
+                      .join('')
+                      .slice(0, 2)}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-sm font-medium">{selectedPersona.name}</span>
+                <span className="text-sm font-medium">
+                  {selectedPersona.name}
+                </span>
                 <Settings className="w-3 h-3 opacity-60" />
               </Button>
             ) : (
@@ -219,7 +227,7 @@ export function ChatInterface({
             <div className="h-6 w-px bg-border" />
 
             <h2 className="font-semibold text-lg truncate">
-              {conversation ? (conversation.title || "New Chat") : "New Chat"}
+              {conversation ? conversation.title || 'New Chat' : 'New Chat'}
             </h2>
           </div>
 
@@ -260,7 +268,11 @@ export function ChatInterface({
                         className="object-cover"
                       />
                       <AvatarFallback className="text-2xl font-bold bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                        {selectedPersona.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        {selectedPersona.name
+                          .split(' ')
+                          .map(n => n[0])
+                          .join('')
+                          .slice(0, 2)}
                       </AvatarFallback>
                     </Avatar>
 
@@ -277,14 +289,21 @@ export function ChatInterface({
                       {/* Expertise badges */}
                       {selectedPersona.expertise_domains.length > 0 && (
                         <div className="flex flex-wrap gap-2 justify-center">
-                          {selectedPersona.expertise_domains.slice(0, 4).map((domain) => (
-                            <Badge key={domain} variant="secondary" className="text-sm">
-                              {domain}
-                            </Badge>
-                          ))}
+                          {selectedPersona.expertise_domains
+                            .slice(0, 4)
+                            .map(domain => (
+                              <Badge
+                                key={domain}
+                                variant="secondary"
+                                className="text-sm"
+                              >
+                                {domain}
+                              </Badge>
+                            ))}
                           {selectedPersona.expertise_domains.length > 4 && (
                             <Badge variant="outline" className="text-sm">
-                              +{selectedPersona.expertise_domains.length - 4} more
+                              +{selectedPersona.expertise_domains.length - 4}{' '}
+                              more
                             </Badge>
                           )}
                         </div>
@@ -299,7 +318,11 @@ export function ChatInterface({
                       </p>
 
                       {/* Switch persona button */}
-                      <Button variant="outline" size="sm" onClick={onPersonaSelect}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={onPersonaSelect}
+                      >
                         <User className="w-4 h-4 mr-2" />
                         Switch Assistant
                       </Button>
@@ -319,7 +342,11 @@ export function ChatInterface({
                       <p className="text-lg text-muted-foreground max-w-lg leading-relaxed">
                         Select an AI assistant to start your conversation
                       </p>
-                      <Button onClick={onPersonaSelect} size="lg" className="mt-4">
+                      <Button
+                        onClick={onPersonaSelect}
+                        size="lg"
+                        className="mt-4"
+                      >
                         <User className="w-4 h-4 mr-2" />
                         Choose Your Assistant
                       </Button>
@@ -332,15 +359,15 @@ export function ChatInterface({
             <div className="space-y-6 py-6 px-4 max-w-4xl mx-auto">
               {messages
                 .filter(
-                  (message) =>
-                    message.role === "user" || message.role === "assistant"
+                  message =>
+                    message.role === 'user' || message.role === 'assistant'
                 )
-                .map((message) => (
+                .map(message => (
                   <MessageBubble
                     key={message.id}
                     message={{
                       id: message.id,
-                      role: message.role as "user" | "assistant",
+                      role: message.role as 'user' | 'assistant',
                       content: message.content,
                       created_at: message.createdAt?.toISOString(),
                     }}
@@ -356,7 +383,11 @@ export function ChatInterface({
                       alt={selectedPersona?.name}
                     />
                     <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                      {selectedPersona?.name.split(' ').map(n => n[0]).join('').slice(0, 2) || 'AI'}
+                      {selectedPersona?.name
+                        .split(' ')
+                        .map(n => n[0])
+                        .join('')
+                        .slice(0, 2) || 'AI'}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex items-center space-x-2 text-muted-foreground">
@@ -365,7 +396,9 @@ export function ChatInterface({
                       <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]" />
                       <div className="w-2 h-2 bg-current rounded-full animate-bounce" />
                     </div>
-                    <span className="text-sm">{selectedPersona?.name || 'AI'} is thinking...</span>
+                    <span className="text-sm">
+                      {selectedPersona?.name || 'AI'} is thinking...
+                    </span>
                   </div>
                 </div>
               )}
@@ -386,12 +419,12 @@ export function ChatInterface({
               <Textarea
                 ref={textareaRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={
                   !conversation && messages.length === 0
                     ? `Start a new conversation with ${selectedPersona?.name || 'your AI assistant'}...`
-                    : "Continue conversation..."
+                    : 'Continue conversation...'
                 }
                 className="min-h-[52px] max-h-32 resize-none border-2 focus:border-primary transition-colors"
                 disabled={isLoading}

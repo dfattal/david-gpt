@@ -127,9 +127,13 @@ function extractPersonaId(filename: string): string {
   return basename.replace('.md', '');
 }
 
-function formatValidationResult(result: any, filename: string, options: CLIOptions): string {
+function formatValidationResult(
+  result: any,
+  filename: string,
+  options: CLIOptions
+): string {
   if (options.json) {
-    return '';  // JSON output handled separately
+    return ''; // JSON output handled separately
   }
 
   let output = '';
@@ -160,7 +164,10 @@ function formatValidationResult(result: any, filename: string, options: CLIOptio
     }
 
     // Show warnings if verbose or if there are no errors
-    if (result.warnings.length > 0 && (options.verbose || result.errors.length === 0)) {
+    if (
+      result.warnings.length > 0 &&
+      (options.verbose || result.errors.length === 0)
+    ) {
       output += `⚠️  ${result.warnings.length} warning(s):\n`;
       result.warnings.forEach((warning: string, i: number) => {
         output += `   ${i + 1}. ${warning}\n`;
@@ -196,7 +203,10 @@ function formatValidationResult(result: any, filename: string, options: CLIOptio
   return output;
 }
 
-function formatSummary(summary: ValidationSummary, options: CLIOptions): string {
+function formatSummary(
+  summary: ValidationSummary,
+  options: CLIOptions
+): string {
   if (options.json) {
     return JSON.stringify(summary, null, 2);
   }
@@ -210,9 +220,10 @@ function formatSummary(summary: ValidationSummary, options: CLIOptions): string 
   output += `⚠️  With warnings: ${summary.filesWithWarnings}\n`;
   output += `❌ With errors: ${summary.filesWithErrors}\n`;
 
-  const successRate = summary.totalFiles > 0
-    ? Math.round((summary.validFiles / summary.totalFiles) * 100)
-    : 0;
+  const successRate =
+    summary.totalFiles > 0
+      ? Math.round((summary.validFiles / summary.totalFiles) * 100)
+      : 0;
 
   output += `\nSuccess rate: ${successRate}%\n`;
 
@@ -226,8 +237,8 @@ function formatSummary(summary: ValidationSummary, options: CLIOptions): string 
   }
 
   if (options.testParser) {
-    const compatibleCount = summary.results.filter(r =>
-      r.details?.parserCompatible === true
+    const compatibleCount = summary.results.filter(
+      r => r.details?.parserCompatible === true
     ).length;
     output += `\n🔧 Parser compatibility: ${compatibleCount}/${summary.totalFiles} personas\n`;
   }
@@ -278,7 +289,10 @@ async function main() {
             parserTest = {
               compatible: false,
               persona: null,
-              error: error instanceof Error ? error.message : 'Unknown parsing error',
+              error:
+                error instanceof Error
+                  ? error.message
+                  : 'Unknown parsing error',
             };
           }
         }
@@ -324,9 +338,11 @@ async function main() {
             console.log(output);
           }
         }
-
       } catch (error) {
-        console.error(`Error reading file ${file}:`, error instanceof Error ? error.message : error);
+        console.error(
+          `Error reading file ${file}:`,
+          error instanceof Error ? error.message : error
+        );
         summary.filesWithErrors++;
         summary.results.push({
           file,
@@ -350,9 +366,11 @@ async function main() {
     } else {
       process.exit(0);
     }
-
   } catch (error) {
-    console.error('Validation failed:', error instanceof Error ? error.message : error);
+    console.error(
+      'Validation failed:',
+      error instanceof Error ? error.message : error
+    );
     process.exit(1);
   }
 }

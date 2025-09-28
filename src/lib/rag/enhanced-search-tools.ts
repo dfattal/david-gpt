@@ -5,17 +5,17 @@
  * to provide KG-enhanced search, entity-aware queries, and specialized search patterns.
  */
 
-import { z } from "zod";
-import { tool } from "ai";
-import { createClient } from "@/lib/supabase/server";
-import { kgEnhancedSearchEngine } from "./kg-enhanced-search";
-import { 
+import { z } from 'zod';
+import { tool } from 'ai';
+import { createClient } from '@/lib/supabase/server';
+import { kgEnhancedSearchEngine } from './kg-enhanced-search';
+import {
   searchAuthorAdvanced,
   searchTechnologyAdvanced,
   searchTimeline,
-  searchPatentsAdvanced
-} from "./specialized-search";
-import type { KGSearchQuery, EntityKind, EventType } from "./types";
+  searchPatentsAdvanced,
+} from './specialized-search';
+import type { KGSearchQuery, EntityKind, EventType } from './types';
 
 // =======================
 // Enhanced Search Tools
@@ -33,42 +33,50 @@ export const enhancedSearchCorpusTool = tool({
   inputSchema: z.object({
     query: z
       .string()
-      .describe("The search query - what you want to find information about"),
+      .describe('The search query - what you want to find information about'),
     limit: z
       .number()
       .default(10)
-      .describe("Maximum number of results to return (default: 10)"),
+      .describe('Maximum number of results to return (default: 10)'),
     documentTypes: z
-      .array(z.enum(["pdf", "paper", "patent", "note", "url", "book"]))
+      .array(z.enum(['pdf', 'paper', 'patent', 'note', 'url', 'book']))
       .optional()
-      .describe("Filter by document types"),
+      .describe('Filter by document types'),
     expandEntities: z
       .boolean()
       .default(true)
-      .describe("Whether to expand query with related entities and aliases"),
+      .describe('Whether to expand query with related entities and aliases'),
     authorityBoost: z
       .boolean()
       .default(true)
-      .describe("Whether to boost results by entity authority scores"),
+      .describe('Whether to boost results by entity authority scores'),
     disambiguate: z
       .boolean()
       .default(true)
-      .describe("Whether to disambiguate entity names in the query"),
+      .describe('Whether to disambiguate entity names in the query'),
     entityFocus: z
       .string()
       .optional()
-      .describe("Focus search on a specific entity (person, organization, technology, etc.)"),
+      .describe(
+        'Focus search on a specific entity (person, organization, technology, etc.)'
+      ),
     dateRange: z
       .object({
-        start: z.string().optional().describe("Start date in ISO format (YYYY-MM-DD)"),
-        end: z.string().optional().describe("End date in ISO format (YYYY-MM-DD)"),
+        start: z
+          .string()
+          .optional()
+          .describe('Start date in ISO format (YYYY-MM-DD)'),
+        end: z
+          .string()
+          .optional()
+          .describe('End date in ISO format (YYYY-MM-DD)'),
       })
       .optional()
-      .describe("Filter by date range"),
+      .describe('Filter by date range'),
     responseMode: z
-      .enum(["FACT", "EXPLAIN", "CONFLICTS"])
-      .default("EXPLAIN")
-      .describe("How to structure the response"),
+      .enum(['FACT', 'EXPLAIN', 'CONFLICTS'])
+      .default('EXPLAIN')
+      .describe('How to structure the response'),
   }),
   execute: async ({
     query,
@@ -79,18 +87,21 @@ export const enhancedSearchCorpusTool = tool({
     disambiguate = true,
     entityFocus,
     dateRange,
-    responseMode = "EXPLAIN",
+    responseMode = 'EXPLAIN',
   }) => {
     try {
       console.log(`🧠 Enhanced KG search called with query: "${query}"`);
-      
+
       // Authentication check
       const supabase = await createClient();
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
       if (authError || !user) {
         return {
           success: false,
-          message: "Authentication required for corpus search",
+          message: 'Authentication required for corpus search',
           results: [],
           totalCount: 0,
         };
@@ -106,10 +117,12 @@ export const enhancedSearchCorpusTool = tool({
         entityFocus,
         filters: {
           documentTypes,
-          dateRange: dateRange ? {
-            start: dateRange.start ? new Date(dateRange.start) : undefined,
-            end: dateRange.end ? new Date(dateRange.end) : undefined,
-          } : undefined,
+          dateRange: dateRange
+            ? {
+                start: dateRange.start ? new Date(dateRange.start) : undefined,
+                end: dateRange.end ? new Date(dateRange.end) : undefined,
+              }
+            : undefined,
         },
       };
 
@@ -120,10 +133,12 @@ export const enhancedSearchCorpusTool = tool({
       const formattedResults = result.results.map((res, index) => ({
         id: `${index + 1}`,
         title: res.title,
-        content: res.content.substring(0, 800) + (res.content.length > 800 ? "..." : ""),
+        content:
+          res.content.substring(0, 800) +
+          (res.content.length > 800 ? '...' : ''),
         docType: res.docType,
         score: res.score,
-        citation: `[${index + 1}] ${res.title}${res.pageRange ? ` (${res.pageRange})` : ""}`,
+        citation: `[${index + 1}] ${res.title}${res.pageRange ? ` (${res.pageRange})` : ''}`,
         metadata: {
           documentId: res.documentId,
           pageRange: res.pageRange,
@@ -134,7 +149,7 @@ export const enhancedSearchCorpusTool = tool({
 
       // Add KG enhancement information
       const enhancementInfo: any = {};
-      
+
       if (result.expandedEntities && result.expandedEntities.length > 0) {
         enhancementInfo.expandedEntities = result.expandedEntities.map(e => ({
           name: e.name,
@@ -142,15 +157,17 @@ export const enhancedSearchCorpusTool = tool({
           authorityScore: e.authority_score,
         }));
       }
-      
+
       if (result.disambiguatedTerms && result.disambiguatedTerms.length > 0) {
-        enhancementInfo.disambiguatedTerms = result.disambiguatedTerms.map(dt => ({
-          original: dt.original,
-          resolved: dt.resolved.name,
-          type: dt.resolved.kind,
-        }));
+        enhancementInfo.disambiguatedTerms = result.disambiguatedTerms.map(
+          dt => ({
+            original: dt.original,
+            resolved: dt.resolved.name,
+            type: dt.resolved.kind,
+          })
+        );
       }
-      
+
       if (result.authorityBoosts && result.authorityBoosts.length > 0) {
         enhancementInfo.authorityBoosts = result.authorityBoosts.slice(0, 5);
       }
@@ -163,15 +180,16 @@ export const enhancedSearchCorpusTool = tool({
         responseMode,
         enhancementInfo,
         message: `Found ${formattedResults.length} documents using KG-enhanced search${
-          enhancementInfo.expandedEntities ? ` (expanded with ${enhancementInfo.expandedEntities.length} entities)` : ""
-        }`
+          enhancementInfo.expandedEntities
+            ? ` (expanded with ${enhancementInfo.expandedEntities.length} entities)`
+            : ''
+        }`,
       };
-
     } catch (error) {
-      console.error("Enhanced search corpus error:", error);
+      console.error('Enhanced search corpus error:', error);
       return {
         success: false,
-        message: `Search failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        message: `Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         results: [],
         totalCount: 0,
       };
@@ -189,9 +207,7 @@ export const searchByAuthorTool = tool({
     Use when the user asks about a specific person's work or contributions.
   `,
   inputSchema: z.object({
-    authorName: z
-      .string()
-      .describe("Name of the author to search for"),
+    authorName: z.string().describe('Name of the author to search for'),
     includeAffiliations: z
       .boolean()
       .default(true)
@@ -202,15 +218,15 @@ export const searchByAuthorTool = tool({
         end: z.string().optional(),
       })
       .optional()
-      .describe("Filter by publication date range"),
+      .describe('Filter by publication date range'),
     documentTypes: z
       .array(z.string())
       .optional()
-      .describe("Filter by document types"),
+      .describe('Filter by document types'),
     limit: z
       .number()
       .default(20)
-      .describe("Maximum number of results to return"),
+      .describe('Maximum number of results to return'),
   }),
   execute: async ({
     authorName,
@@ -224,10 +240,12 @@ export const searchByAuthorTool = tool({
 
       const result = await searchAuthorAdvanced(authorName, {
         includeAffiliations,
-        timeRange: timeRange ? {
-          start: timeRange.start ? new Date(timeRange.start) : undefined,
-          end: timeRange.end ? new Date(timeRange.end) : undefined,
-        } : undefined,
+        timeRange: timeRange
+          ? {
+              start: timeRange.start ? new Date(timeRange.start) : undefined,
+              end: timeRange.end ? new Date(timeRange.end) : undefined,
+            }
+          : undefined,
         documentTypes,
         limit,
       });
@@ -238,7 +256,9 @@ export const searchByAuthorTool = tool({
         documents: result.documents.map((doc, index) => ({
           id: `${index + 1}`,
           title: doc.title,
-          content: doc.content.substring(0, 500) + (doc.content.length > 500 ? "..." : ""),
+          content:
+            doc.content.substring(0, 500) +
+            (doc.content.length > 500 ? '...' : ''),
           docType: doc.docType,
           score: doc.score,
           citation: `[${index + 1}] ${doc.title}`,
@@ -270,12 +290,11 @@ export const searchByAuthorTool = tool({
       }
 
       return response;
-
     } catch (error) {
-      console.error("Author search error:", error);
+      console.error('Author search error:', error);
       return {
         success: false,
-        message: `Author search failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        message: `Author search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         documents: [],
         totalCount: 0,
       };
@@ -295,19 +314,21 @@ export const searchByTechnologyTool = tool({
   inputSchema: z.object({
     technologyName: z
       .string()
-      .describe("Name of the technology, algorithm, or technical concept"),
+      .describe('Name of the technology, algorithm, or technical concept'),
     includeImplementations: z
       .boolean()
       .default(true)
-      .describe("Whether to include products/systems that implement this technology"),
+      .describe(
+        'Whether to include products/systems that implement this technology'
+      ),
     includeRelatedTech: z
       .boolean()
       .default(true)
-      .describe("Whether to include related or similar technologies"),
+      .describe('Whether to include related or similar technologies'),
     limit: z
       .number()
       .default(20)
-      .describe("Maximum number of results to return"),
+      .describe('Maximum number of results to return'),
   }),
   execute: async ({
     technologyName,
@@ -330,7 +351,9 @@ export const searchByTechnologyTool = tool({
         documents: result.documents.map((doc, index) => ({
           id: `${index + 1}`,
           title: doc.title,
-          content: doc.content.substring(0, 500) + (doc.content.length > 500 ? "..." : ""),
+          content:
+            doc.content.substring(0, 500) +
+            (doc.content.length > 500 ? '...' : ''),
           docType: doc.docType,
           score: doc.score,
           citation: `[${index + 1}] ${doc.title}`,
@@ -364,12 +387,11 @@ export const searchByTechnologyTool = tool({
       }
 
       return response;
-
     } catch (error) {
-      console.error("Technology search error:", error);
+      console.error('Technology search error:', error);
       return {
         success: false,
-        message: `Technology search failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        message: `Technology search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         documents: [],
         totalCount: 0,
       };
@@ -389,30 +411,42 @@ export const getTimelineTool = tool({
   inputSchema: z.object({
     query: z
       .string()
-      .describe("The topic, entity, or subject to get timeline for"),
+      .describe('The topic, entity, or subject to get timeline for'),
     entityFocus: z
       .string()
       .optional()
-      .describe("Focus timeline on a specific entity (person, organization, technology)"),
+      .describe(
+        'Focus timeline on a specific entity (person, organization, technology)'
+      ),
     timeRange: z
       .object({
-        start: z.string().optional().describe("Start date (YYYY-MM-DD)"),
-        end: z.string().optional().describe("End date (YYYY-MM-DD)"),
+        start: z.string().optional().describe('Start date (YYYY-MM-DD)'),
+        end: z.string().optional().describe('End date (YYYY-MM-DD)'),
       })
       .optional()
-      .describe("Filter events to specific time range"),
+      .describe('Filter events to specific time range'),
     eventTypes: z
-      .array(z.enum(["filed", "published", "granted", "expires", "product_launch", "acquired", "founded"]))
+      .array(
+        z.enum([
+          'filed',
+          'published',
+          'granted',
+          'expires',
+          'product_launch',
+          'acquired',
+          'founded',
+        ])
+      )
       .optional()
-      .describe("Filter by specific event types"),
+      .describe('Filter by specific event types'),
     groupByYear: z
       .boolean()
       .default(true)
-      .describe("Whether to group events by year"),
+      .describe('Whether to group events by year'),
     limit: z
       .number()
       .default(30)
-      .describe("Maximum number of events to return"),
+      .describe('Maximum number of events to return'),
   }),
   execute: async ({
     query,
@@ -427,10 +461,12 @@ export const getTimelineTool = tool({
 
       const result = await searchTimeline(query, {
         entityFocus,
-        timeRange: timeRange ? {
-          start: timeRange.start ? new Date(timeRange.start) : undefined,
-          end: timeRange.end ? new Date(timeRange.end) : undefined,
-        } : undefined,
+        timeRange: timeRange
+          ? {
+              start: timeRange.start ? new Date(timeRange.start) : undefined,
+              end: timeRange.end ? new Date(timeRange.end) : undefined,
+            }
+          : undefined,
         eventTypes: eventTypes as EventType[],
         groupByYear,
         includeContext: true,
@@ -443,14 +479,18 @@ export const getTimelineTool = tool({
         date: event.event.date.toISOString().split('T')[0],
         description: event.event.description,
         authority: event.event.authority,
-        entity: event.entity ? {
-          name: event.entity.name,
-          type: event.entity.kind,
-        } : undefined,
-        document: event.document ? {
-          title: event.document.title,
-          docType: event.document.docType,
-        } : undefined,
+        entity: event.entity
+          ? {
+              name: event.entity.name,
+              type: event.entity.kind,
+            }
+          : undefined,
+        document: event.document
+          ? {
+              title: event.document.title,
+              docType: event.document.docType,
+            }
+          : undefined,
       }));
 
       const response: any = {
@@ -461,15 +501,17 @@ export const getTimelineTool = tool({
       };
 
       if (result.yearGroups && groupByYear) {
-        response.yearGroups = Object.entries(result.yearGroups).map(([year, yearEvents]) => ({
-          year: parseInt(year),
-          eventCount: yearEvents.length,
-          events: yearEvents.slice(0, 10).map(e => ({
-            type: e.event.type,
-            date: e.event.date.toISOString().split('T')[0],
-            description: e.event.description,
-          })),
-        }));
+        response.yearGroups = Object.entries(result.yearGroups).map(
+          ([year, yearEvents]) => ({
+            year: parseInt(year),
+            eventCount: yearEvents.length,
+            events: yearEvents.slice(0, 10).map(e => ({
+              type: e.event.type,
+              date: e.event.date.toISOString().split('T')[0],
+              description: e.event.description,
+            })),
+          })
+        );
       }
 
       if (result.entities) {
@@ -481,12 +523,11 @@ export const getTimelineTool = tool({
       }
 
       return response;
-
     } catch (error) {
-      console.error("Timeline search error:", error);
+      console.error('Timeline search error:', error);
       return {
         success: false,
-        message: `Timeline search failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        message: `Timeline search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         events: [],
         totalCount: 0,
       };
@@ -506,26 +547,28 @@ export const searchPatentsTool = tool({
   inputSchema: z.object({
     query: z
       .string()
-      .describe("Patent search query (technology, inventor, assignee, or patent concept)"),
+      .describe(
+        'Patent search query (technology, inventor, assignee, or patent concept)'
+      ),
     includeExpired: z
       .boolean()
       .default(false)
-      .describe("Whether to include expired patents"),
+      .describe('Whether to include expired patents'),
     assigneeFilter: z
       .string()
       .optional()
-      .describe("Filter by specific assignee/company"),
+      .describe('Filter by specific assignee/company'),
     filingDateRange: z
       .object({
         start: z.string().optional(),
         end: z.string().optional(),
       })
       .optional()
-      .describe("Filter by filing date range"),
+      .describe('Filter by filing date range'),
     limit: z
       .number()
       .default(15)
-      .describe("Maximum number of patents to return"),
+      .describe('Maximum number of patents to return'),
   }),
   execute: async ({
     query,
@@ -540,22 +583,30 @@ export const searchPatentsTool = tool({
       const result = await searchPatentsAdvanced(query, {
         includeExpired,
         assigneeFilter,
-        filingDateRange: filingDateRange ? {
-          start: filingDateRange.start ? new Date(filingDateRange.start) : undefined,
-          end: filingDateRange.end ? new Date(filingDateRange.end) : undefined,
-        } : undefined,
+        filingDateRange: filingDateRange
+          ? {
+              start: filingDateRange.start
+                ? new Date(filingDateRange.start)
+                : undefined,
+              end: filingDateRange.end
+                ? new Date(filingDateRange.end)
+                : undefined,
+            }
+          : undefined,
         limit,
       });
 
       const patents = result.patents.map((patent, index) => ({
         id: `${index + 1}`,
         title: patent.title,
-        content: patent.content.substring(0, 600) + (patent.content.length > 600 ? "..." : ""),
-        patentNumber: patent.metadata?.patentNo || "Unknown",
-        status: patent.metadata?.status || "Unknown",
-        filedDate: patent.metadata?.filedDate || "Unknown",
-        assignee: assigneeFilter || "Multiple/Unknown",
-        citation: `[${index + 1}] ${patent.title} (Patent ${patent.metadata?.patentNo || "Unknown"})`,
+        content:
+          patent.content.substring(0, 600) +
+          (patent.content.length > 600 ? '...' : ''),
+        patentNumber: patent.metadata?.patentNo || 'Unknown',
+        status: patent.metadata?.status || 'Unknown',
+        filedDate: patent.metadata?.filedDate || 'Unknown',
+        assignee: assigneeFilter || 'Multiple/Unknown',
+        citation: `[${index + 1}] ${patent.title} (Patent ${patent.metadata?.patentNo || 'Unknown'})`,
         score: patent.score,
       }));
 
@@ -587,12 +638,11 @@ export const searchPatentsTool = tool({
       }
 
       return response;
-
     } catch (error) {
-      console.error("Patent search error:", error);
+      console.error('Patent search error:', error);
       return {
         success: false,
-        message: `Patent search failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        message: `Patent search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         patents: [],
         totalCount: 0,
       };

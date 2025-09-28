@@ -33,11 +33,16 @@ interface PersonaCanonicalData {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { personaId: string } }
+  { params }: { params: Promise<{ personaId: string }> }
 ) {
   try {
-    const personaId = params.personaId;
-    const constraintsPath = join(process.cwd(), 'personas', personaId, 'constraints.yaml');
+    const { personaId } = await params;
+    const constraintsPath = join(
+      process.cwd(),
+      'personas',
+      personaId,
+      'constraints.yaml'
+    );
 
     try {
       const result = await ConstraintsParser.parseFromFile(constraintsPath);
@@ -52,7 +57,8 @@ export async function GET(
       const canonicalData: PersonaCanonicalData = {
         persona_id: personaId,
         canonical_entities: result.constraints.canonical_entities || {},
-        canonical_relationships: result.constraints.canonical_relationships || []
+        canonical_relationships:
+          result.constraints.canonical_relationships || [],
       };
 
       return NextResponse.json(canonicalData);
@@ -61,7 +67,7 @@ export async function GET(
       const emptyData: PersonaCanonicalData = {
         persona_id: personaId,
         canonical_entities: {},
-        canonical_relationships: []
+        canonical_relationships: [],
       };
 
       return NextResponse.json(emptyData);
@@ -77,21 +83,29 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { personaId: string } }
+  { params }: { params: Promise<{ personaId: string }> }
 ) {
   try {
-    const personaId = params.personaId;
+    const { personaId } = await params;
     const canonicalData: PersonaCanonicalData = await request.json();
 
     // Validate the data structure
-    if (!canonicalData.canonical_entities || !canonicalData.canonical_relationships) {
+    if (
+      !canonicalData.canonical_entities ||
+      !canonicalData.canonical_relationships
+    ) {
       return NextResponse.json(
         { error: 'Invalid canonical data structure' },
         { status: 400 }
       );
     }
 
-    const constraintsPath = join(process.cwd(), 'personas', personaId, 'constraints.yaml');
+    const constraintsPath = join(
+      process.cwd(),
+      'personas',
+      personaId,
+      'constraints.yaml'
+    );
 
     // Read existing constraints file
     let existingConstraints: any = {};
@@ -105,26 +119,28 @@ export async function PUT(
 
     // Update canonical entities and relationships
     existingConstraints.canonical_entities = canonicalData.canonical_entities;
-    existingConstraints.canonical_relationships = canonicalData.canonical_relationships;
+    existingConstraints.canonical_relationships =
+      canonicalData.canonical_relationships;
 
     // Write back to file
     const updatedYaml = yaml.dump(existingConstraints, {
       indent: 2,
       lineWidth: -1,
-      noRefs: true
+      noRefs: true,
     });
 
     writeFileSync(constraintsPath, updatedYaml, 'utf-8');
 
     // Validate the updated constraints
-    const validationResult = await ConstraintsParser.parseFromFile(constraintsPath);
+    const validationResult =
+      await ConstraintsParser.parseFromFile(constraintsPath);
 
     if (!validationResult.success) {
       return NextResponse.json(
         {
           error: 'Updated constraints failed validation',
           validation_errors: validationResult.errors,
-          validation_warnings: validationResult.warnings
+          validation_warnings: validationResult.warnings,
         },
         { status: 400 }
       );
@@ -133,9 +149,8 @@ export async function PUT(
     return NextResponse.json({
       success: true,
       message: 'Canonical entities updated successfully',
-      validation_warnings: validationResult.warnings
+      validation_warnings: validationResult.warnings,
     });
-
   } catch (error) {
     console.error('Error updating canonical entities:', error);
     return NextResponse.json(
@@ -147,39 +162,47 @@ export async function PUT(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { personaId: string } }
+  { params }: { params: Promise<{ personaId: string }> }
 ) {
   try {
-    const personaId = params.personaId;
+    const { personaId } = await params;
     const { action, data } = await request.json();
 
     switch (action) {
       case 'validate':
         // Validate canonical entities structure
         try {
-          const result = await ConstraintsParser.parseFromContent(yaml.dump(data));
+          const result = await ConstraintsParser.parseFromContent(
+            yaml.dump(data)
+          );
           return NextResponse.json({
             valid: result.success,
             errors: result.errors,
-            warnings: result.warnings
+            warnings: result.warnings,
           });
         } catch (error) {
           return NextResponse.json({
             valid: false,
             errors: ['Failed to parse YAML data'],
-            warnings: []
+            warnings: [],
           });
         }
 
       case 'export':
         // Export canonical entities
-        const constraintsPath = join(process.cwd(), 'personas', personaId, 'constraints.yaml');
+        const constraintsPath = join(
+          process.cwd(),
+          'personas',
+          personaId,
+          'constraints.yaml'
+        );
         try {
           const result = await ConstraintsParser.parseFromFile(constraintsPath);
           if (result.success && result.constraints) {
             return NextResponse.json({
               canonical_entities: result.constraints.canonical_entities || {},
-              canonical_relationships: result.constraints.canonical_relationships || []
+              canonical_relationships:
+                result.constraints.canonical_relationships || [],
             });
           }
         } catch (error) {
@@ -191,10 +214,7 @@ export async function POST(
         break;
 
       default:
-        return NextResponse.json(
-          { error: 'Invalid action' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
   } catch (error) {
     console.error('Error in canonical entities POST:', error);

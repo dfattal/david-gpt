@@ -1,16 +1,16 @@
 /**
  * Citation Generation System
- * 
+ *
  * Handles the generation of transparent citations for RAG responses with
  * stable identifiers [A1], [B2] format and accurate fact summaries.
  */
 
 import { supabase } from '@/lib/supabase';
-import type { 
-  SearchResult, 
-  MessageCitation, 
+import type {
+  SearchResult,
+  MessageCitation,
   ResponseMode,
-  DocumentMetadata 
+  DocumentMetadata,
 } from './types';
 
 // =======================
@@ -48,7 +48,7 @@ export class CitationGenerator {
    * Generate citation markers for search results
    */
   generateCitations(
-    searchResults: SearchResult[], 
+    searchResults: SearchResult[],
     context: CitationContext
   ): CitationMarker[] {
     const citations: CitationMarker[] = [];
@@ -56,30 +56,38 @@ export class CitationGenerator {
 
     // Generate document-level citations (A, B, C, etc.)
     let documentIndex = 0;
-    
+
     for (const [documentId, chunks] of documentGroups.entries()) {
       const letter = String.fromCharCode(65 + documentIndex); // A, B, C...
-      
+
       // Sort chunks by relevance score (highest first)
       const sortedChunks = chunks.sort((a, b) => b.score - a.score);
-      
+
       // Take top chunks per document (limit based on response mode)
-      const maxChunksPerDoc = context.responseMode === 'FACT' ? 2 : 
-                              context.responseMode === 'EXPLAIN' ? 3 : 4;
+      const maxChunksPerDoc =
+        context.responseMode === 'FACT'
+          ? 2
+          : context.responseMode === 'EXPLAIN'
+            ? 3
+            : 4;
       const selectedChunks = sortedChunks.slice(0, maxChunksPerDoc);
-      
-      for (let chunkIndex = 0; chunkIndex < selectedChunks.length; chunkIndex++) {
+
+      for (
+        let chunkIndex = 0;
+        chunkIndex < selectedChunks.length;
+        chunkIndex++
+      ) {
         const chunk = selectedChunks[chunkIndex];
         const chunkNumber = chunkIndex + 1;
         const marker = `${letter}${chunkNumber}`;
-        
+
         // Skip if marker already used (shouldn't happen, but safety check)
         if (this.usedMarkers.has(marker)) {
           continue;
         }
-        
+
         this.usedMarkers.add(marker);
-        
+
         citations.push({
           id: `citation_${documentId}_${chunk.chunkId || 'doc'}`,
           marker,
@@ -88,12 +96,15 @@ export class CitationGenerator {
           title: chunk.title,
           docType: chunk.docType || 'document',
           pageRange: chunk.pageRange,
-          factSummary: this.generateFactSummary(chunk.content, context.responseMode),
+          factSummary: this.generateFactSummary(
+            chunk.content,
+            context.responseMode
+          ),
           relevanceScore: chunk.score,
           sourceMetadata: chunk.metadata,
         });
       }
-      
+
       documentIndex++;
     }
 
@@ -103,47 +114,50 @@ export class CitationGenerator {
   /**
    * Group search results by document ID
    */
-  private groupResultsByDocument(results: SearchResult[]): Map<string, SearchResult[]> {
+  private groupResultsByDocument(
+    results: SearchResult[]
+  ): Map<string, SearchResult[]> {
     const groups = new Map<string, SearchResult[]>();
-    
+
     for (const result of results) {
       const existing = groups.get(result.documentId) || [];
       existing.push(result);
       groups.set(result.documentId, existing);
     }
-    
+
     return groups;
   }
 
   /**
    * Generate concise fact summary from chunk content
    */
-  private generateFactSummary(content: string, responseMode: ResponseMode): string {
+  private generateFactSummary(
+    content: string,
+    responseMode: ResponseMode
+  ): string {
     // Clean up content and extract key fact
-    const cleanContent = content
-      .replace(/\s+/g, ' ')
-      .trim();
-    
+    const cleanContent = content.replace(/\s+/g, ' ').trim();
+
     // Different summarization strategies based on response mode
     switch (responseMode) {
       case 'FACT':
         // Extract the most direct factual statement (first sentence usually)
         const firstSentence = cleanContent.split(/[.!?]/)[0];
-        return firstSentence.length > 200 ? 
-          firstSentence.slice(0, 200) + '...' : 
-          firstSentence + '.';
-      
+        return firstSentence.length > 200
+          ? firstSentence.slice(0, 200) + '...'
+          : firstSentence + '.';
+
       case 'EXPLAIN':
         // Take a broader context snippet
-        return cleanContent.length > 300 ? 
-          cleanContent.slice(0, 300) + '...' : 
-          cleanContent;
-      
+        return cleanContent.length > 300
+          ? cleanContent.slice(0, 300) + '...'
+          : cleanContent;
+
       case 'CONFLICTS':
         // Focus on conflicting information or key claims
         const keyClaim = this.extractKeyClaim(cleanContent);
         return keyClaim;
-      
+
       default:
         return cleanContent.slice(0, 200) + '...';
     }
@@ -159,7 +173,7 @@ export class CitationGenerator {
       /([A-Z][^.!?]*(?:\d+(?:,\d+)*(?:\.\d+)?)[^.!?]*[.!?])/i,
       /([A-Z][^.!?]*(?:found|discovered|observed|concluded)[^.!?]*[.!?])/i,
     ];
-    
+
     for (const pattern of patterns) {
       const match = content.match(pattern);
       if (match) {
@@ -167,12 +181,12 @@ export class CitationGenerator {
         return claim.length > 250 ? claim.slice(0, 250) + '...' : claim;
       }
     }
-    
+
     // Fallback to first sentence
     const firstSentence = content.split(/[.!?]/)[0];
-    return firstSentence.length > 200 ? 
-      firstSentence.slice(0, 200) + '...' : 
-      firstSentence + '.';
+    return firstSentence.length > 200
+      ? firstSentence.slice(0, 200) + '...'
+      : firstSentence + '.';
   }
 
   /**
@@ -221,10 +235,13 @@ export async function saveCitations(
 /**
  * Retrieve citations for a message
  */
-export async function getCitations(messageId: string): Promise<MessageCitation[]> {
+export async function getCitations(
+  messageId: string
+): Promise<MessageCitation[]> {
   const { data, error } = await supabase
     .from('message_citations')
-    .select(`
+    .select(
+      `
       id,
       message_id,
       document_id,
@@ -244,7 +261,8 @@ export async function getCitations(messageId: string): Promise<MessageCitation[]
         url,
         published_date
       )
-    `)
+    `
+    )
     .eq('message_id', messageId)
     .order('citation_order');
 
@@ -264,11 +282,11 @@ export async function getCitations(messageId: string): Promise<MessageCitation[]
  * Insert citations into response text
  */
 export function insertCitationsIntoText(
-  text: string, 
+  text: string,
   citations: CitationMarker[]
 ): string {
   let citedText = text;
-  
+
   // Create a citation map for quick lookup
   const citationMap = new Map<string, string>();
   citations.forEach(citation => {
@@ -276,26 +294,29 @@ export function insertCitationsIntoText(
   });
 
   // Sort citations by fact summary length (longest first) to avoid substring issues
-  const sortedCitations = citations.sort((a, b) => 
-    (b.factSummary?.length || 0) - (a.factSummary?.length || 0)
+  const sortedCitations = citations.sort(
+    (a, b) => (b.factSummary?.length || 0) - (a.factSummary?.length || 0)
   );
 
   // Insert citations at appropriate points
   for (const citation of sortedCitations) {
     if (!citation.factSummary) continue;
-    
+
     // Look for related content in the response
     const factContent = citation.factSummary.toLowerCase();
     const responseContent = citedText.toLowerCase();
-    
+
     // Find best insertion point
-    const insertionPoint = this.findBestInsertionPoint(responseContent, factContent);
-    
+    const insertionPoint = this.findBestInsertionPoint(
+      responseContent,
+      factContent
+    );
+
     if (insertionPoint > -1) {
       // Insert citation marker
       const beforeInsertion = citedText.slice(0, insertionPoint);
       const afterInsertion = citedText.slice(insertionPoint);
-      
+
       citedText = beforeInsertion + ` [${citation.marker}]` + afterInsertion;
     }
   }
@@ -306,13 +327,16 @@ export function insertCitationsIntoText(
 /**
  * Find the best position to insert a citation
  */
-function findBestInsertionPoint(responseText: string, factContent: string): number {
+function findBestInsertionPoint(
+  responseText: string,
+  factContent: string
+): number {
   // Try to find exact matches first
   const exactMatch = responseText.indexOf(factContent);
   if (exactMatch > -1) {
     return exactMatch + factContent.length;
   }
-  
+
   // Try to find partial matches
   const words = factContent.split(/\s+/).slice(0, 5); // First 5 words
   for (let i = words.length; i >= 2; i--) {
@@ -322,7 +346,7 @@ function findBestInsertionPoint(responseText: string, factContent: string): numb
       return match + phrase.length;
     }
   }
-  
+
   return -1; // No good insertion point found
 }
 
@@ -333,11 +357,11 @@ export function formatCitationList(citations: CitationMarker[]): string {
   if (!citations.length) return '';
 
   let citationList = '\n\n**Sources:**\n';
-  
+
   for (const citation of citations) {
     const docInfo = this.formatDocumentInfo(citation);
     const pageInfo = citation.pageRange ? ` (${citation.pageRange})` : '';
-    
+
     citationList += `[${citation.marker}] ${docInfo}${pageInfo}\n`;
   }
 
@@ -349,7 +373,7 @@ export function formatCitationList(citations: CitationMarker[]): string {
  */
 function formatDocumentInfo(citation: CitationMarker): string {
   const metadata = citation.sourceMetadata;
-  
+
   switch (citation.docType) {
     case 'paper':
       if (metadata.doi) {
@@ -359,19 +383,19 @@ function formatDocumentInfo(citation: CitationMarker): string {
         return `${citation.title}. arXiv: ${metadata.arxivId}`;
       }
       return citation.title;
-      
+
     case 'patent':
       if (metadata.patentNo) {
         return `${citation.title}. Patent ${metadata.patentNo}`;
       }
       return citation.title;
-      
+
     case 'url':
       if (metadata.url) {
         return `${citation.title}. ${metadata.url}`;
       }
       return citation.title;
-      
+
     default:
       return citation.title;
   }
@@ -395,20 +419,20 @@ export async function processCitations(
   responseText: string,
   context: CitationContext,
   messageId?: string
-): Promise<{ 
-  citedText: string; 
-  citations: CitationMarker[]; 
-  citationList: string 
+): Promise<{
+  citedText: string;
+  citations: CitationMarker[];
+  citationList: string;
 }> {
   // Generate citations
   const citations = citationGenerator.generateCitations(searchResults, context);
-  
+
   // Insert citations into text
   const citedText = insertCitationsIntoText(responseText, citations);
-  
+
   // Format citation list
   const citationList = formatCitationList(citations);
-  
+
   // Save to database if messageId provided
   if (messageId && citations.length > 0) {
     try {
@@ -418,7 +442,7 @@ export async function processCitations(
       // Don't fail the entire request if citation saving fails
     }
   }
-  
+
   return {
     citedText,
     citations,

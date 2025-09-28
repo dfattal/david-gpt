@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { AppError, handleApiError } from "@/lib/utils";
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { AppError, handleApiError } from '@/lib/utils';
 
 export async function GET(
   req: NextRequest,
@@ -16,33 +16,33 @@ export async function GET(
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      throw new AppError("Authentication required", 401);
+      throw new AppError('Authentication required', 401);
     }
 
     const { id: conversationId } = await params;
 
     // Fetch conversation with messages
     const { data: conversation, error: convError } = await supabase
-      .from("conversations")
-      .select("*")
-      .eq("id", conversationId)
-      .eq("user_id", user.id)
+      .from('conversations')
+      .select('*')
+      .eq('id', conversationId)
+      .eq('user_id', user.id)
       .single();
 
     if (convError || !conversation) {
-      throw new AppError("Conversation not found", 404);
+      throw new AppError('Conversation not found', 404);
     }
 
     // Fetch messages for this conversation
     const { data: messages, error: msgError } = await supabase
-      .from("messages")
-      .select("*")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true });
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true });
 
     if (msgError) {
-      console.error("Failed to fetch messages:", msgError);
-      throw new AppError("Failed to fetch messages", 500);
+      console.error('Failed to fetch messages:', msgError);
+      throw new AppError('Failed to fetch messages', 500);
     }
 
     return NextResponse.json({
@@ -68,31 +68,31 @@ export async function PUT(
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      throw new AppError("Authentication required", 401);
+      throw new AppError('Authentication required', 401);
     }
 
     const { id: conversationId } = await params;
     const { title }: { title: string } = await req.json();
 
     if (!title?.trim()) {
-      throw new AppError("Title is required", 400);
+      throw new AppError('Title is required', 400);
     }
 
     // Update conversation title
     const { data: conversation, error } = await supabase
-      .from("conversations")
+      .from('conversations')
       .update({
         title: title.trim(),
         updated_at: new Date().toISOString(),
       })
-      .eq("id", conversationId)
-      .eq("user_id", user.id)
+      .eq('id', conversationId)
+      .eq('user_id', user.id)
       .select()
       .single();
 
     if (error || !conversation) {
-      console.error("Failed to update conversation:", error);
-      throw new AppError("Failed to update conversation", 500);
+      console.error('Failed to update conversation:', error);
+      throw new AppError('Failed to update conversation', 500);
     }
 
     return NextResponse.json({ conversation });
@@ -115,24 +115,24 @@ export async function DELETE(
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      throw new AppError("Authentication required", 401);
+      throw new AppError('Authentication required', 401);
     }
 
     const { id: conversationId } = await params;
 
     // Delete conversation (messages will be deleted by cascade)
     const { error } = await supabase
-      .from("conversations")
+      .from('conversations')
       .delete()
-      .eq("id", conversationId)
-      .eq("user_id", user.id);
+      .eq('id', conversationId)
+      .eq('user_id', user.id);
 
     if (error) {
-      console.error("Failed to delete conversation:", error);
-      throw new AppError("Failed to delete conversation", 500);
+      console.error('Failed to delete conversation:', error);
+      throw new AppError('Failed to delete conversation', 500);
     }
 
-    return NextResponse.json({ message: "Conversation deleted successfully" });
+    return NextResponse.json({ message: 'Conversation deleted successfully' });
   } catch (error) {
     return handleApiError(error);
   }

@@ -6,7 +6,11 @@
  */
 
 import { unifiedLLMEntityExtractor } from './unified-llm-entity-extractor';
-import { DAVID_GPT_LEIA_CONFIG, COMPUTER_VISION_CONFIG, selectConfigForDocument } from './extraction-configs';
+import {
+  DAVID_GPT_LEIA_CONFIG,
+  COMPUTER_VISION_CONFIG,
+  selectConfigForDocument,
+} from './extraction-configs';
 import type { DocumentMetadata } from './types';
 
 // =======================
@@ -80,21 +84,33 @@ export async function testConfigurationSelection(): Promise<void> {
   console.log('🧪 Testing configuration selection...');
 
   // Test Leia-specific content
-  const leiaConfig = selectConfigForDocument('paper', 'Switchable 3D Display Technology', SAMPLE_LEIA_DOCUMENT);
+  const leiaConfig = selectConfigForDocument(
+    'paper',
+    'Switchable 3D Display Technology',
+    SAMPLE_LEIA_DOCUMENT
+  );
   console.assert(
     leiaConfig.focusDomains.includes('leia_technology'),
     'Should select Leia configuration for Leia content'
   );
 
   // Test computer vision content
-  const cvConfig = selectConfigForDocument('paper', 'Neural Radiance Fields with Gaussian Splatting', SAMPLE_CV_PAPER);
+  const cvConfig = selectConfigForDocument(
+    'paper',
+    'Neural Radiance Fields with Gaussian Splatting',
+    SAMPLE_CV_PAPER
+  );
   console.assert(
     cvConfig.focusDomains.includes('computer_vision'),
     'Should select CV configuration for computer vision content'
   );
 
   // Test press article
-  const pressConfig = selectConfigForDocument('press-article', 'Samsung Partnership Announcement', SAMPLE_BUSINESS_ARTICLE);
+  const pressConfig = selectConfigForDocument(
+    'press-article',
+    'Samsung Partnership Announcement',
+    SAMPLE_BUSINESS_ARTICLE
+  );
   console.assert(
     pressConfig.focusDomains.includes('business'),
     'Should select business configuration for press articles'
@@ -115,7 +131,7 @@ export async function testLeiaEntityExtraction(): Promise<void> {
     docType: 'paper',
     processingStatus: 'completed',
     createdAt: new Date(),
-    updatedAt: new Date()
+    updatedAt: new Date(),
   };
 
   try {
@@ -127,47 +143,59 @@ export async function testLeiaEntityExtraction(): Promise<void> {
     );
 
     // Validate expected entities
-    const entityNames = extractedEntities.map(e => e.name.toLowerCase());
+    const entityNames = extractedEntities.map((e: any) => e.name.toLowerCase());
 
     // Should extract key people
     console.assert(
-      entityNames.some(name => name.includes('david fattal')),
+      entityNames.some((name: any) => name.includes('david fattal')),
       'Should extract David Fattal as person entity'
     );
 
     // Should extract organizations
     console.assert(
-      entityNames.some(name => name.includes('leia')),
+      entityNames.some((name: any) => name.includes('leia')),
       'Should extract Leia Inc as organization'
     );
     console.assert(
-      entityNames.some(name => name.includes('samsung')),
+      entityNames.some((name: any) => name.includes('samsung')),
       'Should extract Samsung as organization'
     );
 
     // Should extract technologies
     console.assert(
-      extractedEntities.some(e => e.type === 'technology' && e.name.toLowerCase().includes('switchable')),
+      extractedEntities.some(
+        (e: any) =>
+          e.type === 'technology' && e.name.toLowerCase().includes('switchable')
+      ),
       'Should extract switchable display technology'
     );
 
     // Should extract products
     console.assert(
-      extractedEntities.some(e => e.type === 'product' && e.name.toLowerCase().includes('odyssey')),
+      extractedEntities.some(
+        (e: any) =>
+          e.type === 'product' && e.name.toLowerCase().includes('odyssey')
+      ),
       'Should extract Samsung Odyssey product'
     );
 
     // Should extract components
     console.assert(
-      extractedEntities.some(e => e.type === 'component' && e.name.toLowerCase().includes('lc')),
+      extractedEntities.some(
+        (e: any) =>
+          e.type === 'component' && e.name.toLowerCase().includes('lc')
+      ),
       'Should extract LC component'
     );
 
-    console.log(`✅ Leia extraction test passed: ${extractedEntities.length} entities extracted`);
-    extractedEntities.forEach(e => {
-      console.log(`  - ${e.type}: ${e.name} (confidence: ${e.confidence.toFixed(2)})`);
+    console.log(
+      `✅ Leia extraction test passed: ${extractedEntities.length} entities extracted`
+    );
+    extractedEntities.forEach((e: any) => {
+      console.log(
+        `  - ${e.type}: ${e.name} (confidence: ${e.confidence.toFixed(2)})`
+      );
     });
-
   } catch (error) {
     console.error('❌ Leia entity extraction test failed:', error);
     throw error;
@@ -186,7 +214,7 @@ export async function testComputerVisionExtraction(): Promise<void> {
     docType: 'paper',
     processingStatus: 'completed',
     createdAt: new Date(),
-    updatedAt: new Date()
+    updatedAt: new Date(),
   };
 
   try {
@@ -197,45 +225,60 @@ export async function testComputerVisionExtraction(): Promise<void> {
       COMPUTER_VISION_CONFIG
     );
 
-    const entityNames = extractedEntities.map(e => e.name.toLowerCase());
+    const entityNames = extractedEntities.map((e: any) => e.name.toLowerCase());
 
     // Should extract researchers
     console.assert(
-      extractedEntities.some(e => e.type === 'person' && e.name.includes('Alice Smith')),
+      extractedEntities.some(
+        (e: any) => e.type === 'person' && e.name.includes('Alice Smith')
+      ),
       'Should extract Alice Smith as person'
     );
 
     // Should extract organizations
     console.assert(
-      entityNames.some(name => name.includes('stanford')),
+      entityNames.some((name: any) => name.includes('stanford')),
       'Should extract Stanford University'
     );
     console.assert(
-      entityNames.some(name => name.includes('meta')),
+      entityNames.some((name: any) => name.includes('meta')),
       'Should extract Meta AI Research'
     );
 
     // Should extract technologies
     console.assert(
-      extractedEntities.some(e => e.type === 'technology' && e.name.toLowerCase().includes('nerf')),
+      extractedEntities.some(
+        (e: any) =>
+          e.type === 'technology' && e.name.toLowerCase().includes('nerf')
+      ),
       'Should extract NeRF technology'
     );
     console.assert(
-      extractedEntities.some(e => e.type === 'technology' && e.name.toLowerCase().includes('gaussian splatting')),
+      extractedEntities.some(
+        (e: any) =>
+          e.type === 'technology' &&
+          e.name.toLowerCase().includes('gaussian splatting')
+      ),
       'Should extract Gaussian Splatting'
     );
 
     // Should extract products/frameworks
     console.assert(
-      extractedEntities.some(e => e.type === 'product' && e.name.toLowerCase().includes('pytorch')),
+      extractedEntities.some(
+        (e: any) =>
+          e.type === 'product' && e.name.toLowerCase().includes('pytorch')
+      ),
       'Should extract PyTorch'
     );
 
-    console.log(`✅ CV extraction test passed: ${extractedEntities.length} entities extracted`);
-    extractedEntities.forEach(e => {
-      console.log(`  - ${e.type}: ${e.name} (confidence: ${e.confidence.toFixed(2)})`);
+    console.log(
+      `✅ CV extraction test passed: ${extractedEntities.length} entities extracted`
+    );
+    extractedEntities.forEach((e: any) => {
+      console.log(
+        `  - ${e.type}: ${e.name} (confidence: ${e.confidence.toFixed(2)})`
+      );
     });
-
   } catch (error) {
     console.error('❌ Computer vision extraction test failed:', error);
     throw error;
@@ -257,7 +300,7 @@ export async function testDeduplication(): Promise<void> {
       authorityScore: 0.9,
       mentionCount: 5,
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     },
     {
       id: '2',
@@ -267,8 +310,8 @@ export async function testDeduplication(): Promise<void> {
       authorityScore: 0.95,
       mentionCount: 3,
       createdAt: new Date(),
-      updatedAt: new Date()
-    }
+      updatedAt: new Date(),
+    },
   ];
 
   const metadata: DocumentMetadata = {
@@ -277,7 +320,7 @@ export async function testDeduplication(): Promise<void> {
     docType: 'paper',
     processingStatus: 'completed',
     createdAt: new Date(),
-    updatedAt: new Date()
+    updatedAt: new Date(),
   };
 
   try {
@@ -289,18 +332,23 @@ export async function testDeduplication(): Promise<void> {
     );
 
     // Should not duplicate existing entities
-    const extractedNames = extractedEntities.map(e => e.name.toLowerCase());
+    const extractedNames = extractedEntities.map((e: any) =>
+      e.name.toLowerCase()
+    );
     console.assert(
       !extractedNames.includes('leia inc.'),
       'Should not duplicate existing Leia Inc entity'
     );
     console.assert(
-      !extractedNames.some(name => name.includes('switchable 2d/3d display')),
+      !extractedNames.some((name: any) =>
+        name.includes('switchable 2d/3d display')
+      ),
       'Should not duplicate existing switchable display technology'
     );
 
-    console.log(`✅ Deduplication test passed: ${extractedEntities.length} new entities (no duplicates)`);
-
+    console.log(
+      `✅ Deduplication test passed: ${extractedEntities.length} new entities (no duplicates)`
+    );
   } catch (error) {
     console.error('❌ Deduplication test failed:', error);
     throw error;
@@ -327,7 +375,6 @@ export async function runAllTests(): Promise<void> {
     console.log('');
 
     console.log('🎉 All tests passed!');
-
   } catch (error) {
     console.error('💥 Test suite failed:', error);
     throw error;

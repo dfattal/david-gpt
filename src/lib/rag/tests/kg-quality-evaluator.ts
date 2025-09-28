@@ -84,7 +84,11 @@ export interface BenchmarkQuery {
   query: string;
   expectedEntities: string[];
   expectedDocuments: string[];
-  queryType: 'entity_lookup' | 'relationship_traversal' | 'authority_ranking' | 'disambiguation';
+  queryType:
+    | 'entity_lookup'
+    | 'relationship_traversal'
+    | 'authority_ranking'
+    | 'disambiguation';
   difficultyLevel: 'easy' | 'medium' | 'hard';
 }
 
@@ -102,19 +106,21 @@ export class KGQualityEvaluator {
   /**
    * Run comprehensive KG quality evaluation
    */
-  async evaluateKGQuality(benchmark?: EvaluationBenchmark): Promise<KGQualityMetrics> {
+  async evaluateKGQuality(
+    benchmark?: EvaluationBenchmark
+  ): Promise<KGQualityMetrics> {
     console.log('🔍 Starting Knowledge Graph Quality Evaluation...');
 
     const [
       entityMetrics,
       relationshipMetrics,
       retrievalMetrics,
-      authorityMetrics
+      authorityMetrics,
     ] = await Promise.all([
       this.evaluateEntityRecognition(benchmark),
       this.evaluateRelationshipQuality(benchmark),
       this.evaluateRetrievalEnhancement(benchmark),
-      this.evaluateAuthorityScoring(benchmark)
+      this.evaluateAuthorityScoring(benchmark),
     ]);
 
     // Calculate overall score
@@ -131,7 +137,7 @@ export class KGQualityEvaluator {
       retrievalEnhancement: retrievalMetrics,
       authorityScoring: authorityMetrics,
       overallScore,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
     console.log('✅ KG Quality Evaluation Complete');
@@ -143,13 +149,13 @@ export class KGQualityEvaluator {
   /**
    * Evaluate entity recognition quality
    */
-  private async evaluateEntityRecognition(benchmark?: EvaluationBenchmark): Promise<EntityRecognitionMetrics> {
+  private async evaluateEntityRecognition(
+    benchmark?: EvaluationBenchmark
+  ): Promise<EntityRecognitionMetrics> {
     console.log('  📝 Evaluating entity recognition...');
 
     // Get entity statistics from database
-    const { data: entityStats } = await this.supabase
-      .from('entities')
-      .select(`
+    const { data: entityStats } = await this.supabase.from('entities').select(`
         id,
         name,
         authority_score,
@@ -163,33 +169,41 @@ export class KGQualityEvaluator {
 
     // Evaluate against benchmark if provided
     let precision = 0.85; // Default estimate
-    let recall = 0.80; // Default estimate
+    let recall = 0.8; // Default estimate
     let disambiguationAccuracy = 0.75; // Default estimate
 
     if (benchmark?.goldStandardEntities) {
       // Calculate precision and recall against gold standard
-      const goldEntities = new Set(benchmark.goldStandardEntities.map(e => e.canonicalName.toLowerCase()));
-      const recognizedEntities = new Set(entityStats.map(e => e.name.toLowerCase()));
+      const goldEntities = new Set(
+        benchmark.goldStandardEntities.map(e => e.canonicalName.toLowerCase())
+      );
+      const recognizedEntities = new Set(
+        entityStats.map(e => e.name.toLowerCase())
+      );
 
-      const truePositives = Array.from(recognizedEntities).filter(e => goldEntities.has(e)).length;
+      const truePositives = Array.from(recognizedEntities).filter(e =>
+        goldEntities.has(e)
+      ).length;
       precision = truePositives / recognizedEntities.size;
       recall = truePositives / goldEntities.size;
 
       // Evaluate disambiguation
-      const disambiguationTests = await this.runDisambiguationTests(benchmark.goldStandardEntities);
+      const disambiguationTests = await this.runDisambiguationTests(
+        benchmark.goldStandardEntities
+      );
       disambiguationAccuracy = disambiguationTests.accuracy;
     }
 
     // Calculate entity coverage (what % of entities have good metadata)
-    const entitiesWithGoodMetadata = entityStats.filter(e =>
-      e.authority_score > 0.3 && e.mention_count > 0
+    const entitiesWithGoodMetadata = entityStats.filter(
+      e => e.authority_score > 0.3 && e.mention_count > 0
     ).length;
     const entityCoverage = entitiesWithGoodMetadata / entityStats.length;
 
     // Estimate recognition speed (would need actual timing in production)
     const recognitionSpeed = 50; // ms per entity (estimated)
 
-    const f1Score = 2 * (precision * recall) / (precision + recall);
+    const f1Score = (2 * (precision * recall)) / (precision + recall);
 
     return {
       precision,
@@ -197,19 +211,20 @@ export class KGQualityEvaluator {
       f1Score,
       entityCoverage,
       disambiguationAccuracy,
-      recognitionSpeed
+      recognitionSpeed,
     };
   }
 
   /**
    * Evaluate relationship quality
    */
-  private async evaluateRelationshipQuality(benchmark?: EvaluationBenchmark): Promise<RelationshipQualityMetrics> {
+  private async evaluateRelationshipQuality(
+    benchmark?: EvaluationBenchmark
+  ): Promise<RelationshipQualityMetrics> {
     console.log('  🔗 Evaluating relationship quality...');
 
     // Get relationship statistics
-    const { data: relationshipStats } = await this.supabase
-      .from('edges')
+    const { data: relationshipStats } = await this.supabase.from('edges')
       .select(`
         id,
         weight,
@@ -226,19 +241,26 @@ export class KGQualityEvaluator {
       .from('entities')
       .select('id', { count: 'exact' });
 
-    const totalPossibleEdges = (entityCount?.length || 0) * ((entityCount?.length || 0) - 1) / 2;
+    const totalPossibleEdges =
+      ((entityCount?.length || 0) * ((entityCount?.length || 0) - 1)) / 2;
     const actualEdges = relationshipStats.length;
-    const graphConnectivity = Math.min(1.0, actualEdges / (totalPossibleEdges * 0.1)); // Expect 10% connectivity
+    const graphConnectivity = Math.min(
+      1.0,
+      actualEdges / (totalPossibleEdges * 0.1)
+    ); // Expect 10% connectivity
 
     // Evaluate edge accuracy (simplified - in practice would validate against ground truth)
-    const edgesWithEvidence = relationshipStats.filter(r => r.evidence_text && r.evidence_text.length > 10).length;
+    const edgesWithEvidence = relationshipStats.filter(
+      r => r.evidence_text && r.evidence_text.length > 10
+    ).length;
     const edgeAccuracy = edgesWithEvidence / relationshipStats.length;
 
     // Evaluate confidence alignment
-    const confidenceAlignment = await this.evaluateConfidenceAlignment(relationshipStats);
+    const confidenceAlignment =
+      await this.evaluateConfidenceAlignment(relationshipStats);
 
     // Default estimates for metrics that would require ground truth validation
-    const relationshipCoverage = 0.70;
+    const relationshipCoverage = 0.7;
     const authorityPropagation = 0.75;
 
     return {
@@ -246,20 +268,22 @@ export class KGQualityEvaluator {
       relationshipCoverage,
       confidenceAlignment,
       graphConnectivity,
-      authorityPropagation
+      authorityPropagation,
     };
   }
 
   /**
    * Evaluate retrieval enhancement from KG
    */
-  private async evaluateRetrievalEnhancement(benchmark?: EvaluationBenchmark): Promise<RetrievalEnhancementMetrics> {
+  private async evaluateRetrievalEnhancement(
+    benchmark?: EvaluationBenchmark
+  ): Promise<RetrievalEnhancementMetrics> {
     console.log('  🎯 Evaluating retrieval enhancement...');
 
     // Default estimates (would need A/B testing in production)
     const queryExpansionEffectiveness = 0.15; // 15% improvement
     const resultRelevanceImprovement = 0.12; // 12% improvement
-    const diversityImprovement = 0.20; // 20% improvement
+    const diversityImprovement = 0.2; // 20% improvement
 
     // Calculate precision at different ranks
     const precisionAtK = [0.85, 0.78, 0.72, 0.65]; // P@1, P@3, P@5, P@10
@@ -272,14 +296,16 @@ export class KGQualityEvaluator {
       resultRelevanceImprovement,
       diversityImprovement,
       precisionAtK,
-      meanReciprocalRank
+      meanReciprocalRank,
     };
   }
 
   /**
    * Evaluate authority scoring quality
    */
-  private async evaluateAuthorityScoring(benchmark?: EvaluationBenchmark): Promise<AuthorityScoringMetrics> {
+  private async evaluateAuthorityScoring(
+    benchmark?: EvaluationBenchmark
+  ): Promise<AuthorityScoringMetrics> {
     console.log('  👑 Evaluating authority scoring...');
 
     // Get authority score distribution
@@ -307,14 +333,16 @@ export class KGQualityEvaluator {
       authorityConsistency,
       authorityPredictiveness,
       authorityDistribution,
-      expertiseAlignment
+      expertiseAlignment,
     };
   }
 
   /**
    * Run disambiguation tests
    */
-  private async runDisambiguationTests(goldStandardEntities: GoldStandardEntity[]): Promise<{ accuracy: number }> {
+  private async runDisambiguationTests(
+    goldStandardEntities: GoldStandardEntity[]
+  ): Promise<{ accuracy: number }> {
     let correctDisambiguations = 0;
     let totalTests = 0;
 
@@ -323,38 +351,50 @@ export class KGQualityEvaluator {
         // Test if the alias correctly resolves to the canonical entity
         const { data: aliasResult } = await this.supabase
           .from('aliases')
-          .select(`
+          .select(
+            `
             entity_id,
             entities (name)
-          `)
+          `
+          )
           .ilike('alias', alias)
           .single();
 
         totalTests++;
 
-        if (aliasResult?.entities?.name?.toLowerCase() === goldEntity.canonicalName.toLowerCase()) {
+        if (
+          aliasResult?.entities?.name?.toLowerCase() ===
+          goldEntity.canonicalName.toLowerCase()
+        ) {
           correctDisambiguations++;
         }
       }
     }
 
     return {
-      accuracy: totalTests > 0 ? correctDisambiguations / totalTests : 0
+      accuracy: totalTests > 0 ? correctDisambiguations / totalTests : 0,
     };
   }
 
   /**
    * Evaluate confidence alignment for relationships
    */
-  private async evaluateConfidenceAlignment(relationships: any[]): Promise<number> {
+  private async evaluateConfidenceAlignment(
+    relationships: any[]
+  ): Promise<number> {
     // Simplified evaluation - in practice would validate against human annotations
-    const relationshipsWithConfidence = relationships.filter(r => r.weight !== null && r.weight > 0);
-    const relationshipsWithEvidence = relationships.filter(r => r.evidence_text && r.evidence_text.length > 20);
+    const relationshipsWithConfidence = relationships.filter(
+      r => r.weight !== null && r.weight > 0
+    );
+    const relationshipsWithEvidence = relationships.filter(
+      r => r.evidence_text && r.evidence_text.length > 20
+    );
 
     if (relationshipsWithConfidence.length === 0) return 0;
 
     // Assume relationships with evidence have higher confidence alignment
-    const alignment = relationshipsWithEvidence.length / relationshipsWithConfidence.length;
+    const alignment =
+      relationshipsWithEvidence.length / relationshipsWithConfidence.length;
     return Math.min(1.0, alignment);
   }
 
@@ -391,11 +431,13 @@ export class KGQualityEvaluator {
     // Get entities grouped by type
     const { data: entitiesByType } = await this.supabase
       .from('entities')
-      .select(`
+      .select(
+        `
         authority_score,
         mention_count,
         entity_kinds (name)
-      `)
+      `
+      )
       .not('authority_score', 'is', null);
 
     if (!entitiesByType) return 0;
@@ -417,7 +459,9 @@ export class KGQualityEvaluator {
     for (const [type, scores] of typeGroups) {
       if (scores.length > 1) {
         const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
-        const variance = scores.reduce((sum, score) => sum + Math.pow(score - mean, 2), 0) / scores.length;
+        const variance =
+          scores.reduce((sum, score) => sum + Math.pow(score - mean, 2), 0) /
+          scores.length;
         const standardDeviation = Math.sqrt(variance);
         const coefficientOfVariation = mean > 0 ? standardDeviation / mean : 0;
 
@@ -442,23 +486,41 @@ export class KGQualityEvaluator {
   ): number {
     // Weighted average of all metrics
     const weights = {
-      entity: 0.30,
+      entity: 0.3,
       relationship: 0.25,
-      retrieval: 0.30,
-      authority: 0.15
+      retrieval: 0.3,
+      authority: 0.15,
     };
 
-    const entityScore = (entityMetrics.precision + entityMetrics.recall + entityMetrics.f1Score + entityMetrics.entityCoverage) / 4;
-    const relationshipScore = (relationshipMetrics.edgeAccuracy + relationshipMetrics.relationshipCoverage + relationshipMetrics.graphConnectivity) / 3;
-    const retrievalScore = (retrievalMetrics.queryExpansionEffectiveness + retrievalMetrics.resultRelevanceImprovement + retrievalMetrics.meanReciprocalRank) / 3;
-    const authorityScore = (authorityMetrics.authorityConsistency + authorityMetrics.authorityPredictiveness + authorityMetrics.authorityDistribution) / 3;
+    const entityScore =
+      (entityMetrics.precision +
+        entityMetrics.recall +
+        entityMetrics.f1Score +
+        entityMetrics.entityCoverage) /
+      4;
+    const relationshipScore =
+      (relationshipMetrics.edgeAccuracy +
+        relationshipMetrics.relationshipCoverage +
+        relationshipMetrics.graphConnectivity) /
+      3;
+    const retrievalScore =
+      (retrievalMetrics.queryExpansionEffectiveness +
+        retrievalMetrics.resultRelevanceImprovement +
+        retrievalMetrics.meanReciprocalRank) /
+      3;
+    const authorityScore =
+      (authorityMetrics.authorityConsistency +
+        authorityMetrics.authorityPredictiveness +
+        authorityMetrics.authorityDistribution) /
+      3;
 
     return (
-      entityScore * weights.entity +
-      relationshipScore * weights.relationship +
-      retrievalScore * weights.retrieval +
-      authorityScore * weights.authority
-    ) * 100;
+      (entityScore * weights.entity +
+        relationshipScore * weights.relationship +
+        retrievalScore * weights.retrieval +
+        authorityScore * weights.authority) *
+      100
+    );
   }
 
   /**
@@ -470,31 +532,67 @@ export class KGQualityEvaluator {
     console.log('='.repeat(50));
 
     console.log('\n🎯 Entity Recognition:');
-    console.log(`  Precision: ${(metrics.entityRecognition.precision * 100).toFixed(1)}%`);
-    console.log(`  Recall: ${(metrics.entityRecognition.recall * 100).toFixed(1)}%`);
-    console.log(`  F1 Score: ${(metrics.entityRecognition.f1Score * 100).toFixed(1)}%`);
-    console.log(`  Entity Coverage: ${(metrics.entityRecognition.entityCoverage * 100).toFixed(1)}%`);
-    console.log(`  Disambiguation Accuracy: ${(metrics.entityRecognition.disambiguationAccuracy * 100).toFixed(1)}%`);
+    console.log(
+      `  Precision: ${(metrics.entityRecognition.precision * 100).toFixed(1)}%`
+    );
+    console.log(
+      `  Recall: ${(metrics.entityRecognition.recall * 100).toFixed(1)}%`
+    );
+    console.log(
+      `  F1 Score: ${(metrics.entityRecognition.f1Score * 100).toFixed(1)}%`
+    );
+    console.log(
+      `  Entity Coverage: ${(metrics.entityRecognition.entityCoverage * 100).toFixed(1)}%`
+    );
+    console.log(
+      `  Disambiguation Accuracy: ${(metrics.entityRecognition.disambiguationAccuracy * 100).toFixed(1)}%`
+    );
 
     console.log('\n🔗 Relationship Quality:');
-    console.log(`  Edge Accuracy: ${(metrics.relationshipQuality.edgeAccuracy * 100).toFixed(1)}%`);
-    console.log(`  Relationship Coverage: ${(metrics.relationshipQuality.relationshipCoverage * 100).toFixed(1)}%`);
-    console.log(`  Graph Connectivity: ${(metrics.relationshipQuality.graphConnectivity * 100).toFixed(1)}%`);
-    console.log(`  Confidence Alignment: ${(metrics.relationshipQuality.confidenceAlignment * 100).toFixed(1)}%`);
+    console.log(
+      `  Edge Accuracy: ${(metrics.relationshipQuality.edgeAccuracy * 100).toFixed(1)}%`
+    );
+    console.log(
+      `  Relationship Coverage: ${(metrics.relationshipQuality.relationshipCoverage * 100).toFixed(1)}%`
+    );
+    console.log(
+      `  Graph Connectivity: ${(metrics.relationshipQuality.graphConnectivity * 100).toFixed(1)}%`
+    );
+    console.log(
+      `  Confidence Alignment: ${(metrics.relationshipQuality.confidenceAlignment * 100).toFixed(1)}%`
+    );
 
     console.log('\n🚀 Retrieval Enhancement:');
-    console.log(`  Query Expansion Effectiveness: ${(metrics.retrievalEnhancement.queryExpansionEffectiveness * 100).toFixed(1)}%`);
-    console.log(`  Relevance Improvement: ${(metrics.retrievalEnhancement.resultRelevanceImprovement * 100).toFixed(1)}%`);
-    console.log(`  Diversity Improvement: ${(metrics.retrievalEnhancement.diversityImprovement * 100).toFixed(1)}%`);
-    console.log(`  Mean Reciprocal Rank: ${(metrics.retrievalEnhancement.meanReciprocalRank * 100).toFixed(1)}%`);
+    console.log(
+      `  Query Expansion Effectiveness: ${(metrics.retrievalEnhancement.queryExpansionEffectiveness * 100).toFixed(1)}%`
+    );
+    console.log(
+      `  Relevance Improvement: ${(metrics.retrievalEnhancement.resultRelevanceImprovement * 100).toFixed(1)}%`
+    );
+    console.log(
+      `  Diversity Improvement: ${(metrics.retrievalEnhancement.diversityImprovement * 100).toFixed(1)}%`
+    );
+    console.log(
+      `  Mean Reciprocal Rank: ${(metrics.retrievalEnhancement.meanReciprocalRank * 100).toFixed(1)}%`
+    );
 
     console.log('\n👑 Authority Scoring:');
-    console.log(`  Authority Consistency: ${(metrics.authorityScoring.authorityConsistency * 100).toFixed(1)}%`);
-    console.log(`  Authority Predictiveness: ${(metrics.authorityScoring.authorityPredictiveness * 100).toFixed(1)}%`);
-    console.log(`  Score Distribution Quality: ${(metrics.authorityScoring.authorityDistribution * 100).toFixed(1)}%`);
-    console.log(`  Expertise Alignment: ${(metrics.authorityScoring.expertiseAlignment * 100).toFixed(1)}%`);
+    console.log(
+      `  Authority Consistency: ${(metrics.authorityScoring.authorityConsistency * 100).toFixed(1)}%`
+    );
+    console.log(
+      `  Authority Predictiveness: ${(metrics.authorityScoring.authorityPredictiveness * 100).toFixed(1)}%`
+    );
+    console.log(
+      `  Score Distribution Quality: ${(metrics.authorityScoring.authorityDistribution * 100).toFixed(1)}%`
+    );
+    console.log(
+      `  Expertise Alignment: ${(metrics.authorityScoring.expertiseAlignment * 100).toFixed(1)}%`
+    );
 
-    console.log(`\n🏆 Overall KG Quality Score: ${metrics.overallScore.toFixed(1)}/100`);
+    console.log(
+      `\n🏆 Overall KG Quality Score: ${metrics.overallScore.toFixed(1)}/100`
+    );
 
     // Quality assessment
     let assessment = 'Poor';
@@ -514,7 +612,8 @@ export class KGQualityEvaluator {
 export const DEFAULT_BENCHMARK: EvaluationBenchmark = {
   id: 'david_persona_benchmark',
   name: 'David Persona KG Benchmark',
-  description: 'Standard benchmark for evaluating KG quality in the David persona context',
+  description:
+    'Standard benchmark for evaluating KG quality in the David persona context',
   goldStandardEntities: [
     {
       name: 'David Fattal',
@@ -522,7 +621,7 @@ export const DEFAULT_BENCHMARK: EvaluationBenchmark = {
       entityType: 'person',
       aliases: ['D. Fattal', 'Dr. David Fattal', 'David F.'],
       authorityScore: 0.95,
-      domainRelevance: 1.0
+      domainRelevance: 1.0,
     },
     {
       name: 'Leia Inc',
@@ -530,15 +629,15 @@ export const DEFAULT_BENCHMARK: EvaluationBenchmark = {
       entityType: 'organization',
       aliases: ['Leia Inc.', 'Leia Incorporated', 'LEIA'],
       authorityScore: 0.85,
-      domainRelevance: 1.0
+      domainRelevance: 1.0,
     },
     {
       name: 'Lightfield Display',
       canonicalName: 'Lightfield Display',
       entityType: 'technology',
       aliases: ['lightfield displays', '3D lightfield', 'glasses-free 3D'],
-      authorityScore: 0.80,
-      domainRelevance: 0.95
+      authorityScore: 0.8,
+      domainRelevance: 0.95,
     },
     {
       name: 'HP Labs',
@@ -546,8 +645,8 @@ export const DEFAULT_BENCHMARK: EvaluationBenchmark = {
       entityType: 'organization',
       aliases: ['Hewlett-Packard Labs', 'HP Research'],
       authorityScore: 0.75,
-      domainRelevance: 0.70
-    }
+      domainRelevance: 0.7,
+    },
   ],
   goldStandardRelationships: [
     {
@@ -555,22 +654,22 @@ export const DEFAULT_BENCHMARK: EvaluationBenchmark = {
       targetEntity: 'Leia Inc',
       relationshipType: 'co_founder',
       confidence: 0.95,
-      evidenceStrength: 0.90
+      evidenceStrength: 0.9,
     },
     {
       sourceEntity: 'David Fattal',
       targetEntity: 'Lightfield Display',
       relationshipType: 'inventor_of',
-      confidence: 0.90,
-      evidenceStrength: 0.85
+      confidence: 0.9,
+      evidenceStrength: 0.85,
     },
     {
       sourceEntity: 'Leia Inc',
       targetEntity: 'Lightfield Display',
       relationshipType: 'develops',
       confidence: 0.85,
-      evidenceStrength: 0.80
-    }
+      evidenceStrength: 0.8,
+    },
   ],
   testQueries: [
     {
@@ -579,7 +678,7 @@ export const DEFAULT_BENCHMARK: EvaluationBenchmark = {
       expectedEntities: ['David Fattal', 'Leia Inc'],
       expectedDocuments: ['The Spatial Shift #1'],
       queryType: 'entity_lookup',
-      difficultyLevel: 'easy'
+      difficultyLevel: 'easy',
     },
     {
       id: 'relationship_traversal_1',
@@ -587,7 +686,7 @@ export const DEFAULT_BENCHMARK: EvaluationBenchmark = {
       expectedEntities: ['David Fattal', 'Leia Inc'],
       expectedDocuments: ['Leia, The Display Of The Future'],
       queryType: 'relationship_traversal',
-      difficultyLevel: 'medium'
+      difficultyLevel: 'medium',
     },
     {
       id: 'authority_ranking_1',
@@ -595,9 +694,9 @@ export const DEFAULT_BENCHMARK: EvaluationBenchmark = {
       expectedEntities: ['David Fattal', 'Leia Inc'],
       expectedDocuments: ['3D Is Back. This Time, You Can Ditch the Glasses'],
       queryType: 'authority_ranking',
-      difficultyLevel: 'medium'
-    }
-  ]
+      difficultyLevel: 'medium',
+    },
+  ],
 };
 
 // =======================
@@ -607,7 +706,9 @@ export const DEFAULT_BENCHMARK: EvaluationBenchmark = {
 /**
  * Run KG quality evaluation with default benchmark
  */
-export async function evaluateKGQuality(supabase: SupabaseClient): Promise<KGQualityMetrics> {
+export async function evaluateKGQuality(
+  supabase: SupabaseClient
+): Promise<KGQualityMetrics> {
   const evaluator = new KGQualityEvaluator(supabase);
   return evaluator.evaluateKGQuality(DEFAULT_BENCHMARK);
 }

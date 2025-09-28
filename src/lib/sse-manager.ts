@@ -13,7 +13,7 @@ declare global {
 const connections = globalThis.sseConnections ?? new Map<string, SSEWriter>();
 if (!globalThis.sseConnections) {
   globalThis.sseConnections = connections;
-  console.log("🌍 Initialized global SSE connections Map");
+  console.log('🌍 Initialized global SSE connections Map');
 } else {
   console.log(
     `🔄 Reusing existing SSE connections Map with ${connections.size} connections`
@@ -26,7 +26,7 @@ export function addSSEConnection(userId: string, writer: SSEWriter) {
   console.log(`📡 User ID: ${userId}`);
   console.log(`📡 Total connections after add: ${connections.size}`);
   console.log(
-    `📡 All active user IDs: [${Array.from(connections.keys()).join(", ")}]`
+    `📡 All active user IDs: [${Array.from(connections.keys()).join(', ')}]`
   );
   console.log(`🕐 Add timestamp: ${new Date().toISOString()}`);
   console.log(`📡 === END ADD ===\n`);
@@ -40,7 +40,7 @@ export function removeSSEConnection(userId: string) {
   console.log(`🔌 Had connection before removal: ${hadConnection}`);
   console.log(`🔌 Total connections after removal: ${connections.size}`);
   console.log(
-    `🔌 Remaining user IDs: [${Array.from(connections.keys()).join(", ")}]`
+    `🔌 Remaining user IDs: [${Array.from(connections.keys()).join(', ')}]`
   );
   console.log(`🕐 Remove timestamp: ${new Date().toISOString()}`);
   console.trace(`🔍 Removal stack trace:`);
@@ -55,7 +55,7 @@ export function sendTitleUpdate(
   if (connection) {
     try {
       const message = {
-        type: "title-update",
+        type: 'title-update',
         conversationId: data.conversationId,
         title: data.title,
         timestamp: new Date().toISOString(),

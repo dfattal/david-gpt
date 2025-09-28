@@ -1,6 +1,6 @@
 /**
  * Semantic Chunking Service
- * 
+ *
  * Enhanced chunking system that uses semantic similarity to create
  * coherent chunks while maintaining document structure awareness.
  */
@@ -53,7 +53,7 @@ const DEFAULT_SEMANTIC_CONFIG: SemanticChunkingConfig = {
   maxSemanticChunkSize: 1400, // Maximum 1400 tokens per semantic chunk
   sentenceOverlap: true, // Include overlapping sentences for context
   useEmbeddings: true, // Use embeddings for semantic similarity
-  fallbackToStructural: true // Fall back to structural chunking
+  fallbackToStructural: true, // Fall back to structural chunking
 };
 
 // ===========================
@@ -61,7 +61,6 @@ const DEFAULT_SEMANTIC_CONFIG: SemanticChunkingConfig = {
 // ===========================
 
 export class SemanticChunkingService {
-  
   /**
    * Create semantic chunks that maintain topical coherence
    */
@@ -71,28 +70,43 @@ export class SemanticChunkingService {
     metadata?: DocumentMetadata,
     config: Partial<SemanticChunkingConfig> = {}
   ): Promise<DocumentChunk[]> {
-    
     const finalConfig = { ...DEFAULT_SEMANTIC_CONFIG, ...config };
-    console.log(`🧠 Starting semantic chunking for document: ${metadata?.title || documentId}`);
-    
+    console.log(
+      `🧠 Starting semantic chunking for document: ${metadata?.title || documentId}`
+    );
+
     try {
       // 1. Preprocess content and extract sentences
       const sentences = this.extractSentences(content);
       console.log(`📝 Extracted ${sentences.length} sentences`);
-      
+
       if (sentences.length < 5) {
-        console.log('⚠️ Too few sentences for semantic chunking, using structural approach');
-        return await this.fallbackToStructuralChunking(content, documentId, metadata, finalConfig);
+        console.log(
+          '⚠️ Too few sentences for semantic chunking, using structural approach'
+        );
+        return await this.fallbackToStructuralChunking(
+          content,
+          documentId,
+          metadata,
+          finalConfig
+        );
       }
-      
+
       // 2. Detect semantic boundaries
-      const boundaries = await this.detectSemanticBoundaries(sentences, finalConfig);
+      const boundaries = await this.detectSemanticBoundaries(
+        sentences,
+        finalConfig
+      );
       console.log(`🔍 Detected ${boundaries.length} semantic boundaries`);
-      
+
       // 3. Create semantic chunks based on boundaries
-      const semanticChunks = this.createChunksFromBoundaries(sentences, boundaries, finalConfig);
+      const semanticChunks = this.createChunksFromBoundaries(
+        sentences,
+        boundaries,
+        finalConfig
+      );
       console.log(`🧩 Created ${semanticChunks.length} semantic chunks`);
-      
+
       // 4. Convert to document chunks with proper formatting
       const documentChunks = await this.convertToDocumentChunks(
         semanticChunks,
@@ -100,30 +114,46 @@ export class SemanticChunkingService {
         metadata,
         finalConfig
       );
-      
+
       // 5. Validate and post-process
-      const validChunks = this.validateSemanticChunks(documentChunks, finalConfig);
-      
+      const validChunks = this.validateSemanticChunks(
+        documentChunks,
+        finalConfig
+      );
+
       if (validChunks.length === 0 && finalConfig.fallbackToStructural) {
-        console.log('⚠️ Semantic chunking produced no valid chunks, falling back to structural');
-        return await this.fallbackToStructuralChunking(content, documentId, metadata, finalConfig);
+        console.log(
+          '⚠️ Semantic chunking produced no valid chunks, falling back to structural'
+        );
+        return await this.fallbackToStructuralChunking(
+          content,
+          documentId,
+          metadata,
+          finalConfig
+        );
       }
-      
-      console.log(`✅ Semantic chunking completed: ${validChunks.length} chunks created`);
+
+      console.log(
+        `✅ Semantic chunking completed: ${validChunks.length} chunks created`
+      );
       return validChunks;
-      
     } catch (error) {
       console.error('❌ Semantic chunking failed:', error);
-      
+
       if (finalConfig.fallbackToStructural) {
         console.log('🔄 Falling back to structural chunking due to error');
-        return await this.fallbackToStructuralChunking(content, documentId, metadata, finalConfig);
+        return await this.fallbackToStructuralChunking(
+          content,
+          documentId,
+          metadata,
+          finalConfig
+        );
       }
-      
+
       throw error;
     }
   }
-  
+
   /**
    * Extract sentences from content with intelligent splitting
    */
@@ -134,13 +164,14 @@ export class SemanticChunkingService {
       .replace(/\r/g, '\n')
       .replace(/\n\s*\n/g, '\n\n')
       .trim();
-    
+
     // Split into sentences using multiple patterns
     const sentences = normalized
       .split(/(?<=[.!?])\s+(?=[A-Z])/) // Basic sentence split
       .flatMap(sent => {
         // Handle special cases like "Dr. Smith" or "U.S.A."
-        return sent.split(/(?<=[.!?])\s+(?=(?:[A-Z]|"[A-Z]))/)
+        return sent
+          .split(/(?<=[.!?])\s+(?=(?:[A-Z]|"[A-Z]))/)
           .filter(s => s.trim().length > 0);
       })
       .map(s => s.trim())
@@ -148,10 +179,10 @@ export class SemanticChunkingService {
         // Filter out very short fragments and single characters
         return s.length > 10 && !/^[^a-zA-Z]*$/.test(s);
       });
-    
+
     return sentences;
   }
-  
+
   /**
    * Detect semantic boundaries using similarity analysis
    */
@@ -159,176 +190,193 @@ export class SemanticChunkingService {
     sentences: string[],
     config: SemanticChunkingConfig
   ): Promise<SemanticBoundary[]> {
-    
     const boundaries: SemanticBoundary[] = [];
-    
+
     if (!config.useEmbeddings || sentences.length < 3) {
       // Fall back to structural boundary detection
       return this.detectStructuralBoundaries(sentences);
     }
-    
+
     try {
       // 1. Generate embeddings for all sentences (batched for efficiency)
       const embeddings = await this.generateSentenceEmbeddings(sentences);
-      
+
       // 2. Calculate semantic similarity between adjacent sentences
       const similarities = this.calculateSentenceSimilarities(embeddings);
-      
+
       // 3. Detect significant similarity drops (potential boundaries)
       const threshold = config.semanticThreshold;
       const minBoundaryScore = 0.4; // Minimum score to consider a boundary
-      
+
       for (let i = 0; i < similarities.length; i++) {
         const similarity = similarities[i];
         const avgSimilarity = this.calculateLocalAverage(similarities, i, 2);
-        
+
         // Significant drop in similarity indicates a topic shift
-        if (similarity < threshold && (avgSimilarity - similarity) > 0.15) {
+        if (similarity < threshold && avgSimilarity - similarity > 0.15) {
           boundaries.push({
             position: i + 1, // Position after the current sentence
             score: avgSimilarity - similarity, // Magnitude of the drop
             type: 'topic_shift',
-            confidence: Math.min(0.9, (avgSimilarity - similarity) / 0.3)
+            confidence: Math.min(0.9, (avgSimilarity - similarity) / 0.3),
           });
         }
-        
+
         // Also detect very low similarity as hard boundaries
         if (similarity < minBoundaryScore) {
           boundaries.push({
             position: i + 1,
             score: 1.0 - similarity,
-            type: 'similarity_drop', 
-            confidence: 1.0 - similarity
+            type: 'similarity_drop',
+            confidence: 1.0 - similarity,
           });
         }
       }
-      
+
       // 4. Add structural boundaries (section breaks, etc.)
       const structuralBoundaries = this.detectStructuralBoundaries(sentences);
       boundaries.push(...structuralBoundaries);
-      
+
       // 5. Sort by position and remove duplicates
       return this.consolidateBoundaries(boundaries);
-      
     } catch (error) {
-      console.warn('Failed to generate embeddings for semantic chunking:', error);
+      console.warn(
+        'Failed to generate embeddings for semantic chunking:',
+        error
+      );
       return this.detectStructuralBoundaries(sentences);
     }
   }
-  
+
   /**
    * Generate embeddings for sentences in batches
    */
-  private async generateSentenceEmbeddings(sentences: string[]): Promise<number[][]> {
+  private async generateSentenceEmbeddings(
+    sentences: string[]
+  ): Promise<number[][]> {
     const batchSize = 20; // Process in smaller batches to avoid rate limits
     const embeddings: number[][] = [];
-    
+
     for (let i = 0; i < sentences.length; i += batchSize) {
       const batch = sentences.slice(i, i + batchSize);
       const batchEmbeddings = await embeddingService.generateEmbeddings(batch);
       embeddings.push(...batchEmbeddings);
     }
-    
+
     return embeddings;
   }
-  
+
   /**
    * Calculate cosine similarity between adjacent sentence embeddings
    */
   private calculateSentenceSimilarities(embeddings: number[][]): number[] {
     const similarities: number[] = [];
-    
+
     for (let i = 0; i < embeddings.length - 1; i++) {
-      const similarity = this.cosineSimilarity(embeddings[i], embeddings[i + 1]);
+      const similarity = this.cosineSimilarity(
+        embeddings[i],
+        embeddings[i + 1]
+      );
       similarities.push(similarity);
     }
-    
+
     return similarities;
   }
-  
+
   /**
    * Calculate cosine similarity between two vectors
    */
   private cosineSimilarity(a: number[], b: number[]): number {
     if (a.length !== b.length) return 0;
-    
+
     let dotProduct = 0;
     let normA = 0;
     let normB = 0;
-    
+
     for (let i = 0; i < a.length; i++) {
       dotProduct += a[i] * b[i];
       normA += a[i] * a[i];
       normB += b[i] * b[i];
     }
-    
+
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
   }
-  
+
   /**
    * Calculate local average similarity around a position
    */
-  private calculateLocalAverage(similarities: number[], position: number, window: number): number {
+  private calculateLocalAverage(
+    similarities: number[],
+    position: number,
+    window: number
+  ): number {
     const start = Math.max(0, position - window);
     const end = Math.min(similarities.length, position + window + 1);
-    
+
     let sum = 0;
     let count = 0;
-    
+
     for (let i = start; i < end; i++) {
       sum += similarities[i];
       count++;
     }
-    
+
     return count > 0 ? sum / count : 0;
   }
-  
+
   /**
    * Detect structural boundaries (section breaks, lists, etc.)
    */
   private detectStructuralBoundaries(sentences: string[]): SemanticBoundary[] {
     const boundaries: SemanticBoundary[] = [];
-    
+
     for (let i = 0; i < sentences.length; i++) {
       const sentence = sentences[i];
-      
+
       // Detect section headers
-      if (/^(#{1,6}|\d+\.|\w+\.)\s+[A-Z]/.test(sentence) || sentence === sentence.toUpperCase()) {
+      if (
+        /^(#{1,6}|\d+\.|\w+\.)\s+[A-Z]/.test(sentence) ||
+        sentence === sentence.toUpperCase()
+      ) {
         boundaries.push({
           position: i,
           score: 0.8,
           type: 'section_break',
-          confidence: 0.7
+          confidence: 0.7,
         });
       }
-      
+
       // Detect list items or numbered points
       if (/^[-*•]\s+/.test(sentence) || /^\d+[\.)]\s+/.test(sentence)) {
         boundaries.push({
           position: i,
           score: 0.5,
           type: 'structural',
-          confidence: 0.5
+          confidence: 0.5,
         });
       }
     }
-    
+
     return boundaries;
   }
-  
+
   /**
    * Consolidate overlapping boundaries and sort by position
    */
-  private consolidateBoundaries(boundaries: SemanticBoundary[]): SemanticBoundary[] {
+  private consolidateBoundaries(
+    boundaries: SemanticBoundary[]
+  ): SemanticBoundary[] {
     // Sort by position
     boundaries.sort((a, b) => a.position - b.position);
-    
+
     // Remove duplicates within 2 positions of each other, keeping the highest score
     const consolidated: SemanticBoundary[] = [];
-    
+
     for (const boundary of boundaries) {
-      const existing = consolidated.find(b => Math.abs(b.position - boundary.position) <= 2);
-      
+      const existing = consolidated.find(
+        b => Math.abs(b.position - boundary.position) <= 2
+      );
+
       if (!existing) {
         consolidated.push(boundary);
       } else if (boundary.score > existing.score) {
@@ -336,10 +384,10 @@ export class SemanticChunkingService {
         consolidated[consolidated.indexOf(existing)] = boundary;
       }
     }
-    
+
     return consolidated;
   }
-  
+
   /**
    * Create semantic chunks from detected boundaries
    */
@@ -348,31 +396,38 @@ export class SemanticChunkingService {
     boundaries: SemanticBoundary[],
     config: SemanticChunkingConfig
   ): SemanticChunk[] {
-    
     const chunks: SemanticChunk[] = [];
-    
+
     // Add implicit boundaries at start and end
     const allBoundaries = [
       { position: 0, score: 1.0, type: 'structural' as const, confidence: 1.0 },
       ...boundaries,
-      { position: sentences.length, score: 1.0, type: 'structural' as const, confidence: 1.0 }
+      {
+        position: sentences.length,
+        score: 1.0,
+        type: 'structural' as const,
+        confidence: 1.0,
+      },
     ].sort((a, b) => a.position - b.position);
-    
+
     // Create chunks between boundaries
     for (let i = 0; i < allBoundaries.length - 1; i++) {
       const start = allBoundaries[i].position;
       const end = allBoundaries[i + 1].position;
-      
+
       if (end > start) {
         const chunkSentences = sentences.slice(start, end);
         const content = chunkSentences.join(' ');
         const tokenCount = estimateTokens(content);
-        
+
         // Skip very small chunks unless they're structural boundaries (more permissive)
-        if (tokenCount < Math.min(config.minSemanticChunkSize, 150) && allBoundaries[i].type !== 'section_break') {
+        if (
+          tokenCount < Math.min(config.minSemanticChunkSize, 150) &&
+          allBoundaries[i].type !== 'section_break'
+        ) {
           continue;
         }
-        
+
         // Split large chunks further if needed
         if (tokenCount > config.maxSemanticChunkSize) {
           const subChunks = this.splitLargeChunk(chunkSentences, config);
@@ -382,38 +437,45 @@ export class SemanticChunkingService {
             sentences: chunkSentences,
             semanticScore: 0.8, // TODO: Calculate actual semantic coherence
             topics: [], // TODO: Extract topics/themes
-            boundaries: { start, end }
+            boundaries: { start, end },
           });
         }
       }
     }
-    
+
     return chunks;
   }
-  
+
   /**
    * Split chunks that are too large while maintaining semantic coherence
    */
-  private splitLargeChunk(sentences: string[], config: SemanticChunkingConfig): SemanticChunk[] {
+  private splitLargeChunk(
+    sentences: string[],
+    config: SemanticChunkingConfig
+  ): SemanticChunk[] {
     const chunks: SemanticChunk[] = [];
-    const targetSize = (config.minSemanticChunkSize + config.maxSemanticChunkSize) / 2;
-    
+    const targetSize =
+      (config.minSemanticChunkSize + config.maxSemanticChunkSize) / 2;
+
     let currentChunk: string[] = [];
     let currentTokens = 0;
-    
+
     for (let i = 0; i < sentences.length; i++) {
       const sentence = sentences[i];
       const sentenceTokens = estimateTokens(sentence);
-      
-      if (currentTokens + sentenceTokens > config.maxSemanticChunkSize && currentChunk.length > 0) {
+
+      if (
+        currentTokens + sentenceTokens > config.maxSemanticChunkSize &&
+        currentChunk.length > 0
+      ) {
         // Create chunk from current sentences
         chunks.push({
           sentences: [...currentChunk],
           semanticScore: 0.8,
           topics: [],
-          boundaries: { start: i - currentChunk.length, end: i }
+          boundaries: { start: i - currentChunk.length, end: i },
         });
-        
+
         // Start new chunk with overlap if configured
         if (config.sentenceOverlap && currentChunk.length > 1) {
           const overlapSentence = currentChunk[currentChunk.length - 1];
@@ -428,20 +490,23 @@ export class SemanticChunkingService {
         currentTokens += sentenceTokens;
       }
     }
-    
+
     // Add final chunk if any sentences remain
     if (currentChunk.length > 0) {
       chunks.push({
         sentences: currentChunk,
         semanticScore: 0.8,
         topics: [],
-        boundaries: { start: sentences.length - currentChunk.length, end: sentences.length }
+        boundaries: {
+          start: sentences.length - currentChunk.length,
+          end: sentences.length,
+        },
       });
     }
-    
+
     return chunks;
   }
-  
+
   /**
    * Convert semantic chunks to document chunks
    */
@@ -451,16 +516,15 @@ export class SemanticChunkingService {
     metadata?: DocumentMetadata,
     config?: SemanticChunkingConfig
   ): Promise<DocumentChunk[]> {
-    
     const documentChunks: DocumentChunk[] = [];
-    
+
     for (let i = 0; i < semanticChunks.length; i++) {
       const chunk = semanticChunks[i];
       const content = chunk.sentences.join(' ').trim();
       const tokenCount = estimateTokens(content);
-      
+
       if (content.length === 0) continue;
-      
+
       const documentChunk: DocumentChunk = {
         id: `${documentId}_semantic_${i}`,
         document_id: documentId,
@@ -475,16 +539,16 @@ export class SemanticChunkingService {
           boundary_start: chunk.boundaries.start,
           boundary_end: chunk.boundaries.end,
           chunk_type: 'semantic',
-          created_at: new Date().toISOString()
-        }
+          created_at: new Date().toISOString(),
+        },
       };
-      
+
       documentChunks.push(documentChunk);
     }
-    
+
     return documentChunks;
   }
-  
+
   /**
    * Validate semantic chunks meet quality requirements
    */
@@ -492,12 +556,13 @@ export class SemanticChunkingService {
     chunks: DocumentChunk[],
     config: SemanticChunkingConfig
   ): DocumentChunk[] {
-
     return chunks.filter(chunk => {
       // More permissive token count bounds
       const minTokens = Math.min(config.minSemanticChunkSize, 100); // Allow smaller chunks
-      if (chunk.token_count < minTokens ||
-          chunk.token_count > config.maxSemanticChunkSize) {
+      if (
+        chunk.token_count < minTokens ||
+        chunk.token_count > config.maxSemanticChunkSize
+      ) {
         return false;
       }
 
@@ -507,15 +572,16 @@ export class SemanticChunkingService {
       }
 
       // More lenient sentence count requirement
-      const sentenceCount = chunk.metadata?.sentence_count as number || 1;
-      if (sentenceCount < 1) { // Allow single sentence chunks
+      const sentenceCount = (chunk.metadata?.sentence_count as number) || 1;
+      if (sentenceCount < 1) {
+        // Allow single sentence chunks
         return false;
       }
 
       return true;
     });
   }
-  
+
   /**
    * Fall back to structural chunking when semantic chunking fails
    */
@@ -525,29 +591,28 @@ export class SemanticChunkingService {
     metadata?: DocumentMetadata,
     config?: ChunkingConfig
   ): Promise<DocumentChunk[]> {
-    
     console.log('🔄 Using structural chunking as fallback');
-    
+
     // Use unified chunking service with academic/patent strategy if applicable
     const strategy = this.determineStructuralStrategy(metadata);
-    
+
     const result = await unifiedChunkingService.createChunks({
       content,
       documentId,
       documentType: metadata?.docType,
       strategy,
-      customConfig: config
+      customConfig: config,
     });
-    
+
     return result.chunks;
   }
-  
+
   /**
    * Determine the best structural chunking strategy
    */
   private determineStructuralStrategy(metadata?: DocumentMetadata): string {
     if (!metadata?.docType) return 'auto';
-    
+
     switch (metadata.docType) {
       case 'patent':
         return 'patent';
@@ -574,26 +639,36 @@ export async function createSemanticChunks(
   metadata?: DocumentMetadata,
   config?: Partial<SemanticChunkingConfig>
 ): Promise<DocumentChunk[]> {
-  
   // Determine if semantic chunking is beneficial
   const shouldUseSemanticChunking = await shouldUseSemantic(content, metadata);
-  
+
   if (!shouldUseSemanticChunking) {
-    console.log('📄 Using structural chunking (semantic not beneficial for this document)');
+    console.log(
+      '📄 Using structural chunking (semantic not beneficial for this document)'
+    );
     return await semanticChunkingService['fallbackToStructuralChunking'](
-      content, documentId, metadata, config
+      content,
+      documentId,
+      metadata,
+      config
     );
   }
-  
+
   return await semanticChunkingService.createSemanticChunks(
-    content, documentId, metadata, config
+    content,
+    documentId,
+    metadata,
+    config
   );
 }
 
 /**
  * Determine if semantic chunking would be beneficial for this content
  */
-async function shouldUseSemantic(content: string, metadata?: DocumentMetadata): Promise<boolean> {
+async function shouldUseSemantic(
+  content: string,
+  metadata?: DocumentMetadata
+): Promise<boolean> {
   const contentLength = content.length;
   const tokenCount = estimateTokens(content);
 
@@ -603,8 +678,11 @@ async function shouldUseSemantic(content: string, metadata?: DocumentMetadata): 
   }
 
   // Don't use for highly structured documents (patents, code) - but allow papers
-  if (metadata?.docType === 'patent' || content.includes('```') ||
-      /^\d+\.\s/m.test(content)) {
+  if (
+    metadata?.docType === 'patent' ||
+    content.includes('```') ||
+    /^\d+\.\s/m.test(content)
+  ) {
     return false;
   }
 

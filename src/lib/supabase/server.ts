@@ -1,5 +1,5 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 
 // Global client cache for connection reuse
 let cachedClient: any = null;
@@ -9,11 +9,11 @@ const CACHE_TTL = 60000; // 1 minute cache TTL
 export async function createClient() {
   // Check if we have a cached client that's still valid
   const now = Date.now();
-  if (cachedClient && (now - lastCacheTime) < CACHE_TTL) {
+  if (cachedClient && now - lastCacheTime < CACHE_TTL) {
     return cachedClient;
   }
 
-  const cookieStore = await cookies()
+  const cookieStore = await cookies();
 
   const client = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -32,13 +32,13 @@ export async function createClient() {
       },
       cookies: {
         getAll() {
-          return cookieStore.getAll()
+          return cookieStore.getAll();
         },
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options)
-            })
+              cookieStore.set(name, value, options);
+            });
           } catch (error) {
             // The `setAll` method was called from a Server Component.
             // This can be ignored if you have middleware refreshing

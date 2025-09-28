@@ -5,10 +5,13 @@ import { IngestionWebhookManager } from '@/lib/rag/ingestion-webhook';
 export async function GET(req: NextRequest) {
   try {
     const supabase = await createClient();
-    
+
     // Get the authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
       return new NextResponse('Authentication required', { status: 401 });
     }
@@ -33,7 +36,7 @@ export async function GET(req: NextRequest) {
             } catch (error) {
               console.error('SSE write error:', error);
             }
-          }
+          },
         });
 
         // Send initial state (batch or single document)
@@ -47,7 +50,12 @@ export async function GET(req: NextRequest) {
         const interval = setInterval(async () => {
           try {
             if (jobId) {
-              await sendDocumentStateUpdate(jobId, batchId, controller, supabase);
+              await sendDocumentStateUpdate(
+                jobId,
+                batchId,
+                controller,
+                supabase
+              );
             } else {
               await sendBatchStateUpdate(batchId, controller, supabase);
             }
@@ -69,23 +77,22 @@ export async function GET(req: NextRequest) {
 
         // Handle client disconnect
         req.signal.addEventListener('abort', cleanup);
-        
+
         // Auto-cleanup after 30 minutes
         setTimeout(cleanup, 30 * 60 * 1000);
-      }
+      },
     });
 
     return new NextResponse(stream, {
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
+        Connection: 'keep-alive',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET',
-        'Access-Control-Allow-Headers': 'Cache-Control'
+        'Access-Control-Allow-Headers': 'Cache-Control',
       },
     });
-
   } catch (error) {
     console.error('SSE setup error:', error);
     return new NextResponse('Internal server error', { status: 500 });
@@ -93,7 +100,7 @@ export async function GET(req: NextRequest) {
 }
 
 async function sendInitialBatchState(
-  batchId: string, 
+  batchId: string,
   controller: ReadableStreamDefaultController,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any
@@ -117,45 +124,57 @@ async function sendInitialBatchState(
     // Get individual document jobs (exclude the batch job itself)
     const { data: allJobs } = await supabase
       .from('processing_jobs')
-      .select(`
+      .select(
+        `
         *,
         document:documents(id, title, doc_type)
-      `)
+      `
+      )
       .eq('config->>batchId', batchId)
       .order('created_at');
 
     // Filter out the batch job (it won't have a document_id)
-    const documentJobs = allJobs?.filter(job => job.document_id) || [];
+    const documentJobs = allJobs?.filter((job: any) => job.document_id) || [];
 
     const batchProgress = {
       batchId,
       totalDocuments: batchJob.config?.totalDocuments || 0,
-      completedDocuments: documentJobs?.filter((job: any) => job.status === 'completed').length || 0,
-      failedDocuments: documentJobs?.filter((job: any) => job.status === 'failed').length || 0,
-      inProgressDocuments: documentJobs?.filter((job: any) => job.status === 'processing').length || 0,
+      completedDocuments:
+        documentJobs?.filter((job: any) => job.status === 'completed').length ||
+        0,
+      failedDocuments:
+        documentJobs?.filter((job: any) => job.status === 'failed').length || 0,
+      inProgressDocuments:
+        documentJobs?.filter((job: any) => job.status === 'processing')
+          .length || 0,
       startTime: batchJob.created_at,
       endTime: batchJob.completed_at,
-      documents: documentJobs?.map(job => ({
-        documentId: job.document_id,
-        jobId: job.id,
-        title: job.document?.title || 'Unknown',
-        detectedType: job.document?.doc_type || 'unknown',
-        currentStage: {
-          stage: mapJobStatusToStage(job.status, job.progress, job.progress_message),
-          progress: job.progress || 0,
-          message: job.progress_message || 'Processing...',
-          timestamp: job.updated_at,
-          details: job.results
-        },
-        stageHistory: [], // Could be enhanced to track stage history
-        startTime: job.created_at,
-        endTime: job.completed_at
-      })) || []
+      documents:
+        documentJobs?.map((job: any) => ({
+          documentId: job.document_id,
+          jobId: job.id,
+          title: job.document?.title || 'Unknown',
+          detectedType: job.document?.doc_type || 'unknown',
+          currentStage: {
+            stage: mapJobStatusToStage(
+              job.status,
+              job.progress,
+              job.progress_message
+            ),
+            progress: job.progress || 0,
+            message: job.progress_message || 'Processing...',
+            timestamp: job.updated_at,
+            details: job.results,
+          },
+          stageHistory: [], // Could be enhanced to track stage history
+          startTime: job.created_at,
+          endTime: job.completed_at,
+        })) || [],
     };
 
     const message = JSON.stringify({
       type: 'batch_progress',
-      batch: batchProgress
+      batch: batchProgress,
     });
 
     controller.enqueue(`data: ${message}\n\n`);
@@ -174,15 +193,17 @@ async function sendBatchStateUpdate(
     // Get updated document jobs (exclude batch job)
     const { data: allJobs } = await supabase
       .from('processing_jobs')
-      .select(`
+      .select(
+        `
         *,
         document:documents(id, title, doc_type)
-      `)
+      `
+      )
       .eq('config->>batchId', batchId)
       .order('created_at');
 
     // Filter out the batch job (it won't have a document_id)
-    const documentJobs = allJobs?.filter(job => job.document_id);
+    const documentJobs = allJobs?.filter((job: any) => job.document_id);
 
     if (!documentJobs) return;
 
@@ -194,20 +215,24 @@ async function sendBatchStateUpdate(
         title: job.document?.title || 'Unknown',
         detectedType: job.document?.doc_type || 'unknown',
         currentStage: {
-          stage: mapJobStatusToStage(job.status, job.progress, job.progress_message),
+          stage: mapJobStatusToStage(
+            job.status,
+            job.progress,
+            job.progress_message
+          ),
           progress: job.progress || 0,
           message: job.progress_message || 'Processing...',
           timestamp: job.updated_at,
-          details: job.results
+          details: job.results,
         },
         stageHistory: [],
         startTime: job.created_at,
-        endTime: job.completed_at
+        endTime: job.completed_at,
       };
 
       const message = JSON.stringify({
         type: 'document_progress',
-        document: documentProgress
+        document: documentProgress,
       });
 
       controller.enqueue(`data: ${message}\n\n`);
@@ -228,10 +253,12 @@ async function sendInitialDocumentState(
     // Get the specific document job
     const { data: job } = await supabase
       .from('processing_jobs')
-      .select(`
+      .select(
+        `
         *,
         document:documents(id, title, doc_type)
-      `)
+      `
+      )
       .eq('id', jobId)
       .single();
 
@@ -246,20 +273,24 @@ async function sendInitialDocumentState(
       title: job.document?.title || 'Unknown',
       detectedType: job.document?.doc_type || 'unknown',
       currentStage: {
-        stage: mapJobStatusToStage(job.status, job.progress, job.progress_message),
+        stage: mapJobStatusToStage(
+          job.status,
+          job.progress,
+          job.progress_message
+        ),
         progress: job.progress || 0,
         message: job.progress_message || 'Processing...',
         timestamp: job.updated_at,
-        details: job.results
+        details: job.results,
       },
       stageHistory: [],
       startTime: job.created_at,
-      endTime: job.completed_at
+      endTime: job.completed_at,
     };
 
     const message = JSON.stringify({
       type: 'document_progress',
-      document: documentProgress
+      document: documentProgress,
     });
 
     controller.enqueue(`data: ${message}\n\n`);
@@ -279,10 +310,12 @@ async function sendDocumentStateUpdate(
     // Get updated document job
     const { data: job } = await supabase
       .from('processing_jobs')
-      .select(`
+      .select(
+        `
         *,
         document:documents(id, title, doc_type)
-      `)
+      `
+      )
       .eq('id', jobId)
       .single();
 
@@ -294,20 +327,24 @@ async function sendDocumentStateUpdate(
       title: job.document?.title || 'Unknown',
       detectedType: job.document?.doc_type || 'unknown',
       currentStage: {
-        stage: mapJobStatusToStage(job.status, job.progress, job.progress_message),
+        stage: mapJobStatusToStage(
+          job.status,
+          job.progress,
+          job.progress_message
+        ),
         progress: job.progress || 0,
         message: job.progress_message || 'Processing...',
         timestamp: job.updated_at,
-        details: job.results
+        details: job.results,
       },
       stageHistory: [],
       startTime: job.created_at,
-      endTime: job.completed_at
+      endTime: job.completed_at,
     };
 
     const message = JSON.stringify({
       type: 'document_progress',
-      document: documentProgress
+      document: documentProgress,
     });
 
     controller.enqueue(`data: ${message}\n\n`);
@@ -316,16 +353,24 @@ async function sendDocumentStateUpdate(
   }
 }
 
-function mapJobStatusToStage(status: string, progress?: number, message?: string): string {
+function mapJobStatusToStage(
+  status: string,
+  progress?: number,
+  message?: string
+): string {
   switch (status) {
-    case 'pending': return 'validation';
+    case 'pending':
+      return 'validation';
     case 'processing':
       // Simplified 3-stage mapping based on progress thresholds
       if ((progress || 0) <= 0.3) return 'validation';
       if ((progress || 0) <= 0.8) return 'processing';
       return 'completion';
-    case 'completed': return 'completed';
-    case 'failed': return 'failed';
-    default: return 'validation';
+    case 'completed':
+      return 'completed';
+    case 'failed':
+      return 'failed';
+    default:
+      return 'validation';
   }
 }

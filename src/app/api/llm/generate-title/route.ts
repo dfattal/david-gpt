@@ -6,12 +6,18 @@ import { openai } from '@ai-sdk/openai';
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
-    
+
     // Get the authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
     // Check user role - only admin can generate titles
@@ -22,13 +28,19 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (profile?.role !== 'admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
+      );
     }
 
     const { content, metaTitle } = await req.json();
-    
+
     if (!content || typeof content !== 'string') {
-      return NextResponse.json({ error: 'Content is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Content is required' },
+        { status: 400 }
+      );
     }
 
     // Generate title using OpenAI
@@ -52,15 +64,15 @@ export async function POST(req: NextRequest) {
           - For URLs, describe the main content or purpose
           - Prioritize clarity and searchability for researchers
           
-          Return only the title, no quotes or additional text.`
+          Return only the title, no quotes or additional text.`,
         },
         {
           role: 'user',
-          content: `Generate a title for this content:\n\n${content.substring(0, 2000)}`
-        }
+          content: `Generate a title for this content:\n\n${content.substring(0, 2000)}`,
+        },
       ],
       maxTokens: 50,
-      temperature: 0.3
+      temperature: 0.3,
     });
 
     // Extract the title from the stream
@@ -71,17 +83,17 @@ export async function POST(req: NextRequest) {
 
     // Clean up the title
     title = title.trim().replace(/^["']|["']$/g, '');
-    
+
     // Fallback if generation fails
     if (!title || title.length < 3) {
-      title = content.split('\n')[0]?.trim()?.substring(0, 80) || 'Untitled Document';
+      title =
+        content.split('\n')[0]?.trim()?.substring(0, 80) || 'Untitled Document';
     }
 
     return NextResponse.json({ title });
-
   } catch (error) {
     console.error('Title generation error:', error);
-    
+
     // Fallback title generation
     const fallbackTitle = 'Generated Document Title';
     return NextResponse.json({ title: fallbackTitle });

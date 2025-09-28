@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
-import { supabase } from "@/lib/supabase/client";
-import { IngestionProgressVisualizer } from "./ingestion-progress-visualizer";
+import { useState, useEffect } from 'react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
+import { supabase } from '@/lib/supabase/client';
+import { IngestionProgressVisualizer } from './ingestion-progress-visualizer';
 
 interface ProcessingJob {
   id: string;
@@ -41,10 +41,12 @@ export function ProcessingStatus({ refreshKey }: ProcessingStatusProps) {
     try {
       const { data, error } = await supabase
         .from('processing_jobs')
-        .select(`
+        .select(
+          `
           *,
           document:documents(id, title, doc_type)
-        `)
+        `
+        )
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -58,8 +60,10 @@ export function ProcessingStatus({ refreshKey }: ProcessingStatusProps) {
       // Detect active batches from jobs with batchId in config
       const batchIds = new Set<string>();
       data?.forEach(job => {
-        if (job.config?.batchId &&
-            (job.status === 'pending' || job.status === 'processing')) {
+        if (
+          job.config?.batchId &&
+          (job.status === 'pending' || job.status === 'processing')
+        ) {
           batchIds.add(job.config.batchId);
         }
       });
@@ -79,13 +83,14 @@ export function ProcessingStatus({ refreshKey }: ProcessingStatusProps) {
   useEffect(() => {
     const channel = supabase
       .channel('processing_jobs')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'processing_jobs' 
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'processing_jobs',
         },
-        (payload) => {
+        payload => {
           console.log('Processing job update:', payload);
           loadJobs(); // Refresh the entire list for simplicity (includes batch detection)
         }
@@ -147,10 +152,10 @@ export function ProcessingStatus({ refreshKey }: ProcessingStatusProps) {
     try {
       const { error } = await supabase
         .from('processing_jobs')
-        .update({ 
+        .update({
           status: 'pending',
           error_message: null,
-          attempts: 0
+          attempts: 0,
         })
         .eq('id', jobId);
 
@@ -191,7 +196,9 @@ export function ProcessingStatus({ refreshKey }: ProcessingStatusProps) {
     );
   }
 
-  const activeJobs = jobs.filter(job => job.status === 'pending' || job.status === 'processing');
+  const activeJobs = jobs.filter(
+    job => job.status === 'pending' || job.status === 'processing'
+  );
   const completedJobs = jobs.filter(job => job.status === 'completed');
   const failedJobs = jobs.filter(job => job.status === 'failed');
 
@@ -222,19 +229,29 @@ export function ProcessingStatus({ refreshKey }: ProcessingStatusProps) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {activeJobs.map((job) => (
-              <div key={job.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+            {activeJobs.map(job => (
+              <div
+                key={job.id}
+                className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow"
+              >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2 mb-1">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(job.status)}`}>
-                        {job.status === 'processing' ? 'Processing' : job.status}
+                      <span
+                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(job.status)}`}
+                      >
+                        {job.status === 'processing'
+                          ? 'Processing'
+                          : job.status}
                       </span>
                       <span className="text-xs text-gray-500">
                         {getSimplifiedStage(job.progress, job.progress_message)}
                       </span>
                     </div>
-                    <h4 className="text-sm font-medium text-gray-900 truncate" title={job.document?.title}>
+                    <h4
+                      className="text-sm font-medium text-gray-900 truncate"
+                      title={job.document?.title}
+                    >
                       {job.document?.title || `Job ${job.id.slice(0, 8)}`}
                     </h4>
                   </div>
@@ -271,7 +288,9 @@ export function ProcessingStatus({ refreshKey }: ProcessingStatusProps) {
                 <div className="flex justify-between items-center mt-3 text-xs text-gray-500">
                   <span>{job.document?.doc_type || 'document'}</span>
                   <span>
-                    {job.started_at ? formatDuration(job.started_at) : 'Pending'}
+                    {job.started_at
+                      ? formatDuration(job.started_at)
+                      : 'Pending'}
                   </span>
                 </div>
               </div>
@@ -293,11 +312,17 @@ export function ProcessingStatus({ refreshKey }: ProcessingStatusProps) {
           </div>
 
           <div className="space-y-2">
-            {completedJobs.slice(0, 8).map((job) => (
-              <div key={job.id} className="flex items-center justify-between p-3 bg-green-50 border border-green-100 rounded-lg">
+            {completedJobs.slice(0, 8).map(job => (
+              <div
+                key={job.id}
+                className="flex items-center justify-between p-3 bg-green-50 border border-green-100 rounded-lg"
+              >
                 <div className="flex items-center space-x-3 flex-1 min-w-0">
                   <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0" />
-                  <span className="text-sm font-medium text-green-800 truncate" title={job.document?.title}>
+                  <span
+                    className="text-sm font-medium text-green-800 truncate"
+                    title={job.document?.title}
+                  >
                     {job.document?.title || `Job ${job.id.slice(0, 8)}`}
                   </span>
                   <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded flex-shrink-0">
@@ -307,8 +332,7 @@ export function ProcessingStatus({ refreshKey }: ProcessingStatusProps) {
                 <div className="text-xs text-green-600 flex-shrink-0 ml-2">
                   {job.completed_at && job.started_at
                     ? formatDuration(job.started_at, job.completed_at)
-                    : 'Complete'
-                  }
+                    : 'Complete'}
                 </div>
               </div>
             ))}
@@ -320,22 +344,26 @@ export function ProcessingStatus({ refreshKey }: ProcessingStatusProps) {
       {failedJobs.length > 0 && (
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">
-              Failed Jobs
-            </h3>
+            <h3 className="text-lg font-semibold text-gray-900">Failed Jobs</h3>
             <span className="text-sm text-gray-500">
               {failedJobs.slice(0, 6).length} of {failedJobs.length}
             </span>
           </div>
 
           <div className="space-y-3">
-            {failedJobs.slice(0, 6).map((job) => (
-              <div key={job.id} className="bg-red-50 border border-red-100 rounded-lg p-4">
+            {failedJobs.slice(0, 6).map(job => (
+              <div
+                key={job.id}
+                className="bg-red-50 border border-red-100 rounded-lg p-4"
+              >
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2 mb-2">
                       <div className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0" />
-                      <span className="text-sm font-medium text-red-800 truncate" title={job.document?.title}>
+                      <span
+                        className="text-sm font-medium text-red-800 truncate"
+                        title={job.document?.title}
+                      >
                         {job.document?.title || `Job ${job.id.slice(0, 8)}`}
                       </span>
                       <span className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded flex-shrink-0">
@@ -346,8 +374,7 @@ export function ProcessingStatus({ refreshKey }: ProcessingStatusProps) {
                       <div className="text-xs text-red-700 bg-red-100 p-2 rounded border border-red-200">
                         {job.error_message.length > 100
                           ? `${job.error_message.substring(0, 100)}...`
-                          : job.error_message
-                        }
+                          : job.error_message}
                       </div>
                     )}
                   </div>
@@ -370,8 +397,12 @@ export function ProcessingStatus({ refreshKey }: ProcessingStatusProps) {
       {jobs.length === 0 && (
         <Card className="p-8 text-center">
           <div className="text-gray-500">
-            <div className="text-lg font-medium mb-2">No processing jobs found</div>
-            <div className="text-sm">Upload a document to see processing status here</div>
+            <div className="text-lg font-medium mb-2">
+              No processing jobs found
+            </div>
+            <div className="text-sm">
+              Upload a document to see processing status here
+            </div>
           </div>
         </Card>
       )}

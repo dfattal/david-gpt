@@ -1,12 +1,14 @@
-"use client";
+'use client';
 
-import { Card } from "@/components/ui/card";
+import { Card } from '@/components/ui/card';
 
 export default function KnowledgeGraphPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Knowledge Graph Management</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Knowledge Graph Management
+        </h1>
         <p className="text-gray-600 mt-1">
           Manage entities, relationships, and knowledge graph validation
         </p>
@@ -23,7 +25,9 @@ export default function KnowledgeGraphPage() {
         </Card>
 
         <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Relationships</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Relationships
+          </h3>
           <p className="text-sm text-gray-600 mb-4">
             View and edit entity relationships
           </p>
@@ -32,7 +36,9 @@ export default function KnowledgeGraphPage() {
         </Card>
 
         <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Validation</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Validation
+          </h3>
           <p className="text-sm text-gray-600 mb-4">
             Data quality and consistency checks
           </p>
@@ -43,9 +49,12 @@ export default function KnowledgeGraphPage() {
 
       <Card className="p-8 text-center">
         <div className="text-gray-500">
-          <div className="text-lg font-medium mb-2">Knowledge Graph Tools Coming Soon</div>
+          <div className="text-lg font-medium mb-2">
+            Knowledge Graph Tools Coming Soon
+          </div>
           <div className="text-sm">
-            Entity browser, relationship editor, and validation tools will be implemented in Phase 2
+            Entity browser, relationship editor, and validation tools will be
+            implemented in Phase 2
           </div>
         </div>
       </Card>

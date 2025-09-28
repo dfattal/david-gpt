@@ -1,12 +1,15 @@
 /**
  * API Route Middleware
- * 
+ *
  * Provides reusable middleware for authentication, validation, error handling,
  * and other common API route concerns to eliminate duplication across routes.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient, createOptimizedAdminClient } from '@/lib/supabase/server';
+import {
+  createClient,
+  createOptimizedAdminClient,
+} from '@/lib/supabase/server';
 import { AppError, handleApiError } from '@/lib/utils';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 
@@ -56,20 +59,24 @@ export async function withAuth(
 
   if (!requireAuth) {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     return { supabase, user: user as User };
   }
 
   // Check for service role bypass (for testing/automation)
   if (allowServiceRole) {
     const authHeader = req.headers.get('Authorization');
-    const isServiceRoleRequest = authHeader?.includes(process.env.SUPABASE_SERVICE_ROLE_KEY!);
-    
+    const isServiceRoleRequest = authHeader?.includes(
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     if (isServiceRoleRequest) {
       const supabase = createOptimizedAdminClient();
       // Use test admin user for service role requests
-      const user = { 
-        id: 'b349bd11-bd69-4582-9713-3ada0ba58fcf', 
+      const user = {
+        id: 'b349bd11-bd69-4582-9713-3ada0ba58fcf',
         email: 'dfattal@gmail.com',
         // Add other required User properties with safe defaults
         aud: 'authenticated',
@@ -78,9 +85,9 @@ export async function withAuth(
         updated_at: new Date().toISOString(),
         last_sign_in_at: new Date().toISOString(),
         app_metadata: { role: 'admin' },
-        user_metadata: {}
+        user_metadata: {},
       } as User;
-      
+
       console.log('🔑 Using service role authentication');
       return { supabase, user, isServiceRole: true };
     }
@@ -88,7 +95,10 @@ export async function withAuth(
 
   // Standard authentication
   const supabase = createClient();
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
 
   if (userError || !user) {
     throw new AppError('Authentication required', 401);
@@ -109,7 +119,10 @@ export async function withAuth(
 // Request Parsing Middleware
 // =======================
 
-export async function parseRequest(req: NextRequest, options: MiddlewareOptions = {}): Promise<RequestBody | ParsedFormData> {
+export async function parseRequest(
+  req: NextRequest,
+  options: MiddlewareOptions = {}
+): Promise<RequestBody | ParsedFormData> {
   const { maxFileSize = 50 * 1024 * 1024, allowedFileTypes } = options; // 50MB default
   const contentType = req.headers.get('content-type') || '';
 
@@ -131,22 +144,31 @@ async function parseJSON(req: NextRequest): Promise<RequestBody> {
 }
 
 async function parseFormData(
-  req: NextRequest, 
+  req: NextRequest,
   options: { maxFileSize: number; allowedFileTypes?: string[] }
 ): Promise<ParsedFormData> {
   const formData = await req.formData();
-  const files = new Map<string, { buffer: Buffer; fileName: string; size: number }>();
+  const files = new Map<
+    string,
+    { buffer: Buffer; fileName: string; size: number }
+  >();
   let body: RequestBody = {};
 
   for (const [key, value] of formData.entries()) {
     if (value instanceof File) {
       // Validate file size
       if (value.size > options.maxFileSize) {
-        throw new AppError(`File ${value.name} exceeds maximum size of ${options.maxFileSize} bytes`, 400);
+        throw new AppError(
+          `File ${value.name} exceeds maximum size of ${options.maxFileSize} bytes`,
+          400
+        );
       }
 
       // Validate file type
-      if (options.allowedFileTypes && !options.allowedFileTypes.includes(value.type)) {
+      if (
+        options.allowedFileTypes &&
+        !options.allowedFileTypes.includes(value.type)
+      ) {
         throw new AppError(`File type ${value.type} not allowed`, 400);
       }
 
@@ -154,7 +176,7 @@ async function parseFormData(
       files.set(key, {
         buffer,
         fileName: value.name,
-        size: value.size
+        size: value.size,
       });
     } else {
       // Handle form fields
@@ -177,7 +199,10 @@ async function parseFormData(
 // Validation Middleware
 // =======================
 
-export function validateBody(body: any, validator: (body: any) => void | Promise<void>) {
+export function validateBody(
+  body: any,
+  validator: (body: any) => void | Promise<void>
+) {
   return validator(body);
 }
 
@@ -186,7 +211,11 @@ export function validateBody(body: any, validator: (body: any) => void | Promise
 // =======================
 
 export function withErrorHandling<T>(handler: APIHandler<T>) {
-  return async (req: NextRequest, context: AuthenticatedContext, data?: T): Promise<NextResponse> => {
+  return async (
+    req: NextRequest,
+    context: AuthenticatedContext,
+    data?: T
+  ): Promise<NextResponse> => {
     try {
       return await handler(req, context, data);
     } catch (error) {
@@ -209,7 +238,7 @@ export function createAPIHandler<T = any>(
     const context = await withAuth(req, options);
 
     // Request parsing
-    const data = await parseRequest(req, options) as T;
+    const data = (await parseRequest(req, options)) as T;
 
     // Body validation
     if (options.validateBody && 'body' in (data as any)) {
@@ -227,10 +256,17 @@ export function createAPIHandler<T = any>(
 // Utility Functions
 // =======================
 
-export function requireFields(obj: any, fields: string[], context = 'Request'): void {
+export function requireFields(
+  obj: any,
+  fields: string[],
+  context = 'Request'
+): void {
   const missing = fields.filter(field => !obj[field]);
   if (missing.length > 0) {
-    throw new AppError(`${context} missing required fields: ${missing.join(', ')}`, 400);
+    throw new AppError(
+      `${context} missing required fields: ${missing.join(', ')}`,
+      400
+    );
   }
 }
 

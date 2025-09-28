@@ -62,9 +62,13 @@ export class ComprehensiveTestSuite {
    * Run all test suites and generate comprehensive results
    */
   async runAllTests(): Promise<ComprehensiveTestResults> {
-    console.log('🚀 Starting Comprehensive Three-Tier RAG Architecture Test Suite');
+    console.log(
+      '🚀 Starting Comprehensive Three-Tier RAG Architecture Test Suite'
+    );
     console.log('='.repeat(80));
-    console.log('Testing performance, quality, and integration of the enhanced metadata system...\n');
+    console.log(
+      'Testing performance, quality, and integration of the enhanced metadata system...\n'
+    );
 
     // Clear analytics for clean testing
     searchAnalytics.clearData();
@@ -81,15 +85,21 @@ export class ComprehensiveTestSuite {
     const performanceTestSuite = new PerformanceTestSuite();
     const performanceResults = await performanceTestSuite.runFullTestSuite();
 
-    const performancePassed = performanceResults.successfulQueries >= performanceResults.totalQueries * 0.8;
-    const performanceScore = (performanceResults.successfulQueries / performanceResults.totalQueries) * 100;
+    const performancePassed =
+      performanceResults.successfulQueries >=
+      performanceResults.totalQueries * 0.8;
+    const performanceScore =
+      (performanceResults.successfulQueries / performanceResults.totalQueries) *
+      100;
 
     totalTests += performanceResults.totalQueries;
     passedTests += performanceResults.successfulQueries;
     totalScore += performanceScore;
 
     if (!performancePassed) {
-      recommendations.push('Review performance optimization for failing query types');
+      recommendations.push(
+        'Review performance optimization for failing query types'
+      );
     }
 
     // 2. Quality Validation
@@ -99,7 +109,8 @@ export class ComprehensiveTestSuite {
     const qualityValidator = new SearchQualityValidator();
     const qualityResults = await qualityValidator.runQualityValidation();
 
-    const qualityPassed = qualityResults.passedTests >= qualityResults.totalTests * 0.8;
+    const qualityPassed =
+      qualityResults.passedTests >= qualityResults.totalTests * 0.8;
     const qualityScore = qualityResults.overallScore;
 
     totalTests += qualityResults.totalTests;
@@ -117,7 +128,8 @@ export class ComprehensiveTestSuite {
     const integrationTester = new APIIntegrationTester();
     const integrationResults = await integrationTester.runIntegrationTests();
 
-    const integrationPassed = integrationResults.passedTests >= integrationResults.totalTests * 0.8;
+    const integrationPassed =
+      integrationResults.passedTests >= integrationResults.totalTests * 0.8;
     const integrationScore = integrationResults.overallScore;
 
     totalTests += integrationResults.totalTests;
@@ -134,14 +146,15 @@ export class ComprehensiveTestSuite {
 
     // Calculate overall results
     const overallScore = totalScore / 3; // Average of all test suite scores
-    const overallSuccess = passedTests >= totalTests * 0.8 && overallScore >= 70;
+    const overallSuccess =
+      passedTests >= totalTests * 0.8 && overallScore >= 70;
 
     const comprehensiveResults: ComprehensiveTestResults = {
       overall: {
         totalTests,
         passedTests,
         overallScore,
-        success: overallSuccess
+        success: overallSuccess,
       },
       performance: {
         score: performanceScore,
@@ -150,56 +163,57 @@ export class ComprehensiveTestSuite {
         tierPerformance: {
           sql: {
             avgTime: performanceResults.tierBreakdown.sql.avgTime,
-            targetMet: performanceResults.tierBreakdown.sql.avgTime < 200
+            targetMet: performanceResults.tierBreakdown.sql.avgTime < 200,
           },
           vector: {
             avgTime: performanceResults.tierBreakdown.vector.avgTime,
-            targetMet: performanceResults.tierBreakdown.vector.avgTime < 1000
+            targetMet: performanceResults.tierBreakdown.vector.avgTime < 1000,
           },
           content: {
             avgTime: performanceResults.tierBreakdown.content.avgTime,
-            targetMet: performanceResults.tierBreakdown.content.avgTime < 2000
-          }
-        }
+            targetMet: performanceResults.tierBreakdown.content.avgTime < 2000,
+          },
+        },
       },
       quality: {
         score: qualityScore,
         passed: qualityPassed,
         metadataQueries: {
           score: qualityResults.categoryScores.inventor_query || 0,
-          passed: (qualityResults.categoryScores.inventor_query || 0) >= 70
+          passed: (qualityResults.categoryScores.inventor_query || 0) >= 70,
         },
         contentQueries: {
           score: qualityResults.categoryScores.technical_query || 0,
-          passed: (qualityResults.categoryScores.technical_query || 0) >= 70
-        }
+          passed: (qualityResults.categoryScores.technical_query || 0) >= 70,
+        },
       },
       integration: {
         score: integrationScore,
         passed: integrationPassed,
         apiEndpoints: {
           score: integrationResults.testTypeScores.api_endpoint || 0,
-          passed: (integrationResults.testTypeScores.api_endpoint || 0) >= 80
+          passed: (integrationResults.testTypeScores.api_endpoint || 0) >= 80,
         },
         tierRouting: {
           score: integrationResults.testTypeScores.tier_routing || 0,
-          passed: (integrationResults.testTypeScores.tier_routing || 0) >= 80
+          passed: (integrationResults.testTypeScores.tier_routing || 0) >= 80,
         },
         fallbackMechanisms: {
           score: integrationResults.testTypeScores.fallback_mechanism || 0,
-          passed: (integrationResults.testTypeScores.fallback_mechanism || 0) >= 70
-        }
+          passed:
+            (integrationResults.testTypeScores.fallback_mechanism || 0) >= 70,
+        },
       },
       analytics: {
         totalQueries: analytics.total,
         tierDistribution: {
           sql: analytics.sql.percentage,
           vector: analytics.vector.percentage,
-          content: analytics.content.percentage
+          content: analytics.content.percentage,
         },
-        averagePerformance: performanceMetrics.averageExecutionTime
+        averagePerformance: performanceMetrics.averageExecutionTime,
       },
-      recommendations: [...new Set(recommendations)] // Remove duplicates
+      recommendations: [...new Set(recommendations)], // Remove duplicates
     };
 
     return comprehensiveResults;
@@ -216,44 +230,82 @@ export class ComprehensiveTestSuite {
     // Overall Results
     const successIcon = results.overall.success ? '🎉' : '⚠️';
     console.log(`\n${successIcon} Overall Results:`);
-    console.log(`✅ Tests Passed: ${results.overall.passedTests}/${results.overall.totalTests} (${((results.overall.passedTests/results.overall.totalTests)*100).toFixed(1)}%)`);
-    console.log(`🎯 Overall Score: ${results.overall.overallScore.toFixed(1)}/100`);
-    console.log(`📊 System Status: ${results.overall.success ? 'READY FOR PRODUCTION' : 'NEEDS ATTENTION'}`);
+    console.log(
+      `✅ Tests Passed: ${results.overall.passedTests}/${results.overall.totalTests} (${((results.overall.passedTests / results.overall.totalTests) * 100).toFixed(1)}%)`
+    );
+    console.log(
+      `🎯 Overall Score: ${results.overall.overallScore.toFixed(1)}/100`
+    );
+    console.log(
+      `📊 System Status: ${results.overall.success ? 'READY FOR PRODUCTION' : 'NEEDS ATTENTION'}`
+    );
 
     // Phase Results
     console.log('\n📈 Phase Results:');
-    console.log(`Performance Testing: ${results.performance.score.toFixed(1)}/100 ${results.performance.passed ? '✅' : '❌'}`);
-    console.log(`Quality Validation: ${results.quality.score.toFixed(1)}/100 ${results.quality.passed ? '✅' : '❌'}`);
-    console.log(`Integration Testing: ${results.integration.score.toFixed(1)}/100 ${results.integration.passed ? '✅' : '❌'}`);
+    console.log(
+      `Performance Testing: ${results.performance.score.toFixed(1)}/100 ${results.performance.passed ? '✅' : '❌'}`
+    );
+    console.log(
+      `Quality Validation: ${results.quality.score.toFixed(1)}/100 ${results.quality.passed ? '✅' : '❌'}`
+    );
+    console.log(
+      `Integration Testing: ${results.integration.score.toFixed(1)}/100 ${results.integration.passed ? '✅' : '❌'}`
+    );
 
     // Performance Breakdown
     console.log('\n⚡ Performance Analysis:');
-    console.log(`SQL Tier: ${results.performance.tierPerformance.sql.avgTime.toFixed(0)}ms avg ${results.performance.tierPerformance.sql.targetMet ? '✅' : '❌'}`);
-    console.log(`Vector Tier: ${results.performance.tierPerformance.vector.avgTime.toFixed(0)}ms avg ${results.performance.tierPerformance.vector.targetMet ? '✅' : '❌'}`);
-    console.log(`Content Tier: ${results.performance.tierPerformance.content.avgTime.toFixed(0)}ms avg ${results.performance.tierPerformance.content.targetMet ? '✅' : '❌'}`);
+    console.log(
+      `SQL Tier: ${results.performance.tierPerformance.sql.avgTime.toFixed(0)}ms avg ${results.performance.tierPerformance.sql.targetMet ? '✅' : '❌'}`
+    );
+    console.log(
+      `Vector Tier: ${results.performance.tierPerformance.vector.avgTime.toFixed(0)}ms avg ${results.performance.tierPerformance.vector.targetMet ? '✅' : '❌'}`
+    );
+    console.log(
+      `Content Tier: ${results.performance.tierPerformance.content.avgTime.toFixed(0)}ms avg ${results.performance.tierPerformance.content.targetMet ? '✅' : '❌'}`
+    );
 
     // Quality Breakdown
     console.log('\n🔍 Quality Analysis:');
-    console.log(`Metadata Queries: ${results.quality.metadataQueries.score.toFixed(1)}/100 ${results.quality.metadataQueries.passed ? '✅' : '❌'}`);
-    console.log(`Content Queries: ${results.quality.contentQueries.score.toFixed(1)}/100 ${results.quality.contentQueries.passed ? '✅' : '❌'}`);
+    console.log(
+      `Metadata Queries: ${results.quality.metadataQueries.score.toFixed(1)}/100 ${results.quality.metadataQueries.passed ? '✅' : '❌'}`
+    );
+    console.log(
+      `Content Queries: ${results.quality.contentQueries.score.toFixed(1)}/100 ${results.quality.contentQueries.passed ? '✅' : '❌'}`
+    );
 
     // Integration Breakdown
     console.log('\n🔧 Integration Analysis:');
-    console.log(`API Endpoints: ${results.integration.apiEndpoints.score.toFixed(1)}/100 ${results.integration.apiEndpoints.passed ? '✅' : '❌'}`);
-    console.log(`Tier Routing: ${results.integration.tierRouting.score.toFixed(1)}/100 ${results.integration.tierRouting.passed ? '✅' : '❌'}`);
-    console.log(`Fallback Mechanisms: ${results.integration.fallbackMechanisms.score.toFixed(1)}/100 ${results.integration.fallbackMechanisms.passed ? '✅' : '❌'}`);
+    console.log(
+      `API Endpoints: ${results.integration.apiEndpoints.score.toFixed(1)}/100 ${results.integration.apiEndpoints.passed ? '✅' : '❌'}`
+    );
+    console.log(
+      `Tier Routing: ${results.integration.tierRouting.score.toFixed(1)}/100 ${results.integration.tierRouting.passed ? '✅' : '❌'}`
+    );
+    console.log(
+      `Fallback Mechanisms: ${results.integration.fallbackMechanisms.score.toFixed(1)}/100 ${results.integration.fallbackMechanisms.passed ? '✅' : '❌'}`
+    );
 
     // Analytics Summary
     console.log('\n📊 Search Analytics:');
     console.log(`Total Queries Tested: ${results.analytics.totalQueries}`);
-    console.log(`Tier Distribution: SQL ${results.analytics.tierDistribution.sql.toFixed(1)}% | Vector ${results.analytics.tierDistribution.vector.toFixed(1)}% | Content ${results.analytics.tierDistribution.content.toFixed(1)}%`);
-    console.log(`Average Performance: ${results.analytics.averagePerformance.toFixed(0)}ms`);
+    console.log(
+      `Tier Distribution: SQL ${results.analytics.tierDistribution.sql.toFixed(1)}% | Vector ${results.analytics.tierDistribution.vector.toFixed(1)}% | Content ${results.analytics.tierDistribution.content.toFixed(1)}%`
+    );
+    console.log(
+      `Average Performance: ${results.analytics.averagePerformance.toFixed(0)}ms`
+    );
 
     // Architecture Assessment
     console.log('\n🏗️ Architecture Assessment:');
-    const performanceGains = results.performance.tierPerformance.sql.targetMet ? '5-20x faster exact lookups' : 'Performance targets not met';
-    const metadataImprovement = results.quality.metadataQueries.passed ? 'Metadata queries working correctly' : 'Metadata query issues detected';
-    const systemReliability = results.overall.success ? 'System reliable and production-ready' : 'System needs optimization';
+    const performanceGains = results.performance.tierPerformance.sql.targetMet
+      ? '5-20x faster exact lookups'
+      : 'Performance targets not met';
+    const metadataImprovement = results.quality.metadataQueries.passed
+      ? 'Metadata queries working correctly'
+      : 'Metadata query issues detected';
+    const systemReliability = results.overall.success
+      ? 'System reliable and production-ready'
+      : 'System needs optimization';
 
     console.log(`📈 Performance Gains: ${performanceGains}`);
     console.log(`🎯 Metadata Enhancement: ${metadataImprovement}`);
@@ -269,21 +321,37 @@ export class ComprehensiveTestSuite {
 
     // Success Criteria Evaluation
     console.log('\n🎯 Success Criteria Evaluation:');
-    console.log(`✅ Test Pass Rate: ${results.overall.passedTests >= results.overall.totalTests * 0.8 ? 'PASS' : 'FAIL'} (${((results.overall.passedTests/results.overall.totalTests)*100).toFixed(1)}% >= 80%)`);
-    console.log(`✅ Overall Score: ${results.overall.overallScore >= 70 ? 'PASS' : 'FAIL'} (${results.overall.overallScore.toFixed(1)} >= 70)`);
-    console.log(`✅ SQL Performance: ${results.performance.tierPerformance.sql.targetMet ? 'PASS' : 'FAIL'} (<200ms target)`);
-    console.log(`✅ Metadata Queries: ${results.quality.metadataQueries.passed ? 'PASS' : 'FAIL'} (Inventor/author queries working)`);
-    console.log(`✅ System Integration: ${results.integration.passed ? 'PASS' : 'FAIL'} (API and fallback mechanisms)`);
+    console.log(
+      `✅ Test Pass Rate: ${results.overall.passedTests >= results.overall.totalTests * 0.8 ? 'PASS' : 'FAIL'} (${((results.overall.passedTests / results.overall.totalTests) * 100).toFixed(1)}% >= 80%)`
+    );
+    console.log(
+      `✅ Overall Score: ${results.overall.overallScore >= 70 ? 'PASS' : 'FAIL'} (${results.overall.overallScore.toFixed(1)} >= 70)`
+    );
+    console.log(
+      `✅ SQL Performance: ${results.performance.tierPerformance.sql.targetMet ? 'PASS' : 'FAIL'} (<200ms target)`
+    );
+    console.log(
+      `✅ Metadata Queries: ${results.quality.metadataQueries.passed ? 'PASS' : 'FAIL'} (Inventor/author queries working)`
+    );
+    console.log(
+      `✅ System Integration: ${results.integration.passed ? 'PASS' : 'FAIL'} (API and fallback mechanisms)`
+    );
 
     // Final Assessment
     console.log('\n' + '='.repeat(80));
     if (results.overall.success) {
       console.log('🎉 COMPREHENSIVE TEST SUITE: PASSED');
-      console.log('✅ The three-tier RAG architecture is validated and ready for production use!');
-      console.log('🚀 Benefits delivered: Enhanced performance, metadata search improvements, and extensible architecture');
+      console.log(
+        '✅ The three-tier RAG architecture is validated and ready for production use!'
+      );
+      console.log(
+        '🚀 Benefits delivered: Enhanced performance, metadata search improvements, and extensible architecture'
+      );
     } else {
       console.log('⚠️  COMPREHENSIVE TEST SUITE: NEEDS ATTENTION');
-      console.log('📋 Review the recommendations above to address failing test areas');
+      console.log(
+        '📋 Review the recommendations above to address failing test areas'
+      );
       console.log('🔧 Re-run tests after implementing improvements');
     }
     console.log('='.repeat(80));
@@ -303,7 +371,6 @@ export async function runComprehensiveTests(): Promise<void> {
 
     // Exit with appropriate code
     process.exit(results.overall.success ? 0 : 1);
-
   } catch (error) {
     console.error('❌ Comprehensive test suite failed:', error);
     process.exit(1);

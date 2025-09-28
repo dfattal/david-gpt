@@ -1,12 +1,12 @@
-import { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { addSSEConnection, removeSSEConnection } from "@/lib/sse-manager";
+import { NextRequest } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { addSSEConnection, removeSSEConnection } from '@/lib/sse-manager';
 
 export async function GET(req: NextRequest) {
   try {
-    console.log("🔗 SSE connection attempt received");
+    console.log('🔗 SSE connection attempt received');
     console.log(
-      "📋 Request headers:",
+      '📋 Request headers:',
       Object.fromEntries(req.headers.entries())
     );
 
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
       error: authError,
     } = await supabase.auth.getUser();
 
-    console.log("🔐 Auth check result:", {
+    console.log('🔐 Auth check result:', {
       hasUser: !!user,
       userId: user?.id,
       authError: authError?.message,
@@ -25,10 +25,10 @@ export async function GET(req: NextRequest) {
 
     if (authError || !user) {
       console.error(
-        "❌ SSE authentication failed:",
-        authError?.message || "No user"
+        '❌ SSE authentication failed:',
+        authError?.message || 'No user'
       );
-      return new Response("Authentication required", { status: 401 });
+      return new Response('Authentication required', { status: 401 });
     }
 
     console.log(`✅ SSE authentication successful for user: ${user.id}`);
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({
-              type: "connected",
+              type: 'connected',
               userId: user.id,
             })}\n\n`
           )
@@ -56,14 +56,14 @@ export async function GET(req: NextRequest) {
                 encoder.encode(`data: ${JSON.stringify(data)}\n\n`)
               );
             } catch (error) {
-              console.error("Error writing to SSE stream:", error);
+              console.error('Error writing to SSE stream:', error);
             }
           },
           close: () => {
             try {
               controller.close();
             } catch (error) {
-              console.error("Error closing SSE stream:", error);
+              console.error('Error closing SSE stream:', error);
             }
           },
         };
@@ -80,9 +80,9 @@ export async function GET(req: NextRequest) {
             `🧪 Testing connection persistence after 1 second for user: ${user.id}`
           );
           const testConnections =
-            require("@/lib/sse-manager").getActiveConnections();
+            require('@/lib/sse-manager').getActiveConnections();
           console.log(
-            `🧪 Active connections after 1s: [${testConnections.join(", ")}]`
+            `🧪 Active connections after 1s: [${testConnections.join(', ')}]`
           );
         }, 1000);
 
@@ -102,19 +102,19 @@ export async function GET(req: NextRequest) {
 
     return new Response(stream, {
       headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET",
-        "Access-Control-Allow-Headers": "Cache-Control",
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET',
+        'Access-Control-Allow-Headers': 'Cache-Control',
       },
     });
   } catch (error) {
-    console.error("SSE endpoint error:", error);
-    return new Response("Internal server error", { status: 500 });
+    console.error('SSE endpoint error:', error);
+    return new Response('Internal server error', { status: 500 });
   }
 }
 
 // Re-export the shared sendTitleUpdate function
-export { sendTitleUpdate } from "@/lib/sse-manager";
+export { sendTitleUpdate } from '@/lib/sse-manager';

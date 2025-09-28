@@ -3,9 +3,18 @@ import { readdirSync, readFileSync, statSync } from 'fs';
 import { join, basename } from 'path';
 import { createOptimizedAdminClient } from '@/lib/supabase/server';
 import { personaManager } from '@/lib/personas/persona-manager';
-import { DocumentFormatValidator, type ValidationResult } from '@/lib/validation/document-format-validator';
-import { unifiedIngestionService, type BatchIngestionRequest } from '@/lib/rag/ingestion-service';
-import { withPersonaMiddleware, type PersonaMiddlewareContext } from '@/lib/personas/middleware';
+import {
+  DocumentFormatValidator,
+  type ValidationResult,
+} from '@/lib/validation/document-format-validator';
+import {
+  unifiedIngestionService,
+  type BatchIngestionRequest,
+} from '@/lib/rag/ingestion-service';
+import {
+  withPersonaMiddleware,
+  type PersonaMiddlewareContext,
+} from '@/lib/personas/middleware';
 import type { DocumentType } from '@/lib/rag/types';
 import { AppError, handleApiError } from '@/lib/utils';
 
@@ -56,34 +65,46 @@ async function handleFormattedIngestion(
 ) {
   try {
     const { persona_id, processing_config: config } = personaContext;
-    const body = await request.json() as FormattedDocumentRequest;
+    const body = (await request.json()) as FormattedDocumentRequest;
 
     const {
       documents = ['all'],
       overwrite = false,
       dryRun = false,
-      validateOnly = false
+      validateOnly = false,
     } = body;
 
-    console.log(`📥 Starting formatted document ingestion for persona: ${persona_id}`, {
-      documents,
-      overwrite,
-      dryRun,
-      validateOnly
-    });
+    console.log(
+      `📥 Starting formatted document ingestion for persona: ${persona_id}`,
+      {
+        documents,
+        overwrite,
+        dryRun,
+        validateOnly,
+      }
+    );
 
     // Construct formatted directory path
-    const formattedDir = join(process.cwd(), 'personas', persona_id, 'formatted');
+    const formattedDir = join(
+      process.cwd(),
+      'personas',
+      persona_id,
+      'formatted'
+    );
 
     // Verify formatted directory exists
     try {
       statSync(formattedDir);
     } catch {
-      return NextResponse.json({
-        error: `Formatted directory not found for persona: ${persona_id}`,
-        path: formattedDir,
-        suggestion: 'Run document processing pipeline first: make process-manifest-{persona}'
-      }, { status: 404 });
+      return NextResponse.json(
+        {
+          error: `Formatted directory not found for persona: ${persona_id}`,
+          path: formattedDir,
+          suggestion:
+            'Run document processing pipeline first: make process-manifest-{persona}',
+        },
+        { status: 404 }
+      );
     }
 
     const supabase = createOptimizedAdminClient();
@@ -92,11 +113,15 @@ async function handleFormattedIngestion(
     const availableDocuments = getFormattedDocuments(formattedDir);
 
     if (availableDocuments.length === 0) {
-      return NextResponse.json({
-        error: 'No formatted documents found',
-        path: formattedDir,
-        suggestion: 'Process raw documents first using: make process-manifest-{persona}'
-      }, { status: 404 });
+      return NextResponse.json(
+        {
+          error: 'No formatted documents found',
+          path: formattedDir,
+          suggestion:
+            'Process raw documents first using: make process-manifest-{persona}',
+        },
+        { status: 404 }
+      );
     }
 
     // Determine which documents to process
@@ -106,18 +131,26 @@ async function handleFormattedIngestion(
       documentsToProcess = availableDocuments;
     } else {
       // Validate that requested documents exist
-      const missingDocs = documents.filter(doc => !availableDocuments.includes(doc));
+      const missingDocs = documents.filter(
+        doc => !availableDocuments.includes(doc)
+      );
       if (missingDocs.length > 0) {
-        return NextResponse.json({
-          error: 'Some requested documents not found',
-          missing_documents: missingDocs,
-          available_documents: availableDocuments
-        }, { status: 400 });
+        return NextResponse.json(
+          {
+            error: 'Some requested documents not found',
+            missing_documents: missingDocs,
+            available_documents: availableDocuments,
+          },
+          { status: 400 }
+        );
       }
       documentsToProcess = documents;
     }
 
-    console.log(`📊 Processing ${documentsToProcess.length} documents:`, documentsToProcess);
+    console.log(
+      `📊 Processing ${documentsToProcess.length} documents:`,
+      documentsToProcess
+    );
 
     // Process each document
     const results: DocumentProcessingResult[] = [];
@@ -126,7 +159,7 @@ async function handleFormattedIngestion(
       ingested: 0,
       skipped: 0,
       failed: 0,
-      duplicates: 0
+      duplicates: 0,
     };
 
     for (const filename of documentsToProcess) {
@@ -139,7 +172,7 @@ async function handleFormattedIngestion(
             filename,
             title: filename,
             status: 'failed',
-            reason: 'File not found in formatted directory'
+            reason: 'File not found in formatted directory',
           });
           summary.failed++;
           continue;
@@ -154,14 +187,17 @@ async function handleFormattedIngestion(
             filename,
             title: filename,
             status: 'failed',
-            reason: 'Missing title in frontmatter'
+            reason: 'Missing title in frontmatter',
           });
           summary.failed++;
           continue;
         }
 
         // Validate document format
-        const validation = DocumentFormatValidator.validateDocument(content, filename);
+        const validation = DocumentFormatValidator.validateDocument(
+          content,
+          filename
+        );
 
         if (validateOnly) {
           results.push({
@@ -169,13 +205,17 @@ async function handleFormattedIngestion(
             title: frontmatter.title,
             status: validation.isValid ? 'ingested' : 'failed',
             reason: validation.isValid ? 'Valid document' : 'Validation failed',
-            validation
+            validation,
           });
           continue;
         }
 
         // Check for duplicates
-        const duplicateCheck = await checkForDuplicate(supabase, frontmatter.title, persona_id);
+        const duplicateCheck = await checkForDuplicate(
+          supabase,
+          frontmatter.title,
+          persona_id
+        );
 
         if (duplicateCheck.exists && !overwrite) {
           results.push({
@@ -183,7 +223,7 @@ async function handleFormattedIngestion(
             title: frontmatter.title,
             document_id: duplicateCheck.document_id,
             status: 'duplicate',
-            reason: `Document already exists (created: ${duplicateCheck.created_at})`
+            reason: `Document already exists (created: ${duplicateCheck.created_at})`,
           });
           summary.duplicates++;
           continue;
@@ -195,7 +235,7 @@ async function handleFormattedIngestion(
             filename,
             title: frontmatter.title,
             status: duplicateCheck.exists ? 'duplicate' : 'ingested',
-            reason: 'Dry run mode - would be processed'
+            reason: 'Dry run mode - would be processed',
           });
           if (!duplicateCheck.exists) summary.ingested++;
           else summary.duplicates++;
@@ -204,29 +244,34 @@ async function handleFormattedIngestion(
 
         // Delete existing document if overwriting
         if (duplicateCheck.exists && overwrite) {
-          console.log(`🔄 Overwriting existing document: ${duplicateCheck.document_id}`);
+          console.log(
+            `🔄 Overwriting existing document: ${duplicateCheck.document_id}`
+          );
           await deleteExistingDocument(supabase, duplicateCheck.document_id!);
         }
 
         // Perform actual ingestion
         const startTime = Date.now();
 
-        const ingestionResult = await unifiedIngestionService.ingestDocuments({
-          type: 'single',
-          title: frontmatter.title,
-          content: content,
-          docType: frontmatter.docType as DocumentType,
-          userId: 'b349bd11-bd69-4582-9713-3ada0ba58fcf', // TODO: Get from auth
-          persona: { persona_id },
-          metadata: {
-            sourceType: 'formatted-ingestion',
-            originalFilename: filename,
-            filePath,
-            formattedDirectory: true,
-            persona_id,
-            ...frontmatter
-          }
-        }, { supabase, user: { id: 'b349bd11-bd69-4582-9713-3ada0ba58fcf' } });
+        const ingestionResult = await unifiedIngestionService.ingestDocuments(
+          {
+            type: 'single',
+            title: frontmatter.title,
+            content: content,
+            docType: frontmatter.docType as DocumentType,
+            userId: 'b349bd11-bd69-4582-9713-3ada0ba58fcf', // TODO: Get from auth
+            persona: { persona_id },
+            metadata: {
+              sourceType: 'formatted-ingestion',
+              originalFilename: filename,
+              filePath,
+              formattedDirectory: true,
+              persona_id,
+              ...frontmatter,
+            },
+          },
+          { supabase, user: { id: 'b349bd11-bd69-4582-9713-3ada0ba58fcf' } }
+        );
 
         const processingTime = Date.now() - startTime;
 
@@ -239,7 +284,7 @@ async function handleFormattedIngestion(
             processing_time_ms: processingTime,
             chunks_created: ingestionResult.chunks_created,
             entities_extracted: ingestionResult.entities_extracted,
-            validation
+            validation,
           });
           summary.ingested++;
         } else {
@@ -248,21 +293,20 @@ async function handleFormattedIngestion(
             title: frontmatter.title,
             status: 'failed',
             reason: ingestionResult.error || 'Unknown ingestion error',
-            validation
+            validation,
           });
           summary.failed++;
         }
 
         // Add small delay to prevent overwhelming the system
         await new Promise(resolve => setTimeout(resolve, 100));
-
       } catch (error) {
         console.error(`❌ Error processing ${filename}:`, error);
         results.push({
           filename,
           title: filename,
           status: 'failed',
-          reason: error instanceof Error ? error.message : 'Unknown error'
+          reason: error instanceof Error ? error.message : 'Unknown error',
         });
         summary.failed++;
       }
@@ -279,15 +323,15 @@ async function handleFormattedIngestion(
         dry_run: dryRun,
         validate_only: validateOnly,
         documents_requested: documents,
-        documents_processed: documentsToProcess
+        documents_processed: documentsToProcess,
       },
       formatted_directory: formattedDir,
       total_available_documents: availableDocuments.length,
       processing_config: {
         persona_id: config.persona_id,
         allowed_document_types: config.document_types,
-        chunk_constraints: config.chunk_constraints
-      }
+        chunk_constraints: config.chunk_constraints,
+      },
     };
 
     // Determine appropriate status code
@@ -299,13 +343,15 @@ async function handleFormattedIngestion(
     }
 
     return NextResponse.json(response, { status: statusCode });
-
   } catch (error) {
     console.error('Formatted ingestion error:', error);
-    return NextResponse.json({
-      error: 'Failed to process formatted document ingestion',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to process formatted document ingestion',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -321,7 +367,12 @@ async function handleIngestionStatus(
     const { persona_id, processing_config: config } = personaContext;
 
     // Get formatted directory info
-    const formattedDir = join(process.cwd(), 'personas', persona_id, 'formatted');
+    const formattedDir = join(
+      process.cwd(),
+      'personas',
+      persona_id,
+      'formatted'
+    );
     const availableDocuments = getFormattedDocuments(formattedDir);
 
     // Get database document counts
@@ -340,7 +391,9 @@ async function handleIngestionStatus(
         .map(path => basename(path!))
     );
 
-    const notIngested = availableDocuments.filter(doc => !ingestedFilenames.has(doc));
+    const notIngested = availableDocuments.filter(
+      doc => !ingestedFilenames.has(doc)
+    );
 
     return NextResponse.json({
       persona_id,
@@ -349,43 +402,46 @@ async function handleIngestionStatus(
         total_formatted_documents: availableDocuments.length,
         total_ingested_documents: existingDocs?.length || 0,
         documents_not_ingested: notIngested.length,
-        documents_ready_for_ingestion: notIngested
+        documents_ready_for_ingestion: notIngested,
       },
       available_documents: availableDocuments,
-      ingested_documents: existingDocs?.map(doc => ({
-        id: doc.id,
-        title: doc.title,
-        status: doc.processing_status,
-        created_at: doc.created_at,
-        filename: doc.file_path ? basename(doc.file_path) : null
-      })) || [],
+      ingested_documents:
+        existingDocs?.map(doc => ({
+          id: doc.id,
+          title: doc.title,
+          status: doc.processing_status,
+          created_at: doc.created_at,
+          filename: doc.file_path ? basename(doc.file_path) : null,
+        })) || [],
       processing_config: {
         persona_id: config.persona_id,
         allowed_document_types: config.document_types,
-        default_processor: config.default_processor
+        default_processor: config.default_processor,
       },
       suggested_actions: {
         ingest_all_new: {
           endpoint: 'POST /api/ingestion/personas/{persona}/formatted',
-          payload: { documents: ['all'], overwrite: false }
+          payload: { documents: ['all'], overwrite: false },
         },
         dry_run_check: {
           endpoint: 'POST /api/ingestion/personas/{persona}/formatted',
-          payload: { documents: ['all'], dryRun: true }
+          payload: { documents: ['all'], dryRun: true },
         },
         overwrite_all: {
           endpoint: 'POST /api/ingestion/personas/{persona}/formatted',
-          payload: { documents: ['all'], overwrite: true }
-        }
-      }
+          payload: { documents: ['all'], overwrite: true },
+        },
+      },
     });
-
   } catch (error) {
     console.error('Error getting ingestion status:', error);
-    return NextResponse.json({
-      error: 'Failed to get ingestion status',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to get ingestion status',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -411,7 +467,10 @@ function getFormattedDocuments(formattedDir: string): string[] {
   }
 }
 
-function findDocumentPath(formattedDir: string, filename: string): string | null {
+function findDocumentPath(
+  formattedDir: string,
+  filename: string
+): string | null {
   try {
     const subdirs = readdirSync(formattedDir, { withFileTypes: true })
       .filter(dirent => dirent.isDirectory())
@@ -432,7 +491,10 @@ function findDocumentPath(formattedDir: string, filename: string): string | null
   }
 }
 
-function parseFrontmatter(content: string): { frontmatter: any; markdownContent: string } {
+function parseFrontmatter(content: string): {
+  frontmatter: any;
+  markdownContent: string;
+} {
   const frontmatterRegex = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/;
   const match = content.match(frontmatterRegex);
 
@@ -445,7 +507,7 @@ function parseFrontmatter(content: string): { frontmatter: any; markdownContent:
     const frontmatter = yaml.load(match[1]) as any;
     return {
       frontmatter: frontmatter || {},
-      markdownContent: match[2]
+      markdownContent: match[2],
     };
   } catch {
     return { frontmatter: {}, markdownContent: content };
@@ -465,7 +527,8 @@ async function checkForDuplicate(
       .eq('persona_id', persona_id)
       .single();
 
-    if (error && error.code !== 'PGRST116') { // Not found error
+    if (error && error.code !== 'PGRST116') {
+      // Not found error
       console.error('Error checking for duplicate:', error);
       return { exists: false };
     }
@@ -475,7 +538,7 @@ async function checkForDuplicate(
         exists: true,
         document_id: data.id,
         title: data.title,
-        created_at: data.created_at
+        created_at: data.created_at,
       };
     }
 
@@ -486,13 +549,19 @@ async function checkForDuplicate(
   }
 }
 
-async function deleteExistingDocument(supabase: any, documentId: string): Promise<void> {
+async function deleteExistingDocument(
+  supabase: any,
+  documentId: string
+): Promise<void> {
   try {
     // Delete related data first (due to foreign key constraints)
     await Promise.all([
       supabase.from('document_chunks').delete().eq('document_id', documentId),
       supabase.from('document_entities').delete().eq('document_id', documentId),
-      supabase.from('document_citations').delete().eq('document_id', documentId)
+      supabase
+        .from('document_citations')
+        .delete()
+        .eq('document_id', documentId),
     ]);
 
     // Delete the document itself
@@ -501,15 +570,18 @@ async function deleteExistingDocument(supabase: any, documentId: string): Promis
     console.log(`🗑️ Deleted existing document: ${documentId}`);
   } catch (error) {
     console.error('Error deleting existing document:', error);
-    throw new AppError(`Failed to delete existing document: ${documentId}`, 500);
+    throw new AppError(
+      `Failed to delete existing document: ${documentId}`,
+      500
+    );
   }
 }
 
 // Export handlers with persona middleware
 export const POST = withPersonaMiddleware(handleFormattedIngestion, {
-  requireProcessingConfig: true
+  requireProcessingConfig: true,
 });
 
 export const GET = withPersonaMiddleware(handleIngestionStatus, {
-  requireProcessingConfig: true
+  requireProcessingConfig: true,
 });

@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Card,
   CardContent,
@@ -10,27 +10,27 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { useAuth } from "./auth-provider";
+} from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { useAuth } from './auth-provider';
 
 export function LoginPage() {
   const { signInWithGoogle, signInWithEmail, signUpWithEmail, loading } =
     useAuth();
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
 
   const handleGoogleSignIn = async () => {
     setIsSigningIn(true);
-    setError("");
+    setError('');
     try {
       await signInWithGoogle();
     } catch (error) {
-      console.error("Sign in error:", error);
-      setError("Failed to sign in with Google");
+      console.error('Sign in error:', error);
+      setError('Failed to sign in with Google');
     } finally {
       setIsSigningIn(false);
     }
@@ -39,12 +39,12 @@ export function LoginPage() {
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      setError("Please fill in all fields");
+      setError('Please fill in all fields');
       return;
     }
 
     setIsSigningIn(true);
-    setError("");
+    setError('');
 
     try {
       const { error } = isSignUp
@@ -52,16 +52,16 @@ export function LoginPage() {
         : await signInWithEmail(email, password);
 
       if (error) {
-        setError(error.message || "Authentication failed");
+        setError(error.message || 'Authentication failed');
       } else if (isSignUp) {
-        setError("");
+        setError('');
         alert(
-          "Account created successfully! Please check your email to verify your account."
+          'Account created successfully! Please check your email to verify your account.'
         );
       }
     } catch (error) {
-      console.error("Auth error:", error);
-      setError("Authentication failed");
+      console.error('Auth error:', error);
+      setError('Authentication failed');
     } finally {
       setIsSigningIn(false);
     }
@@ -79,11 +79,11 @@ export function LoginPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>{isSignUp ? "Create Account" : "Sign In"}</CardTitle>
+            <CardTitle>{isSignUp ? 'Create Account' : 'Sign In'}</CardTitle>
             <CardDescription>
               {isSignUp
-                ? "Create a new account to get started"
-                : "Sign in to save and manage your conversations"}
+                ? 'Create a new account to get started'
+                : 'Sign in to save and manage your conversations'}
             </CardDescription>
           </CardHeader>
 
@@ -94,7 +94,7 @@ export function LoginPage() {
                   type="email"
                   placeholder="Email address"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={e => setEmail(e.target.value)}
                   disabled={loading || isSigningIn}
                   required
                 />
@@ -105,7 +105,7 @@ export function LoginPage() {
                   type="password"
                   placeholder="Password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={e => setPassword(e.target.value)}
                   disabled={loading || isSigningIn}
                   required
                 />
@@ -119,10 +119,10 @@ export function LoginPage() {
                 disabled={loading || isSigningIn}
               >
                 {isSigningIn
-                  ? "Processing..."
+                  ? 'Processing...'
                   : isSignUp
-                  ? "Create Account"
-                  : "Sign In"}
+                    ? 'Create Account'
+                    : 'Sign In'}
               </Button>
             </form>
 
@@ -143,7 +143,7 @@ export function LoginPage() {
               className="w-full"
               variant="outline"
             >
-              {isSigningIn ? "Signing in..." : "Continue with Google"}
+              {isSigningIn ? 'Signing in...' : 'Continue with Google'}
             </Button>
           </CardContent>
 
@@ -153,12 +153,12 @@ export function LoginPage() {
               className="w-full"
               onClick={() => {
                 setIsSignUp(!isSignUp);
-                setError("");
+                setError('');
               }}
               disabled={loading || isSigningIn}
             >
               {isSignUp
-                ? "Already have an account? Sign in"
+                ? 'Already have an account? Sign in'
                 : "Don't have an account? Sign up"}
             </Button>
           </CardFooter>

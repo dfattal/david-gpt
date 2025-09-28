@@ -29,49 +29,59 @@ class AsyncTaskQueue {
       id: `${task.type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       createdAt: new Date(),
     };
-    
+
     this.tasks.push(backgroundTask);
     this.tasks.sort((a, b) => {
       const priorityOrder = { high: 3, medium: 2, low: 1 };
       return priorityOrder[b.priority] - priorityOrder[a.priority];
     });
-    
+
     // Start processing if not already running
     if (!this.processing) {
       this.processQueue();
     }
-    
+
     return backgroundTask.id;
   }
 
   private async processQueue() {
     if (this.processing || this.tasks.length === 0) return;
-    
+
     this.processing = true;
-    console.log(`🔄 Starting background task processing (${this.tasks.length} tasks)`);
-    
+    console.log(
+      `🔄 Starting background task processing (${this.tasks.length} tasks)`
+    );
+
     while (this.tasks.length > 0) {
       const task = this.tasks.shift();
       if (!task) break;
-      
+
       const startTime = Date.now();
       try {
         await this.processTask(task);
         this.processingStats.processed++;
-        
+
         const processingTime = Date.now() - startTime;
-        this.processingStats.avgProcessingTime = 
-          (this.processingStats.avgProcessingTime * (this.processingStats.processed - 1) + processingTime) / this.processingStats.processed;
-        
-        console.log(`✅ Completed background task: ${task.type} in ${processingTime}ms`);
+        this.processingStats.avgProcessingTime =
+          (this.processingStats.avgProcessingTime *
+            (this.processingStats.processed - 1) +
+            processingTime) /
+          this.processingStats.processed;
+
+        console.log(
+          `✅ Completed background task: ${task.type} in ${processingTime}ms`
+        );
       } catch (error) {
         this.processingStats.failed++;
         console.error(`❌ Background task failed: ${task.type}`, error);
       }
     }
-    
+
     this.processing = false;
-    console.log(`⏹️ Background processing completed. Stats:`, this.processingStats);
+    console.log(
+      `⏹️ Background processing completed. Stats:`,
+      this.processingStats
+    );
   }
 
   private async processTask(task: BackgroundTask) {
@@ -97,27 +107,29 @@ class AsyncTaskQueue {
     ragContext: any;
   }) {
     const { supabase, messageId, conversationId, ragContext } = payload;
-    
+
     // Batch citation operations for better performance
     if (ragContext.enhancedCitations?.length > 0) {
-      const citationData = ragContext.enhancedCitations.map((citation: any) => ({
-        message_id: messageId,
-        document_id: citation.documentId,
-        chunk_id: citation.chunkId,
-        marker: citation.marker,
-        fact_summary: citation.factSummary,
-        page_range: citation.pageRange,
-        relevance_score: citation.relevanceScore,
-        citation_order: citation.citationOrder
-      }));
-      
+      const citationData = ragContext.enhancedCitations.map(
+        (citation: any) => ({
+          message_id: messageId,
+          document_id: citation.documentId,
+          chunk_id: citation.chunkId,
+          marker: citation.marker,
+          fact_summary: citation.factSummary,
+          page_range: citation.pageRange,
+          relevance_score: citation.relevanceScore,
+          citation_order: citation.citationOrder,
+        })
+      );
+
       const sourceData = ragContext.enhancedCitations.map((citation: any) => ({
         conversation_id: conversationId,
         document_id: citation.documentId,
         last_used_at: new Date().toISOString(),
         carry_score: citation.relevanceScore || 1.0,
         pinned: false,
-        turns_inactive: 0
+        turns_inactive: 0,
       }));
 
       // Execute citation and source operations in parallel
@@ -125,21 +137,33 @@ class AsyncTaskQueue {
         supabase.from('message_citations').insert(citationData),
         supabase.from('conversation_sources').upsert(sourceData, {
           onConflict: 'conversation_id,document_id',
-          ignoreDuplicates: false
-        })
+          ignoreDuplicates: false,
+        }),
       ]);
 
-      if (citationResult.status === 'rejected' || 
-          (citationResult.status === 'fulfilled' && citationResult.value.error)) {
-        throw new Error(`Citation persistence failed: ${
-          citationResult.status === 'fulfilled' ? citationResult.value.error : citationResult.reason
-        }`);
+      if (
+        citationResult.status === 'rejected' ||
+        (citationResult.status === 'fulfilled' && citationResult.value.error)
+      ) {
+        throw new Error(
+          `Citation persistence failed: ${
+            citationResult.status === 'fulfilled'
+              ? citationResult.value.error
+              : citationResult.reason
+          }`
+        );
       }
 
-      if (sourceResult.status === 'rejected' || 
-          (sourceResult.status === 'fulfilled' && sourceResult.value.error)) {
-        console.warn(`Source update warning:`, 
-          sourceResult.status === 'fulfilled' ? sourceResult.value.error : sourceResult.reason);
+      if (
+        sourceResult.status === 'rejected' ||
+        (sourceResult.status === 'fulfilled' && sourceResult.value.error)
+      ) {
+        console.warn(
+          `Source update warning:`,
+          sourceResult.status === 'fulfilled'
+            ? sourceResult.value.error
+            : sourceResult.reason
+        );
       }
     }
   }
@@ -151,13 +175,13 @@ class AsyncTaskQueue {
     content: string;
   }) {
     const { supabase, conversationId, role, content } = payload;
-    
+
     const { error } = await supabase.from('messages').insert({
       conversation_id: conversationId,
       role,
       content,
     });
-    
+
     if (error) {
       throw new Error(`Message save failed: ${error.message}`);
     }
@@ -170,13 +194,13 @@ class AsyncTaskQueue {
     updates: Record<string, any>;
   }) {
     const { supabase, conversationId, userId, updates } = payload;
-    
+
     const { error } = await supabase
       .from('conversations')
       .update(updates)
       .eq('id', conversationId)
       .eq('user_id', userId);
-    
+
     if (error) {
       throw new Error(`Conversation update failed: ${error.message}`);
     }

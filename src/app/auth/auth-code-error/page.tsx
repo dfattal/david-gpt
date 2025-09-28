@@ -1,10 +1,10 @@
-'use client'
+'use client';
 
-import { Button } from '@/components/ui/button'
-import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
 
 export default function AuthCodeError() {
-  const router = useRouter()
+  const router = useRouter();
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
@@ -14,7 +14,8 @@ export default function AuthCodeError() {
             Authentication Error
           </h1>
           <p className="text-muted-foreground mb-4">
-            Sorry, there was a problem with your authentication. This could be due to:
+            Sorry, there was a problem with your authentication. This could be
+            due to:
           </p>
           <ul className="text-sm text-muted-foreground text-left space-y-1 mb-6">
             <li>• The authentication link has expired</li>
@@ -23,21 +24,17 @@ export default function AuthCodeError() {
             <li>• Invalid authentication code</li>
           </ul>
         </div>
-        
+
         <div className="space-y-4">
-          <Button 
-            onClick={() => router.push('/')}
-            className="w-full"
-            size="lg"
-          >
+          <Button onClick={() => router.push('/')} className="w-full" size="lg">
             Try Again
           </Button>
-          
+
           <p className="text-sm text-muted-foreground">
             If the problem persists, please try signing in again.
           </p>
         </div>
       </div>
     </div>
-  )
+  );
 }

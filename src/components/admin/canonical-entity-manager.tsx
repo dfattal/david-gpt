@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -7,7 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import {
   Plus,
@@ -21,7 +27,7 @@ import {
   Settings,
   Download,
   Upload,
-  AlertCircle
+  AlertCircle,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -54,7 +60,8 @@ interface PersonaCanonicalData {
 
 export function CanonicalEntityManager() {
   const [selectedPersona, setSelectedPersona] = useState<string>('david');
-  const [canonicalData, setCanonicalData] = useState<PersonaCanonicalData | null>(null);
+  const [canonicalData, setCanonicalData] =
+    useState<PersonaCanonicalData | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -64,13 +71,28 @@ export function CanonicalEntityManager() {
     name: string;
     definition: CanonicalEntityDefinition;
   } | null>(null);
-  const [editingRelationship, setEditingRelationship] = useState<CanonicalRelationshipDefinition | null>(null);
+  const [editingRelationship, setEditingRelationship] =
+    useState<CanonicalRelationshipDefinition | null>(null);
   const [showEntityDialog, setShowEntityDialog] = useState(false);
   const [showRelationshipDialog, setShowRelationshipDialog] = useState(false);
   const { toast } = useToast();
 
-  const entityKinds = ['technology', 'component', 'person', 'organization', 'product'];
-  const relationTypes = ['enables', 'enhances', 'implements', 'uses', 'part_of', 'alternative_to', 'evolved_to'];
+  const entityKinds = [
+    'technology',
+    'component',
+    'person',
+    'organization',
+    'product',
+  ];
+  const relationTypes = [
+    'enables',
+    'enhances',
+    'implements',
+    'uses',
+    'part_of',
+    'alternative_to',
+    'evolved_to',
+  ];
 
   useEffect(() => {
     loadCanonicalData();
@@ -79,7 +101,9 @@ export function CanonicalEntityManager() {
   const loadCanonicalData = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/admin/personas/${selectedPersona}/canonical-entities`);
+      const response = await fetch(
+        `/api/admin/personas/${selectedPersona}/canonical-entities`
+      );
       if (response.ok) {
         const data = await response.json();
         setCanonicalData(data);
@@ -88,15 +112,15 @@ export function CanonicalEntityManager() {
         setCanonicalData({
           persona_id: selectedPersona,
           canonical_entities: {},
-          canonical_relationships: []
+          canonical_relationships: [],
         });
       }
     } catch (error) {
       console.error('Error loading canonical data:', error);
       toast({
-        title: "Error",
-        description: "Failed to load canonical entities",
-        variant: "destructive"
+        title: 'Error',
+        description: 'Failed to load canonical entities',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -108,18 +132,21 @@ export function CanonicalEntityManager() {
 
     setSaving(true);
     try {
-      const response = await fetch(`/api/admin/personas/${selectedPersona}/canonical-entities`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(canonicalData)
-      });
+      const response = await fetch(
+        `/api/admin/personas/${selectedPersona}/canonical-entities`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(canonicalData),
+        }
+      );
 
       if (response.ok) {
         toast({
-          title: "Success",
-          description: "Canonical entities saved successfully"
+          title: 'Success',
+          description: 'Canonical entities saved successfully',
         });
       } else {
         throw new Error('Failed to save');
@@ -127,9 +154,9 @@ export function CanonicalEntityManager() {
     } catch (error) {
       console.error('Error saving canonical data:', error);
       toast({
-        title: "Error",
-        description: "Failed to save canonical entities",
-        variant: "destructive"
+        title: 'Error',
+        description: 'Failed to save canonical entities',
+        variant: 'destructive',
       });
     } finally {
       setSaving(false);
@@ -144,8 +171,8 @@ export function CanonicalEntityManager() {
         description: '',
         aliases: [],
         priority: 5,
-        domain: 'spatial_computing'
-      }
+        domain: 'spatial_computing',
+      },
     });
     setShowEntityDialog(true);
   };
@@ -165,7 +192,8 @@ export function CanonicalEntityManager() {
     if (!updatedData.canonical_entities[editingEntity.kind]) {
       updatedData.canonical_entities[editingEntity.kind] = {};
     }
-    updatedData.canonical_entities[editingEntity.kind][editingEntity.name] = editingEntity.definition;
+    updatedData.canonical_entities[editingEntity.kind][editingEntity.name] =
+      editingEntity.definition;
 
     setCanonicalData(updatedData);
     setShowEntityDialog(false);
@@ -192,7 +220,7 @@ export function CanonicalEntityManager() {
       relation: 'enables',
       to: '',
       confidence: 0.9,
-      context: ''
+      context: '',
     });
     setShowRelationshipDialog(true);
   };
@@ -210,9 +238,10 @@ export function CanonicalEntityManager() {
 
     const updatedData = { ...canonicalData };
     const existingIndex = updatedData.canonical_relationships.findIndex(
-      rel => rel.from === editingRelationship.from &&
-             rel.relation === editingRelationship.relation &&
-             rel.to === editingRelationship.to
+      rel =>
+        rel.from === editingRelationship.from &&
+        rel.relation === editingRelationship.relation &&
+        rel.to === editingRelationship.to
     );
 
     if (existingIndex >= 0) {
@@ -240,10 +269,15 @@ export function CanonicalEntityManager() {
     const entities = canonicalData.canonical_entities[selectedEntityKind];
     if (!searchTerm) return Object.entries(entities);
 
-    return Object.entries(entities).filter(([name, definition]) =>
-      name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      definition.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      definition.aliases.some(alias => alias.toLowerCase().includes(searchTerm.toLowerCase()))
+    return Object.entries(entities).filter(
+      ([name, definition]) =>
+        name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        definition.description
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        definition.aliases.some(alias =>
+          alias.toLowerCase().includes(searchTerm.toLowerCase())
+        )
     );
   };
 
@@ -270,16 +304,19 @@ export function CanonicalEntityManager() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Canonical Entity Management</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Canonical Entity Management
+          </h1>
           <p className="text-gray-600 mt-2">
-            Define canonical entities and their aliases for consistent knowledge representation
+            Define canonical entities and their aliases for consistent knowledge
+            representation
           </p>
         </div>
 
         <div className="flex items-center space-x-3">
           <select
             value={selectedPersona}
-            onChange={(e) => setSelectedPersona(e.target.value)}
+            onChange={e => setSelectedPersona(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-md"
           >
             <option value="david">David Persona</option>
@@ -334,14 +371,18 @@ export function CanonicalEntityManager() {
             <CardContent>
               <div className="flex items-center space-x-4 mb-6">
                 <div className="flex items-center space-x-2">
-                  <label className="text-sm font-medium text-gray-700">Entity Kind:</label>
+                  <label className="text-sm font-medium text-gray-700">
+                    Entity Kind:
+                  </label>
                   <select
                     value={selectedEntityKind}
-                    onChange={(e) => setSelectedEntityKind(e.target.value)}
+                    onChange={e => setSelectedEntityKind(e.target.value)}
                     className="px-3 py-2 border border-gray-300 rounded-md"
                   >
                     {entityKinds.map(kind => (
-                      <option key={kind} value={kind}>{kind}</option>
+                      <option key={kind} value={kind}>
+                        {kind}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -352,7 +393,7 @@ export function CanonicalEntityManager() {
                     <Input
                       placeholder="Search entities, descriptions, or aliases..."
                       value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onChange={e => setSearchTerm(e.target.value)}
                       className="pl-10"
                     />
                   </div>
@@ -367,18 +408,30 @@ export function CanonicalEntityManager() {
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center space-x-3 mb-2">
-                            <h3 className="font-semibold text-gray-900">{name}</h3>
-                            <Badge variant="outline">Priority: {definition.priority}</Badge>
+                            <h3 className="font-semibold text-gray-900">
+                              {name}
+                            </h3>
+                            <Badge variant="outline">
+                              Priority: {definition.priority}
+                            </Badge>
                             {definition.domain && (
-                              <Badge variant="secondary">{definition.domain}</Badge>
+                              <Badge variant="secondary">
+                                {definition.domain}
+                              </Badge>
                             )}
                           </div>
 
-                          <p className="text-gray-600 text-sm mb-3">{definition.description}</p>
+                          <p className="text-gray-600 text-sm mb-3">
+                            {definition.description}
+                          </p>
 
                           <div className="flex flex-wrap gap-2">
                             {definition.aliases.map((alias, index) => (
-                              <Badge key={index} variant="outline" className="text-xs">
+                              <Badge
+                                key={index}
+                                variant="outline"
+                                className="text-xs"
+                              >
                                 {alias}
                               </Badge>
                             ))}
@@ -389,14 +442,18 @@ export function CanonicalEntityManager() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleEditEntity(selectedEntityKind, name)}
+                            onClick={() =>
+                              handleEditEntity(selectedEntityKind, name)
+                            }
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDeleteEntity(selectedEntityKind, name)}
+                            onClick={() =>
+                              handleDeleteEntity(selectedEntityKind, name)
+                            }
                           >
                             <Trash2 className="w-4 h-4 text-red-600" />
                           </Button>
@@ -408,8 +465,8 @@ export function CanonicalEntityManager() {
 
                 {getFilteredEntities().length === 0 && (
                   <div className="text-center py-8 text-gray-500">
-                    No entities found for "{selectedEntityKind}"
-                    {searchTerm && ` matching "${searchTerm}"`}
+                    No entities found for &quot;{selectedEntityKind}&quot;
+                    {searchTerm && ` matching &quot;${searchTerm}&quot;`}
                   </div>
                 )}
               </div>
@@ -431,48 +488,59 @@ export function CanonicalEntityManager() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {canonicalData?.canonical_relationships.map((relationship, index) => (
-                  <Card key={index} className="border border-gray-200">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <span className="font-medium">{relationship.from}</span>
-                            <span className="text-gray-400">→</span>
-                            <Badge variant="outline">{relationship.relation}</Badge>
-                            <span className="text-gray-400">→</span>
-                            <span className="font-medium">{relationship.to}</span>
-                            <Badge variant="secondary">
-                              {Math.round(relationship.confidence * 100)}%
-                            </Badge>
+                {canonicalData?.canonical_relationships.map(
+                  (relationship, index) => (
+                    <Card key={index} className="border border-gray-200">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <span className="font-medium">
+                                {relationship.from}
+                              </span>
+                              <span className="text-gray-400">→</span>
+                              <Badge variant="outline">
+                                {relationship.relation}
+                              </Badge>
+                              <span className="text-gray-400">→</span>
+                              <span className="font-medium">
+                                {relationship.to}
+                              </span>
+                              <Badge variant="secondary">
+                                {Math.round(relationship.confidence * 100)}%
+                              </Badge>
+                            </div>
+                            {relationship.context && (
+                              <p className="text-sm text-gray-600">
+                                {relationship.context}
+                              </p>
+                            )}
                           </div>
-                          {relationship.context && (
-                            <p className="text-sm text-gray-600">{relationship.context}</p>
-                          )}
-                        </div>
 
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEditRelationship(index)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDeleteRelationship(index)}
-                          >
-                            <Trash2 className="w-4 h-4 text-red-600" />
-                          </Button>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditRelationship(index)}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteRelationship(index)}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  )
+                )}
 
-                {(!canonicalData?.canonical_relationships || canonicalData.canonical_relationships.length === 0) && (
+                {(!canonicalData?.canonical_relationships ||
+                  canonicalData.canonical_relationships.length === 0) && (
                   <div className="text-center py-8 text-gray-500">
                     No relationships defined
                   </div>
@@ -505,7 +573,10 @@ export function CanonicalEntityManager() {
                   <AlertCircle className="w-5 h-5 text-yellow-600 mr-2 mt-0.5" />
                   <div className="text-sm text-yellow-700">
                     <p className="font-medium">Import/Export functionality</p>
-                    <p>This feature allows bulk import/export of canonical entities for backup or migration purposes.</p>
+                    <p>
+                      This feature allows bulk import/export of canonical
+                      entities for backup or migration purposes.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -531,10 +602,12 @@ export function CanonicalEntityManager() {
                 </label>
                 <Input
                   value={editingEntity.name}
-                  onChange={(e) => setEditingEntity({
-                    ...editingEntity,
-                    name: e.target.value
-                  })}
+                  onChange={e =>
+                    setEditingEntity({
+                      ...editingEntity,
+                      name: e.target.value,
+                    })
+                  }
                   placeholder="Enter canonical entity name"
                 />
               </div>
@@ -545,13 +618,15 @@ export function CanonicalEntityManager() {
                 </label>
                 <Textarea
                   value={editingEntity.definition.description}
-                  onChange={(e) => setEditingEntity({
-                    ...editingEntity,
-                    definition: {
-                      ...editingEntity.definition,
-                      description: e.target.value
-                    }
-                  })}
+                  onChange={e =>
+                    setEditingEntity({
+                      ...editingEntity,
+                      definition: {
+                        ...editingEntity.definition,
+                        description: e.target.value,
+                      },
+                    })
+                  }
                   placeholder="Describe this entity"
                   rows={3}
                 />
@@ -563,13 +638,18 @@ export function CanonicalEntityManager() {
                 </label>
                 <Input
                   value={editingEntity.definition.aliases.join(', ')}
-                  onChange={(e) => setEditingEntity({
-                    ...editingEntity,
-                    definition: {
-                      ...editingEntity.definition,
-                      aliases: e.target.value.split(',').map(s => s.trim()).filter(s => s)
-                    }
-                  })}
+                  onChange={e =>
+                    setEditingEntity({
+                      ...editingEntity,
+                      definition: {
+                        ...editingEntity.definition,
+                        aliases: e.target.value
+                          .split(',')
+                          .map(s => s.trim())
+                          .filter(s => s),
+                      },
+                    })
+                  }
                   placeholder="alias1, alias2, alias3"
                 />
               </div>
@@ -584,13 +664,15 @@ export function CanonicalEntityManager() {
                     min={1}
                     max={10}
                     value={editingEntity.definition.priority}
-                    onChange={(e) => setEditingEntity({
-                      ...editingEntity,
-                      definition: {
-                        ...editingEntity.definition,
-                        priority: parseInt(e.target.value) || 5
-                      }
-                    })}
+                    onChange={e =>
+                      setEditingEntity({
+                        ...editingEntity,
+                        definition: {
+                          ...editingEntity.definition,
+                          priority: parseInt(e.target.value) || 5,
+                        },
+                      })
+                    }
                   />
                 </div>
 
@@ -600,13 +682,15 @@ export function CanonicalEntityManager() {
                   </label>
                   <Input
                     value={editingEntity.definition.domain || ''}
-                    onChange={(e) => setEditingEntity({
-                      ...editingEntity,
-                      definition: {
-                        ...editingEntity.definition,
-                        domain: e.target.value
-                      }
-                    })}
+                    onChange={e =>
+                      setEditingEntity({
+                        ...editingEntity,
+                        definition: {
+                          ...editingEntity.definition,
+                          domain: e.target.value,
+                        },
+                      })
+                    }
                     placeholder="e.g., spatial_computing"
                   />
                 </div>
@@ -615,18 +699,22 @@ export function CanonicalEntityManager() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEntityDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowEntityDialog(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={handleSaveEntity}>
-              Save Entity
-            </Button>
+            <Button onClick={handleSaveEntity}>Save Entity</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Relationship Edit Dialog */}
-      <Dialog open={showRelationshipDialog} onOpenChange={setShowRelationshipDialog}>
+      <Dialog
+        open={showRelationshipDialog}
+        onOpenChange={setShowRelationshipDialog}
+      >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
@@ -642,15 +730,19 @@ export function CanonicalEntityManager() {
                 </label>
                 <select
                   value={editingRelationship.from}
-                  onChange={(e) => setEditingRelationship({
-                    ...editingRelationship,
-                    from: e.target.value
-                  })}
+                  onChange={e =>
+                    setEditingRelationship({
+                      ...editingRelationship,
+                      from: e.target.value,
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 >
                   <option value="">Select entity...</option>
                   {getAllCanonicalNames().map(name => (
-                    <option key={name} value={name}>{name}</option>
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -661,14 +753,18 @@ export function CanonicalEntityManager() {
                 </label>
                 <select
                   value={editingRelationship.relation}
-                  onChange={(e) => setEditingRelationship({
-                    ...editingRelationship,
-                    relation: e.target.value
-                  })}
+                  onChange={e =>
+                    setEditingRelationship({
+                      ...editingRelationship,
+                      relation: e.target.value,
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 >
                   {relationTypes.map(type => (
-                    <option key={type} value={type}>{type}</option>
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -679,15 +775,19 @@ export function CanonicalEntityManager() {
                 </label>
                 <select
                   value={editingRelationship.to}
-                  onChange={(e) => setEditingRelationship({
-                    ...editingRelationship,
-                    to: e.target.value
-                  })}
+                  onChange={e =>
+                    setEditingRelationship({
+                      ...editingRelationship,
+                      to: e.target.value,
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 >
                   <option value="">Select entity...</option>
                   {getAllCanonicalNames().map(name => (
-                    <option key={name} value={name}>{name}</option>
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -702,10 +802,12 @@ export function CanonicalEntityManager() {
                   max={1}
                   step={0.1}
                   value={editingRelationship.confidence}
-                  onChange={(e) => setEditingRelationship({
-                    ...editingRelationship,
-                    confidence: parseFloat(e.target.value) || 0.9
-                  })}
+                  onChange={e =>
+                    setEditingRelationship({
+                      ...editingRelationship,
+                      confidence: parseFloat(e.target.value) || 0.9,
+                    })
+                  }
                 />
               </div>
 
@@ -715,10 +817,12 @@ export function CanonicalEntityManager() {
                 </label>
                 <Input
                   value={editingRelationship.context || ''}
-                  onChange={(e) => setEditingRelationship({
-                    ...editingRelationship,
-                    context: e.target.value
-                  })}
+                  onChange={e =>
+                    setEditingRelationship({
+                      ...editingRelationship,
+                      context: e.target.value,
+                    })
+                  }
                   placeholder="Additional context for this relationship"
                 />
               </div>
@@ -726,12 +830,13 @@ export function CanonicalEntityManager() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRelationshipDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowRelationshipDialog(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={handleSaveRelationship}>
-              Save Relationship
-            </Button>
+            <Button onClick={handleSaveRelationship}>Save Relationship</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

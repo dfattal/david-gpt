@@ -1,6 +1,6 @@
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
-import { NextResponse } from "next/server";
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+import { NextResponse } from 'next/server';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -33,7 +33,7 @@ export class AppError extends Error {
  * Generic API error handler for Next.js route handlers
  */
 export function handleApiError(error: unknown): NextResponse {
-  console.error("API Error:", error);
+  console.error('API Error:', error);
 
   if (error instanceof AppError) {
     return NextResponse.json(
@@ -44,13 +44,13 @@ export function handleApiError(error: unknown): NextResponse {
 
   if (error instanceof Error) {
     return NextResponse.json(
-      { error: "Internal server error", details: error.message },
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     );
   }
 
   return NextResponse.json(
-    { error: "Unknown error occurred" },
+    { error: 'Unknown error occurred' },
     { status: 500 }
   );
 }
@@ -59,7 +59,7 @@ export function handleApiError(error: unknown): NextResponse {
  * Format a date string or Date object into a human-readable format
  */
 export function formatDate(date: string | Date): string {
-  const dateObj = typeof date === "string" ? new Date(date) : date;
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
   const now = new Date();
   const diffInMs = now.getTime() - dateObj.getTime();
   const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
@@ -67,17 +67,17 @@ export function formatDate(date: string | Date): string {
 
   if (diffInHours < 1) {
     const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
-    if (diffInMinutes < 1) return "Just now";
+    if (diffInMinutes < 1) return 'Just now';
     return `${diffInMinutes}m ago`;
   } else if (diffInHours < 24) {
     return `${diffInHours}h ago`;
   } else if (diffInDays < 7) {
     return `${diffInDays}d ago`;
   } else {
-    return dateObj.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: dateObj.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+    return dateObj.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: dateObj.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
     });
   }
 }
@@ -87,5 +87,5 @@ export function formatDate(date: string | Date): string {
  */
 export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength - 3) + "...";
+  return text.slice(0, maxLength - 3) + '...';
 }

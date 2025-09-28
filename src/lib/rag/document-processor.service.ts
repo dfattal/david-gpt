@@ -6,7 +6,9 @@ import { execSync } from 'child_process';
 import { existsSync } from 'fs';
 
 // Load environment variables
-require('dotenv').config({ path: '/Users/david.fattal/Documents/GitHub/david-gpt/.env.local' });
+require('dotenv').config({
+  path: '/Users/david.fattal/Documents/GitHub/david-gpt/.env.local',
+});
 
 interface ProcessingManifest {
   processing_session_metadata: {
@@ -50,7 +52,8 @@ interface ProcessingStats {
 }
 
 class DocumentProcessor {
-  private readonly corpusPath = '/Users/david.fattal/Documents/GitHub/david-gpt/my-corpus';
+  private readonly corpusPath =
+    '/Users/david.fattal/Documents/GitHub/david-gpt/my-corpus';
   private readonly rateLimitDelay = 3000; // 3 seconds between requests
   private readonly retryAttempts = 3;
   private readonly batchSize = 3;
@@ -61,14 +64,16 @@ class DocumentProcessor {
     failed: 0,
     skipped: 0,
     startTime: new Date(),
-    errors: []
+    errors: [],
   };
 
   async processManifest(manifestPath: string): Promise<void> {
     console.log('🚀 Starting document processing pipeline...\n');
 
     const manifest = await this.loadManifest(manifestPath);
-    const documentsToProcess = await this.filterUnprocessedDocuments(manifest.documents_to_process);
+    const documentsToProcess = await this.filterUnprocessedDocuments(
+      manifest.documents_to_process
+    );
 
     this.stats.total = documentsToProcess.length;
     console.log(`📊 Found ${this.stats.total} documents to process\n`);
@@ -87,7 +92,9 @@ class DocumentProcessor {
     this.printFinalStats();
   }
 
-  private async loadManifest(manifestPath: string): Promise<ProcessingManifest> {
+  private async loadManifest(
+    manifestPath: string
+  ): Promise<ProcessingManifest> {
     try {
       const content = await readFile(manifestPath, 'utf-8');
       return JSON.parse(content);
@@ -96,7 +103,9 @@ class DocumentProcessor {
     }
   }
 
-  private async filterUnprocessedDocuments(documents: DocumentEntry[]): Promise<DocumentEntry[]> {
+  private async filterUnprocessedDocuments(
+    documents: DocumentEntry[]
+  ): Promise<DocumentEntry[]> {
     const unprocessed: DocumentEntry[] = [];
 
     for (const doc of documents) {
@@ -108,7 +117,11 @@ class DocumentProcessor {
 
       if (existsSync(dirPath)) {
         const existingFiles = await readdir(dirPath);
-        const urlExists = await this.checkIfUrlExists(doc.source_uri, dirPath, existingFiles);
+        const urlExists = await this.checkIfUrlExists(
+          doc.source_uri,
+          dirPath,
+          existingFiles
+        );
 
         if (urlExists) {
           this.stats.skipped++;
@@ -123,12 +136,19 @@ class DocumentProcessor {
     return unprocessed;
   }
 
-  private async checkIfUrlExists(url: string, dirPath: string, files: string[]): Promise<boolean> {
+  private async checkIfUrlExists(
+    url: string,
+    dirPath: string,
+    files: string[]
+  ): Promise<boolean> {
     for (const file of files) {
       if (file.endsWith('.md')) {
         try {
           const content = await readFile(join(dirPath, file), 'utf-8');
-          if (content.includes(`url: "${url}"`) || content.includes(`url: ${url}`)) {
+          if (
+            content.includes(`url: "${url}"`) ||
+            content.includes(`url: ${url}`)
+          ) {
             return true;
           }
         } catch {
@@ -139,21 +159,33 @@ class DocumentProcessor {
     return false;
   }
 
-  private async processBatch(batch: DocumentEntry[], batchStart: number): Promise<void> {
-    console.log(`\n📦 Processing batch ${Math.ceil(batchStart / this.batchSize)} (documents ${batchStart}-${batchStart + batch.length - 1})`);
+  private async processBatch(
+    batch: DocumentEntry[],
+    batchStart: number
+  ): Promise<void> {
+    console.log(
+      `\n📦 Processing batch ${Math.ceil(batchStart / this.batchSize)} (documents ${batchStart}-${batchStart + batch.length - 1})`
+    );
 
     for (const [index, document] of batch.entries()) {
       const docNumber = batchStart + index;
-      console.log(`\n[${docNumber}/${this.stats.total}] Processing: ${this.getDocumentDisplayName(document)}`);
+      console.log(
+        `\n[${docNumber}/${this.stats.total}] Processing: ${this.getDocumentDisplayName(document)}`
+      );
 
       const result = await this.processDocument(document);
 
       if (result.success) {
         this.stats.processed++;
-        console.log(`✅ Success: ${result.extractionMethod} → ${result.wordCount} words`);
+        console.log(
+          `✅ Success: ${result.extractionMethod} → ${result.wordCount} words`
+        );
       } else {
         this.stats.failed++;
-        this.stats.errors.push({ document: document.source_uri, error: result.error || 'Unknown error' });
+        this.stats.errors.push({
+          document: document.source_uri,
+          error: result.error || 'Unknown error',
+        });
         console.log(`❌ Failed: ${result.error}`);
       }
 
@@ -165,16 +197,23 @@ class DocumentProcessor {
     }
   }
 
-  private async processDocument(document: DocumentEntry): Promise<ProcessingResult> {
+  private async processDocument(
+    document: DocumentEntry
+  ): Promise<ProcessingResult> {
     const extractionMethods = this.getExtractionMethods(document);
 
     for (const method of extractionMethods) {
       try {
         console.log(`🔄 Trying ${method}...`);
-        const result = await this.retryWithBackoff(() => this.extractContent(document, method));
+        const result = await this.retryWithBackoff(() =>
+          this.extractContent(document, method)
+        );
 
         if (result.success) {
-          const filename = await this.generateFilename(document, result.content);
+          const filename = await this.generateFilename(
+            document,
+            result.content
+          );
           // Use document_type from manifest for directory placement
           const subdirectory = this.getSubdirectory(document.document_type);
           const dirPath = join(this.corpusPath, subdirectory);
@@ -187,7 +226,7 @@ class DocumentProcessor {
             success: true,
             documentPath: filePath,
             extractionMethod: method,
-            wordCount: result.wordCount
+            wordCount: result.wordCount,
           };
         }
       } catch (error) {
@@ -198,7 +237,7 @@ class DocumentProcessor {
 
     return {
       success: false,
-      error: 'All extraction methods failed'
+      error: 'All extraction methods failed',
     };
   }
 
@@ -207,7 +246,9 @@ class DocumentProcessor {
     const isPDF = document.source_uri.toLowerCase().endsWith('.pdf');
     const isLocalFile = document.source_uri.startsWith('/');
     const isArxiv = this.isArxivUrl(document.source_uri);
-    const isPaper = document.document_type === 'paper' || document.document_type === 'technical_paper';
+    const isPaper =
+      document.document_type === 'paper' ||
+      document.document_type === 'technical_paper';
 
     if (isArxiv) {
       // arXiv papers: Use EXA HTML extraction first (works better for large PDFs), then arXiv API, then Gemini
@@ -228,7 +269,10 @@ class DocumentProcessor {
     return url.includes('arxiv.org/pdf/') || url.includes('arxiv.org/abs/');
   }
 
-  private async extractContent(document: DocumentEntry, method: string): Promise<{ success: boolean; content?: string; wordCount?: number }> {
+  private async extractContent(
+    document: DocumentEntry,
+    method: string
+  ): Promise<{ success: boolean; content?: string; wordCount?: number }> {
     switch (method) {
       case 'arxiv':
         return this.extractWithArxivAPI(document);
@@ -247,7 +291,9 @@ class DocumentProcessor {
     }
   }
 
-  private async extractWithArxivAPI(document: DocumentEntry): Promise<{ success: boolean; content?: string; wordCount?: number }> {
+  private async extractWithArxivAPI(
+    document: DocumentEntry
+  ): Promise<{ success: boolean; content?: string; wordCount?: number }> {
     try {
       const arxivId = this.extractArxivId(document.source_uri);
       if (!arxivId) {
@@ -264,7 +310,11 @@ class DocumentProcessor {
 
       // Download PDF and extract content with Gemini
       const pdfUrl = `https://arxiv.org/pdf/${arxivId}.pdf`;
-      const pdfContent = await this.extractPdfWithGemini(pdfUrl, metadata, document);
+      const pdfContent = await this.extractPdfWithGemini(
+        pdfUrl,
+        metadata,
+        document
+      );
 
       const wordCount = pdfContent.split(/\s+/).length;
       console.log(`✅ arXiv extraction complete: ${wordCount} words`);
@@ -276,7 +326,9 @@ class DocumentProcessor {
     }
   }
 
-  private async extractArxivWithExa(document: DocumentEntry): Promise<{ success: boolean; content?: string; wordCount?: number }> {
+  private async extractArxivWithExa(
+    document: DocumentEntry
+  ): Promise<{ success: boolean; content?: string; wordCount?: number }> {
     try {
       const arxivId = this.extractArxivId(document.source_uri);
       if (!arxivId) {
@@ -294,7 +346,11 @@ class DocumentProcessor {
       }
 
       // Format the content with proper YAML frontmatter for papers
-      const formattedContent = await this.formatArxivContent(exaResult, document, arxivId);
+      const formattedContent = await this.formatArxivContent(
+        exaResult,
+        document,
+        arxivId
+      );
       const wordCount = formattedContent.split(/\s+/).length;
 
       console.log(`✅ arXiv EXA extraction complete: ${wordCount} words`);
@@ -305,7 +361,11 @@ class DocumentProcessor {
     }
   }
 
-  private async formatArxivContent(exaResult: any, document: DocumentEntry, arxivId: string): Promise<string> {
+  private async formatArxivContent(
+    exaResult: any,
+    document: DocumentEntry,
+    arxivId: string
+  ): Promise<string> {
     const prompt = `Format this arXiv paper content into a complete markdown document with proper YAML frontmatter following INGESTION-FORMAT.md specifications.
 
 Paper Content: ${exaResult.content}
@@ -336,7 +396,7 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
       const command = `gemini -y "${prompt.replace(/"/g, '\\"')}"`;
       const output = execSync(command, {
         encoding: 'utf-8',
-        maxBuffer: 1024 * 1024 * 10 // 10MB buffer
+        maxBuffer: 1024 * 1024 * 10, // 10MB buffer
       });
       return this.cleanMarkdownCodeFences(output.trim());
     } catch (error) {
@@ -345,7 +405,11 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
     }
   }
 
-  private createArxivFallbackContent(exaResult: any, document: DocumentEntry, arxivId: string): string {
+  private createArxivFallbackContent(
+    exaResult: any,
+    document: DocumentEntry,
+    arxivId: string
+  ): string {
     const timestamp = new Date().toISOString();
     const yaml = [
       '---',
@@ -364,7 +428,7 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
       `scraped_at: "${timestamp}"`,
       `word_count: ${exaResult.content?.split(/\s+/).length || 0}`,
       `extraction_quality: "medium"`,
-      '---'
+      '---',
     ].join('\n');
 
     return `${yaml}\n\n# ${exaResult.title || 'arXiv Paper'}\n\n${exaResult.content || ''}`;
@@ -401,22 +465,38 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
     const entryContent = entryMatch ? entryMatch[1] : xmlText;
 
     const titleMatch = entryContent.match(/<title[^>]*>([^<]+)<\/title>/);
-    const summaryMatch = entryContent.match(/<summary[^>]*>([\s\S]*?)<\/summary>/);
-    const publishedMatch = entryContent.match(/<published[^>]*>([^<]+)<\/published>/);
+    const summaryMatch = entryContent.match(
+      /<summary[^>]*>([\s\S]*?)<\/summary>/
+    );
+    const publishedMatch = entryContent.match(
+      /<published[^>]*>([^<]+)<\/published>/
+    );
     const updatedMatch = entryContent.match(/<updated[^>]*>([^<]+)<\/updated>/);
 
     // Extract authors (skip feed-level authors)
-    const authorMatches = [...entryContent.matchAll(/<author[^>]*>[\s\S]*?<name[^>]*>([^<]+)<\/name>[\s\S]*?<\/author>/g)];
-    const authors = authorMatches.map(match => match[1].trim()).filter(author => author && !author.includes('ArXiv'));
+    const authorMatches = [
+      ...entryContent.matchAll(
+        /<author[^>]*>[\s\S]*?<name[^>]*>([^<]+)<\/name>[\s\S]*?<\/author>/g
+      ),
+    ];
+    const authors = authorMatches
+      .map(match => match[1].trim())
+      .filter(author => author && !author.includes('ArXiv'));
 
     // Extract categories
-    const categoryMatches = [...entryContent.matchAll(/<category[^>]*term="([^"]*)"[^>]*>/g)];
+    const categoryMatches = [
+      ...entryContent.matchAll(/<category[^>]*term="([^"]*)"[^>]*>/g),
+    ];
     const categories = categoryMatches.map(match => match[1]);
 
     // Extract DOI and journal reference if available
     const doiMatch = entryContent.match(/<arxiv:doi[^>]*>([^<]+)<\/arxiv:doi>/);
-    const journalMatch = entryContent.match(/<arxiv:journal_ref[^>]*>([^<]+)<\/arxiv:journal_ref>/);
-    const commentMatch = entryContent.match(/<arxiv:comment[^>]*>([^<]+)<\/arxiv:comment>/);
+    const journalMatch = entryContent.match(
+      /<arxiv:journal_ref[^>]*>([^<]+)<\/arxiv:journal_ref>/
+    );
+    const commentMatch = entryContent.match(
+      /<arxiv:comment[^>]*>([^<]+)<\/arxiv:comment>/
+    );
 
     return {
       title: titleMatch ? titleMatch[1].trim() : 'Unknown Title',
@@ -428,11 +508,15 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
       doi: doiMatch ? doiMatch[1].trim() : null,
       journal_ref: journalMatch ? journalMatch[1].trim() : null,
       comment: commentMatch ? commentMatch[1].trim() : null,
-      arxivId: null // Will be set by caller
+      arxivId: null, // Will be set by caller
     };
   }
 
-  private async extractPdfWithGemini(pdfUrl: string, metadata: any, document: DocumentEntry): Promise<string> {
+  private async extractPdfWithGemini(
+    pdfUrl: string,
+    metadata: any,
+    document: DocumentEntry
+  ): Promise<string> {
     const prompt = `Extract and format this arXiv paper into a complete markdown document with proper YAML frontmatter.
 
 Known metadata from arXiv API:
@@ -480,7 +564,7 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
       const command = `gemini -y "${prompt.replace(/"/g, '\\"')}"`;
       const output = execSync(command, {
         encoding: 'utf-8',
-        maxBuffer: 1024 * 1024 * 20 // 20MB buffer for full papers
+        maxBuffer: 1024 * 1024 * 20, // 20MB buffer for full papers
       });
 
       return this.cleanMarkdownCodeFences(output.trim());
@@ -505,12 +589,14 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
       /\bformat the document\b/i,
       /\bFirst, I need to read\b/i,
       /\bI'll now\b/i,
-      /\bcreate.*markdown.*file\b/i
+      /\bcreate.*markdown.*file\b/i,
     ];
 
     // Check if content starts with conversation-like patterns
     const firstLines = cleaned.split('\n').slice(0, 3).join(' ');
-    const isConversation = conversationPatterns.some(pattern => pattern.test(firstLines));
+    const isConversation = conversationPatterns.some(pattern =>
+      pattern.test(firstLines)
+    );
 
     if (isConversation) {
       // Try to extract actual content after conversation traces
@@ -526,10 +612,14 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
           const headingStart = cleaned.indexOf(headingMatch[0]);
           // Create minimal YAML frontmatter and append the content
           const title = headingMatch[0].replace(/^#+\s*/, '').trim();
-          cleaned = `---\ntitle: "${title}"\ndocType: "note"\nurl: ""\nscraped_at: "${new Date().toISOString()}"\nword_count: 0\nextraction_quality: "low"\n---\n\n` + cleaned.substring(headingStart);
+          cleaned =
+            `---\ntitle: "${title}"\ndocType: "note"\nurl: ""\nscraped_at: "${new Date().toISOString()}"\nword_count: 0\nextraction_quality: "low"\n---\n\n` +
+            cleaned.substring(headingStart);
         } else {
           // Fallback: create minimal structure if no clear content found
-          throw new Error('Output appears to be conversation trace without extractable content');
+          throw new Error(
+            'Output appears to be conversation trace without extractable content'
+          );
         }
       }
     }
@@ -539,7 +629,9 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
 
     // Validate that output starts with YAML frontmatter
     if (!cleaned.startsWith('---')) {
-      throw new Error('Output does not start with YAML frontmatter (---). Possible conversation trace or malformed output.');
+      throw new Error(
+        'Output does not start with YAML frontmatter (---). Possible conversation trace or malformed output.'
+      );
     }
 
     // Basic YAML validation - ensure we have closing frontmatter
@@ -564,7 +656,9 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
     return null;
   }
 
-  private async extractWithGemini(document: DocumentEntry): Promise<{ success: boolean; content?: string; wordCount?: number }> {
+  private async extractWithGemini(
+    document: DocumentEntry
+  ): Promise<{ success: boolean; content?: string; wordCount?: number }> {
     const maxRetries = 3;
     let lastError: any;
 
@@ -575,7 +669,7 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
 
         const output = execSync(command, {
           encoding: 'utf-8',
-          maxBuffer: 1024 * 1024 * 10 // 10MB buffer
+          maxBuffer: 1024 * 1024 * 10, // 10MB buffer
         });
 
         const cleanedOutput = this.cleanMarkdownCodeFences(output.trim());
@@ -583,42 +677,62 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
 
         // Validate output quality - reject if too short or appears malformed
         if (wordCount < 50 && !cleanedOutput.includes('docType:')) {
-          throw new Error(`Output too short (${wordCount} words) and appears malformed`);
+          throw new Error(
+            `Output too short (${wordCount} words) and appears malformed`
+          );
         }
 
         // Special validation for patents - ensure claims are present
-        if (document.document_type === 'patent' || document.source_uri.includes('patents.google.com')) {
+        if (
+          document.document_type === 'patent' ||
+          document.source_uri.includes('patents.google.com')
+        ) {
           const claimsValidation = this.validatePatentClaims(cleanedOutput);
           if (!claimsValidation.isValid) {
-            throw new Error(`Patent claims validation failed: ${claimsValidation.reason}`);
+            throw new Error(
+              `Patent claims validation failed: ${claimsValidation.reason}`
+            );
           }
         }
 
         // Special validation for academic papers - ensure required fields are present
-        if (document.document_type === 'paper' || document.document_type === 'technical_paper') {
+        if (
+          document.document_type === 'paper' ||
+          document.document_type === 'technical_paper'
+        ) {
           const paperValidation = this.validatePaperFormat(cleanedOutput);
           if (!paperValidation.isValid) {
-            throw new Error(`Paper format validation failed: ${paperValidation.reason}`);
+            throw new Error(
+              `Paper format validation failed: ${paperValidation.reason}`
+            );
           }
         }
 
         return { success: true, content: cleanedOutput, wordCount };
       } catch (error) {
         lastError = error;
-        console.log(`❌ Gemini attempt ${attempt}/${maxRetries} failed: ${error}`);
+        console.log(
+          `❌ Gemini attempt ${attempt}/${maxRetries} failed: ${error}`
+        );
 
         if (attempt < maxRetries) {
           // Add delay between retries
           await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
-          console.log(`🔄 Retrying Gemini extraction (attempt ${attempt + 1}/${maxRetries})...`);
+          console.log(
+            `🔄 Retrying Gemini extraction (attempt ${attempt + 1}/${maxRetries})...`
+          );
         }
       }
     }
 
-    throw new Error(`Gemini extraction failed after ${maxRetries} attempts: ${lastError}`);
+    throw new Error(
+      `Gemini extraction failed after ${maxRetries} attempts: ${lastError}`
+    );
   }
 
-  private async extractWithExa(document: DocumentEntry): Promise<{ success: boolean; content?: string; wordCount?: number }> {
+  private async extractWithExa(
+    document: DocumentEntry
+  ): Promise<{ success: boolean; content?: string; wordCount?: number }> {
     try {
       const isURL = document.source_uri.startsWith('http');
 
@@ -636,7 +750,7 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
         return {
           success: true,
           content: formattedContent,
-          wordCount
+          wordCount,
         };
       }
 
@@ -647,27 +761,30 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
   }
 
   private async callExaAPI(url: string): Promise<any> {
-    const exaApiKey = process.env.EXA_API_KEY || '4cee82ba-f0e2-4d53-bb16-f6920696c862';
+    const exaApiKey =
+      process.env.EXA_API_KEY || '4cee82ba-f0e2-4d53-bb16-f6920696c862';
 
     try {
       const response = await fetch('https://api.exa.ai/contents', {
         method: 'POST',
         headers: {
-          'accept': 'application/json',
+          accept: 'application/json',
           'content-type': 'application/json',
-          'x-api-key': exaApiKey
+          'x-api-key': exaApiKey,
         },
         body: JSON.stringify({
           ids: [url],
           text: {
             maxCharacters: 50000,
-            includeHtmlTags: false
-          }
-        })
+            includeHtmlTags: false,
+          },
+        }),
       });
 
       if (!response.ok) {
-        throw new Error(`EXA API request failed: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `EXA API request failed: ${response.status} ${response.statusText}`
+        );
       }
 
       const data = await response.json();
@@ -682,14 +799,17 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
         title: result.title || '',
         url: result.url || url,
         author: result.author || '',
-        publishedDate: result.publishedDate || ''
+        publishedDate: result.publishedDate || '',
       };
     } catch (error) {
       throw new Error(`EXA API call failed: ${error}`);
     }
   }
 
-  private async formatExaContent(exaResult: any, document: DocumentEntry): Promise<string> {
+  private async formatExaContent(
+    exaResult: any,
+    document: DocumentEntry
+  ): Promise<string> {
     // Use Gemini to format EXA extraction result into proper markdown
     const prompt = `Format this extracted web content into a complete markdown document with proper YAML frontmatter according to INGESTION-FORMAT.md specifications:
 
@@ -716,7 +836,7 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
       const command = `gemini -y "${prompt.replace(/"/g, '\\"')}"`;
       const output = execSync(command, {
         encoding: 'utf-8',
-        maxBuffer: 1024 * 1024 * 10 // 10MB buffer
+        maxBuffer: 1024 * 1024 * 10, // 10MB buffer
       });
 
       return this.cleanMarkdownCodeFences(output.trim());
@@ -728,7 +848,9 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
     }
   }
 
-  private async extractWithWebFetch(document: DocumentEntry): Promise<{ success: boolean; content?: string; wordCount?: number }> {
+  private async extractWithWebFetch(
+    document: DocumentEntry
+  ): Promise<{ success: boolean; content?: string; wordCount?: number }> {
     try {
       const isURL = document.source_uri.startsWith('http');
 
@@ -746,7 +868,7 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
         return {
           success: true,
           content: formattedContent,
-          wordCount
+          wordCount,
         };
       }
 
@@ -762,7 +884,10 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
     throw new Error('WebFetch tool not configured - falling back to Gemini');
   }
 
-  private formatWebFetchContent(webFetchResult: any, document: DocumentEntry): string {
+  private formatWebFetchContent(
+    webFetchResult: any,
+    document: DocumentEntry
+  ): string {
     // Format WebFetch result into proper markdown with YAML frontmatter
     const yaml = this.generateYAMLFrontmatter(document, webFetchResult);
     const content = webFetchResult.content || '';
@@ -770,7 +895,10 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
     return `${yaml}\n\n${content}`;
   }
 
-  private generateYAMLFrontmatter(document: DocumentEntry, extractionResult?: any): string {
+  private generateYAMLFrontmatter(
+    document: DocumentEntry,
+    extractionResult?: any
+  ): string {
     const docType = this.mapDocumentType(document.document_type);
     const timestamp = new Date().toISOString();
 
@@ -782,12 +910,14 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
       `url: "${document.source_uri}"`,
       `scraped_at: "${timestamp}"`,
       `word_count: ${extractionResult?.wordCount || extractionResult?.content?.split(/\s+/).length || 0}`,
-      `extraction_quality: "high"`
+      `extraction_quality: "high"`,
     ];
 
     // Document-type specific fields following INGESTION-FORMAT.md specifications
     if (docType === 'press-article') {
-      const authors = extractionResult?.author ? [{ name: extractionResult.author }] : [];
+      const authors = extractionResult?.author
+        ? [{ name: extractionResult.author }]
+        : [];
       frontmatter.push(
         `authors: ${JSON.stringify(authors)}`,
         `outlet: "${extractionResult?.outlet || this.extractDomain(document.source_uri)}"`,
@@ -799,11 +929,15 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
       );
     } else if (docType === 'paper') {
       // Use structured authors format as required by INGESTION-FORMAT.md
-      const authors = (extractionResult?.authors || extractionResult?.author?.split(', ') || ['Unknown Author']).map((author: string) => ({ name: author.trim(), affiliation: "Institution" }));
-      frontmatter.push(
-        `authors:`,
-      );
-      authors.forEach((author: {name: string, affiliation: string}) => {
+      const authors = (
+        extractionResult?.authors ||
+        extractionResult?.author?.split(', ') || ['Unknown Author']
+      ).map((author: string) => ({
+        name: author.trim(),
+        affiliation: 'Institution',
+      }));
+      frontmatter.push(`authors:`);
+      authors.forEach((author: { name: string; affiliation: string }) => {
         frontmatter.push(
           `  - name: "${author.name}"`,
           `    affiliation: "${author.affiliation}"`
@@ -848,10 +982,10 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
 
   private mapDocumentType(manifestType: string): string {
     const typeMap: Record<string, string> = {
-      'press_article': 'press-article',
-      'technical_paper': 'paper',
-      'direct_markdown': 'note',
-      'pdf': 'paper'
+      press_article: 'press-article',
+      technical_paper: 'paper',
+      direct_markdown: 'note',
+      pdf: 'paper',
     };
 
     return typeMap[manifestType] || manifestType;
@@ -871,7 +1005,9 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
     const isPDF = document.source_uri.toLowerCase().endsWith('.pdf');
 
     if (isURL && !isPDF) {
-      const isPatent = document.source_uri.includes('patents.google.com') || document.document_type === 'patent';
+      const isPatent =
+        document.source_uri.includes('patents.google.com') ||
+        document.document_type === 'patent';
 
       if (isPatent) {
         return `Extract complete patent content from this Google Patents URL and format as markdown with proper YAML frontmatter:
@@ -925,7 +1061,9 @@ Content Requirements:
 IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (---). Do NOT wrap in code blocks or add any markdown formatting markers.`;
       }
     } else if (isPDF || document.source_uri.startsWith('/')) {
-      const isPaper = document.document_type === 'paper' || document.document_type === 'technical_paper';
+      const isPaper =
+        document.document_type === 'paper' ||
+        document.document_type === 'technical_paper';
       const isPatent = document.document_type === 'patent';
 
       if (isPaper) {
@@ -1015,18 +1153,17 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
     }
   }
 
-
   private getSubdirectory(docType: string): string {
     // Map both manifest document_type and YAML docType to correct directories
     switch (docType) {
       // Press articles - INGESTION-FORMAT.md docType: "press-article"
-      case 'press_article':    // From manifest
-      case 'press-article':    // From YAML frontmatter
+      case 'press_article': // From manifest
+      case 'press-article': // From YAML frontmatter
         return 'articles';
 
       // Academic papers - INGESTION-FORMAT.md docType: "paper"
-      case 'technical_paper':  // From manifest
-      case 'paper':           // From YAML frontmatter
+      case 'technical_paper': // From manifest
+      case 'paper': // From YAML frontmatter
         return 'papers';
 
       // Patents - INGESTION-FORMAT.md docType: "patent"
@@ -1034,9 +1171,9 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
         return 'patents';
 
       // Notes and markdown files - INGESTION-FORMAT.md docType: "note"
-      case 'direct_markdown':  // From manifest
-      case 'note':            // From YAML frontmatter
-      case 'blog':            // Blog posts
+      case 'direct_markdown': // From manifest
+      case 'note': // From YAML frontmatter
+      case 'blog': // Blog posts
         return 'notes';
 
       // Local PDFs - assume papers unless specified otherwise
@@ -1057,7 +1194,10 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
     }
   }
 
-  private async generateFilename(document: DocumentEntry, content?: string): Promise<string> {
+  private async generateFilename(
+    document: DocumentEntry,
+    content?: string
+  ): Promise<string> {
     // Try to extract date and title from content if available
     if (content) {
       const extractedInfo = this.extractTitleAndDate(content);
@@ -1069,18 +1209,22 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
     }
 
     // Fallback to URL-based generation
-    const url = new URL(document.source_uri.startsWith('http') ? document.source_uri : 'file://' + document.source_uri);
+    const url = new URL(
+      document.source_uri.startsWith('http')
+        ? document.source_uri
+        : 'file://' + document.source_uri
+    );
     const domain = url.hostname || 'local';
     const path = url.pathname;
 
-    let slug = path
-      .split('/')
-      .pop()
-      ?.replace(/\.[^/.]+$/, '') // Remove extension
-      ?.replace(/[^a-zA-Z0-9-]/g, '-') // Replace non-alphanumeric with dashes
-      ?.replace(/-+/g, '-') // Replace multiple dashes with single
-      ?.replace(/^-|-$/g, '') // Remove leading/trailing dashes
-      || 'document';
+    const slug =
+      path
+        .split('/')
+        .pop()
+        ?.replace(/\.[^/.]+$/, '') // Remove extension
+        ?.replace(/[^a-zA-Z0-9-]/g, '-') // Replace non-alphanumeric with dashes
+        ?.replace(/-+/g, '-') // Replace multiple dashes with single
+        ?.replace(/^-|-$/g, '') || 'document'; // Remove leading/trailing dashes
 
     // Add timestamp to ensure uniqueness
     const timestamp = new Date().toISOString().split('T')[0];
@@ -1088,14 +1232,19 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
     return `${timestamp}-${domain}-${slug}.md`;
   }
 
-  private extractTitleAndDate(content: string): { title?: string; date?: string } {
+  private extractTitleAndDate(content: string): {
+    title?: string;
+    date?: string;
+  } {
     const lines = content.split('\n');
     let title: string | undefined;
     let date: string | undefined;
 
     // Look for YAML frontmatter
     if (lines[0]?.trim() === '---') {
-      const yamlEnd = lines.findIndex((line, index) => index > 0 && line.trim() === '---');
+      const yamlEnd = lines.findIndex(
+        (line, index) => index > 0 && line.trim() === '---'
+      );
       if (yamlEnd > 0) {
         const yamlLines = lines.slice(1, yamlEnd);
 
@@ -1105,7 +1254,9 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
             title = titleMatch[1].trim();
           }
 
-          const dateMatch = line.match(/^(?:date|published_date|publicationDate):\s*["']?([^"']+)["']?/);
+          const dateMatch = line.match(
+            /^(?:date|published_date|publicationDate):\s*["']?([^"']+)["']?/
+          );
           if (dateMatch) {
             const parsedDate = this.parseDate(dateMatch[1]);
             if (parsedDate) {
@@ -1151,9 +1302,11 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
       for (const format of formats) {
         const match = dateStr.match(format);
         if (match) {
-          if (format === formats[1]) { // MM/DD/YYYY
+          if (format === formats[1]) {
+            // MM/DD/YYYY
             return `${match[3]}-${match[1].padStart(2, '0')}-${match[2].padStart(2, '0')}`;
-          } else if (format === formats[3]) { // YYYY-MM
+          } else if (format === formats[3]) {
+            // YYYY-MM
             return `${match[1]}-${match[2].padStart(2, '0')}-01`;
           } else {
             return `${match[1]}-${match[2].padStart(2, '0')}-${match[3]?.padStart(2, '0') || '01'}`;
@@ -1213,7 +1366,7 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
           'zte.com.cn': 'zte',
           'news.samsung.com': 'samsung',
           'arxiv.org': 'arxiv',
-          'patents.google.com': 'google-patents'
+          'patents.google.com': 'google-patents',
         };
 
         return domainMap[hostname] || hostname.split('.')[0];
@@ -1226,7 +1379,11 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
     }
   }
 
-  private async writeDocument(filePath: string, content: string, document: DocumentEntry): Promise<void> {
+  private async writeDocument(
+    filePath: string,
+    content: string,
+    document: DocumentEntry
+  ): Promise<void> {
     await this.ensureDirectoryExists(dirname(filePath));
     await writeFile(filePath, content, 'utf-8');
   }
@@ -1248,7 +1405,9 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
 
         if (attempt < this.retryAttempts) {
           const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
-          console.log(`⏳ Retry ${attempt}/${this.retryAttempts} in ${delay}ms...`);
+          console.log(
+            `⏳ Retry ${attempt}/${this.retryAttempts} in ${delay}ms...`
+          );
           await this.delay(delay);
         }
       }
@@ -1295,10 +1454,15 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
       });
     }
 
-    console.log(`\n🎯 Success rate: ${Math.round((this.stats.processed / this.stats.total) * 100)}%`);
+    console.log(
+      `\n🎯 Success rate: ${Math.round((this.stats.processed / this.stats.total) * 100)}%`
+    );
   }
 
-  private validatePatentClaims(content: string): { isValid: boolean; reason?: string } {
+  private validatePatentClaims(content: string): {
+    isValid: boolean;
+    reason?: string;
+  } {
     // Check if content has Claims section
     if (!content.includes('## Claims')) {
       return { isValid: false, reason: 'Missing Claims section header' };
@@ -1310,7 +1474,7 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
       'claims must be extracted',
       'full, verbatim claims must be',
       'Claims section is missing',
-      'No claims found'
+      'No claims found',
     ];
 
     const hasPlaceholder = claimsPlaceholders.some(placeholder =>
@@ -1318,7 +1482,11 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
     );
 
     if (hasPlaceholder) {
-      return { isValid: false, reason: 'Claims section contains placeholder text instead of actual claims' };
+      return {
+        isValid: false,
+        reason:
+          'Claims section contains placeholder text instead of actual claims',
+      };
     }
 
     // Look for numbered claims structure
@@ -1330,23 +1498,41 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
     // Check for numbered claims (1., 2., etc.)
     const numberedClaimsPattern = /^\s*\d+\.\s+/m;
     if (!numberedClaimsPattern.test(claimsSection)) {
-      return { isValid: false, reason: 'No numbered claims found in Claims section' };
+      return {
+        isValid: false,
+        reason: 'No numbered claims found in Claims section',
+      };
     }
 
     // Count claims - should have at least 1 substantial claim
     const claimMatches = claimsSection.match(/^\s*\d+\.\s+.{20,}/gm);
     if (!claimMatches || claimMatches.length === 0) {
-      return { isValid: false, reason: 'No substantial claims found (claims too short)' };
+      return {
+        isValid: false,
+        reason: 'No substantial claims found (claims too short)',
+      };
     }
 
     return { isValid: true };
   }
 
-  private validatePaperFormat(content: string): { isValid: boolean; reason?: string } {
+  private validatePaperFormat(content: string): {
+    isValid: boolean;
+    reason?: string;
+  } {
     const requiredFields = [
-      'title:', 'docType:', 'authors:', 'venue:',
-      'publicationYear:', 'abstract:', 'keywords:', 'technologies:',
-      'url:', 'scraped_at:', 'word_count:', 'extraction_quality:'
+      'title:',
+      'docType:',
+      'authors:',
+      'venue:',
+      'publicationYear:',
+      'abstract:',
+      'keywords:',
+      'technologies:',
+      'url:',
+      'scraped_at:',
+      'word_count:',
+      'extraction_quality:',
     ];
 
     for (const field of requiredFields) {
@@ -1357,15 +1543,28 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
 
     // Check for incorrect field names
     if (content.includes('authorsAffiliations:')) {
-      return { isValid: false, reason: 'Found "authorsAffiliations:" instead of required "authors:"' };
+      return {
+        isValid: false,
+        reason: 'Found "authorsAffiliations:" instead of required "authors:"',
+      };
     }
 
     if (content.includes('publication:') && !content.includes('venue:')) {
-      return { isValid: false, reason: 'Found "publication:" instead of required "venue:"' };
+      return {
+        isValid: false,
+        reason: 'Found "publication:" instead of required "venue:"',
+      };
     }
 
-    if (content.includes('publicationDate:') && !content.includes('publicationYear:')) {
-      return { isValid: false, reason: 'Found "publicationDate:" instead of required "publicationYear:"' };
+    if (
+      content.includes('publicationDate:') &&
+      !content.includes('publicationYear:')
+    ) {
+      return {
+        isValid: false,
+        reason:
+          'Found "publicationDate:" instead of required "publicationYear:"',
+      };
     }
 
     return { isValid: true };
@@ -1374,7 +1573,9 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
 
 // Main execution
 async function main() {
-  const manifestPath = process.argv[2] || '/Users/david.fattal/Documents/GitHub/david-gpt/rag-processing-manifest-comprehensive.json';
+  const manifestPath =
+    process.argv[2] ||
+    '/Users/david.fattal/Documents/GitHub/david-gpt/rag-processing-manifest-comprehensive.json';
 
   // Validate command line arguments
   if (process.argv.includes('--help') || process.argv.includes('-h')) {
@@ -1427,25 +1628,32 @@ Examples:
       console.error(`Stack trace: ${error.stack}`);
     }
 
-    console.error(`\n💡 Check the logs above for specific failures and retry with individual documents if needed.`);
+    console.error(
+      `\n💡 Check the logs above for specific failures and retry with individual documents if needed.`
+    );
     process.exit(1);
   }
 }
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
-  console.error(`❌ Unhandled Promise Rejection at:`, promise, 'reason:', reason);
+  console.error(
+    `❌ Unhandled Promise Rejection at:`,
+    promise,
+    'reason:',
+    reason
+  );
   process.exit(1);
 });
 
 // Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', error => {
   console.error(`❌ Uncaught Exception:`, error);
   process.exit(1);
 });
 
 if (require.main === module) {
-  main().catch((error) => {
+  main().catch(error => {
     console.error(`❌ Unexpected error:`, error);
     process.exit(1);
   });

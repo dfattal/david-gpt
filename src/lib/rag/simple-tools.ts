@@ -4,8 +4,8 @@
  * Basic tools that work without requiring full database setup
  */
 
-import { z } from "zod";
-import { tool } from "ai";
+import { z } from 'zod';
+import { tool } from 'ai';
 
 /**
  * Simple search tool that provides helpful responses about David's expertise
@@ -21,81 +21,81 @@ export const searchKnowledgeTool = tool({
       ),
     topic: z
       .enum([
-        "spatial-ai",
-        "computer-vision",
-        "patents",
-        "entrepreneurship",
-        "ai-ml",
-        "technology",
-        "general",
+        'spatial-ai',
+        'computer-vision',
+        'patents',
+        'entrepreneurship',
+        'ai-ml',
+        'technology',
+        'general',
       ])
       .optional()
-      .describe("The general topic area"),
+      .describe('The general topic area'),
   }),
   execute: async ({ query, topic }) => {
     // For now, return structured information about David's areas of expertise
     // In a full implementation, this would query the actual document corpus
 
     const expertiseAreas = {
-      "spatial-ai": {
+      'spatial-ai': {
         summary:
-          "David has extensive experience in Spatial AI and Immersive Technologies",
+          'David has extensive experience in Spatial AI and Immersive Technologies',
         keyPoints: [
-          "Computer vision and 3D reconstruction technologies",
-          "Augmented and Virtual Reality applications",
-          "Spatial computing platforms and frameworks",
-          "Real-time 3D graphics and rendering",
+          'Computer vision and 3D reconstruction technologies',
+          'Augmented and Virtual Reality applications',
+          'Spatial computing platforms and frameworks',
+          'Real-time 3D graphics and rendering',
         ],
       },
-      "computer-vision": {
+      'computer-vision': {
         summary:
-          "Deep expertise in computer vision algorithms and applications",
+          'Deep expertise in computer vision algorithms and applications',
         keyPoints: [
-          "Image processing and feature detection",
-          "Object recognition and tracking",
-          "3D computer vision and stereo reconstruction",
-          "Machine learning for vision applications",
+          'Image processing and feature detection',
+          'Object recognition and tracking',
+          '3D computer vision and stereo reconstruction',
+          'Machine learning for vision applications',
         ],
       },
       patents: {
-        summary: "David holds multiple patents in technology and innovation",
+        summary: 'David holds multiple patents in technology and innovation',
         keyPoints: [
-          "Switchable liquid crystal technologies",
-          "Computer vision and imaging systems",
-          "User interface innovations",
-          "Display and optical technologies",
+          'Switchable liquid crystal technologies',
+          'Computer vision and imaging systems',
+          'User interface innovations',
+          'Display and optical technologies',
         ],
       },
       entrepreneurship: {
-        summary: "Technology entrepreneur with experience building companies",
+        summary: 'Technology entrepreneur with experience building companies',
         keyPoints: [
-          "Founding and scaling technology companies",
-          "Product development and go-to-market strategies",
-          "Team building and technical leadership",
-          "Investment and funding strategies",
+          'Founding and scaling technology companies',
+          'Product development and go-to-market strategies',
+          'Team building and technical leadership',
+          'Investment and funding strategies',
         ],
       },
-      "ai-ml": {
-        summary: "Extensive knowledge in AI/ML technologies and applications",
+      'ai-ml': {
+        summary: 'Extensive knowledge in AI/ML technologies and applications',
         keyPoints: [
-          "Deep learning and neural networks",
-          "Computer vision and image processing",
-          "Natural language processing applications",
-          "AI product development and deployment",
+          'Deep learning and neural networks',
+          'Computer vision and image processing',
+          'Natural language processing applications',
+          'AI product development and deployment',
         ],
       },
       technology: {
-        summary: "Broad technology expertise across multiple domains",
+        summary: 'Broad technology expertise across multiple domains',
         keyPoints: [
-          "Software engineering and architecture",
-          "Hardware-software integration",
-          "Emerging technology trends and adoption",
-          "Technical product management",
+          'Software engineering and architecture',
+          'Hardware-software integration',
+          'Emerging technology trends and adoption',
+          'Technical product management',
         ],
       },
     };
 
-    const relevantArea = topic || "general";
+    const relevantArea = topic || 'general';
     const expertise =
       expertiseAreas[relevantArea as keyof typeof expertiseAreas];
 
@@ -115,14 +115,14 @@ export const searchKnowledgeTool = tool({
       query,
       topic: relevantArea,
       summary:
-        "David Fattal is a technology entrepreneur and Spatial AI enthusiast with broad expertise",
+        'David Fattal is a technology entrepreneur and Spatial AI enthusiast with broad expertise',
       keyInsights: [
-        "Extensive experience in AI and computer vision",
-        "Multiple patents in technology and innovation",
-        "Entrepreneurial experience in tech companies",
-        "Deep knowledge of emerging technologies",
+        'Extensive experience in AI and computer vision',
+        'Multiple patents in technology and innovation',
+        'Entrepreneurial experience in tech companies',
+        'Deep knowledge of emerging technologies',
       ],
-      note: "This is general information. For specific details, the full document corpus would provide more precise answers.",
+      note: 'This is general information. For specific details, the full document corpus would provide more precise answers.',
     };
   },
 });
@@ -137,23 +137,23 @@ export const technologyTimelineTool = tool({
     technology: z
       .string()
       .describe(
-        "The technology or innovation to get timeline information about"
+        'The technology or innovation to get timeline information about'
       ),
     timeframe: z
-      .enum(["recent", "historical", "future-trends"])
+      .enum(['recent', 'historical', 'future-trends'])
       .optional()
-      .describe("The time perspective of interest"),
+      .describe('The time perspective of interest'),
   }),
-  execute: async ({ technology, timeframe = "recent" }) => {
+  execute: async ({ technology, timeframe = 'recent' }) => {
     // Simplified timeline information
     const timelineData = {
       summary: `Timeline information for ${technology} from David's perspective`,
       perspective: timeframe,
       insights: [
-        "Technology evolution and key milestones",
-        "Market adoption patterns and drivers",
-        "Current state and emerging trends",
-        "Future opportunities and challenges",
+        'Technology evolution and key milestones',
+        'Market adoption patterns and drivers',
+        'Current state and emerging trends',
+        'Future opportunities and challenges',
       ],
       note: "This is a simplified response. The full system would provide specific dates, citations, and detailed timeline data from David's corpus.",
     };

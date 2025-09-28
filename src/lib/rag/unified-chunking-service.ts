@@ -1,7 +1,7 @@
 /**
  * Unified Chunking Service
- * 
- * Consolidates chunking strategies across different document types 
+ *
+ * Consolidates chunking strategies across different document types
  * (generic, academic, patent) with intelligent section awareness
  * and configurable token limits.
  */
@@ -9,7 +9,10 @@
 import { createHash } from 'crypto';
 import type { DocumentChunk, ChunkingConfig, DocumentType } from './types';
 import { DEFAULT_RAG_CONFIG } from './types';
-import { documentAnalyzer, type DocumentAnalysis } from './unified-document-analyzer';
+import {
+  documentAnalyzer,
+  type DocumentAnalysis,
+} from './unified-document-analyzer';
 
 // =======================
 // Chunking Strategy Types
@@ -56,16 +59,16 @@ const CHUNKING_STRATEGIES: Record<string, ChunkingStrategy> = {
     tokenRange: { min: 200, max: 1200 }, // Reduced min from 800 to 200
     overlapPercentage: 0.15,
     sectionAware: false,
-    preserveStructure: false
+    preserveStructure: false,
   },
 
   academic: {
     name: 'Academic',
     description: 'Preserves academic paper structure with section awareness',
     tokenRange: { min: 300, max: 1600 }, // Reduced min from 1000 to 300
-    overlapPercentage: 0.20,
+    overlapPercentage: 0.2,
     sectionAware: true,
-    preserveStructure: true
+    preserveStructure: true,
   },
 
   patent: {
@@ -74,7 +77,7 @@ const CHUNKING_STRATEGIES: Record<string, ChunkingStrategy> = {
     tokenRange: { min: 400, max: 1800 }, // Reduced min from 1200 to 400
     overlapPercentage: 0.25,
     sectionAware: true,
-    preserveStructure: true
+    preserveStructure: true,
   },
 
   technical: {
@@ -83,8 +86,8 @@ const CHUNKING_STRATEGIES: Record<string, ChunkingStrategy> = {
     tokenRange: { min: 250, max: 1400 }, // Reduced min from 900 to 250
     overlapPercentage: 0.18,
     sectionAware: true,
-    preserveStructure: true
-  }
+    preserveStructure: true,
+  },
 };
 
 // =======================
@@ -94,8 +97,9 @@ const CHUNKING_STRATEGIES: Record<string, ChunkingStrategy> = {
 function estimateTokens(text: string): number {
   const normalized = text.trim().replace(/\s+/g, ' ');
   const baseCount = normalized.length / 4;
-  const punctuationCount = (normalized.match(/[.!?,;:()\[\]{}'"]/g) || []).length;
-  return Math.ceil(baseCount + (punctuationCount * 0.1));
+  const punctuationCount = (normalized.match(/[.!?,;:()\[\]{}'"]/g) || [])
+    .length;
+  return Math.ceil(baseCount + punctuationCount * 0.1);
 }
 
 function splitAtTokenBoundary(text: string, maxTokens: number): string {
@@ -132,25 +136,34 @@ interface DocumentSection {
   type: 'header' | 'paragraph' | 'list' | 'code' | 'equation' | 'table';
 }
 
-function detectSections(content: string, documentType?: DocumentType): DocumentSection[] {
+function detectSections(
+  content: string,
+  documentType?: DocumentType
+): DocumentSection[] {
   const sections: DocumentSection[] = [];
   const lines = content.split('\n');
   let currentPosition = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    
+
     if (!line) {
       currentPosition += lines[i].length + 1;
       continue;
     }
 
     // Detect different section types based on patterns
-    const section = detectSectionType(line, lines, i, currentPosition, documentType);
+    const section = detectSectionType(
+      line,
+      lines,
+      i,
+      currentPosition,
+      documentType
+    );
     if (section) {
       sections.push(section);
     }
-    
+
     currentPosition += lines[i].length + 1;
   }
 
@@ -158,9 +171,9 @@ function detectSections(content: string, documentType?: DocumentType): DocumentS
 }
 
 function detectSectionType(
-  line: string, 
-  allLines: string[], 
-  lineIndex: number, 
+  line: string,
+  allLines: string[],
+  lineIndex: number,
   position: number,
   documentType?: DocumentType
 ): DocumentSection | null {
@@ -169,9 +182,9 @@ function detectSectionType(
     const academicHeaders = [
       /^(?:abstract|introduction|methodology|methods|results|discussion|conclusion|references)\s*$/i,
       /^\d+\.?\s+[A-Z][a-z\s]+$/,
-      /^[A-Z\s]{3,}$/
+      /^[A-Z\s]{3,}$/,
     ];
-    
+
     for (const pattern of academicHeaders) {
       if (pattern.test(line)) {
         return {
@@ -180,7 +193,7 @@ function detectSectionType(
           level: line.match(/^\d+/) ? 2 : 1,
           startPosition: position,
           endPosition: position + line.length,
-          type: 'header'
+          type: 'header',
         };
       }
     }
@@ -191,9 +204,9 @@ function detectSectionType(
     const patentHeaders = [
       /^(?:field\s+of\s+the\s+invention|background|summary|brief\s+description|detailed\s+description|claims)\s*$/i,
       /^claim\s+\d+/i,
-      /^\d+\.\s+[A-Z]/
+      /^\d+\.\s+[A-Z]/,
     ];
-    
+
     for (const pattern of patentHeaders) {
       if (pattern.test(line)) {
         return {
@@ -202,7 +215,7 @@ function detectSectionType(
           level: line.startsWith('claim') ? 2 : 1,
           startPosition: position,
           endPosition: position + line.length,
-          type: 'header'
+          type: 'header',
         };
       }
     }
@@ -216,19 +229,23 @@ function detectSectionType(
       level: 3,
       startPosition: position,
       endPosition: position + line.length,
-      type: 'list'
+      type: 'list',
     };
   }
 
   // Code blocks (technical documents)
-  if (line.startsWith('```') || line.includes('function') || line.includes('class ')) {
+  if (
+    line.startsWith('```') ||
+    line.includes('function') ||
+    line.includes('class ')
+  ) {
     return {
       title: '',
       content: line,
       level: 3,
       startPosition: position,
       endPosition: position + line.length,
-      type: 'code'
+      type: 'code',
     };
   }
 
@@ -240,7 +257,6 @@ function detectSectionType(
 // =======================
 
 export class UnifiedChunkingService {
-  
   /**
    * Create chunks using the most appropriate strategy for the document
    */
@@ -255,13 +271,17 @@ export class UnifiedChunkingService {
     const strategy = await this.selectStrategy(request);
 
     // Get configuration with adaptive sizing for short content
-    const config = this.getAdaptiveChunkingConfig(strategy, request.customConfig, request.content);
+    const config = this.getAdaptiveChunkingConfig(
+      strategy,
+      request.customConfig,
+      request.content
+    );
 
     // Analyze document structure if needed
     const sections = strategy.sectionAware
       ? detectSections(request.content, request.documentType)
       : [];
-    
+
     // Create chunks based on strategy
     const chunks = await this.executeChunkingStrategy(
       request.content,
@@ -270,11 +290,14 @@ export class UnifiedChunkingService {
       config,
       sections
     );
-    
+
     // Calculate metadata
-    const totalTokens = chunks.reduce((sum, chunk) => sum + chunk.token_count, 0);
+    const totalTokens = chunks.reduce(
+      (sum, chunk) => sum + chunk.token_count,
+      0
+    );
     const avgChunkSize = chunks.length > 0 ? totalTokens / chunks.length : 0;
-    
+
     return {
       chunks,
       strategy,
@@ -283,15 +306,17 @@ export class UnifiedChunkingService {
       metadata: {
         sectionsDetected: sections.length,
         preservedStructure: strategy.preserveStructure,
-        overlapApplied: strategy.overlapPercentage > 0
-      }
+        overlapApplied: strategy.overlapPercentage > 0,
+      },
     };
   }
 
   /**
    * Select the most appropriate chunking strategy
    */
-  private async selectStrategy(request: ChunkingRequest): Promise<ChunkingStrategy> {
+  private async selectStrategy(
+    request: ChunkingRequest
+  ): Promise<ChunkingStrategy> {
     if (request.strategy && request.strategy !== 'auto') {
       return CHUNKING_STRATEGIES[request.strategy];
     }
@@ -300,7 +325,7 @@ export class UnifiedChunkingService {
     let analysis = request.documentAnalysis;
     if (!analysis && request.documentType) {
       analysis = await documentAnalyzer.analyzeDocument({
-        content: request.content
+        content: request.content,
       });
     }
 
@@ -324,15 +349,18 @@ export class UnifiedChunkingService {
    * Get chunking configuration based on strategy and custom overrides
    */
   private getChunkingConfig(
-    strategy: ChunkingStrategy, 
+    strategy: ChunkingStrategy,
     customConfig?: Partial<ChunkingConfig>
   ): ChunkingConfig {
     return {
       chunkSize: customConfig?.chunkSize || strategy.tokenRange.max,
       minChunkSize: customConfig?.minChunkSize || strategy.tokenRange.min,
-      overlapSize: customConfig?.overlapSize || Math.floor(strategy.tokenRange.max * strategy.overlapPercentage),
-      preserveStructure: customConfig?.preserveStructure ?? strategy.preserveStructure,
-      ...DEFAULT_RAG_CONFIG
+      overlapSize:
+        customConfig?.overlapSize ||
+        Math.floor(strategy.tokenRange.max * strategy.overlapPercentage),
+      preserveStructure:
+        customConfig?.preserveStructure ?? strategy.preserveStructure,
+      ...DEFAULT_RAG_CONFIG,
     };
   }
 
@@ -350,14 +378,19 @@ export class UnifiedChunkingService {
 
     if (strategy.sectionAware && sections.length > 0) {
       // Section-aware chunking
-      chunks.push(...await this.createSectionAwareChunks(
-        content, documentId, config, sections
-      ));
+      chunks.push(
+        ...(await this.createSectionAwareChunks(
+          content,
+          documentId,
+          config,
+          sections
+        ))
+      );
     } else {
       // Standard sliding window chunking
-      chunks.push(...await this.createSlidingWindowChunks(
-        content, documentId, config
-      ));
+      chunks.push(
+        ...(await this.createSlidingWindowChunks(content, documentId, config))
+      );
     }
 
     return chunks;
@@ -378,21 +411,27 @@ export class UnifiedChunkingService {
     // Group sections into chunks that fit within token limits
     let currentChunk = '';
     let currentSections: DocumentSection[] = [];
-    
+
     for (const section of sections) {
-      const sectionContent = this.extractSectionContent(content, section, sections);
+      const sectionContent = this.extractSectionContent(
+        content,
+        section,
+        sections
+      );
       const sectionTokens = estimateTokens(sectionContent);
       const currentTokens = estimateTokens(currentChunk);
 
       // If adding this section would exceed limits, finalize current chunk
       if (currentTokens + sectionTokens > config.chunkSize && currentChunk) {
-        chunks.push(this.createChunk(
-          currentChunk,
-          documentId,
-          chunkIndex++,
-          currentSections
-        ));
-        
+        chunks.push(
+          this.createChunk(
+            currentChunk,
+            documentId,
+            chunkIndex++,
+            currentSections
+          )
+        );
+
         // Start new chunk with overlap
         currentChunk = this.applyOverlap(currentChunk, config.overlapSize);
         currentSections = [];
@@ -404,7 +443,10 @@ export class UnifiedChunkingService {
       // If this section alone exceeds chunk size, split it
       if (sectionTokens > config.chunkSize) {
         const subChunks = await this.createSlidingWindowChunks(
-          sectionContent, documentId, config, chunkIndex
+          sectionContent,
+          documentId,
+          config,
+          chunkIndex
         );
         chunks.push(...subChunks);
         chunkIndex += subChunks.length;
@@ -415,12 +457,9 @@ export class UnifiedChunkingService {
 
     // Add final chunk if any content remains
     if (currentChunk.trim()) {
-      chunks.push(this.createChunk(
-        currentChunk,
-        documentId,
-        chunkIndex,
-        currentSections
-      ));
+      chunks.push(
+        this.createChunk(currentChunk, documentId, chunkIndex, currentSections)
+      );
     }
 
     return chunks;
@@ -437,7 +476,7 @@ export class UnifiedChunkingService {
   ): Promise<DocumentChunk[]> {
     const chunks: DocumentChunk[] = [];
     const paragraphs = content.split(/\n\s*\n/).filter(p => p.trim());
-    
+
     let currentChunk = '';
     let chunkIndex = startIndex;
 
@@ -450,7 +489,7 @@ export class UnifiedChunkingService {
       if (currentTokens + paragraphTokens > config.chunkSize && currentChunk) {
         // Create chunk
         chunks.push(this.createChunk(currentChunk, documentId, chunkIndex++));
-        
+
         // Start new chunk with overlap
         currentChunk = this.applyOverlap(currentChunk, config.overlapSize);
       }
@@ -460,12 +499,17 @@ export class UnifiedChunkingService {
         const sentences = this.splitIntoSentences(paragraph);
         for (const sentence of sentences) {
           const sentenceTokens = estimateTokens(sentence);
-          
-          if (estimateTokens(currentChunk) + sentenceTokens > config.chunkSize && currentChunk) {
-            chunks.push(this.createChunk(currentChunk, documentId, chunkIndex++));
+
+          if (
+            estimateTokens(currentChunk) + sentenceTokens > config.chunkSize &&
+            currentChunk
+          ) {
+            chunks.push(
+              this.createChunk(currentChunk, documentId, chunkIndex++)
+            );
             currentChunk = this.applyOverlap(currentChunk, config.overlapSize);
           }
-          
+
           currentChunk += (currentChunk ? ' ' : '') + sentence;
         }
       } else {
@@ -503,8 +547,8 @@ export class UnifiedChunkingService {
       content_hash: contentHash,
       metadata: {
         sections: sections?.map(s => ({ title: s.title, type: s.type })) || [],
-        created_at: new Date().toISOString()
-      }
+        created_at: new Date().toISOString(),
+      },
     };
   }
 
@@ -517,9 +561,13 @@ export class UnifiedChunkingService {
     allSections: DocumentSection[]
   ): string {
     // Find the next section to determine content boundaries
-    const nextSection = allSections.find(s => s.startPosition > section.startPosition);
-    const endPosition = nextSection ? nextSection.startPosition : fullContent.length;
-    
+    const nextSection = allSections.find(
+      s => s.startPosition > section.startPosition
+    );
+    const endPosition = nextSection
+      ? nextSection.startPosition
+      : fullContent.length;
+
     return fullContent.slice(section.startPosition, endPosition).trim();
   }
 
@@ -528,7 +576,7 @@ export class UnifiedChunkingService {
    */
   private applyOverlap(content: string, overlapTokens: number): string {
     if (overlapTokens <= 0 || !content) return '';
-    
+
     const sentences = this.splitIntoSentences(content);
     let overlap = '';
     let currentTokens = 0;
@@ -537,7 +585,7 @@ export class UnifiedChunkingService {
     for (let i = sentences.length - 1; i >= 0; i--) {
       const sentence = sentences[i];
       const sentenceTokens = estimateTokens(sentence);
-      
+
       if (currentTokens + sentenceTokens <= overlapTokens) {
         overlap = sentence + (overlap ? ' ' + overlap : '');
         currentTokens += sentenceTokens;
@@ -557,13 +605,18 @@ export class UnifiedChunkingService {
       .split(/[.!?]+/)
       .map(s => s.trim())
       .filter(s => s.length > 0)
-      .map(s => s.endsWith('.') || s.endsWith('!') || s.endsWith('?') ? s : s + '.');
+      .map(s =>
+        s.endsWith('.') || s.endsWith('!') || s.endsWith('?') ? s : s + '.'
+      );
   }
 
   /**
    * Validate content before chunking to catch URL-only or invalid content
    */
-  private validateContent(content: string): { isValid: boolean; reason?: string } {
+  private validateContent(content: string): {
+    isValid: boolean;
+    reason?: string;
+  } {
     // Basic content checks
     if (!content || content.trim().length === 0) {
       return { isValid: false, reason: 'Empty content provided' };
@@ -574,7 +627,7 @@ export class UnifiedChunkingService {
     if (urlRegex.test(content.trim())) {
       return {
         isValid: false,
-        reason: `Content is just a URL: ${content.trim()}`
+        reason: `Content is just a URL: ${content.trim()}`,
       };
     }
 
@@ -582,7 +635,7 @@ export class UnifiedChunkingService {
     if (content.length < 25) {
       return {
         isValid: false,
-        reason: `Content too short for chunking: ${content.length} chars`
+        reason: `Content too short for chunking: ${content.length} chars`,
       };
     }
 
@@ -599,7 +652,7 @@ export class UnifiedChunkingService {
       if (pattern.test(content)) {
         return {
           isValid: false,
-          reason: `Content appears to be an error message: ${content.substring(0, 50)}...`
+          reason: `Content appears to be an error message: ${content.substring(0, 50)}...`,
         };
       }
     }
@@ -622,17 +675,25 @@ export class UnifiedChunkingService {
     if (contentTokens < 500) {
       adaptedStrategy.tokenRange = {
         min: Math.min(50, contentTokens),
-        max: Math.min(300, contentTokens + 50)
+        max: Math.min(300, contentTokens + 50),
       };
-      console.log(`📏 Adaptive chunking: content has ${contentTokens} tokens, using range ${adaptedStrategy.tokenRange.min}-${adaptedStrategy.tokenRange.max}`);
+      console.log(
+        `📏 Adaptive chunking: content has ${contentTokens} tokens, using range ${adaptedStrategy.tokenRange.min}-${adaptedStrategy.tokenRange.max}`
+      );
     }
 
     return {
       chunkSize: customConfig?.chunkSize || adaptedStrategy.tokenRange.max,
-      minChunkSize: customConfig?.minChunkSize || adaptedStrategy.tokenRange.min,
-      overlapSize: customConfig?.overlapSize || Math.floor(adaptedStrategy.tokenRange.max * adaptedStrategy.overlapPercentage),
-      preserveStructure: customConfig?.preserveStructure ?? adaptedStrategy.preserveStructure,
-      ...DEFAULT_RAG_CONFIG
+      minChunkSize:
+        customConfig?.minChunkSize || adaptedStrategy.tokenRange.min,
+      overlapSize:
+        customConfig?.overlapSize ||
+        Math.floor(
+          adaptedStrategy.tokenRange.max * adaptedStrategy.overlapPercentage
+        ),
+      preserveStructure:
+        customConfig?.preserveStructure ?? adaptedStrategy.preserveStructure,
+      ...DEFAULT_RAG_CONFIG,
     };
   }
 }

@@ -34,170 +34,180 @@ interface QualityTestQuery {
     minimumResults?: number;
   };
   description: string;
-  category: 'inventor_query' | 'author_query' | 'assignee_query' | 'date_query' | 'technical_query';
-  testType: 'metadata_chunk' | 'entity_extraction' | 'citation_accuracy' | 'content_quality';
+  category:
+    | 'inventor_query'
+    | 'author_query'
+    | 'assignee_query'
+    | 'date_query'
+    | 'technical_query';
+  testType:
+    | 'metadata_chunk'
+    | 'entity_extraction'
+    | 'citation_accuracy'
+    | 'content_quality';
 }
 
 const QUALITY_TEST_QUERIES: QualityTestQuery[] = [
   // Inventor Queries (Previously Failed)
   {
-    query: "Who are the inventors of this patent?",
+    query: 'Who are the inventors of this patent?',
     expectedBehavior: 'metadata',
     successCriteria: {
       shouldFindResults: true,
       shouldContainMetadata: true,
       shouldHaveEntities: true,
       shouldHaveCitations: true,
-      minimumResults: 1
+      minimumResults: 1,
     },
-    description: "Should identify patent inventors from metadata chunks",
+    description: 'Should identify patent inventors from metadata chunks',
     category: 'inventor_query',
-    testType: 'metadata_chunk'
+    testType: 'metadata_chunk',
   },
   {
-    query: "Who invented lightfield displays?",
+    query: 'Who invented lightfield displays?',
     expectedBehavior: 'metadata',
     successCriteria: {
       shouldFindResults: true,
       shouldContainMetadata: true,
       shouldHaveEntities: true,
       shouldHaveCitations: true,
-      minimumResults: 1
+      minimumResults: 1,
     },
-    description: "Should identify lightfield display inventors",
+    description: 'Should identify lightfield display inventors',
     category: 'inventor_query',
-    testType: 'entity_extraction'
+    testType: 'entity_extraction',
   },
   {
-    query: "David Fattal patents",
+    query: 'David Fattal patents',
     expectedBehavior: 'metadata',
     successCriteria: {
       shouldFindResults: true,
       shouldContainMetadata: true,
       shouldHaveEntities: true,
       shouldHaveCitations: true,
-      minimumResults: 1
+      minimumResults: 1,
     },
-    description: "Should find patents by David Fattal",
+    description: 'Should find patents by David Fattal',
     category: 'inventor_query',
-    testType: 'entity_extraction'
+    testType: 'entity_extraction',
   },
 
   // Author Queries
   {
-    query: "Who are the authors of this paper?",
+    query: 'Who are the authors of this paper?',
     expectedBehavior: 'metadata',
     successCriteria: {
       shouldFindResults: true,
       shouldContainMetadata: true,
       shouldHaveEntities: true,
       shouldHaveCitations: true,
-      minimumResults: 1
+      minimumResults: 1,
     },
-    description: "Should identify paper authors from metadata chunks",
+    description: 'Should identify paper authors from metadata chunks',
     category: 'author_query',
-    testType: 'metadata_chunk'
+    testType: 'metadata_chunk',
   },
   {
-    query: "papers by Stanford University authors",
+    query: 'papers by Stanford University authors',
     expectedBehavior: 'metadata',
     successCriteria: {
       shouldFindResults: true,
       shouldContainMetadata: true,
       shouldHaveEntities: true,
-      shouldHaveCitations: true
+      shouldHaveCitations: true,
     },
-    description: "Should find papers by institutional affiliation",
+    description: 'Should find papers by institutional affiliation',
     category: 'author_query',
-    testType: 'entity_extraction'
+    testType: 'entity_extraction',
   },
 
   // Assignee/Company Queries
   {
-    query: "What patents are assigned to Leia Inc?",
+    query: 'What patents are assigned to Leia Inc?',
     expectedBehavior: 'metadata',
     successCriteria: {
       shouldFindResults: true,
       shouldContainMetadata: true,
       shouldHaveEntities: true,
       shouldHaveCitations: true,
-      minimumResults: 1
+      minimumResults: 1,
     },
-    description: "Should find patents by assignee",
+    description: 'Should find patents by assignee',
     category: 'assignee_query',
-    testType: 'entity_extraction'
+    testType: 'entity_extraction',
   },
   {
-    query: "HP patents related to displays",
+    query: 'HP patents related to displays',
     expectedBehavior: 'hybrid',
     successCriteria: {
       shouldFindResults: true,
       shouldContainMetadata: true,
       shouldHaveEntities: true,
-      shouldHaveCitations: true
+      shouldHaveCitations: true,
     },
-    description: "Should find HP display patents using both metadata and content",
+    description:
+      'Should find HP display patents using both metadata and content',
     category: 'assignee_query',
-    testType: 'citation_accuracy'
+    testType: 'citation_accuracy',
   },
 
   // Date Queries
   {
-    query: "patents filed in 2020",
+    query: 'patents filed in 2020',
     expectedBehavior: 'metadata',
     successCriteria: {
       shouldFindResults: true,
       shouldContainMetadata: true,
       shouldHaveEntities: false, // Date queries may not have entities
-      shouldHaveCitations: true
+      shouldHaveCitations: true,
     },
-    description: "Should find patents by filing date",
+    description: 'Should find patents by filing date',
     category: 'date_query',
-    testType: 'metadata_chunk'
+    testType: 'metadata_chunk',
   },
   {
-    query: "recent papers published after 2022",
+    query: 'recent papers published after 2022',
     expectedBehavior: 'metadata',
     successCriteria: {
       shouldFindResults: true,
       shouldContainMetadata: true,
       shouldHaveEntities: false,
-      shouldHaveCitations: true
+      shouldHaveCitations: true,
     },
-    description: "Should find recent publications by date",
+    description: 'Should find recent publications by date',
     category: 'date_query',
-    testType: 'metadata_chunk'
+    testType: 'metadata_chunk',
   },
 
   // Technical Queries (Should work as before)
   {
-    query: "How do lightfield displays work?",
+    query: 'How do lightfield displays work?',
     expectedBehavior: 'content',
     successCriteria: {
       shouldFindResults: true,
       shouldContainMetadata: false, // Primarily content-based
       shouldHaveEntities: false,
       shouldHaveCitations: true,
-      minimumResults: 1
+      minimumResults: 1,
     },
-    description: "Should provide technical explanations from content",
+    description: 'Should provide technical explanations from content',
     category: 'technical_query',
-    testType: 'content_quality'
+    testType: 'content_quality',
   },
   {
-    query: "3D display technology principles",
+    query: '3D display technology principles',
     expectedBehavior: 'content',
     successCriteria: {
       shouldFindResults: true,
       shouldContainMetadata: false,
       shouldHaveEntities: false,
       shouldHaveCitations: true,
-      minimumResults: 1
+      minimumResults: 1,
     },
-    description: "Should explain technical principles",
+    description: 'Should explain technical principles',
     category: 'technical_query',
-    testType: 'content_quality'
-  }
+    testType: 'content_quality',
+  },
 ];
 
 // =======================
@@ -244,20 +254,28 @@ export class SearchQualityValidator {
    */
   async runQualityValidation(): Promise<QualityValidationSummary> {
     console.log('🔍 Starting Search Quality Validation...\n');
-    console.log(`Testing ${QUALITY_TEST_QUERIES.length} queries for metadata search improvements...\n`);
+    console.log(
+      `Testing ${QUALITY_TEST_QUERIES.length} queries for metadata search improvements...\n`
+    );
 
     this.results = [];
 
     for (let i = 0; i < QUALITY_TEST_QUERIES.length; i++) {
       const testQuery = QUALITY_TEST_QUERIES[i];
-      console.log(`\n[${i + 1}/${QUALITY_TEST_QUERIES.length}] Testing: "${testQuery.query}"`);
-      console.log(`Expected: ${testQuery.expectedBehavior} behavior | Category: ${testQuery.category}`);
+      console.log(
+        `\n[${i + 1}/${QUALITY_TEST_QUERIES.length}] Testing: "${testQuery.query}"`
+      );
+      console.log(
+        `Expected: ${testQuery.expectedBehavior} behavior | Category: ${testQuery.category}`
+      );
 
       const result = await this.testSearchQuality(testQuery);
       this.results.push(result);
 
       const status = result.passed ? '✅ PASS' : '❌ FAIL';
-      console.log(`${status} (Score: ${result.score}/100) | ${result.details.tier.toUpperCase()} tier | ${result.details.resultCount} results | ${result.details.executionTime}ms`);
+      console.log(
+        `${status} (Score: ${result.score}/100) | ${result.details.tier.toUpperCase()} tier | ${result.details.resultCount} results | ${result.details.executionTime}ms`
+      );
 
       if (result.issues.length > 0) {
         console.log(`  Issues: ${result.issues.join(', ')}`);
@@ -270,7 +288,9 @@ export class SearchQualityValidator {
   /**
    * Test search quality for a single query
    */
-  private async testSearchQuality(testQuery: QualityTestQuery): Promise<QualityTestResult> {
+  private async testSearchQuality(
+    testQuery: QualityTestQuery
+  ): Promise<QualityTestResult> {
     const issues: string[] = [];
     let score = 0;
     const startTime = Date.now();
@@ -279,7 +299,10 @@ export class SearchQualityValidator {
       // First check metadata query detection
       const metadataDetection = detectMetadataQuery(testQuery.query);
 
-      if (testQuery.expectedBehavior === 'metadata' && !metadataDetection.isMetadata) {
+      if (
+        testQuery.expectedBehavior === 'metadata' &&
+        !metadataDetection.isMetadata
+      ) {
         issues.push('Expected metadata query but not detected as such');
       }
 
@@ -287,21 +310,26 @@ export class SearchQualityValidator {
       const searchResult = await searchCorpus({
         query: testQuery.query,
         limit: 10,
-        supabaseClient: supabase
+        supabaseClient: supabase,
       });
 
       const executionTime = Date.now() - startTime;
 
       // Analyze results
-      const foundResults = searchResult.success && (searchResult.results?.length || 0) > 0;
+      const foundResults =
+        searchResult.success && (searchResult.results?.length || 0) > 0;
       const resultCount = searchResult.results?.length || 0;
       const tier = searchResult.searchMetadata?.tier || 'unknown';
 
       // Check if results contain metadata information
-      const hasMetadata = this.checkForMetadataContent(searchResult.results || []);
+      const hasMetadata = this.checkForMetadataContent(
+        searchResult.results || []
+      );
 
       // Check for entity information
-      const hasEntities = this.checkForEntityContent(searchResult.results || []);
+      const hasEntities = this.checkForEntityContent(
+        searchResult.results || []
+      );
 
       // Check for proper citations
       const hasCitations = this.checkForCitations(searchResult.citations || []);
@@ -314,17 +342,21 @@ export class SearchQualityValidator {
         hasEntities,
         hasCitations,
         executionTime,
-        tier
+        tier,
       });
 
       // Validate against success criteria
-      const passed = this.validateSuccessCriteria(testQuery.successCriteria, {
-        foundResults,
-        resultCount,
-        hasMetadata,
-        hasEntities,
-        hasCitations
-      }, issues);
+      const passed = this.validateSuccessCriteria(
+        testQuery.successCriteria,
+        {
+          foundResults,
+          resultCount,
+          hasMetadata,
+          hasEntities,
+          hasCitations,
+        },
+        issues
+      );
 
       return {
         query: testQuery.query,
@@ -338,12 +370,11 @@ export class SearchQualityValidator {
           hasEntities,
           hasCitations,
           executionTime,
-          tier
+          tier,
         },
         issues,
-        score
+        score,
       };
-
     } catch (error) {
       const executionTime = Date.now() - startTime;
 
@@ -359,10 +390,12 @@ export class SearchQualityValidator {
           hasEntities: false,
           hasCitations: false,
           executionTime,
-          tier: 'error'
+          tier: 'error',
         },
-        issues: [`Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`],
-        score: 0
+        issues: [
+          `Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        ],
+        score: 0,
       };
     }
   }
@@ -373,12 +406,14 @@ export class SearchQualityValidator {
   private checkForMetadataContent(results: any[]): boolean {
     return results.some(result => {
       const content = result.content?.toLowerCase() || '';
-      return content.includes('inventor') ||
-             content.includes('author') ||
-             content.includes('assignee') ||
-             content.includes('filed') ||
-             content.includes('granted') ||
-             content.includes('published');
+      return (
+        content.includes('inventor') ||
+        content.includes('author') ||
+        content.includes('assignee') ||
+        content.includes('filed') ||
+        content.includes('granted') ||
+        content.includes('published')
+      );
     });
   }
 
@@ -388,10 +423,12 @@ export class SearchQualityValidator {
   private checkForEntityContent(results: any[]): boolean {
     return results.some(result => {
       const content = result.content?.toLowerCase() || '';
-      return content.includes('david fattal') ||
-             content.includes('leia inc') ||
-             content.includes('hp inc') ||
-             content.includes('stanford');
+      return (
+        content.includes('david fattal') ||
+        content.includes('leia inc') ||
+        content.includes('hp inc') ||
+        content.includes('stanford')
+      );
     });
   }
 
@@ -399,30 +436,44 @@ export class SearchQualityValidator {
    * Check if citations are properly formatted
    */
   private checkForCitations(citations: any[]): boolean {
-    return citations.length > 0 && citations.every(citation =>
-      citation.marker && citation.title && citation.factSummary
+    return (
+      citations.length > 0 &&
+      citations.every(
+        citation => citation.marker && citation.title && citation.factSummary
+      )
     );
   }
 
   /**
    * Calculate quality score (0-100)
    */
-  private calculateQualityScore(testQuery: QualityTestQuery, details: any): number {
+  private calculateQualityScore(
+    testQuery: QualityTestQuery,
+    details: any
+  ): number {
     let score = 0;
 
     // Base score for finding results
     if (details.foundResults) score += 30;
 
     // Score for result count
-    if (details.resultCount >= (testQuery.successCriteria.minimumResults || 1)) score += 20;
+    if (details.resultCount >= (testQuery.successCriteria.minimumResults || 1))
+      score += 20;
 
     // Score for metadata content (if expected)
-    if (testQuery.successCriteria.shouldContainMetadata && details.hasMetadata) score += 20;
-    if (!testQuery.successCriteria.shouldContainMetadata && !details.hasMetadata) score += 10;
+    if (testQuery.successCriteria.shouldContainMetadata && details.hasMetadata)
+      score += 20;
+    if (
+      !testQuery.successCriteria.shouldContainMetadata &&
+      !details.hasMetadata
+    )
+      score += 10;
 
     // Score for entity content (if expected)
-    if (testQuery.successCriteria.shouldHaveEntities && details.hasEntities) score += 15;
-    if (!testQuery.successCriteria.shouldHaveEntities && !details.hasEntities) score += 5;
+    if (testQuery.successCriteria.shouldHaveEntities && details.hasEntities)
+      score += 15;
+    if (!testQuery.successCriteria.shouldHaveEntities && !details.hasEntities)
+      score += 5;
 
     // Score for citations
     if (details.hasCitations) score += 15;
@@ -433,7 +484,11 @@ export class SearchQualityValidator {
   /**
    * Validate against success criteria
    */
-  private validateSuccessCriteria(criteria: any, details: any, issues: string[]): boolean {
+  private validateSuccessCriteria(
+    criteria: any,
+    details: any,
+    issues: string[]
+  ): boolean {
     let valid = true;
 
     if (criteria.shouldFindResults && !details.foundResults) {
@@ -441,8 +496,13 @@ export class SearchQualityValidator {
       valid = false;
     }
 
-    if (criteria.minimumResults && details.resultCount < criteria.minimumResults) {
-      issues.push(`Expected at least ${criteria.minimumResults} results, got ${details.resultCount}`);
+    if (
+      criteria.minimumResults &&
+      details.resultCount < criteria.minimumResults
+    ) {
+      issues.push(
+        `Expected at least ${criteria.minimumResults} results, got ${details.resultCount}`
+      );
       valid = false;
     }
 
@@ -470,14 +530,17 @@ export class SearchQualityValidator {
   private generateQualitySummary(): QualityValidationSummary {
     const totalTests = this.results.length;
     const passedTests = this.results.filter(r => r.passed).length;
-    const overallScore = this.results.reduce((sum, r) => sum + r.score, 0) / totalTests;
+    const overallScore =
+      this.results.reduce((sum, r) => sum + r.score, 0) / totalTests;
 
     // Calculate category scores
     const categories = [...new Set(this.results.map(r => r.category))];
     const categoryScores: Record<string, number> = {};
     categories.forEach(category => {
       const categoryResults = this.results.filter(r => r.category === category);
-      categoryScores[category] = categoryResults.reduce((sum, r) => sum + r.score, 0) / categoryResults.length;
+      categoryScores[category] =
+        categoryResults.reduce((sum, r) => sum + r.score, 0) /
+        categoryResults.length;
     });
 
     // Calculate test type scores
@@ -485,7 +548,9 @@ export class SearchQualityValidator {
     const testTypeScores: Record<string, number> = {};
     testTypes.forEach(testType => {
       const testTypeResults = this.results.filter(r => r.testType === testType);
-      testTypeScores[testType] = testTypeResults.reduce((sum, r) => sum + r.score, 0) / testTypeResults.length;
+      testTypeScores[testType] =
+        testTypeResults.reduce((sum, r) => sum + r.score, 0) /
+        testTypeResults.length;
     });
 
     // Generate recommendations
@@ -498,7 +563,7 @@ export class SearchQualityValidator {
       categoryScores,
       testTypeScores,
       results: this.results,
-      recommendations
+      recommendations,
     };
   }
 
@@ -513,11 +578,15 @@ export class SearchQualityValidator {
       const commonIssues = this.getCommonIssues(failedResults);
 
       if (commonIssues.includes('metadata content')) {
-        recommendations.push('Consider improving metadata chunk generation for better entity extraction');
+        recommendations.push(
+          'Consider improving metadata chunk generation for better entity extraction'
+        );
       }
 
       if (commonIssues.includes('entity content')) {
-        recommendations.push('Enhance entity extraction and consolidation processes');
+        recommendations.push(
+          'Enhance entity extraction and consolidation processes'
+        );
       }
 
       if (commonIssues.includes('citations')) {
@@ -525,7 +594,9 @@ export class SearchQualityValidator {
       }
 
       if (commonIssues.includes('results')) {
-        recommendations.push('Investigate query classification and search routing');
+        recommendations.push(
+          'Investigate query classification and search routing'
+        );
       }
     }
 
@@ -541,10 +612,16 @@ export class SearchQualityValidator {
 
     allIssues.forEach(issue => {
       const key = issue.toLowerCase();
-      if (key.includes('metadata')) issueCounts['metadata content'] = (issueCounts['metadata content'] || 0) + 1;
-      if (key.includes('entity')) issueCounts['entity content'] = (issueCounts['entity content'] || 0) + 1;
-      if (key.includes('citation')) issueCounts['citations'] = (issueCounts['citations'] || 0) + 1;
-      if (key.includes('results')) issueCounts['results'] = (issueCounts['results'] || 0) + 1;
+      if (key.includes('metadata'))
+        issueCounts['metadata content'] =
+          (issueCounts['metadata content'] || 0) + 1;
+      if (key.includes('entity'))
+        issueCounts['entity content'] =
+          (issueCounts['entity content'] || 0) + 1;
+      if (key.includes('citation'))
+        issueCounts['citations'] = (issueCounts['citations'] || 0) + 1;
+      if (key.includes('results'))
+        issueCounts['results'] = (issueCounts['results'] || 0) + 1;
     });
 
     return Object.keys(issueCounts).filter(issue => issueCounts[issue] >= 2);
@@ -560,23 +637,33 @@ export class SearchQualityValidator {
 
     // Overall Results
     console.log('\n📊 Overall Quality:');
-    console.log(`✅ Passed Tests: ${summary.passedTests}/${summary.totalTests} (${((summary.passedTests/summary.totalTests)*100).toFixed(1)}%)`);
+    console.log(
+      `✅ Passed Tests: ${summary.passedTests}/${summary.totalTests} (${((summary.passedTests / summary.totalTests) * 100).toFixed(1)}%)`
+    );
     console.log(`🎯 Overall Score: ${summary.overallScore.toFixed(1)}/100`);
 
     // Category Breakdown
     console.log('\n📂 Category Performance:');
     Object.entries(summary.categoryScores).forEach(([category, score]) => {
-      const categoryResults = summary.results.filter(r => r.category === category);
+      const categoryResults = summary.results.filter(
+        r => r.category === category
+      );
       const passed = categoryResults.filter(r => r.passed).length;
-      console.log(`  ${category}: ${score.toFixed(1)}/100 (${passed}/${categoryResults.length} passed)`);
+      console.log(
+        `  ${category}: ${score.toFixed(1)}/100 (${passed}/${categoryResults.length} passed)`
+      );
     });
 
     // Test Type Breakdown
     console.log('\n🧪 Test Type Performance:');
     Object.entries(summary.testTypeScores).forEach(([testType, score]) => {
-      const testTypeResults = summary.results.filter(r => r.testType === testType);
+      const testTypeResults = summary.results.filter(
+        r => r.testType === testType
+      );
       const passed = testTypeResults.filter(r => r.passed).length;
-      console.log(`  ${testType}: ${score.toFixed(1)}/100 (${passed}/${testTypeResults.length} passed)`);
+      console.log(
+        `  ${testType}: ${score.toFixed(1)}/100 (${passed}/${testTypeResults.length} passed)`
+      );
     });
 
     // Failed Tests
@@ -613,10 +700,15 @@ export async function runQualityValidation(): Promise<void> {
 
     // Success criteria evaluation
     console.log('\n🎯 Quality Validation Success Criteria:');
-    console.log(`✅ Pass Rate: ${summary.passedTests >= summary.totalTests * 0.8 ? 'PASS' : 'FAIL'} (${((summary.passedTests/summary.totalTests)*100).toFixed(1)}% >= 80%)`);
-    console.log(`✅ Overall Score: ${summary.overallScore >= 70 ? 'PASS' : 'FAIL'} (${summary.overallScore.toFixed(1)} >= 70)`);
-    console.log(`✅ Metadata Queries: ${summary.categoryScores.inventor_query >= 70 ? 'PASS' : 'FAIL'} (Inventor queries: ${summary.categoryScores.inventor_query?.toFixed(1) || 0}/100)`);
-
+    console.log(
+      `✅ Pass Rate: ${summary.passedTests >= summary.totalTests * 0.8 ? 'PASS' : 'FAIL'} (${((summary.passedTests / summary.totalTests) * 100).toFixed(1)}% >= 80%)`
+    );
+    console.log(
+      `✅ Overall Score: ${summary.overallScore >= 70 ? 'PASS' : 'FAIL'} (${summary.overallScore.toFixed(1)} >= 70)`
+    );
+    console.log(
+      `✅ Metadata Queries: ${summary.categoryScores.inventor_query >= 70 ? 'PASS' : 'FAIL'} (Inventor queries: ${summary.categoryScores.inventor_query?.toFixed(1) || 0}/100)`
+    );
   } catch (error) {
     console.error('❌ Quality validation failed:', error);
     process.exit(1);

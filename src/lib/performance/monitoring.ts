@@ -20,7 +20,10 @@ interface PerformanceTimerOptions {
 
 class PerformanceTracker {
   private metrics: PerformanceMetric[] = [];
-  private activeTimers = new Map<string, { startTime: number; options: PerformanceTimerOptions }>();
+  private activeTimers = new Map<
+    string,
+    { startTime: number; options: PerformanceTimerOptions }
+  >();
   private stats = {
     apiCalls: 0,
     averageResponseTime: 0,
@@ -34,7 +37,7 @@ class PerformanceTracker {
    */
   startTimer(name: string, options: PerformanceTimerOptions): string {
     const timerId = `${name}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-    
+
     this.activeTimers.set(timerId, {
       startTime: performance.now(),
       options,
@@ -70,12 +73,18 @@ class PerformanceTracker {
 
     // Log warning if threshold exceeded
     if (timer.options.threshold && duration > timer.options.threshold) {
-      console.warn(`⚠️ Performance threshold exceeded: ${timer.options.operation} took ${duration.toFixed(2)}ms (threshold: ${timer.options.threshold}ms)`);
+      console.warn(
+        `⚠️ Performance threshold exceeded: ${timer.options.operation} took ${duration.toFixed(2)}ms (threshold: ${timer.options.threshold}ms)`
+      );
     }
 
     // Log performance info
-    const contextStr = timer.options.context ? ` (${JSON.stringify(timer.options.context)})` : '';
-    console.log(`⏱️  ${timer.options.category}.${timer.options.operation}: ${duration.toFixed(2)}ms${contextStr}`);
+    const contextStr = timer.options.context
+      ? ` (${JSON.stringify(timer.options.context)})`
+      : '';
+    console.log(
+      `⏱️  ${timer.options.category}.${timer.options.operation}: ${duration.toFixed(2)}ms${contextStr}`
+    );
 
     return duration;
   }
@@ -122,12 +131,14 @@ class PerformanceTracker {
     max: number;
     count: number;
   } | null {
-    const relevantMetrics = this.metrics.filter(m => m.name.includes(operationName));
-    
+    const relevantMetrics = this.metrics.filter(m =>
+      m.name.includes(operationName)
+    );
+
     if (relevantMetrics.length === 0) return null;
 
     const values = relevantMetrics.map(m => m.value);
-    
+
     return {
       average: values.reduce((sum, val) => sum + val, 0) / values.length,
       min: Math.min(...values),
@@ -164,7 +175,9 @@ class PerformanceTracker {
         averageTime: times.reduce((sum, time) => sum + time, 0) / times.length,
         maxTime: Math.max(...times),
         count: times.length,
-        impact: (times.reduce((sum, time) => sum + time, 0) / times.length) * times.length,
+        impact:
+          (times.reduce((sum, time) => sum + time, 0) / times.length) *
+          times.length,
       }))
       .sort((a, b) => b.impact - a.impact)
       .slice(0, limit);
@@ -199,13 +212,19 @@ class PerformanceTracker {
     // Generate recommendations based on bottlenecks
     bottlenecks.forEach(bottleneck => {
       if (bottleneck.averageTime > 5000) {
-        recommendations.push(`🚨 Critical: ${bottleneck.operation} averaging ${bottleneck.averageTime.toFixed(0)}ms`);
+        recommendations.push(
+          `🚨 Critical: ${bottleneck.operation} averaging ${bottleneck.averageTime.toFixed(0)}ms`
+        );
       } else if (bottleneck.averageTime > 3000) {
-        recommendations.push(`⚠️ Slow: ${bottleneck.operation} averaging ${bottleneck.averageTime.toFixed(0)}ms`);
+        recommendations.push(
+          `⚠️ Slow: ${bottleneck.operation} averaging ${bottleneck.averageTime.toFixed(0)}ms`
+        );
       }
 
       if (bottleneck.count > 100 && bottleneck.averageTime > 1000) {
-        recommendations.push(`📊 High impact: ${bottleneck.operation} called ${bottleneck.count} times`);
+        recommendations.push(
+          `📊 High impact: ${bottleneck.operation} called ${bottleneck.count} times`
+        );
       }
     });
 
@@ -220,7 +239,10 @@ class PerformanceTracker {
       summary: this.getStats(),
       bottlenecks,
       recentMetrics,
-      recommendations: recommendations.length > 0 ? recommendations : ['✅ Performance looks good!'],
+      recommendations:
+        recommendations.length > 0
+          ? recommendations
+          : ['✅ Performance looks good!'],
     };
   }
 
@@ -228,9 +250,11 @@ class PerformanceTracker {
     if (category === 'api') {
       this.stats.apiCalls++;
       this.stats.totalProcessingTime += duration;
-      this.stats.averageResponseTime = this.stats.totalProcessingTime / this.stats.apiCalls;
-      
-      if (duration > 3000) { // 3 second threshold
+      this.stats.averageResponseTime =
+        this.stats.totalProcessingTime / this.stats.apiCalls;
+
+      if (duration > 3000) {
+        // 3 second threshold
         this.stats.slowRequests++;
       }
     }
@@ -241,7 +265,10 @@ class PerformanceTracker {
 export const performanceTracker = new PerformanceTracker();
 
 // Convenience functions
-export function startPerformanceTimer(name: string, options: PerformanceTimerOptions): string {
+export function startPerformanceTimer(
+  name: string,
+  options: PerformanceTimerOptions
+): string {
   return performanceTracker.startTimer(name, options);
 }
 
@@ -264,8 +291,16 @@ export function getPerformanceReport() {
 /**
  * Decorator function to automatically time async functions
  */
-export function timed(category: PerformanceTimerOptions['category'], operation: string, threshold?: number) {
-  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+export function timed(
+  category: PerformanceTimerOptions['category'],
+  operation: string,
+  threshold?: number
+) {
+  return function (
+    target: any,
+    propertyKey: string,
+    descriptor: PropertyDescriptor
+  ) {
     const originalMethod = descriptor.value;
 
     descriptor.value = async function (...args: any[]) {
@@ -306,7 +341,7 @@ export async function timeOperation<T>(
   options: PerformanceTimerOptions
 ): Promise<{ result: T; duration: number }> {
   const timerId = startPerformanceTimer(name, options);
-  
+
   try {
     const result = await operation();
     const duration = endPerformanceTimer(timerId) || 0;

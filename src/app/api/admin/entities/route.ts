@@ -1,6 +1,6 @@
 /**
  * Admin API Routes for Entity Management
- * 
+ *
  * Provides CRUD operations for knowledge graph entities with admin-level access
  */
 
@@ -11,14 +11,30 @@ import { z } from 'zod';
 // Validation schemas
 const CreateEntitySchema = z.object({
   name: z.string().min(1),
-  kind: z.enum(['person', 'organization', 'product', 'technology', 'component', 'document']),
+  kind: z.enum([
+    'person',
+    'organization',
+    'product',
+    'technology',
+    'component',
+    'document',
+  ]),
   description: z.string().optional(),
   authorityScore: z.number().min(0).max(1).default(0.5),
 });
 
 const UpdateEntitySchema = z.object({
   name: z.string().min(1).optional(),
-  kind: z.enum(['person', 'organization', 'product', 'technology', 'component', 'document']).optional(),
+  kind: z
+    .enum([
+      'person',
+      'organization',
+      'product',
+      'technology',
+      'component',
+      'document',
+    ])
+    .optional(),
   description: z.string().optional(),
   authorityScore: z.number().min(0).max(1).optional(),
 });
@@ -28,7 +44,9 @@ const SearchEntitySchema = z.object({
   kind: z.string().optional(),
   limit: z.coerce.number().min(1).max(100).default(50),
   offset: z.coerce.number().min(0).default(0),
-  sortBy: z.enum(['name', 'authority_score', 'mention_count', 'created_at']).default('name'),
+  sortBy: z
+    .enum(['name', 'authority_score', 'mention_count', 'created_at'])
+    .default('name'),
   sortOrder: z.enum(['asc', 'desc']).default('asc'),
 });
 
@@ -52,16 +70,17 @@ export async function GET(request: NextRequest) {
   // Check admin permissions
   const authCheck = await checkAdminPermissions(request);
   if (authCheck.error) {
-    return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
+    return NextResponse.json(
+      { error: authCheck.error },
+      { status: authCheck.status }
+    );
   }
 
   try {
     const { searchParams } = new URL(request.url);
     const params = SearchEntitySchema.parse(Object.fromEntries(searchParams));
 
-    let query = supabaseAdmin
-      .from('entities')
-      .select(`
+    let query = supabaseAdmin.from('entities').select(`
         id,
         name,
         kind,
@@ -82,7 +101,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Apply sorting
-    query = query.order(params.sortBy, { ascending: params.sortOrder === 'asc' });
+    query = query.order(params.sortBy, {
+      ascending: params.sortOrder === 'asc',
+    });
 
     // Apply pagination
     query = query.range(params.offset, params.offset + params.limit - 1);
@@ -91,7 +112,10 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Failed to fetch entities:', error);
-      return NextResponse.json({ error: 'Failed to fetch entities' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to fetch entities' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
@@ -100,12 +124,14 @@ export async function GET(request: NextRequest) {
         total: count || 0,
         offset: params.offset,
         limit: params.limit,
-      }
+      },
     });
-
   } catch (error) {
     console.error('Error in GET /api/admin/entities:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -117,7 +143,10 @@ export async function POST(request: NextRequest) {
   // Check admin permissions
   const authCheck = await checkAdminPermissions(request);
   if (authCheck.error) {
-    return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
+    return NextResponse.json(
+      { error: authCheck.error },
+      { status: authCheck.status }
+    );
   }
 
   try {
@@ -154,16 +183,24 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Failed to create entity:', error);
-      return NextResponse.json({ error: 'Failed to create entity' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to create entity' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ entity }, { status: 201 });
-
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid input', details: error.errors }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid input', details: error.errors },
+        { status: 400 }
+      );
     }
     console.error('Error in POST /api/admin/entities:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

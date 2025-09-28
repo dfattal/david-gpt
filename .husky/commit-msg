@@ -1,0 +1,44 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Commit Message Quality Check
+echo "📝 Validating commit message..."
+
+# Read the commit message
+COMMIT_MSG_FILE=$1
+COMMIT_MSG=$(cat $COMMIT_MSG_FILE)
+
+# Check commit message format (conventional commits)
+CONVENTIONAL_COMMIT_REGEX="^(feat|fix|docs|style|refactor|test|chore|perf|ci|build)(\(.+\))?: .{1,50}"
+
+if ! echo "$COMMIT_MSG" | grep -qE "$CONVENTIONAL_COMMIT_REGEX"; then
+  echo "❌ Invalid commit message format"
+  echo ""
+  echo "📋 Commit message must follow conventional commits format:"
+  echo "   <type>(<scope>): <description>"
+  echo ""
+  echo "📌 Valid types: feat, fix, docs, style, refactor, test, chore, perf, ci, build"
+  echo "📌 Examples:"
+  echo "   feat(rag): add hybrid search functionality"
+  echo "   fix(auth): resolve login redirect issue"
+  echo "   docs: update RAG testing guide"
+  echo "   test(kg): add knowledge graph quality tests"
+  echo ""
+  echo "🔗 See: https://www.conventionalcommits.org/"
+  exit 1
+fi
+
+# Check for common issues
+if echo "$COMMIT_MSG" | grep -qE "(WIP|TODO|FIXME|XXX|HACK)"; then
+  echo "⚠️ Warning: Commit message contains placeholder text"
+  echo "💡 Consider completing the work before committing"
+fi
+
+# Check message length
+MSG_LENGTH=$(echo "$COMMIT_MSG" | head -n1 | wc -c)
+if [ $MSG_LENGTH -gt 72 ]; then
+  echo "⚠️ Warning: Commit message subject line is longer than 72 characters"
+  echo "💡 Consider shortening the description"
+fi
+
+echo "✅ Commit message format is valid"

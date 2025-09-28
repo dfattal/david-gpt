@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { getActiveConnections } from "@/lib/sse-manager";
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { getActiveConnections } from '@/lib/sse-manager';
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json(
-        { error: "Authentication required" },
+        { error: 'Authentication required' },
         { status: 401 }
       );
     }
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 
     console.log(`\n🔍 === DEBUG CONNECTIONS CHECK ===`);
     console.log(`🔍 Checking for user: ${user.id}`);
-    console.log(`📊 Active connections: [${activeConnections.join(", ")}]`);
+    console.log(`📊 Active connections: [${activeConnections.join(', ')}]`);
     console.log(`📊 Total connections: ${activeConnections.length}`);
     console.log(
       `📊 User has connection: ${activeConnections.includes(user.id)}`
@@ -38,9 +38,9 @@ export async function GET(req: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("Debug connections error:", error);
+    console.error('Debug connections error:', error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

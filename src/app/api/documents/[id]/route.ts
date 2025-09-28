@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { AppError, handleApiError } from "@/lib/utils";
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { AppError, handleApiError } from '@/lib/utils';
 
 export async function GET(
   req: NextRequest,
@@ -16,33 +16,33 @@ export async function GET(
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      throw new AppError("Authentication required", 401);
+      throw new AppError('Authentication required', 401);
     }
 
     // Check user role - members can view, admin can see all details
     const { data: profile } = await supabase
-      .from("user_profiles")
-      .select("role")
-      .eq("id", user.id)
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
       .single();
 
-    const userRole = profile?.role || "guest";
+    const userRole = profile?.role || 'guest';
 
     const { id: documentId } = await params;
 
     // Fetch document
     const { data: document, error } = await supabase
-      .from("documents")
+      .from('documents')
       .select(
-        userRole === "admin"
-          ? "*"
-          : "id,title,doc_type,status,created_at,updated_at"
+        userRole === 'admin'
+          ? '*'
+          : 'id,title,doc_type,status,created_at,updated_at'
       )
-      .eq("id", documentId)
+      .eq('id', documentId)
       .single();
 
     if (error || !document) {
-      throw new AppError("Document not found", 404);
+      throw new AppError('Document not found', 404);
     }
 
     return NextResponse.json({ document });
@@ -65,18 +65,18 @@ export async function PUT(
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      throw new AppError("Authentication required", 401);
+      throw new AppError('Authentication required', 401);
     }
 
     // Check user role - only admin can update documents
     const { data: profile } = await supabase
-      .from("user_profiles")
-      .select("role")
-      .eq("id", user.id)
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
       .single();
 
-    if (profile?.role !== "admin") {
-      throw new AppError("Admin access required", 403);
+    if (profile?.role !== 'admin') {
+      throw new AppError('Admin access required', 403);
     }
 
     const { id: documentId } = await params;
@@ -84,36 +84,36 @@ export async function PUT(
 
     // Validate allowed updates
     const allowedFields = [
-      "title",
-      "status",
-      "doi",
-      "url",
-      "processing_status",
+      'title',
+      'status',
+      'doi',
+      'url',
+      'processing_status',
     ];
     const sanitizedUpdates = Object.keys(updates)
-      .filter((key) => allowedFields.includes(key))
+      .filter(key => allowedFields.includes(key))
       .reduce((obj: any, key) => {
         obj[key] = updates[key];
         return obj;
       }, {});
 
     if (Object.keys(sanitizedUpdates).length === 0) {
-      throw new AppError("No valid fields to update", 400);
+      throw new AppError('No valid fields to update', 400);
     }
 
     sanitizedUpdates.updated_at = new Date().toISOString();
 
     // Update document
     const { data: document, error } = await supabase
-      .from("documents")
+      .from('documents')
       .update(sanitizedUpdates)
-      .eq("id", documentId)
+      .eq('id', documentId)
       .select()
       .single();
 
     if (error || !document) {
-      console.error("Failed to update document:", error);
-      throw new AppError("Failed to update document", 500);
+      console.error('Failed to update document:', error);
+      throw new AppError('Failed to update document', 500);
     }
 
     return NextResponse.json({ document });
@@ -136,53 +136,53 @@ export async function DELETE(
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      throw new AppError("Authentication required", 401);
+      throw new AppError('Authentication required', 401);
     }
 
     // Check user role - only admin can delete documents
     const { data: profile } = await supabase
-      .from("user_profiles")
-      .select("role")
-      .eq("id", user.id)
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
       .single();
 
-    if (profile?.role !== "admin") {
-      throw new AppError("Admin access required", 403);
+    if (profile?.role !== 'admin') {
+      throw new AppError('Admin access required', 403);
     }
 
     const { id: documentId } = await params;
 
     // Get document to find file path
     const { data: document } = await supabase
-      .from("documents")
-      .select("file_path")
-      .eq("id", documentId)
+      .from('documents')
+      .select('file_path')
+      .eq('id', documentId)
       .single();
 
     // Delete file from storage if it exists
     if (document?.file_path) {
       const { error: storageError } = await supabase.storage
-        .from("documents")
+        .from('documents')
         .remove([document.file_path]);
 
       if (storageError) {
-        console.error("Failed to delete file from storage:", storageError);
+        console.error('Failed to delete file from storage:', storageError);
         // Continue with document deletion even if file deletion fails
       }
     }
 
     // Delete document (related records will be deleted by cascade)
     const { error } = await supabase
-      .from("documents")
+      .from('documents')
       .delete()
-      .eq("id", documentId);
+      .eq('id', documentId);
 
     if (error) {
-      console.error("Failed to delete document:", error);
-      throw new AppError("Failed to delete document", 500);
+      console.error('Failed to delete document:', error);
+      throw new AppError('Failed to delete document', 500);
     }
 
-    return NextResponse.json({ message: "Document deleted successfully" });
+    return NextResponse.json({ message: 'Document deleted successfully' });
   } catch (error) {
     return handleApiError(error);
   }

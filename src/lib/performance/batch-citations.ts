@@ -26,12 +26,15 @@ interface BatchSource {
 }
 
 // In-memory cache for document metadata to avoid repeated queries
-const documentMetadataCache = new Map<string, {
-  title: string;
-  docType: string;
-  metadata?: any;
-  cachedAt: Date;
-}>();
+const documentMetadataCache = new Map<
+  string,
+  {
+    title: string;
+    docType: string;
+    metadata?: any;
+    cachedAt: Date;
+  }
+>();
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
@@ -61,28 +64,30 @@ export class BatchCitationProcessor {
       try {
         if (ragContext.enhancedCitations?.length > 0) {
           // Process enhanced citations
-          ragContext.enhancedCitations.forEach((citation: any, index: number) => {
-            this.citationBatch.push({
-              messageId,
-              documentId: citation.documentId,
-              chunkId: citation.chunkId,
-              marker: citation.marker || `[${index + 1}]`,
-              factSummary: citation.factSummary,
-              pageRange: citation.pageRange,
-              relevanceScore: citation.relevanceScore || 1.0,
-              citationOrder: citation.citationOrder || index + 1,
-            });
+          ragContext.enhancedCitations.forEach(
+            (citation: any, index: number) => {
+              this.citationBatch.push({
+                messageId,
+                documentId: citation.documentId,
+                chunkId: citation.chunkId,
+                marker: citation.marker || `[${index + 1}]`,
+                factSummary: citation.factSummary,
+                pageRange: citation.pageRange,
+                relevanceScore: citation.relevanceScore || 1.0,
+                citationOrder: citation.citationOrder || index + 1,
+              });
 
-            // Add to source batch for conversation_sources update
-            this.sourceBatch.push({
-              conversationId,
-              documentId: citation.documentId,
-              lastUsedAt: new Date().toISOString(),
-              carryScore: citation.relevanceScore || 1.0,
-              pinned: false,
-              turnsInactive: 0,
-            });
-          });
+              // Add to source batch for conversation_sources update
+              this.sourceBatch.push({
+                conversationId,
+                documentId: citation.documentId,
+                lastUsedAt: new Date().toISOString(),
+                carryScore: citation.relevanceScore || 1.0,
+                pinned: false,
+                turnsInactive: 0,
+              });
+            }
+          );
         }
 
         // Schedule batch flush if not already scheduled
@@ -116,12 +121,15 @@ export class BatchCitationProcessor {
    * Flush current batch to database
    */
   private async flushBatch(supabase: SupabaseClient) {
-    if (this.processing || (this.citationBatch.length === 0 && this.sourceBatch.length === 0)) {
+    if (
+      this.processing ||
+      (this.citationBatch.length === 0 && this.sourceBatch.length === 0)
+    ) {
       return;
     }
 
     this.processing = true;
-    
+
     // Clear timeout
     if (this.flushTimeout) {
       clearTimeout(this.flushTimeout);
@@ -136,7 +144,9 @@ export class BatchCitationProcessor {
     this.citationBatch = [];
     this.sourceBatch = [];
 
-    console.log(`🔄 Processing batch: ${citationsToProcess.length} citations, ${sourcesToProcess.length} sources`);
+    console.log(
+      `🔄 Processing batch: ${citationsToProcess.length} citations, ${sourcesToProcess.length} sources`
+    );
 
     try {
       // Execute citation and source operations in parallel
@@ -163,7 +173,7 @@ export class BatchCitationProcessor {
       if (sourcesToProcess.length > 0) {
         // Deduplicate sources by conversation_id + document_id
         const uniqueSources = this.deduplicateSources(sourcesToProcess);
-        
+
         operations.push(
           supabase.from('conversation_sources').upsert(
             uniqueSources.map(source => ({
@@ -174,9 +184,9 @@ export class BatchCitationProcessor {
               pinned: source.pinned,
               turns_inactive: source.turnsInactive,
             })),
-            { 
+            {
               onConflict: 'conversation_id,document_id',
-              ignoreDuplicates: false 
+              ignoreDuplicates: false,
             }
           )
         );
@@ -195,14 +205,17 @@ export class BatchCitationProcessor {
         } else {
           errorCount++;
           const operation = index === 0 ? 'citations' : 'sources';
-          console.error(`❌ Batch ${operation} operation failed:`, 
-            result.status === 'fulfilled' ? result.value.error : result.reason);
+          console.error(
+            `❌ Batch ${operation} operation failed:`,
+            result.status === 'fulfilled' ? result.value.error : result.reason
+          );
         }
       });
 
       const processingTime = Date.now() - startTime;
-      console.log(`⚡ Batch processing completed in ${processingTime}ms: ${successCount}/${results.length} operations successful`);
-
+      console.log(
+        `⚡ Batch processing completed in ${processingTime}ms: ${successCount}/${results.length} operations successful`
+      );
     } catch (error) {
       console.error('❌ Batch processing failed:', error);
     } finally {
@@ -239,8 +252,8 @@ export class BatchCitationProcessor {
     // Check cache first
     const cached = documentMetadataCache.get(documentId);
     const now = new Date();
-    
-    if (cached && (now.getTime() - cached.cachedAt.getTime()) < CACHE_TTL) {
+
+    if (cached && now.getTime() - cached.cachedAt.getTime() < CACHE_TTL) {
       return cached;
     }
 
@@ -253,7 +266,10 @@ export class BatchCitationProcessor {
         .single();
 
       if (error || !data) {
-        console.warn(`Could not fetch metadata for document ${documentId}:`, error);
+        console.warn(
+          `Could not fetch metadata for document ${documentId}:`,
+          error
+        );
         return null;
       }
 
@@ -266,10 +282,13 @@ export class BatchCitationProcessor {
 
       // Cache the result
       documentMetadataCache.set(documentId, metadata);
-      
+
       return metadata;
     } catch (error) {
-      console.error(`Error fetching document metadata for ${documentId}:`, error);
+      console.error(
+        `Error fetching document metadata for ${documentId}:`,
+        error
+      );
       return null;
     }
   }
@@ -312,7 +331,12 @@ export function addCitationsToBatch(
   conversationId: string,
   ragContext: any
 ): Promise<void> {
-  return globalBatchProcessor.addCitations(supabase, messageId, conversationId, ragContext);
+  return globalBatchProcessor.addCitations(
+    supabase,
+    messageId,
+    conversationId,
+    ragContext
+  );
 }
 
 /**
@@ -339,13 +363,15 @@ export async function optimizedCitationPersistence(
   ragContext: any
 ): Promise<void> {
   const startTime = Date.now();
-  
+
   try {
     // Use batch processor for better performance
     await addCitationsToBatch(supabase, messageId, conversationId, ragContext);
-    
+
     const processingTime = Date.now() - startTime;
-    console.log(`⚡ Citations queued for batch processing in ${processingTime}ms`);
+    console.log(
+      `⚡ Citations queued for batch processing in ${processingTime}ms`
+    );
   } catch (error) {
     console.error('❌ Optimized citation persistence failed:', error);
     throw error;

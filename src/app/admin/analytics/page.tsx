@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { RealtimeAnalyticsDashboard } from '@/components/admin/realtime-analytics-dashboard';
 

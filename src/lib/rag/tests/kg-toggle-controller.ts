@@ -9,7 +9,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { ThreeTierSearchEngine } from '../three-tier-search';
 import { KGEnhancedSearchEngine } from '../kg-enhanced-search';
 import type { SearchQuery, SearchResult, HybridSearchResult } from '../types';
-import type { TieredSearchQuery, TieredSearchResult } from '../three-tier-search';
+import type {
+  TieredSearchQuery,
+  TieredSearchResult,
+} from '../three-tier-search';
 import type { KGSearchQuery } from '../kg-enhanced-search';
 
 // =======================
@@ -110,7 +113,7 @@ export class KGToggleController {
       disambiguationEnabled: true,
       entityAliasExpansionEnabled: true,
       semanticClusteringEnabled: true,
-      contextualReRankingEnabled: true
+      contextualReRankingEnabled: true,
     };
   }
 
@@ -126,7 +129,7 @@ export class KGToggleController {
       disambiguationEnabled: false,
       entityAliasExpansionEnabled: false,
       semanticClusteringEnabled: false,
-      contextualReRankingEnabled: false
+      contextualReRankingEnabled: false,
     };
   }
 
@@ -150,7 +153,7 @@ export class KGToggleController {
     const searchQuery: TieredSearchQuery = {
       query,
       tier: 'auto',
-      ...options
+      ...options,
     };
 
     let searchResult: TieredSearchResult;
@@ -164,14 +167,18 @@ export class KGToggleController {
           ...searchQuery,
           expandEntities: config.queryExpansionEnabled,
           authorityBoost: config.authorityBoostingEnabled,
-          disambiguate: config.disambiguationEnabled
+          disambiguate: config.disambiguationEnabled,
         };
 
         // Track which features are being used
-        if (config.entityRecognitionEnabled) kgFeaturesUsed.push('entity_recognition');
-        if (config.queryExpansionEnabled) kgFeaturesUsed.push('query_expansion');
-        if (config.authorityBoostingEnabled) kgFeaturesUsed.push('authority_boosting');
-        if (config.relationshipTraversalEnabled) kgFeaturesUsed.push('relationship_traversal');
+        if (config.entityRecognitionEnabled)
+          kgFeaturesUsed.push('entity_recognition');
+        if (config.queryExpansionEnabled)
+          kgFeaturesUsed.push('query_expansion');
+        if (config.authorityBoostingEnabled)
+          kgFeaturesUsed.push('authority_boosting');
+        if (config.relationshipTraversalEnabled)
+          kgFeaturesUsed.push('relationship_traversal');
         if (config.disambiguationEnabled) kgFeaturesUsed.push('disambiguation');
 
         searchResult = await this.executeKGSearchWithFeatures(kgQuery, config);
@@ -183,12 +190,17 @@ export class KGToggleController {
       const executionTime = Date.now() - startTime;
 
       // Extract entities from results
-      const entitiesRecognized = this.extractEntitiesFromResults(searchResult.results, config);
+      const entitiesRecognized = this.extractEntitiesFromResults(
+        searchResult.results,
+        config
+      );
 
       // Calculate average score
-      const averageScore = searchResult.results.length > 0
-        ? searchResult.results.reduce((sum, r) => sum + (r.score || 0), 0) / searchResult.results.length
-        : 0;
+      const averageScore =
+        searchResult.results.length > 0
+          ? searchResult.results.reduce((sum, r) => sum + (r.score || 0), 0) /
+            searchResult.results.length
+          : 0;
 
       return {
         results: searchResult.results,
@@ -200,10 +212,9 @@ export class KGToggleController {
         kgFeaturesUsed,
         debugInfo: {
           queryClassification: searchResult.queryClassification,
-          ...debugInfo
-        }
+          ...debugInfo,
+        },
       };
-
     } catch (error) {
       console.error('Search execution failed:', error);
 
@@ -215,7 +226,7 @@ export class KGToggleController {
         averageScore: 0,
         entitiesRecognized: [],
         kgFeaturesUsed,
-        debugInfo: { error: error.toString() }
+        debugInfo: { error: error.toString() },
       };
     }
   }
@@ -247,8 +258,8 @@ export class KGToggleController {
       queryClassification: {
         intent: 'kg_search',
         confidence: 0.8,
-        documentTypes: []
-      }
+        documentTypes: [],
+      },
     } as TieredSearchResult;
   }
 
@@ -280,13 +291,22 @@ export class KGToggleController {
     );
 
     // Calculate improvements
-    const improvement = this.calculateImprovement(kgEnabledResult, kgDisabledResult);
+    const improvement = this.calculateImprovement(
+      kgEnabledResult,
+      kgDisabledResult
+    );
 
     // Determine statistical significance (simplified)
-    const significanceLevel = this.calculateSignificance(kgEnabledResult, kgDisabledResult);
+    const significanceLevel = this.calculateSignificance(
+      kgEnabledResult,
+      kgDisabledResult
+    );
 
     // Make recommendation
-    const recommendation = this.makeRecommendation(improvement, significanceLevel);
+    const recommendation = this.makeRecommendation(
+      improvement,
+      significanceLevel
+    );
 
     const comparisonResult: ComparisonTestResult = {
       testId,
@@ -295,7 +315,7 @@ export class KGToggleController {
       kgDisabledResult,
       improvement,
       significanceLevel,
-      recommendation
+      recommendation,
     };
 
     this.logComparisonResult(comparisonResult);
@@ -310,7 +330,9 @@ export class KGToggleController {
     queries: string[],
     testOptions: Partial<SearchQuery> = {}
   ): Promise<ComparisonTestResult[]> {
-    console.log(`🔬 Running batch A/B testing with ${queries.length} queries...`);
+    console.log(
+      `🔬 Running batch A/B testing with ${queries.length} queries...`
+    );
 
     const results: ComparisonTestResult[] = [];
 
@@ -324,7 +346,6 @@ export class KGToggleController {
 
         // Small delay between tests
         await new Promise(resolve => setTimeout(resolve, 100));
-
       } catch (error) {
         console.error(`❌ Test failed for query "${query}":`, error);
       }
@@ -367,41 +388,50 @@ export class KGToggleController {
 
       // Run tests for this mode
       for (const query of config.testQueries) {
-        const modeResult = await this.executeSearchWithConfig(query, testConfig);
+        const modeResult = await this.executeSearchWithConfig(
+          query,
+          testConfig
+        );
 
         // Convert to comparison result format (simplified)
         const comparisonResult: ComparisonTestResult = {
           testId: `${config.testName}_${mode.mode}_${Date.now()}`,
           query,
-          kgEnabledResult: mode.mode !== 'kg_disabled' ? modeResult : {
-            results: [],
-            executionTimeMs: 0,
-            tier: 'content',
-            resultCount: 0,
-            averageScore: 0,
-            entitiesRecognized: [],
-            kgFeaturesUsed: [],
-            debugInfo: {}
-          },
-          kgDisabledResult: mode.mode === 'kg_disabled' ? modeResult : {
-            results: [],
-            executionTimeMs: 0,
-            tier: 'content',
-            resultCount: 0,
-            averageScore: 0,
-            entitiesRecognized: [],
-            kgFeaturesUsed: [],
-            debugInfo: {}
-          },
+          kgEnabledResult:
+            mode.mode !== 'kg_disabled'
+              ? modeResult
+              : {
+                  results: [],
+                  executionTimeMs: 0,
+                  tier: 'content',
+                  resultCount: 0,
+                  averageScore: 0,
+                  entitiesRecognized: [],
+                  kgFeaturesUsed: [],
+                  debugInfo: {},
+                },
+          kgDisabledResult:
+            mode.mode === 'kg_disabled'
+              ? modeResult
+              : {
+                  results: [],
+                  executionTimeMs: 0,
+                  tier: 'content',
+                  resultCount: 0,
+                  averageScore: 0,
+                  entitiesRecognized: [],
+                  kgFeaturesUsed: [],
+                  debugInfo: {},
+                },
           improvement: {
             relevanceScore: 0,
             responseTime: 0,
             resultCount: 0,
             entityCoverage: 0,
-            diversityScore: 0
+            diversityScore: 0,
           },
           significanceLevel: 0,
-          recommendation: 'inconclusive'
+          recommendation: 'inconclusive',
         };
 
         allResults.push(comparisonResult);
@@ -424,7 +454,10 @@ export class KGToggleController {
   /**
    * Extract entities from search results
    */
-  private extractEntitiesFromResults(results: SearchResult[], config: KGToggleConfig): string[] {
+  private extractEntitiesFromResults(
+    results: SearchResult[],
+    config: KGToggleConfig
+  ): string[] {
     if (!config.entityRecognitionEnabled) {
       return [];
     }
@@ -434,7 +467,8 @@ export class KGToggleController {
     results.forEach(result => {
       // Simple entity extraction from titles and content
       const text = `${result.title || ''} ${result.content || ''}`;
-      const capitalizedWords = text.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/g) || [];
+      const capitalizedWords =
+        text.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/g) || [];
 
       capitalizedWords.forEach(word => {
         if (word.length > 2 && !this.isCommonWord(word)) {
@@ -451,9 +485,30 @@ export class KGToggleController {
    */
   private isCommonWord(word: string): boolean {
     const commonWords = new Set([
-      'The', 'This', 'That', 'These', 'Those', 'And', 'But', 'Or', 'For',
-      'With', 'From', 'About', 'Into', 'Through', 'During', 'Before', 'After',
-      'Above', 'Below', 'Between', 'Among', 'Since', 'Until', 'While'
+      'The',
+      'This',
+      'That',
+      'These',
+      'Those',
+      'And',
+      'But',
+      'Or',
+      'For',
+      'With',
+      'From',
+      'About',
+      'Into',
+      'Through',
+      'During',
+      'Before',
+      'After',
+      'Above',
+      'Below',
+      'Between',
+      'Among',
+      'Since',
+      'Until',
+      'While',
     ]);
     return commonWords.has(word);
   }
@@ -465,35 +520,55 @@ export class KGToggleController {
     kgEnabled: SearchExecutionResult,
     kgDisabled: SearchExecutionResult
   ): ComparisonTestResult['improvement'] {
-    const relevanceScore = kgDisabled.averageScore > 0
-      ? ((kgEnabled.averageScore - kgDisabled.averageScore) / kgDisabled.averageScore) * 100
-      : 0;
+    const relevanceScore =
+      kgDisabled.averageScore > 0
+        ? ((kgEnabled.averageScore - kgDisabled.averageScore) /
+            kgDisabled.averageScore) *
+          100
+        : 0;
 
-    const responseTime = kgDisabled.executionTimeMs > 0
-      ? ((kgEnabled.executionTimeMs - kgDisabled.executionTimeMs) / kgDisabled.executionTimeMs) * 100
-      : 0;
+    const responseTime =
+      kgDisabled.executionTimeMs > 0
+        ? ((kgEnabled.executionTimeMs - kgDisabled.executionTimeMs) /
+            kgDisabled.executionTimeMs) *
+          100
+        : 0;
 
-    const resultCount = kgDisabled.resultCount > 0
-      ? ((kgEnabled.resultCount - kgDisabled.resultCount) / kgDisabled.resultCount) * 100
-      : 0;
+    const resultCount =
+      kgDisabled.resultCount > 0
+        ? ((kgEnabled.resultCount - kgDisabled.resultCount) /
+            kgDisabled.resultCount) *
+          100
+        : 0;
 
-    const entityCoverage = kgDisabled.entitiesRecognized.length > 0
-      ? ((kgEnabled.entitiesRecognized.length - kgDisabled.entitiesRecognized.length) / kgDisabled.entitiesRecognized.length) * 100
-      : (kgEnabled.entitiesRecognized.length > 0 ? 100 : 0);
+    const entityCoverage =
+      kgDisabled.entitiesRecognized.length > 0
+        ? ((kgEnabled.entitiesRecognized.length -
+            kgDisabled.entitiesRecognized.length) /
+            kgDisabled.entitiesRecognized.length) *
+          100
+        : kgEnabled.entitiesRecognized.length > 0
+          ? 100
+          : 0;
 
     // Simplified diversity calculation
-    const kgEnabledUniqueTitles = new Set(kgEnabled.results.map(r => r.title)).size;
-    const kgDisabledUniqueTitles = new Set(kgDisabled.results.map(r => r.title)).size;
-    const diversityScore = kgDisabledUniqueTitles > 0
-      ? ((kgEnabledUniqueTitles - kgDisabledUniqueTitles) / kgDisabledUniqueTitles) * 100
-      : 0;
+    const kgEnabledUniqueTitles = new Set(kgEnabled.results.map(r => r.title))
+      .size;
+    const kgDisabledUniqueTitles = new Set(kgDisabled.results.map(r => r.title))
+      .size;
+    const diversityScore =
+      kgDisabledUniqueTitles > 0
+        ? ((kgEnabledUniqueTitles - kgDisabledUniqueTitles) /
+            kgDisabledUniqueTitles) *
+          100
+        : 0;
 
     return {
       relevanceScore,
       responseTime,
       resultCount,
       entityCoverage,
-      diversityScore
+      diversityScore,
     };
   }
 
@@ -507,16 +582,29 @@ export class KGToggleController {
     // Simplified significance calculation
     // In practice, would use proper statistical tests
 
-    const scoreDifference = Math.abs(kgEnabled.averageScore - kgDisabled.averageScore);
-    const timeDifference = Math.abs(kgEnabled.executionTimeMs - kgDisabled.executionTimeMs);
-    const resultDifference = Math.abs(kgEnabled.resultCount - kgDisabled.resultCount);
+    const scoreDifference = Math.abs(
+      kgEnabled.averageScore - kgDisabled.averageScore
+    );
+    const timeDifference = Math.abs(
+      kgEnabled.executionTimeMs - kgDisabled.executionTimeMs
+    );
+    const resultDifference = Math.abs(
+      kgEnabled.resultCount - kgDisabled.resultCount
+    );
 
     // Normalize differences and calculate combined significance
-    const normalizedScoreDiff = scoreDifference / Math.max(kgEnabled.averageScore, kgDisabled.averageScore, 1);
-    const normalizedTimeDiff = timeDifference / Math.max(kgEnabled.executionTimeMs, kgDisabled.executionTimeMs, 1);
-    const normalizedResultDiff = resultDifference / Math.max(kgEnabled.resultCount, kgDisabled.resultCount, 1);
+    const normalizedScoreDiff =
+      scoreDifference /
+      Math.max(kgEnabled.averageScore, kgDisabled.averageScore, 1);
+    const normalizedTimeDiff =
+      timeDifference /
+      Math.max(kgEnabled.executionTimeMs, kgDisabled.executionTimeMs, 1);
+    const normalizedResultDiff =
+      resultDifference /
+      Math.max(kgEnabled.resultCount, kgDisabled.resultCount, 1);
 
-    const combinedSignificance = (normalizedScoreDiff + normalizedTimeDiff + normalizedResultDiff) / 3;
+    const combinedSignificance =
+      (normalizedScoreDiff + normalizedTimeDiff + normalizedResultDiff) / 3;
 
     // Convert to confidence level (0-1)
     return Math.min(0.99, combinedSignificance * 2);
@@ -537,13 +625,13 @@ export class KGToggleController {
       improvement.relevanceScore > 5,
       improvement.entityCoverage > 10,
       improvement.diversityScore > 5,
-      improvement.responseTime > -20 // Not too much slower
+      improvement.responseTime > -20, // Not too much slower
     ].filter(Boolean).length;
 
     const negativeMetrics = [
       improvement.relevanceScore < -5,
       improvement.responseTime > 50, // Much slower
-      improvement.resultCount < -20 // Significantly fewer results
+      improvement.resultCount < -20, // Significantly fewer results
     ].filter(Boolean).length;
 
     if (positiveMetrics >= 2 && negativeMetrics === 0) {
@@ -567,25 +655,47 @@ export class KGToggleController {
 
     console.log('\n🧠 KG Enabled Results:');
     console.log(`  Results: ${result.kgEnabledResult.resultCount}`);
-    console.log(`  Avg Score: ${result.kgEnabledResult.averageScore.toFixed(3)}`);
+    console.log(
+      `  Avg Score: ${result.kgEnabledResult.averageScore.toFixed(3)}`
+    );
     console.log(`  Time: ${result.kgEnabledResult.executionTimeMs}ms`);
-    console.log(`  Entities: ${result.kgEnabledResult.entitiesRecognized.length}`);
-    console.log(`  Features: ${result.kgEnabledResult.kgFeaturesUsed.join(', ')}`);
+    console.log(
+      `  Entities: ${result.kgEnabledResult.entitiesRecognized.length}`
+    );
+    console.log(
+      `  Features: ${result.kgEnabledResult.kgFeaturesUsed.join(', ')}`
+    );
 
     console.log('\n🔍 KG Disabled Results:');
     console.log(`  Results: ${result.kgDisabledResult.resultCount}`);
-    console.log(`  Avg Score: ${result.kgDisabledResult.averageScore.toFixed(3)}`);
+    console.log(
+      `  Avg Score: ${result.kgDisabledResult.averageScore.toFixed(3)}`
+    );
     console.log(`  Time: ${result.kgDisabledResult.executionTimeMs}ms`);
-    console.log(`  Entities: ${result.kgDisabledResult.entitiesRecognized.length}`);
+    console.log(
+      `  Entities: ${result.kgDisabledResult.entitiesRecognized.length}`
+    );
 
     console.log('\n📈 Improvements:');
-    console.log(`  Relevance: ${result.improvement.relevanceScore > 0 ? '+' : ''}${result.improvement.relevanceScore.toFixed(1)}%`);
-    console.log(`  Response Time: ${result.improvement.responseTime > 0 ? '+' : ''}${result.improvement.responseTime.toFixed(1)}%`);
-    console.log(`  Result Count: ${result.improvement.resultCount > 0 ? '+' : ''}${result.improvement.resultCount.toFixed(1)}%`);
-    console.log(`  Entity Coverage: ${result.improvement.entityCoverage > 0 ? '+' : ''}${result.improvement.entityCoverage.toFixed(1)}%`);
-    console.log(`  Diversity: ${result.improvement.diversityScore > 0 ? '+' : ''}${result.improvement.diversityScore.toFixed(1)}%`);
+    console.log(
+      `  Relevance: ${result.improvement.relevanceScore > 0 ? '+' : ''}${result.improvement.relevanceScore.toFixed(1)}%`
+    );
+    console.log(
+      `  Response Time: ${result.improvement.responseTime > 0 ? '+' : ''}${result.improvement.responseTime.toFixed(1)}%`
+    );
+    console.log(
+      `  Result Count: ${result.improvement.resultCount > 0 ? '+' : ''}${result.improvement.resultCount.toFixed(1)}%`
+    );
+    console.log(
+      `  Entity Coverage: ${result.improvement.entityCoverage > 0 ? '+' : ''}${result.improvement.entityCoverage.toFixed(1)}%`
+    );
+    console.log(
+      `  Diversity: ${result.improvement.diversityScore > 0 ? '+' : ''}${result.improvement.diversityScore.toFixed(1)}%`
+    );
 
-    console.log(`\n🎯 Significance Level: ${(result.significanceLevel * 100).toFixed(1)}%`);
+    console.log(
+      `\n🎯 Significance Level: ${(result.significanceLevel * 100).toFixed(1)}%`
+    );
     console.log(`💡 Recommendation: ${result.recommendation.toUpperCase()}`);
     console.log('='.repeat(60));
   }
@@ -596,13 +706,25 @@ export class KGToggleController {
   private generateBatchSummary(results: ComparisonTestResult[]): void {
     if (results.length === 0) return;
 
-    const avgRelevanceImprovement = results.reduce((sum, r) => sum + r.improvement.relevanceScore, 0) / results.length;
-    const avgResponseTimeChange = results.reduce((sum, r) => sum + r.improvement.responseTime, 0) / results.length;
-    const avgEntityCoverageImprovement = results.reduce((sum, r) => sum + r.improvement.entityCoverage, 0) / results.length;
+    const avgRelevanceImprovement =
+      results.reduce((sum, r) => sum + r.improvement.relevanceScore, 0) /
+      results.length;
+    const avgResponseTimeChange =
+      results.reduce((sum, r) => sum + r.improvement.responseTime, 0) /
+      results.length;
+    const avgEntityCoverageImprovement =
+      results.reduce((sum, r) => sum + r.improvement.entityCoverage, 0) /
+      results.length;
 
-    const useKGCount = results.filter(r => r.recommendation === 'use_kg').length;
-    const skipKGCount = results.filter(r => r.recommendation === 'skip_kg').length;
-    const inconclusiveCount = results.filter(r => r.recommendation === 'inconclusive').length;
+    const useKGCount = results.filter(
+      r => r.recommendation === 'use_kg'
+    ).length;
+    const skipKGCount = results.filter(
+      r => r.recommendation === 'skip_kg'
+    ).length;
+    const inconclusiveCount = results.filter(
+      r => r.recommendation === 'inconclusive'
+    ).length;
 
     console.log('\n' + '='.repeat(60));
     console.log('📊 BATCH A/B TEST SUMMARY');
@@ -610,20 +732,33 @@ export class KGToggleController {
     console.log(`Total Tests: ${results.length}`);
 
     console.log('\n📈 Average Improvements:');
-    console.log(`  Relevance: ${avgRelevanceImprovement > 0 ? '+' : ''}${avgRelevanceImprovement.toFixed(1)}%`);
-    console.log(`  Response Time: ${avgResponseTimeChange > 0 ? '+' : ''}${avgResponseTimeChange.toFixed(1)}%`);
-    console.log(`  Entity Coverage: ${avgEntityCoverageImprovement > 0 ? '+' : ''}${avgEntityCoverageImprovement.toFixed(1)}%`);
+    console.log(
+      `  Relevance: ${avgRelevanceImprovement > 0 ? '+' : ''}${avgRelevanceImprovement.toFixed(1)}%`
+    );
+    console.log(
+      `  Response Time: ${avgResponseTimeChange > 0 ? '+' : ''}${avgResponseTimeChange.toFixed(1)}%`
+    );
+    console.log(
+      `  Entity Coverage: ${avgEntityCoverageImprovement > 0 ? '+' : ''}${avgEntityCoverageImprovement.toFixed(1)}%`
+    );
 
     console.log('\n🎯 Recommendations:');
-    console.log(`  Use KG: ${useKGCount} (${(useKGCount / results.length * 100).toFixed(1)}%)`);
-    console.log(`  Skip KG: ${skipKGCount} (${(skipKGCount / results.length * 100).toFixed(1)}%)`);
-    console.log(`  Inconclusive: ${inconclusiveCount} (${(inconclusiveCount / results.length * 100).toFixed(1)}%)`);
+    console.log(
+      `  Use KG: ${useKGCount} (${((useKGCount / results.length) * 100).toFixed(1)}%)`
+    );
+    console.log(
+      `  Skip KG: ${skipKGCount} (${((skipKGCount / results.length) * 100).toFixed(1)}%)`
+    );
+    console.log(
+      `  Inconclusive: ${inconclusiveCount} (${((inconclusiveCount / results.length) * 100).toFixed(1)}%)`
+    );
 
-    const overallRecommendation = useKGCount > skipKGCount
-      ? 'ENABLE_KG'
-      : skipKGCount > useKGCount
-        ? 'DISABLE_KG'
-        : 'MIXED_RESULTS';
+    const overallRecommendation =
+      useKGCount > skipKGCount
+        ? 'ENABLE_KG'
+        : skipKGCount > useKGCount
+          ? 'DISABLE_KG'
+          : 'MIXED_RESULTS';
 
     console.log(`\n🏆 Overall Recommendation: ${overallRecommendation}`);
     console.log('='.repeat(60));
@@ -632,34 +767,52 @@ export class KGToggleController {
   /**
    * Generate A/B test summary
    */
-  private generateABTestSummary(results: ComparisonTestResult[], config: ABTestConfiguration): ABTestSummary {
+  private generateABTestSummary(
+    results: ComparisonTestResult[],
+    config: ABTestConfiguration
+  ): ABTestSummary {
     return {
       testName: config.testName,
       description: config.description,
       totalTests: results.length,
       averageImprovements: {
-        relevance: results.reduce((sum, r) => sum + r.improvement.relevanceScore, 0) / results.length,
-        responseTime: results.reduce((sum, r) => sum + r.improvement.responseTime, 0) / results.length,
-        entityCoverage: results.reduce((sum, r) => sum + r.improvement.entityCoverage, 0) / results.length,
-        diversity: results.reduce((sum, r) => sum + r.improvement.diversityScore, 0) / results.length
+        relevance:
+          results.reduce((sum, r) => sum + r.improvement.relevanceScore, 0) /
+          results.length,
+        responseTime:
+          results.reduce((sum, r) => sum + r.improvement.responseTime, 0) /
+          results.length,
+        entityCoverage:
+          results.reduce((sum, r) => sum + r.improvement.entityCoverage, 0) /
+          results.length,
+        diversity:
+          results.reduce((sum, r) => sum + r.improvement.diversityScore, 0) /
+          results.length,
       },
       recommendations: {
         useKG: results.filter(r => r.recommendation === 'use_kg').length,
         skipKG: results.filter(r => r.recommendation === 'skip_kg').length,
-        inconclusive: results.filter(r => r.recommendation === 'inconclusive').length
+        inconclusive: results.filter(r => r.recommendation === 'inconclusive')
+          .length,
       },
       overallRecommendation: this.determineOverallRecommendation(results),
       confidenceLevel: config.confidenceLevel,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
   }
 
   /**
    * Determine overall recommendation from batch results
    */
-  private determineOverallRecommendation(results: ComparisonTestResult[]): 'enable_kg' | 'disable_kg' | 'mixed' {
-    const useKGCount = results.filter(r => r.recommendation === 'use_kg').length;
-    const skipKGCount = results.filter(r => r.recommendation === 'skip_kg').length;
+  private determineOverallRecommendation(
+    results: ComparisonTestResult[]
+  ): 'enable_kg' | 'disable_kg' | 'mixed' {
+    const useKGCount = results.filter(
+      r => r.recommendation === 'use_kg'
+    ).length;
+    const skipKGCount = results.filter(
+      r => r.recommendation === 'skip_kg'
+    ).length;
 
     if (useKGCount > skipKGCount * 1.5) return 'enable_kg';
     if (skipKGCount > useKGCount * 1.5) return 'disable_kg';
@@ -698,7 +851,9 @@ export interface ABTestSummary {
 /**
  * Create KG toggle controller instance
  */
-export function createKGToggleController(supabase: SupabaseClient): KGToggleController {
+export function createKGToggleController(
+  supabase: SupabaseClient
+): KGToggleController {
   return new KGToggleController(supabase);
 }
 

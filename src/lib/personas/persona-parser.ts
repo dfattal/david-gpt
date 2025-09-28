@@ -5,7 +5,11 @@
  * for use in both document ingestion and chat response generation.
  */
 
-import type { EnhancedPersonaConfig, Persona, DocumentType } from '@/lib/rag/types';
+import type {
+  EnhancedPersonaConfig,
+  Persona,
+  DocumentType,
+} from '@/lib/rag/types';
 
 export interface PersonaParseResult {
   success: boolean;
@@ -15,29 +19,41 @@ export interface PersonaParseResult {
 }
 
 export class PersonaParser {
-
   /**
    * Parse a persona markdown file into an enhanced configuration
    */
-  static parsePersonaFile(filePath: string, personaId: Persona): PersonaParseResult {
-    throw new Error('parsePersonaFile with file system access is not available in browser environment. Use parsePersonaContent instead.');
+  static parsePersonaFile(
+    filePath: string,
+    personaId: Persona
+  ): PersonaParseResult {
+    throw new Error(
+      'parsePersonaFile with file system access is not available in browser environment. Use parsePersonaContent instead.'
+    );
   }
 
   /**
    * Parse persona markdown content into an enhanced configuration
    */
-  static parsePersonaContent(content: string, personaId: Persona, fileName?: string): PersonaParseResult {
+  static parsePersonaContent(
+    content: string,
+    personaId: Persona,
+    fileName?: string
+  ): PersonaParseResult {
     const result: PersonaParseResult = {
       success: false,
       errors: [],
-      warnings: []
+      warnings: [],
     };
 
     try {
       const sections = this.parseMarkdownSections(content);
 
       // Validate required sections
-      const requiredSections = ['Core Identity', 'Personality & Tone', 'Expertise'];
+      const requiredSections = [
+        'Core Identity',
+        'Personality & Tone',
+        'Expertise',
+      ];
       for (const section of requiredSections) {
         if (!sections[section]) {
           result.errors.push(`Missing required section: ${section}`);
@@ -49,7 +65,12 @@ export class PersonaParser {
       }
 
       // Extract structured data from sections
-      const config = this.buildPersonaConfig(sections, personaId, fileName || 'unknown', new Date());
+      const config = this.buildPersonaConfig(
+        sections,
+        personaId,
+        fileName || 'unknown',
+        new Date()
+      );
 
       // Validate the resulting configuration
       const validation = this.validatePersonaConfig(config);
@@ -60,9 +81,10 @@ export class PersonaParser {
         result.success = true;
         result.config = config;
       }
-
     } catch (error) {
-      result.errors.push(`Failed to parse persona content: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      result.errors.push(
+        `Failed to parse persona content: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
 
     return result;
@@ -71,7 +93,9 @@ export class PersonaParser {
   /**
    * Parse markdown content into sections
    */
-  private static parseMarkdownSections(content: string): Record<string, string> {
+  private static parseMarkdownSections(
+    content: string
+  ): Record<string, string> {
     const sections: Record<string, string> = {};
     const lines = content.split('\n');
 
@@ -112,7 +136,6 @@ export class PersonaParser {
     fileName: string,
     lastModified: Date
   ): EnhancedPersonaConfig {
-
     // Extract core identity
     const coreIdentity = sections['Core Identity'] || '';
 
@@ -129,12 +152,15 @@ export class PersonaParser {
     const coreValues = this.parseValuesList(valuesSection);
 
     // Extract chat guidelines
-    const chatSection = sections['How a Chatbot Should Speak "as David"'] ||
-                       sections['How a Chatbot Should Speak "as ' + personaId + '"'] || '';
+    const chatSection =
+      sections['How a Chatbot Should Speak "as David"'] ||
+      sections['How a Chatbot Should Speak "as ' + personaId + '"'] ||
+      '';
     const chatGuidelines = this.parseChatGuidelines(chatSection);
 
     // Generate document types and metadata based on persona
-    const { documentTypes, searchBoosts, metadataTemplates } = this.inferDocumentPreferences(expertise, personaId);
+    const { documentTypes, searchBoosts, metadataTemplates } =
+      this.inferDocumentPreferences(expertise, personaId);
 
     // Build the enhanced configuration
     const config: EnhancedPersonaConfig = {
@@ -153,7 +179,7 @@ export class PersonaParser {
       identity: {
         coreIdentity,
         background: this.extractBackground(sections),
-        narrative: this.extractNarrative(sections)
+        narrative: this.extractNarrative(sections),
       },
 
       communicationStyle,
@@ -163,17 +189,22 @@ export class PersonaParser {
       coreValues,
 
       chat: {
-        systemPrompt: this.generateSystemPrompt(coreIdentity, communicationStyle, expertise, chatGuidelines),
+        systemPrompt: this.generateSystemPrompt(
+          coreIdentity,
+          communicationStyle,
+          expertise,
+          chatGuidelines
+        ),
         responseStyle: this.inferResponseStyle(communicationStyle),
         citationPreference: 'inline-with-context',
-        domainBoosts: this.extractDomainBoosts(expertise)
+        domainBoosts: this.extractDomainBoosts(expertise),
       },
 
       source: {
         filePath: fileName,
         lastModified,
-        version: '1.0'
-      }
+        version: '1.0',
+      },
     };
 
     return config;
@@ -192,11 +223,15 @@ export class PersonaParser {
 
     for (const line of lines) {
       if (line.includes('Tone of Voice:')) {
-        tone = line.replace(/.*Tone of Voice:\s*/, '').replace(/^\*\*|\*\*$/g, '');
+        tone = line
+          .replace(/.*Tone of Voice:\s*/, '')
+          .replace(/^\*\*|\*\*$/g, '');
       } else if (line.includes('Style:')) {
         style = line.replace(/.*Style:\s*/, '').replace(/^\*\*|\*\*$/g, '');
       } else if (line.includes('Presence:')) {
-        presence = line.replace(/.*Presence:\s*/, '').replace(/^\*\*|\*\*$/g, '');
+        presence = line
+          .replace(/.*Presence:\s*/, '')
+          .replace(/^\*\*|\*\*$/g, '');
       } else if (line.trim().startsWith('*') || line.trim().startsWith('-')) {
         const characteristic = line.replace(/^[\s\*\-]+/, '').trim();
         if (characteristic) characteristics.push(characteristic);
@@ -208,7 +243,7 @@ export class PersonaParser {
       style,
       presence,
       voiceCharacteristics: characteristics,
-      responseGuidelines: [] // Will be populated from chat section
+      responseGuidelines: [], // Will be populated from chat section
     };
   }
 
@@ -216,7 +251,12 @@ export class PersonaParser {
    * Parse expertise section into structured domains
    */
   private static parseExpertiseSection(content: string) {
-    const domains: Array<{name: string, description: string, keywords: string[], concepts: string[]}> = [];
+    const domains: Array<{
+      name: string;
+      description: string;
+      keywords: string[];
+      concepts: string[];
+    }> = [];
     const achievements: string[] = [];
     const specializations: string[] = [];
 
@@ -235,7 +275,10 @@ export class PersonaParser {
           const cleanLine = line.trim();
           if (cleanLine.startsWith('*') || cleanLine.startsWith('-')) {
             const item = cleanLine.replace(/^[\s\*\-]+/, '').trim();
-            if (item.toLowerCase().includes('patent') || item.toLowerCase().includes('invention')) {
+            if (
+              item.toLowerCase().includes('patent') ||
+              item.toLowerCase().includes('invention')
+            ) {
               achievements.push(item);
             } else {
               concepts.push(item);
@@ -253,7 +296,7 @@ export class PersonaParser {
             name: domainName,
             description: description.trim(),
             keywords: [...new Set(keywords)], // Remove duplicates
-            concepts
+            concepts,
           });
         }
       }
@@ -262,7 +305,7 @@ export class PersonaParser {
     return {
       domains,
       achievements,
-      specializations
+      specializations,
     };
   }
 
@@ -279,7 +322,9 @@ export class PersonaParser {
     }
 
     // Important nouns and concepts
-    const concepts = text.match(/\b(?:technology|system|method|display|optical|quantum|AI|algorithm|patent|invention)\w*/gi);
+    const concepts = text.match(
+      /\b(?:technology|system|method|display|optical|quantum|AI|algorithm|patent|invention)\w*/gi
+    );
     if (concepts) {
       keywords.push(...concepts.map(c => c.toLowerCase()));
     }
@@ -296,7 +341,10 @@ export class PersonaParser {
 
     for (const line of lines) {
       if (line.trim().startsWith('*') || line.trim().startsWith('-')) {
-        const value = line.replace(/^[\s\*\-]+/, '').replace(/\*\*/g, '').trim();
+        const value = line
+          .replace(/^[\s\*\-]+/, '')
+          .replace(/\*\*/g, '')
+          .trim();
         if (value) values.push(value);
       }
     }
@@ -372,17 +420,22 @@ Always be helpful, accurate, and maintain the persona's authentic voice while pr
   }
 
   private static extractNarrative(sections: Record<string, string>): string[] {
-    const narrativeSection = sections['Narrative Arc'] || sections['Career Journey'] || '';
-    return narrativeSection.split('\n').filter(line =>
-      line.trim().startsWith('*') || line.trim().startsWith('-')
-    ).map(line => line.replace(/^[\s\*\-]+/, '').trim()).filter(Boolean);
+    const narrativeSection =
+      sections['Narrative Arc'] || sections['Career Journey'] || '';
+    return narrativeSection
+      .split('\n')
+      .filter(
+        line => line.trim().startsWith('*') || line.trim().startsWith('-')
+      )
+      .map(line => line.replace(/^[\s\*\-]+/, '').trim())
+      .filter(Boolean);
   }
 
   private static inferDocumentPreferences(expertise: any, personaId: Persona) {
     const baseTypes: DocumentType[] = ['paper', 'book', 'url', 'note'];
-    let documentTypes: DocumentType[] = [...baseTypes];
+    const documentTypes: DocumentType[] = [...baseTypes];
     let searchBoosts: Record<string, number> = {};
-    let metadataTemplates: string[] = ['paper', 'book', 'url'];
+    const metadataTemplates: string[] = ['paper', 'book', 'url'];
 
     switch (personaId) {
       case 'david':
@@ -392,7 +445,7 @@ Always be helpful, accurate, and maintain the persona's authentic voice while pr
           patentNo: 1.5,
           inventors: 1.2,
           oem: 1.3,
-          leiaFeature: 1.4
+          leiaFeature: 1.4,
         };
         break;
       case 'legal':
@@ -402,17 +455,26 @@ Always be helpful, accurate, and maintain the persona's authentic voice while pr
           precedential: 1.8,
           courtLevel: 1.5,
           legalCitation: 1.3,
-          caseNumber: 1.4
+          caseNumber: 1.4,
         };
         break;
       case 'medical':
-        documentTypes.push('medical-paper', 'clinical-trial', 'medical-guideline', 'case-report');
-        metadataTemplates.push('medical', 'clinical-trial', 'medical-guideline');
+        documentTypes.push(
+          'medical-paper',
+          'clinical-trial',
+          'medical-guideline',
+          'case-report'
+        );
+        metadataTemplates.push(
+          'medical',
+          'clinical-trial',
+          'medical-guideline'
+        );
         searchBoosts = {
           clinicalTrialId: 1.6,
           studyType: 1.4,
           fdaApproval: 1.5,
-          meshTerms: 1.3
+          meshTerms: 1.3,
         };
         break;
     }
@@ -422,26 +484,38 @@ Always be helpful, accurate, and maintain the persona's authentic voice while pr
 
   private static inferDefaultDocType(personaId: Persona): DocumentType {
     switch (personaId) {
-      case 'david': return 'url';
-      case 'legal': return 'legal-doc';
-      case 'medical': return 'medical-paper';
-      default: return 'url';
+      case 'david':
+        return 'url';
+      case 'legal':
+        return 'legal-doc';
+      case 'medical':
+        return 'medical-paper';
+      default:
+        return 'url';
     }
   }
 
   private static inferCitationFormat(personaId: Persona): string {
     switch (personaId) {
-      case 'david': return 'technical';
-      case 'legal': return 'legal';
-      case 'medical': return 'medical';
-      default: return 'academic';
+      case 'david':
+        return 'technical';
+      case 'legal':
+        return 'legal';
+      case 'medical':
+        return 'medical';
+      default:
+        return 'academic';
     }
   }
 
-  private static inferResponseStyle(communicationStyle: any): 'conversational' | 'technical' | 'balanced' {
+  private static inferResponseStyle(
+    communicationStyle: any
+  ): 'conversational' | 'technical' | 'balanced' {
     const tone = communicationStyle.tone.toLowerCase();
-    if (tone.includes('conversational') || tone.includes('approachable')) return 'conversational';
-    if (tone.includes('technical') || tone.includes('rigorous')) return 'technical';
+    if (tone.includes('conversational') || tone.includes('approachable'))
+      return 'conversational';
+    if (tone.includes('technical') || tone.includes('rigorous'))
+      return 'technical';
     return 'balanced';
   }
 
@@ -450,7 +524,7 @@ Always be helpful, accurate, and maintain the persona's authentic voice while pr
 
     expertise.domains.forEach((domain: any, index: number) => {
       // Boost based on domain importance (first domains are more important)
-      const boost = 1.5 - (index * 0.1);
+      const boost = 1.5 - index * 0.1;
       domain.keywords.forEach((keyword: string) => {
         boosts[keyword.toLowerCase()] = Math.max(boost, 1.1);
       });
@@ -462,7 +536,7 @@ Always be helpful, accurate, and maintain the persona's authentic voice while pr
   private static getRequiredFields() {
     return {
       title: { type: 'string' as const, required: true },
-      docType: { type: 'string' as const, required: true }
+      docType: { type: 'string' as const, required: true },
     };
   }
 
@@ -470,7 +544,7 @@ Always be helpful, accurate, and maintain the persona's authentic voice while pr
     const base = {
       url: { type: 'string' as const },
       doi: { type: 'string' as const, pattern: /^10\.\d+\/[^\s]+$/ },
-      authors: { type: 'array' as const }
+      authors: { type: 'array' as const },
     };
 
     // Add persona-specific fields based on personaId
@@ -480,24 +554,33 @@ Always be helpful, accurate, and maintain the persona's authentic voice while pr
   /**
    * Validate the resulting persona configuration
    */
-  private static validatePersonaConfig(config: EnhancedPersonaConfig): { errors: string[], warnings: string[] } {
+  private static validatePersonaConfig(config: EnhancedPersonaConfig): {
+    errors: string[];
+    warnings: string[];
+  } {
     const errors: string[] = [];
     const warnings: string[] = [];
 
     // Check required fields
     if (!config.name) errors.push('Persona name is required');
     if (!config.identity.coreIdentity) errors.push('Core identity is required');
-    if (config.expertise.domains.length === 0) warnings.push('No expertise domains found');
-    if (config.communicationStyle.voiceCharacteristics.length === 0) warnings.push('No voice characteristics found');
+    if (config.expertise.domains.length === 0)
+      warnings.push('No expertise domains found');
+    if (config.communicationStyle.voiceCharacteristics.length === 0)
+      warnings.push('No voice characteristics found');
 
     // Validate chat configuration
-    if (!config.chat.systemPrompt) errors.push('System prompt generation failed');
-    if (config.chat.systemPrompt.length < 100) warnings.push('System prompt seems too short');
+    if (!config.chat.systemPrompt)
+      errors.push('System prompt generation failed');
+    if (config.chat.systemPrompt.length < 100)
+      warnings.push('System prompt seems too short');
 
     return { errors, warnings };
   }
 }
 
 // Export convenience functions
-export const parsePersonaFile = PersonaParser.parsePersonaFile.bind(PersonaParser);
-export const parsePersonaContent = PersonaParser.parsePersonaContent.bind(PersonaParser);
+export const parsePersonaFile =
+  PersonaParser.parsePersonaFile.bind(PersonaParser);
+export const parsePersonaContent =
+  PersonaParser.parsePersonaContent.bind(PersonaParser);

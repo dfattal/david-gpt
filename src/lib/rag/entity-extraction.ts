@@ -8,12 +8,12 @@
 export {
   modernEntityExtractor,
   processDocumentEntitiesModern as processDocumentEntities,
-  EntityExtractionService
+  EntityExtractionService,
 } from './entity-extraction-service';
 
 export {
   unifiedLLMEntityExtractor,
-  extractEntitiesWithLLM
+  extractEntitiesWithLLM,
 } from './unified-llm-entity-extractor';
 
 export {
@@ -22,7 +22,7 @@ export {
   DAVID_GPT_LEIA_CONFIG,
   COMPUTER_VISION_CONFIG,
   BUSINESS_PRESS_CONFIG,
-  GENERIC_TECH_CONFIG
+  GENERIC_TECH_CONFIG,
 } from './extraction-configs';
 
 // =======================
@@ -34,7 +34,9 @@ export {
  */
 export async function batchProcessEntities(limit = 10): Promise<void> {
   const { supabaseAdmin } = await import('@/lib/supabase');
-  const { processDocumentEntitiesModern } = await import('./entity-extraction-service');
+  const { processDocumentEntitiesModern } = await import(
+    './entity-extraction-service'
+  );
 
   try {
     console.log(`🔄 Starting batch entity processing (limit: ${limit})...`);
@@ -57,13 +59,15 @@ export async function batchProcessEntities(limit = 10): Promise<void> {
       try {
         await processDocumentEntitiesModern(doc.id);
       } catch (error) {
-        console.error(`Failed to process entities for document ${doc.title}:`, error);
+        console.error(
+          `Failed to process entities for document ${doc.title}:`,
+          error
+        );
         // Continue with other documents
       }
     }
 
     console.log('✅ Batch entity processing completed');
-
   } catch (error) {
     console.error('Error in batchProcessEntities:', error);
     throw error;

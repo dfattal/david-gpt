@@ -12,10 +12,13 @@ import {
   generateEnhancedChunks,
   generateEnhancedEmbeddings,
   insertEnhancedChunks,
-  validateGenericDocument
+  validateGenericDocument,
 } from './generic-ingestion-adapter';
 import { generateMetadataChunk } from './rich-metadata-chunks';
-import { getDocumentType, type GenericDocumentMetadata } from './document-type-registry';
+import {
+  getDocumentType,
+  type GenericDocumentMetadata,
+} from './document-type-registry';
 import type { DocumentMetadata, DocumentType } from './types';
 
 // =======================
@@ -48,12 +51,17 @@ export class EnhancedIngestionService {
 
       // Step 1: Convert legacy metadata to generic format
       const docType = this.determineDocumentType(extractedMetadata);
-      const genericMetadata = convertToGenericMetadata(extractedMetadata, docType);
+      const genericMetadata = convertToGenericMetadata(
+        extractedMetadata,
+        docType
+      );
 
       // Step 2: Validate the conversion
       const validation = validateGenericDocument(genericMetadata);
       if (!validation.valid) {
-        throw new Error(`Metadata validation failed: ${validation.errors.join(', ')}`);
+        throw new Error(
+          `Metadata validation failed: ${validation.errors.join(', ')}`
+        );
       }
 
       if (validation.warnings.length > 0) {
@@ -61,14 +69,17 @@ export class EnhancedIngestionService {
       }
 
       // Step 3: Generate enhanced chunks (content + metadata)
-      const { contentChunks, metadataChunk, totalChunks } = await generateEnhancedChunks(
-        content,
-        documentId,
-        genericMetadata,
-        legacyChunks
-      );
+      const { contentChunks, metadataChunk, totalChunks } =
+        await generateEnhancedChunks(
+          content,
+          documentId,
+          genericMetadata,
+          legacyChunks
+        );
 
-      console.log(`📦 Generated ${totalChunks} chunks (${contentChunks.length} content, ${metadataChunk ? 1 : 0} metadata)`);
+      console.log(
+        `📦 Generated ${totalChunks} chunks (${contentChunks.length} content, ${metadataChunk ? 1 : 0} metadata)`
+      );
 
       // Step 4: Generate embeddings for all chunks
       const allTexts = contentChunks.map(chunk => chunk.content);
@@ -82,7 +93,12 @@ export class EnhancedIngestionService {
       console.log(`🎯 Generated ${embeddings.length} embeddings`);
 
       // Step 5: Insert enhanced chunks into database
-      await insertEnhancedChunks(this.supabase, contentChunks, metadataChunk, embeddings);
+      await insertEnhancedChunks(
+        this.supabase,
+        contentChunks,
+        metadataChunk,
+        embeddings
+      );
 
       // Step 6: Update document with generic metadata
       const updateData = buildGenericDocumentUpdate(genericMetadata);
@@ -91,7 +107,9 @@ export class EnhancedIngestionService {
         .update(updateData)
         .eq('id', documentId);
 
-      console.log(`✅ Enhanced processing completed for document: ${documentId}`);
+      console.log(
+        `✅ Enhanced processing completed for document: ${documentId}`
+      );
 
       return {
         success: true,
@@ -99,12 +117,15 @@ export class EnhancedIngestionService {
         metadataChunkGenerated: !!metadataChunk,
       };
     } catch (error) {
-      console.error(`❌ Enhanced processing failed for document ${documentId}:`, error);
+      console.error(
+        `❌ Enhanced processing failed for document ${documentId}:`,
+        error
+      );
       return {
         success: false,
         totalChunks: 0,
         metadataChunkGenerated: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -118,7 +139,9 @@ export class EnhancedIngestionService {
     error?: string;
   }> {
     try {
-      console.log(`🔄 Migrating document to new metadata system: ${documentId}`);
+      console.log(
+        `🔄 Migrating document to new metadata system: ${documentId}`
+      );
 
       // Fetch existing document
       const { data: document, error: fetchError } = await this.supabase
@@ -132,18 +155,28 @@ export class EnhancedIngestionService {
       }
 
       // Check if already migrated
-      if (document.identifiers && Object.keys(document.identifiers).length > 0) {
-        console.log(`📋 Document ${documentId} already migrated to generic schema`);
+      if (
+        document.identifiers &&
+        Object.keys(document.identifiers).length > 0
+      ) {
+        console.log(
+          `📋 Document ${documentId} already migrated to generic schema`
+        );
         return { success: true, metadataChunkAdded: false };
       }
 
       // Convert to generic format
-      const genericMetadata = convertToGenericMetadata(document as any, document.doc_type);
+      const genericMetadata = convertToGenericMetadata(
+        document as any,
+        document.doc_type
+      );
 
       // Validate conversion
       const validation = validateGenericDocument(genericMetadata);
       if (!validation.valid) {
-        throw new Error(`Migration validation failed: ${validation.errors.join(', ')}`);
+        throw new Error(
+          `Migration validation failed: ${validation.errors.join(', ')}`
+        );
       }
 
       // Update document with new schema
@@ -159,13 +192,15 @@ export class EnhancedIngestionService {
       if (docType && docType.hasMetadataChunks) {
         const metadataChunk = generateMetadataChunk(genericMetadata, {
           includeContext: true,
-          includeRelationships: false
+          includeRelationships: false,
         });
 
         if (metadataChunk) {
           // Generate embedding for metadata chunk
           const { embeddingService } = await import('./embeddings');
-          const embeddings = await embeddingService.generateEmbeddings([metadataChunk.content]);
+          const embeddings = await embeddingService.generateEmbeddings([
+            metadataChunk.content,
+          ]);
 
           const chunkData = {
             document_id: documentId,
@@ -178,14 +213,12 @@ export class EnhancedIngestionService {
             embedding: JSON.stringify(embeddings[0]),
             metadata: {
               section_type: metadataChunk.sectionType,
-              ...metadataChunk.metadata
+              ...metadataChunk.metadata,
             },
-            tsvector_content: null // Generated by database trigger
+            tsvector_content: null, // Generated by database trigger
           };
 
-          await this.supabase
-            .from('document_chunks')
-            .insert(chunkData);
+          await this.supabase.from('document_chunks').insert(chunkData);
 
           metadataChunkAdded = true;
           console.log(`📝 Added metadata chunk for document: ${documentId}`);
@@ -196,14 +229,14 @@ export class EnhancedIngestionService {
 
       return {
         success: true,
-        metadataChunkAdded
+        metadataChunkAdded,
       };
     } catch (error) {
       console.error(`❌ Migration failed for document ${documentId}:`, error);
       return {
         success: false,
         metadataChunkAdded: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -217,7 +250,9 @@ export class EnhancedIngestionService {
     metadataChunksAdded: number;
     errors: string[];
   }> {
-    console.log(`🔄 Starting batch migration for ${documentIds.length} documents`);
+    console.log(
+      `🔄 Starting batch migration for ${documentIds.length} documents`
+    );
 
     let successfulMigrations = 0;
     let metadataChunksAdded = 0;
@@ -235,17 +270,21 @@ export class EnhancedIngestionService {
           errors.push(`${documentId}: ${result.error}`);
         }
       } catch (error) {
-        errors.push(`${documentId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        errors.push(
+          `${documentId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
       }
     }
 
-    console.log(`✅ Batch migration completed: ${successfulMigrations}/${documentIds.length} successful`);
+    console.log(
+      `✅ Batch migration completed: ${successfulMigrations}/${documentIds.length} successful`
+    );
 
     return {
       totalDocuments: documentIds.length,
       successfulMigrations,
       metadataChunksAdded,
-      errors
+      errors,
     };
   }
 
@@ -279,7 +318,7 @@ export class EnhancedIngestionService {
       totalDocuments: totalDocuments || 0,
       migratedDocuments: migratedDocuments || 0,
       pendingMigration: (totalDocuments || 0) - (migratedDocuments || 0),
-      documentsWithMetadataChunks: documentsWithMetadataChunks || 0
+      documentsWithMetadataChunks: documentsWithMetadataChunks || 0,
     };
   }
 
@@ -298,7 +337,11 @@ export class EnhancedIngestionService {
 
   private generateContentHash(content: string): string {
     const crypto = require('crypto');
-    return crypto.createHash('sha256').update(content).digest('hex').substring(0, 16);
+    return crypto
+      .createHash('sha256')
+      .update(content)
+      .digest('hex')
+      .substring(0, 16);
   }
 }
 
@@ -341,7 +384,7 @@ export function createEnhancedIngestionMiddleware(supabase: SupabaseClient) {
     // Get migration status
     async getMigrationStatus() {
       return enhancedService.getMigrationStatus();
-    }
+    },
   };
 }
 
@@ -353,7 +396,7 @@ export function createEnhancedIngestionMiddleware(supabase: SupabaseClient) {
  * Add enhanced metadata processing to ingestion pipeline
  */
 export async function integrateEnhancedMetadata(
-  originalIngestionFunction: Function,
+  originalIngestionFunction: (...args: any[]) => Promise<any>,
   supabase: SupabaseClient
 ) {
   const middleware = createEnhancedIngestionMiddleware(supabase);
@@ -365,14 +408,18 @@ export async function integrateEnhancedMetadata(
 
       // If successful and we have a document ID, enhance with metadata
       if (result.success && result.documentId) {
-        console.log(`🔄 Applying enhanced metadata processing to ${result.documentId}`);
+        console.log(
+          `🔄 Applying enhanced metadata processing to ${result.documentId}`
+        );
 
         // This would need access to the extracted metadata and chunks
         // For now, we'll schedule the enhancement as a background task
 
         // Note: In a real implementation, you'd want to modify the ingestion service
         // to call enhancedService.processDocumentWithMetadata directly
-        console.log(`📝 Enhanced metadata processing scheduled for ${result.documentId}`);
+        console.log(
+          `📝 Enhanced metadata processing scheduled for ${result.documentId}`
+        );
       }
 
       return result;

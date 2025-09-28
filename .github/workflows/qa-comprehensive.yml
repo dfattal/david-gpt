@@ -1,0 +1,265 @@
+name: Comprehensive Quality Assessment
+
+on:
+  schedule:
+    # Run daily at 6 AM UTC (comprehensive test)
+    - cron: '0 6 * * *'
+    # Run weekly on Sunday at 8 AM UTC (full test suite)
+    - cron: '0 8 * * 0'
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of test to run'
+        required: true
+        default: 'comprehensive'
+        type: choice
+        options:
+          - smoke
+          - comprehensive
+          - performance
+          - full_suite
+
+jobs:
+  comprehensive-rag-quality:
+    name: Comprehensive RAG Quality Assessment
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    if: github.event.schedule == '0 6 * * *' || github.event.inputs.test_type == 'comprehensive'
+
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Run comprehensive RAG tests
+        run: npm run test:comprehensive
+
+      - name: Run citation accuracy validation
+        run: npm run test:quality
+
+      - name: Run performance benchmarks
+        run: npm run test:performance
+
+      - name: Generate quality report
+        run: npm run qa:generate-report
+
+      - name: Upload comprehensive test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: comprehensive-qa-results-${{ github.run_number }}
+          path: |
+            DOCS/RAG-TEST-RESULTS.md
+            test-results/
+            qa-reports/
+
+      - name: Post results to Slack
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          text: |
+            Daily Comprehensive QA Results:
+            • Status: ${{ job.status }}
+            • Run ID: ${{ github.run_number }}
+            • Timestamp: ${{ github.event.head_commit.timestamp }}
+
+            View full results: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  performance-regression-test:
+    name: Performance Regression Detection
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event.inputs.test_type == 'performance' || github.event.schedule == '0 6 * * *'
+
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download previous performance baseline
+        uses: actions/download-artifact@v3
+        with:
+          name: performance-baseline
+          path: ./baselines/
+        continue-on-error: true
+
+      - name: Run performance tests
+        run: npm run test:performance
+
+      - name: Compare with baseline
+        run: npm run qa:compare-performance
+
+      - name: Upload new performance baseline
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-baseline
+          path: ./baselines/performance-baseline.json
+
+      - name: Alert on regression
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: 'warning'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          text: |
+            🚨 Performance Regression Detected!
+
+            • Test Run: ${{ github.run_number }}
+            • Branch: ${{ github.ref_name }}
+            • Commit: ${{ github.sha }}
+
+            Please investigate: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  full-test-suite:
+    name: Full Quality Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    if: github.event.schedule == '0 8 * * 0' || github.event.inputs.test_type == 'full_suite'
+
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Start application for E2E tests
+        run: |
+          npm start &
+          sleep 30
+        env:
+          NODE_ENV: production
+
+      - name: Run full RAG test suite
+        run: |
+          npm run test:comprehensive
+          npm run test:kg-quality
+          npm run test:architecture
+          npm run test:integration
+
+      - name: Run multi-turn conversation tests
+        run: ./run-multiturn-tests.sh
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        continue-on-error: true
+
+      - name: Generate weekly quality report
+        run: npm run qa:weekly-report
+
+      - name: Upload full test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: weekly-qa-results-${{ github.run_number }}
+          path: |
+            DOCS/RAG-TEST-RESULTS.md
+            multiturn-test-results.md
+            test-results/
+            qa-reports/
+            coverage/
+
+      - name: Post weekly summary to Slack
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          text: |
+            📊 Weekly Quality Assessment Complete
+
+            • Overall Status: ${{ job.status }}
+            • Test Suite: Full comprehensive testing
+            • Coverage: Unit, Integration, E2E, Multi-turn
+            • Duration: ${{ github.event.head_commit.timestamp }}
+
+            📈 Detailed Results: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  quality-metrics-collection:
+    name: Quality Metrics Collection
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: always()
+    needs: [comprehensive-rag-quality, performance-regression-test]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download test results
+        uses: actions/download-artifact@v3
+        with:
+          name: comprehensive-qa-results-${{ github.run_number }}
+          path: ./results/
+        continue-on-error: true
+
+      - name: Process quality metrics
+        run: npm run qa:process-metrics
+
+      - name: Update quality dashboard data
+        run: npm run qa:update-dashboard
+
+      - name: Commit quality metrics
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add qa-dashboard/data/
+          git commit -m "Update quality metrics - $(date)" || exit 0
+          git push

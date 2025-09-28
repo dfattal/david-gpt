@@ -6,7 +6,9 @@ import { execSync } from 'child_process';
 import { existsSync } from 'fs';
 
 // Load environment variables
-require('dotenv').config({ path: '/Users/david.fattal/Documents/GitHub/david-gpt/.env.local' });
+require('dotenv').config({
+  path: '/Users/david.fattal/Documents/GitHub/david-gpt/.env.local',
+});
 
 interface DocumentEntry {
   file_path: string;
@@ -38,7 +40,8 @@ interface ProcessingStats {
 
 class DocumentProcessor {
   private stats: ProcessingStats;
-  private corpusPath = '/Users/david.fattal/Documents/GitHub/david-gpt/my-corpus';
+  private corpusPath =
+    '/Users/david.fattal/Documents/GitHub/david-gpt/my-corpus';
 
   constructor() {
     this.stats = {
@@ -47,7 +50,7 @@ class DocumentProcessor {
       failed: 0,
       skipped: 0,
       startTime: new Date(),
-      errors: []
+      errors: [],
     };
   }
 
@@ -63,7 +66,7 @@ class DocumentProcessor {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': EXA_API_KEY
+        'x-api-key': EXA_API_KEY,
       },
       body: JSON.stringify({
         query: url,
@@ -73,15 +76,17 @@ class DocumentProcessor {
         contents: {
           text: {
             maxCharacters: 50000,
-            includeHtmlTags: false
-          }
+            includeHtmlTags: false,
+          },
         },
-        includeUrlsInSearch: [url]
-      })
+        includeUrlsInSearch: [url],
+      }),
     });
 
     if (!response.ok) {
-      throw new Error(`EXA API call failed: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `EXA API call failed: ${response.status} ${response.statusText}`
+      );
     }
 
     const data = await response.json();
@@ -99,8 +104,13 @@ class DocumentProcessor {
     return content;
   }
 
-  private async callGeminiCli(input: string, isFilePath: boolean = false): Promise<string> {
-    console.log(`🤖 Calling Gemini CLI for ${isFilePath ? 'file' : 'content'} processing`);
+  private async callGeminiCli(
+    input: string,
+    isFilePath: boolean = false
+  ): Promise<string> {
+    console.log(
+      `🤖 Calling Gemini CLI for ${isFilePath ? 'file' : 'content'} processing`
+    );
 
     const prompt = isFilePath
       ? `Extract and format the complete content from this file following the INGESTION-FORMAT.md specification. Include full text, proper YAML frontmatter, and structured markdown.`
@@ -121,10 +131,12 @@ class DocumentProcessor {
       const result = execSync(command, {
         encoding: 'utf-8',
         maxBuffer: 50 * 1024 * 1024, // 50MB buffer
-        timeout: 300000 // 5 minute timeout
+        timeout: 300000, // 5 minute timeout
       });
 
-      console.log(`✅ Gemini CLI success: ${result.length} characters generated`);
+      console.log(
+        `✅ Gemini CLI success: ${result.length} characters generated`
+      );
       return result.trim();
     } catch (error: any) {
       console.error(`❌ Gemini CLI error:`, error.message);
@@ -163,7 +175,10 @@ class DocumentProcessor {
     }
 
     // Generate filename from file path
-    const baseName = basename(document.file_path, '.pdf').replace(/[^a-z0-9-]/gi, '-');
+    const baseName = basename(document.file_path, '.pdf').replace(
+      /[^a-z0-9-]/gi,
+      '-'
+    );
     filename = `${new Date().toISOString().split('T')[0]}-${baseName}.md`;
 
     return join(this.corpusPath, subfolder, filename);
@@ -177,17 +192,25 @@ class DocumentProcessor {
     }
   }
 
-  private async processDocument(document: DocumentEntry): Promise<ProcessingResult> {
+  private async processDocument(
+    document: DocumentEntry
+  ): Promise<ProcessingResult> {
     try {
-      console.log(`\n[${this.stats.processed + 1}/${this.stats.total}] Processing: ${document.file_path}`);
-      console.log(`🔧 Tool: ${document.extraction_tool}, Strategy: ${document.extraction_strategy}`);
+      console.log(
+        `\n[${this.stats.processed + 1}/${this.stats.total}] Processing: ${document.file_path}`
+      );
+      console.log(
+        `🔧 Tool: ${document.extraction_tool}, Strategy: ${document.extraction_strategy}`
+      );
 
       let content: string;
 
       // Step 1: Extract content based on extraction tool
       if (document.extraction_tool === 'exa_mcp') {
         // Use EXA API for URLs (this manifest appears to be all local files)
-        throw new Error(`EXA extraction not supported for local files: ${document.file_path}`);
+        throw new Error(
+          `EXA extraction not supported for local files: ${document.file_path}`
+        );
       } else if (document.extraction_tool === 'gemini_direct') {
         // Use Gemini CLI directly for local files
         if (!existsSync(document.file_path)) {
@@ -225,19 +248,21 @@ class DocumentProcessor {
         success: true,
         documentPath: outputPath,
         extractionMethod: document.extraction_tool,
-        wordCount
+        wordCount,
       };
-
     } catch (error: any) {
-      console.error(`❌ Error processing ${document.file_path}:`, error.message);
+      console.error(
+        `❌ Error processing ${document.file_path}:`,
+        error.message
+      );
       this.stats.errors.push({
         document: document.file_path,
-        error: error.message
+        error: error.message,
       });
 
       return {
         success: false,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -256,7 +281,9 @@ class DocumentProcessor {
     const batchSize = 3;
     for (let i = 0; i < documents.length; i += batchSize) {
       const batch = documents.slice(i, i + batchSize);
-      console.log(`\n📦 Processing batch ${Math.floor(i / batchSize) + 1} (documents ${i + 1}-${Math.min(i + batchSize, documents.length)})\n`);
+      console.log(
+        `\n📦 Processing batch ${Math.floor(i / batchSize) + 1} (documents ${i + 1}-${Math.min(i + batchSize, documents.length)})\n`
+      );
 
       for (const document of batch) {
         const result = await this.processDocument(document);
@@ -271,8 +298,12 @@ class DocumentProcessor {
   }
 
   private printFinalReport(): void {
-    const duration = Math.round((Date.now() - this.stats.startTime.getTime()) / 1000 / 60);
-    const successRate = Math.round((this.stats.processed / this.stats.total) * 100);
+    const duration = Math.round(
+      (Date.now() - this.stats.startTime.getTime()) / 1000 / 60
+    );
+    const successRate = Math.round(
+      (this.stats.processed / this.stats.total) * 100
+    );
 
     console.log('\n==================================================');
     console.log('📊 PROCESSING COMPLETE');
