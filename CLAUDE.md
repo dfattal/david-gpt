@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-David-GPT is a personal, citation-first RAG (Retrieval-Augmented Generation) chatbot built with Next.js. It answers questions in David's voice using a curated corpus of papers, patents, and notes with transparent citations and hybrid retrieval combining embeddings and BM25 search.
+David-GPT is a **multi-persona**, citation-first RAG (Retrieval-Augmented Generation) platform built with Next.js. It allows different personas to answer questions using their own curated knowledge bases, with transparent citations and a sophisticated hybrid retrieval strategy.
 
 ## Development Commands
 
@@ -27,6 +27,11 @@ Note: No test commands are currently configured in package.json.
 
 ### Key Directory Structure
 ```
+personas/
+└── <slug>/                 # Persona-specific assets
+    ├── persona.md          # Natural-language profile
+    ├── persona.config.json # Generated config for topics & routing
+    └── RAG/                # Markdown docs for ingestion
 src/
 ├── app/                    # Next.js App Router pages and API routes
 │   ├── api/               # API endpoints for chat, documents, admin
@@ -50,24 +55,22 @@ David-GPT is in active development with substantial functionality implemented:
 - **Core Achievement**: Advanced RAG metadata injection system for improved query accuracy
 - **Database**: Supabase integration with pgvector for embeddings
 
-## Key Features (From PRD)
+## Key Features (From `DOCS/RAG-PRD.md`)
 
 ### Core Functionality
-- **Chat Interface**: Streaming responses with inline citations `[1]`, `[2]`
-- **Document Ingestion**: PDFs, DOI/arXiv links, patent numbers, Google Patents URLs
-- **Hybrid Search**: Combines semantic (embeddings) with keyword (BM25) search
-- **Knowledge Graph**: Entity extraction and relationship management
-- **Multi-turn Context**: Smart context routing for related vs unrelated queries
+- **Multi-Persona Architecture**: Each persona has a dedicated knowledge base and configuration (`/personas/<slug>`).
+- **Chat Interface**: Streaming responses with inline, source-linked citations in the format `[^doc_id:section]`.
+- **Document Ingestion**: A pipeline to convert raw content (PDFs, URLs, text) into structured Markdown files with YAML frontmatter for the RAG knowledge base.
+- **Hybrid Search**: Combines semantic (embeddings) with keyword (BM25) search, followed by a re-ranking step.
+- **Smart Query Routing**: An initial "Router" step classifies queries to determine if they require RAG, can be answered from general knowledge, or are out-of-scope.
 
 ### User Roles
-- **Admin**: Full corpus and knowledge graph management
+- **Admin**: Full corpus
 - **Member**: Read-only corpus access, conversation management  
-- **Guest**: Limited corpus access, no saved conversations
 
 ### Document Processing
 - **Chunking**: 800-1200 tokens with 15-20% overlap
-- **Libraries**: pdf-parse, GROBID (via public API), Crossref API, USPTO/EPO APIs
-- **Metadata**: Structured extraction of authors, dates, patent info, etc.
+- **Libraries**: pdf-parse
 
 ## Supabase Integration
 
@@ -92,12 +95,6 @@ The PRD specifies using Vercel AI SDK 5 with:
 - Tool calling for retrieval (`search_corpus`, `lookup_facts`, `get_timeline`)
 - OpenAI GPT-4 as the primary LLM
 
-### Performance Targets
-- Document ingestion: searchable within 5 minutes
-- Chat response: < 3 seconds for typical queries
-- Citation accuracy: > 95% for structured facts
-- Support for 100+ concurrent users, 10,000+ documents
-
 ## Important Considerations
 
 ### Security
@@ -110,11 +107,7 @@ The PRD specifies using Vercel AI SDK 5 with:
 - pgvector with HNSW indexing for embeddings (3072 dimensions)
 
 ## Documentation Reference
-- **`DOCS/PRD.md`** - Product requirements and architectural decisions
-- **`DOCS/SYSTEM_ARCHITECTURE.md`** - Technical system architecture and implementation
-- **`DOCS/CONTENT_GUIDE.md`** - Document and persona creation guide
-- **`DOCS/DEVELOPER_ONBOARDING.md`** - Developer setup and workflow guide
-- **`DOCS/PROJECT_STATUS.md`** - Current project status and implementation details
+- **`DOCS/RAG-PRD.md`** - Product requirements and architectural decisions
 
 ## MCP Server Integration
 
@@ -132,16 +125,6 @@ This project integrates with several MCP (Model Context Protocol) servers to enh
   - Next.js App Router patterns
   - Supabase client library usage
 - **Workflow**: Always call `resolve-library-id` first, then `get-library-docs` for implementation guidance
-
-### API Documentation Agent
-- **Purpose**: Use the `api-docs-retriever` agent when needing specific technical documentation for API calls, library usage, or implementation guidance
-- **Context efficiency**: This agent is optimized to retrieve precise API documentation without consuming excessive context space
-- **Use cases**:
-  - Specific method parameters and usage patterns
-  - API endpoint documentation
-  - Library implementation examples
-  - Technical reference material
-- **When to use**: Prefer this agent over manual documentation lookup when you need focused API information
 
 ### Playwright MCP
 - **E2E testing**: Use Playwright MCP for browser automation and end-to-end testing
@@ -161,4 +144,4 @@ This project integrates with several MCP (Model Context Protocol) servers to enh
 - **File system access**: The `-y` option enables non-interactive mode while preserving file system write capabilities
 - **Use cases**: PDF analysis, large document extraction, technical content processing, file writing operations, document analysis
 - **Advantages**: Full file system access, better performance than MCP, handles large files efficiently
-- **IMPORTANT**: Use positional arguments (`gemini -y "prompt"`) NOT the `-p` flag (`gemini -y -p "prompt"`) to avoid gitignore permission prompts 
+- **IMPORTANT**: gemini CLI will timeout after 2min so plan your tasks accordingly, break them down as needed

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useCallback } from "react";
 import type { User } from "@supabase/supabase-js";
-import type { Conversation } from "@/lib/types";
 
 interface UseSSEProps {
   user: User | null;

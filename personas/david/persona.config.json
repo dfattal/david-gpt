@@ -1,0 +1,181 @@
+{
+  "slug": "david",
+  "display_name": "David (Leia/Immersity)",
+  "version": "1.0.0",
+  "last_updated": "2025-09-24",
+  "in_scope_examples": [
+    "Explain how switchable LC-lens ('3D Cell') compares to DLB on OLED vs LCD.",
+    "What latency budget does Leia's predictive tracking hit end-to-end?",
+    "Summarize Samsung Odyssey 3D monitor collaboration status and timeline.",
+    "How does Immersity (NeurD) convert 2D to 3D? What models are used?",
+    "What are best practices to integrate LeiaSR via OpenXR or game plugins?",
+    "Pros/cons of parallax barrier vs switchable LC lens vs lenticular."
+  ],
+  "out_of_scope_examples": [
+    "Local restaurant recommendations.",
+    "Tax filing advice unrelated to Leia.",
+    "Generic dieting plans.",
+    "World news not tied to Leia or 3D displays.",
+    "Broad coding tutorials unrelated to Immersity stack.",
+    "Weather forecasts."
+  ],
+  "topics": [
+    {
+      "id": "glasses-free-3d",
+      "aliases": [
+        "autostereoscopic",
+        "lightfield display",
+        "spatial display",
+        "glasses free 3D",
+        "glassesless 3D"
+      ]
+    },
+    {
+      "id": "switchable-2d3d",
+      "aliases": [
+        "3D cell",
+        "switchable LC lens",
+        "parallax barrier",
+        "lenticular",
+        "DLB",
+        "diffractive lightfield backlight"
+      ]
+    },
+    {
+      "id": "2d3d-conversion",
+      "aliases": [
+        "Immersity",
+        "Neural Depth",
+        "NeurD",
+        "monocular depth estimation",
+        "view synthesis",
+        "disparity",
+        "stereo",
+        "depth map"
+      ]
+    },
+    {
+      "id": "predictive-tracking",
+      "aliases": [
+        "eye tracking",
+        "face tracking",
+        "head tracking",
+        "prediction filter",
+        "latency reduction"
+      ]
+    },
+    {
+      "id": "calibration-crosstalk",
+      "aliases": [
+        "calibration",
+        "metrology",
+        "crosstalk",
+        "weaving",
+        "pixel mapping",
+        "view mapping"
+      ]
+    },
+    {
+      "id": "openxr-and-plugins",
+      "aliases": [
+        "OpenXR",
+        "Unity plugin",
+        "Unreal plugin",
+        "GameBridge",
+        "SR runtime",
+        "SDK"
+      ]
+    },
+    {
+      "id": "oems-partners",
+      "aliases": [
+        "Samsung VD",
+        "Acer SpatialLabs",
+        "Lenovo",
+        "Dell",
+        "ZTE",
+        "BOE",
+        "Himax"
+      ]
+    },
+    {
+      "id": "devices-products",
+      "aliases": [
+        "Nubia Pad",
+        "Red Magic",
+        "Lume Pad",
+        "Odyssey 3D",
+        "SpatialLabs"
+      ]
+    },
+    {
+      "id": "optics-photonics",
+      "aliases": [
+        "nanophotonics",
+        "optical overlay",
+        "liquid crystal lens",
+        "holography (contrast)",
+        "FOV",
+        "resolution tradeoff"
+      ]
+    },
+    {
+      "id": "content-ecosystem",
+      "aliases": [
+        "gaming",
+        "video calling",
+        "Zoom",
+        "streaming",
+        "content partnerships"
+      ]
+    },
+    {
+      "id": "ip-and-patents",
+      "aliases": [
+        "Philips patents",
+        "Dimenco",
+        "HP Labs",
+        "patent families",
+        "trade secrets"
+      ]
+    },
+    {
+      "id": "manufacturing",
+      "aliases": [
+        "NIL",
+        "nano-imprint lithography",
+        "overlay manufacturing",
+        "calibration line"
+      ]
+    }
+  ],
+  "router": {
+    "vector_threshold": 0.35,
+    "bm25_keywords": [
+      "Leia",
+      "Immersity",
+      "NeurD",
+      "3D Cell",
+      "LC lens",
+      "DLB",
+      "parallax barrier",
+      "lentic*",
+      "OpenXR",
+      "GameBridge",
+      "weaving",
+      "crosstalk",
+      "calibration",
+      "Samsung",
+      "Acer",
+      "Lenovo",
+      "ZTE",
+      "BOE",
+      "Himax",
+      "Odyssey",
+      "SpatialLabs"
+    ],
+    "bm25_keywords_min_hits": 1,
+    "min_supporting_docs": 2,
+    "fallback": "handoff"
+  }
+}

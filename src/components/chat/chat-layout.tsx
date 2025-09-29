@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { ChatInterface } from "./chat-interface";
 import { ConversationSidebar } from "./conversation-sidebar";
-import { PersonaSelector, type PersonaOption } from "./persona-selector";
+import { PersonaSelector } from "./persona-selector";
 import { useAuth } from "@/components/auth/auth-provider";
 import { usePersonaState, useConversationState, useSidebarState } from "@/contexts/app-context";
 import { useActivePersonas } from "@/hooks/use-personas";
