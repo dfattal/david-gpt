@@ -103,6 +103,7 @@ export function ChatLayout() {
           currentConversation={currentConversation}
           onConversationSelect={handleConversationSelect}
           onNewConversation={handleNewConversation}
+          onConversationUpdate={handleConversationUpdate}
         />
       </div>
 

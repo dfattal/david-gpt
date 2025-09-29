@@ -46,6 +46,7 @@ interface ConversationSidebarProps {
   currentConversation?: Conversation;
   onConversationSelect: (conversation: Conversation | null) => void;
   onNewConversation: () => void;
+  onConversationUpdate?: (conversation: Conversation) => void;
 }
 
 export interface ConversationSidebarRef {
@@ -57,7 +58,7 @@ export const ConversationSidebar = forwardRef<
   ConversationSidebarRef,
   ConversationSidebarProps
 >(function ConversationSidebar(
-  { currentConversation, onConversationSelect, onNewConversation },
+  { currentConversation, onConversationSelect, onNewConversation, onConversationUpdate },
   ref
 ) {
   const { user, signOut } = useAuth();
@@ -262,6 +263,14 @@ export const ConversationSidebar = forwardRef<
           )
         );
 
+        // If this is the current conversation, update it in the parent component
+        if (currentConversation?.id === conversationId && onConversationUpdate) {
+          onConversationUpdate({
+            ...currentConversation,
+            title: updatedConversation.title
+          });
+        }
+
         addToast("Conversation renamed", "success", 2000);
         cancelRename();
       } else {
@@ -364,7 +373,14 @@ export const ConversationSidebar = forwardRef<
                   currentConversation?.id === conversation.id &&
                     "bg-primary/10 text-primary"
                 )}
-                onClick={() => onConversationSelect(conversation)}
+                onClick={(e) => {
+                  // Don't load conversation if clicking on edit mode elements
+                  if (editingId === conversation.id) {
+                    e.stopPropagation();
+                    return;
+                  }
+                  onConversationSelect(conversation);
+                }}
               >
                 <div className="flex items-start pr-10">
                   <div className="flex-1 min-w-0 px-3 pr-1">
