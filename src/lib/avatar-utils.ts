@@ -10,7 +10,13 @@ export function getPersonaAvatar(persona: PersonaOption | null): string {
     return persona.avatar_url;
   }
 
-  // Generate avatar URL using avatar generation service
+  // Use local persona avatar images from /public/personas
+  const localAvatarPath = getLocalAvatarPath(persona.persona_id);
+  if (localAvatarPath) {
+    return localAvatarPath;
+  }
+
+  // Fallback to generated avatar URL using avatar generation service
   return generateAvatarUrl(persona);
 }
 
@@ -21,8 +27,20 @@ export function generateAvatarUrl(persona: PersonaOption): string {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&size=128&background=${theme.bg}&color=${theme.text}&bold=true&format=svg`;
 }
 
+export function getLocalAvatarPath(personaId: string): string | null {
+  // Map persona IDs to their local avatar files
+  const avatarMap: Record<string, string> = {
+    'david': '/personas/david.jpg',
+    'legal': '/personas/legal.svg',
+    // Add more mappings as you add more persona avatars
+  };
+
+  return avatarMap[personaId] || null;
+}
+
 export function generateDefaultAvatar(): string {
-  return `https://ui-avatars.com/api/?name=AI&size=128&background=6b7280&color=ffffff&bold=true&format=svg`;
+  // Use local default avatar if available, otherwise fallback to generated
+  return '/personas/default.svg';
 }
 
 export function getPersonaInitials(persona: PersonaOption): string {
