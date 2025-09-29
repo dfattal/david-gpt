@@ -1,6 +1,7 @@
 import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { createClient } from "@/lib/supabase/server";
+import { broadcastTitleUpdate } from "@/lib/sse-broadcaster";
 
 export async function generateConversationTitle(
   conversationId: string,
@@ -41,6 +42,11 @@ export async function generateConversationTitle(
     }
 
     console.log(`✅ Successfully generated and saved title: "${title}"`);
+
+    // Broadcast the title update via SSE
+    console.log(`📡 Broadcasting title update via SSE for user ${userId}`);
+    broadcastTitleUpdate(userId, conversationId, title);
+
     return { success: true, title };
   } catch (error) {
     console.error("❌ Title generation failed with error:", error);

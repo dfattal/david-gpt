@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { AppError, handleApiError } from "@/lib/utils";
+import { addSSEConnection, removeSSEConnection } from "@/lib/sse-broadcaster";
 
 export async function GET(req: NextRequest) {
   try {
@@ -28,6 +29,9 @@ export async function GET(req: NextRequest) {
     // Create a readable stream for SSE
     const stream = new ReadableStream({
       start(controller) {
+        // Register this connection with the broadcaster
+        addSSEConnection(user.id, controller);
+
         // Send initial connection confirmation
         const data = JSON.stringify({
           type: 'connected',
@@ -47,12 +51,14 @@ export async function GET(req: NextRequest) {
           } catch (error) {
             console.error('Heartbeat error:', error);
             clearInterval(heartbeat);
+            removeSSEConnection(user.id, controller);
           }
         }, 30000); // Send heartbeat every 30 seconds
 
         // Clean up on close
         req.signal.addEventListener('abort', () => {
           clearInterval(heartbeat);
+          removeSSEConnection(user.id, controller);
           controller.close();
         });
       }

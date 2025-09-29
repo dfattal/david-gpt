@@ -279,11 +279,11 @@ export function ChatInterface({
                     {/* Welcome Section */}
                     <div className="space-y-4">
                       <h1 className="text-4xl font-bold tracking-tight">
-                        Welcome to {selectedPersona.name}
+                        Chat with {selectedPersona.name}
                       </h1>
 
                       <p className="text-lg text-muted-foreground max-w-lg leading-relaxed">
-                        {selectedPersona.description}
+                        Ask me about {selectedPersona.expertise || selectedPersona.expertise_domains?.slice(0, 2).join(' and ') || 'anything'}
                       </p>
 
                       {/* Expertise badges */}
@@ -307,7 +307,9 @@ export function ChatInterface({
                       <p className="text-sm text-muted-foreground">
                         {isGuest
                           ? "You're browsing as a guest with limited access. Start a conversation below."
-                          : `Ask me anything about ${selectedPersona.expertise_domains?.slice(0, 2).join(' or ') || 'anything'} - or just chat!`}
+                          : selectedPersona.example_questions && selectedPersona.example_questions.length > 0
+                          ? `Try asking: "${selectedPersona.example_questions[0]}" or "${selectedPersona.example_questions[1]}"`
+                          : `Ready to help with ${selectedPersona.expertise || selectedPersona.expertise_domains?.slice(0, 2).join(' and ') || 'anything'} - or just chat!`}
                       </p>
 
                       {/* Switch persona button */}

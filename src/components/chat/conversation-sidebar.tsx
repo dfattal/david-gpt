@@ -161,10 +161,20 @@ export const ConversationSidebar = forwardRef<
         return updated;
       });
 
+      // If this is the current conversation, update it in the chat interface too
+      console.log(`🔍 Checking current conversation: currentId="${currentConversation?.id}", updateId="${conversationId}"`);
+      if (currentConversation?.id === conversationId && onConversationUpdate) {
+        const updatedConversation = { ...currentConversation, title };
+        console.log(`🔄 Updating current conversation title via SSE: "${title}"`);
+        onConversationUpdate(updatedConversation);
+      } else {
+        console.log(`❌ Not updating current conversation: currentId="${currentConversation?.id}", updateId="${conversationId}", hasCallback=${!!onConversationUpdate}`);
+      }
+
       // Show success notification for title generation
       addToast(`Title updated: "${title}"`, "success", 3000);
     },
-    [addToast]
+    [addToast, currentConversation, onConversationUpdate]
   );
 
   // Set up SSE connection with the new hook

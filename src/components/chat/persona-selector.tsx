@@ -18,6 +18,8 @@ export interface PersonaOption {
   name: string;
   description: string;
   expertise_domains: string[];
+  expertise?: string;
+  example_questions?: string[];
   avatar_url?: string;
   is_active: boolean;
   stats?: {
