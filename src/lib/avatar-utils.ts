@@ -26,6 +26,10 @@ export function generateDefaultAvatar(): string {
 }
 
 export function getPersonaInitials(persona: PersonaOption): string {
+  if (!persona.name || typeof persona.name !== 'string') {
+    return persona.persona_id?.slice(0, 2).toUpperCase() || 'AI';
+  }
+
   return persona.name
     .split(' ')
     .map(n => n[0])

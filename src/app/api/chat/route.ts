@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       maxTokens: 2000,
     });
 
-    return result.toAIStreamResponse();
+    return result.toTextStreamResponse();
   } catch (error) {
     console.error("Chat API error:", error);
     return NextResponse.json(

@@ -53,6 +53,9 @@ export function PersonaSelector({
 
 
   const getPersonaFallback = (persona: PersonaOption) => {
+    if (!persona.name || typeof persona.name !== 'string') {
+      return persona.persona_id?.slice(0, 2).toUpperCase() || 'AI';
+    }
     return persona.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
@@ -185,7 +188,7 @@ export function PersonaSelector({
 
                       {/* Expertise Domains */}
                       <div className="flex flex-wrap gap-1 justify-center min-h-[2rem]">
-                        {persona.expertise_domains.slice(0, 3).map((domain) => (
+                        {persona.expertise_domains?.slice(0, 3).map((domain) => (
                           <Badge
                             key={domain}
                             variant="secondary"
@@ -194,9 +197,9 @@ export function PersonaSelector({
                             {domain}
                           </Badge>
                         ))}
-                        {persona.expertise_domains.length > 3 && (
+                        {(persona.expertise_domains?.length || 0) > 3 && (
                           <Badge variant="outline" className="text-xs px-2 py-0.5">
-                            +{persona.expertise_domains.length - 3}
+                            +{(persona.expertise_domains?.length || 0) - 3}
                           </Badge>
                         )}
                       </div>

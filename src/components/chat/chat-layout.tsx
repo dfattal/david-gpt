@@ -21,12 +21,19 @@ export function ChatLayout() {
     setTitleGenerating: (conversationId: string, isGenerating: boolean) => void;
   } | null>(null);
 
-  // Show persona selector on initial load if no persona selected
+  // Auto-select David persona on initial load if no persona selected
   useEffect(() => {
-    if (user && !selectedPersona && !personasLoading) {
-      setPersonaSelectorOpen(true);
+    if (user && !selectedPersona && !personasLoading && personas.length > 0) {
+      // Find David persona and auto-select it
+      const davidPersona = personas.find(p => p.persona_id === 'david');
+      if (davidPersona) {
+        setSelectedPersona(davidPersona);
+      } else {
+        // Fallback to showing selector if David persona not found
+        setPersonaSelectorOpen(true);
+      }
     }
-  }, [user, selectedPersona, personasLoading, setPersonaSelectorOpen]);
+  }, [user, selectedPersona, personasLoading, personas, setSelectedPersona, setPersonaSelectorOpen]);
 
   // Reset conversation when user changes or persona changes
   useEffect(() => {

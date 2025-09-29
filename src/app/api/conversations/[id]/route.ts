@@ -21,6 +21,8 @@ export async function GET(
 
     const { id: conversationId } = await params;
 
+    console.log(`🔍 Fetching conversation: ${conversationId} for user: ${user.id}`);
+
     // Fetch conversation with messages
     const { data: conversation, error: convError } = await supabase
       .from("conversations")
@@ -30,6 +32,7 @@ export async function GET(
       .single();
 
     if (convError || !conversation) {
+      console.log(`❌ Conversation not found: ${conversationId} for user ${user.id}. Error:`, convError);
       throw new AppError("Conversation not found", 404);
     }
 

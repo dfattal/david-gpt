@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { MessageBubble } from "./message-bubble";
 import { useAuth } from "@/components/auth/auth-provider";
 import { formatDate } from "@/lib/utils";
-import { getPersonaAvatar } from "@/lib/avatar-utils";
+import { getPersonaAvatar, getPersonaInitials } from "@/lib/avatar-utils";
 import { Send, Settings, User } from "lucide-react";
 import type { Conversation } from "@/lib/types";
 import type { PersonaOption } from "./persona-selector";
@@ -53,6 +53,11 @@ export function ChatInterface({
           if (response.ok) {
             const { conversation: updatedConversation } = await response.json();
             onConversationUpdate(updatedConversation);
+          } else if (response.status === 404) {
+            // Conversation not found - likely a timing issue during creation
+            console.warn(`Conversation ${conversation.id} not found, skipping update`);
+          } else {
+            console.error(`Failed to fetch conversation: ${response.status} ${response.statusText}`);
           }
         } catch (error) {
           console.error("Failed to update conversation:", error);
@@ -92,7 +97,7 @@ export function ChatInterface({
         const response = await fetch(`/api/conversations/${newConversationId}`);
         if (response.ok) {
           const { messages: conversationMessages } = await response.json();
-          
+
           // Convert database messages to chat hook format
           const formattedMessages = conversationMessages.map((msg: any) => ({
             id: msg.id,
@@ -100,16 +105,23 @@ export function ChatInterface({
             content: msg.content,
             createdAt: new Date(msg.created_at),
           }));
-          
+
           // Update messages when switching to a different conversation
           // Only skip if we're in an active generation (isLoading) to prevent overwriting streaming messages
           if (isNewConversation && !isLoading) {
             setMessages(formattedMessages);
           }
-          
+
           setCurrentConversationId(newConversationId);
+        } else if (response.status === 404) {
+          // Conversation not found - likely deleted or doesn't belong to user
+          console.warn(`Conversation ${newConversationId} not found, clearing messages`);
+          if (isNewConversation && !isLoading) {
+            setMessages([]);
+          }
+          setCurrentConversationId(null);
         } else {
-          console.error("Failed to load conversation messages");
+          console.error(`Failed to load conversation messages: ${response.status} ${response.statusText}`);
         }
       } catch (error) {
         console.error("Error loading conversation messages:", error);
@@ -203,7 +215,7 @@ export function ChatInterface({
                     alt={selectedPersona.name}
                   />
                   <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                    {selectedPersona.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                    {getPersonaInitials(selectedPersona)}
                   </AvatarFallback>
                 </Avatar>
                 <span className="text-sm font-medium">{selectedPersona.name}</span>
@@ -260,7 +272,7 @@ export function ChatInterface({
                         className="object-cover"
                       />
                       <AvatarFallback className="text-2xl font-bold bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                        {selectedPersona.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        {getPersonaInitials(selectedPersona)}
                       </AvatarFallback>
                     </Avatar>
 
@@ -275,16 +287,16 @@ export function ChatInterface({
                       </p>
 
                       {/* Expertise badges */}
-                      {selectedPersona.expertise_domains.length > 0 && (
+                      {(selectedPersona.expertise_domains?.length || 0) > 0 && (
                         <div className="flex flex-wrap gap-2 justify-center">
-                          {selectedPersona.expertise_domains.slice(0, 4).map((domain) => (
+                          {selectedPersona.expertise_domains?.slice(0, 4).map((domain) => (
                             <Badge key={domain} variant="secondary" className="text-sm">
                               {domain}
                             </Badge>
                           ))}
-                          {selectedPersona.expertise_domains.length > 4 && (
+                          {(selectedPersona.expertise_domains?.length || 0) > 4 && (
                             <Badge variant="outline" className="text-sm">
-                              +{selectedPersona.expertise_domains.length - 4} more
+                              +{(selectedPersona.expertise_domains?.length || 0) - 4} more
                             </Badge>
                           )}
                         </div>
@@ -295,7 +307,7 @@ export function ChatInterface({
                       <p className="text-sm text-muted-foreground">
                         {isGuest
                           ? "You're browsing as a guest with limited access. Start a conversation below."
-                          : `Ask me anything about ${selectedPersona.expertise_domains.slice(0, 2).join(' or ')} - or just chat!`}
+                          : `Ask me anything about ${selectedPersona.expertise_domains?.slice(0, 2).join(' or ') || 'anything'} - or just chat!`}
                       </p>
 
                       {/* Switch persona button */}
@@ -356,7 +368,7 @@ export function ChatInterface({
                       alt={selectedPersona?.name}
                     />
                     <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                      {selectedPersona?.name.split(' ').map(n => n[0]).join('').slice(0, 2) || 'AI'}
+                      {selectedPersona ? getPersonaInitials(selectedPersona) : 'AI'}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex items-center space-x-2 text-muted-foreground">

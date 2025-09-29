@@ -83,6 +83,8 @@ export async function POST(req: NextRequest) {
 
     // If there's a first message, save it and trigger title generation
     if (firstMessage) {
+      console.log(`💬 Saving first message for conversation ${conversation.id}: "${firstMessage.substring(0, 50)}..."`);
+
       const { error: messageError } = await supabase.from("messages").insert({
         conversation_id: conversation.id,
         role: "user",
@@ -90,12 +92,15 @@ export async function POST(req: NextRequest) {
       });
 
       if (messageError) {
-        console.error("Failed to save first message:", messageError);
+        console.error("❌ Failed to save first message:", messageError);
         // Don't fail the conversation creation if message save fails
+      } else {
+        console.log(`✅ First message saved successfully`);
       }
 
       // Trigger async title generation (non-blocking)
       // Don't await this - let it happen in background
+      console.log(`🚀 Triggering title generation for conversation ${conversation.id}`);
       generateConversationTitle(conversation.id, firstMessage, user.id)
         .then((result) => {
           if (result.success) {
@@ -105,9 +110,11 @@ export async function POST(req: NextRequest) {
           }
         })
         .catch((error) => {
-          console.error("Failed to trigger title generation:", error);
+          console.error("❌ Failed to trigger title generation:", error);
           // Don't fail the conversation creation if title generation fails
         });
+    } else {
+      console.log(`⚠️ No first message provided for conversation ${conversation.id}`);
     }
 
     return NextResponse.json({ conversation }, { status: 201 });
