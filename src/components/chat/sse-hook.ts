@@ -16,13 +16,18 @@ export function useSSE({
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isConnectedRef = useRef(false);
 
+  // Use a ref to hold the fetchConversations function to avoid stale closures
+  const fetchConversationsRef = useRef(fetchConversations);
+  useEffect(() => {
+    fetchConversationsRef.current = fetchConversations;
+  }, [fetchConversations]);
+
   const setupSSEConnection = useCallback(() => {
     if (!user) {
       console.log("⏭️ Skipping SSE setup - no user authenticated");
       return;
     }
 
-    // Clean up any existing connection
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
@@ -71,18 +76,18 @@ export function useSSE({
       if (eventSource.readyState === EventSource.CLOSED) {
         console.log("🔄 SSE connection closed, setting up fallback");
 
-        // Set up fallback polling
         const fallbackInterval = setInterval(() => {
           console.log(
             "🔄 Fallback: Refreshing conversations for title updates"
           );
-          fetchConversations();
+          // Use the ref to get the latest fetchConversations function
+          if (fetchConversationsRef.current) {
+            fetchConversationsRef.current();
+          }
         }, 5000);
 
-        // Store for cleanup
         (eventSource as any)._fallbackInterval = fallbackInterval;
 
-        // Try to reconnect in development mode
         if (process.env.NODE_ENV === "development") {
           reconnectTimeoutRef.current = setTimeout(() => {
             console.log("🔄 Attempting SSE reconnection...");
@@ -93,7 +98,7 @@ export function useSSE({
     };
 
     return eventSource;
-  }, [user, onTitleUpdate, fetchConversations]);
+  }, [user, onTitleUpdate]); // fetchConversations is removed from dependencies
 
   const cleanup = useCallback(() => {
     console.log("🧹 Cleaning up SSE connection");
@@ -104,7 +109,6 @@ export function useSSE({
     }
 
     if (eventSourceRef.current) {
-      // Clean up fallback interval if it exists
       if ((eventSourceRef.current as any)._fallbackInterval) {
         clearInterval((eventSourceRef.current as any)._fallbackInterval);
       }
@@ -121,7 +125,6 @@ export function useSSE({
       return;
     }
 
-    // Delay setup slightly to handle React Strict Mode double invocation
     const setupTimeout = setTimeout(() => {
       setupSSEConnection();
     }, 50);
@@ -130,7 +133,7 @@ export function useSSE({
       clearTimeout(setupTimeout);
       cleanup();
     };
-  }, [user?.id]); // Only depend on user ID to avoid unnecessary reconnections
+  }, [user?.id, setupSSEConnection]); // Dependency on setupSSEConnection
 
   return {
     isConnected: isConnectedRef.current,

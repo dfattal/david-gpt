@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { ChatInterface } from "./chat-interface";
 import { ConversationSidebar } from "./conversation-sidebar";
 import { PersonaSelector } from "./persona-selector";
 import { useAuth } from "@/components/auth/auth-provider";
-import { usePersonaState, useConversationState, useSidebarState } from "@/contexts/app-context";
+import { useSSE } from "./sse-hook";
+import {
+  usePersonaState,
+  useConversationState,
+  useSidebarState,
+} from "@/contexts/app-context";
 import { useActivePersonas } from "@/hooks/use-personas";
 import type { Conversation } from "@/lib/types";
 
@@ -13,27 +18,66 @@ export function ChatLayout() {
   const { user } = useAuth();
   const { currentConversation, setCurrentConversation } = useConversationState();
   const { sidebarOpen, setSidebarOpen, toggleSidebar } = useSidebarState();
-  const { selectedPersona, isPersonaSelectorOpen, setSelectedPersona, setPersonaSelectorOpen } = usePersonaState();
-  const { data: personas = [], isLoading: personasLoading } = useActivePersonas();
+  const {
+    selectedPersona,
+    isPersonaSelectorOpen,
+    setSelectedPersona,
+    setPersonaSelectorOpen,
+  } = usePersonaState();
+  const { data: personas = [], isLoading: personasLoading } =
+    useActivePersonas();
 
   const sidebarRef = useRef<{
     refreshConversations: () => void;
     setTitleGenerating: (conversationId: string, isGenerating: boolean) => void;
   } | null>(null);
 
+  const handleTitleUpdate = useCallback(
+    (conversationId: string, title: string) => {
+      console.log(
+        `[ChatLayout] Handling title update for ${conversationId}: "${title}"`
+      );
+
+      // Update the title of the current conversation if it matches
+      if (currentConversation?.id === conversationId) {
+        console.log(
+          `[ChatLayout] Updating current conversation title to "${title}"`
+        );
+        setCurrentConversation({ ...currentConversation, title });
+      }
+
+      // Refresh the sidebar to show the updated title in the list
+      sidebarRef.current?.refreshConversations();
+      sidebarRef.current?.setTitleGenerating(conversationId, false);
+    },
+    [currentConversation, setCurrentConversation]
+  );
+
+  // Setup SSE connection for real-time title updates
+  useSSE({
+    user,
+    onTitleUpdate: handleTitleUpdate,
+    fetchConversations: () => sidebarRef.current?.refreshConversations(),
+  });
+
   // Auto-select David persona on initial load if no persona selected
   useEffect(() => {
     if (user && !selectedPersona && !personasLoading && personas.length > 0) {
-      // Find David persona and auto-select it
-      const davidPersona = personas.find(p => p.persona_id === 'david');
+      const davidPersona = personas.find((p) => p.persona_id === "david");
       if (davidPersona) {
         setSelectedPersona(davidPersona);
       } else {
-        // Fallback to showing selector if David persona not found
         setPersonaSelectorOpen(true);
       }
     }
-  }, [user, selectedPersona, personasLoading, personas, setSelectedPersona, setPersonaSelectorOpen]);
+  }, [
+    user,
+    selectedPersona,
+    personasLoading,
+    personas,
+    setSelectedPersona,
+    setPersonaSelectorOpen,
+  ]);
 
   // Reset conversation when user changes or persona changes
   useEffect(() => {
