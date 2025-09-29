@@ -1,6 +1,6 @@
 /**
  * Admin API Routes for Relationship Management
- *
+ * 
  * Provides CRUD operations for knowledge graph relationships (edges)
  */
 
@@ -13,22 +13,9 @@ const CreateRelationshipSchema = z.object({
   srcId: z.string().uuid(),
   srcType: z.enum(['entity', 'document']),
   relation: z.enum([
-    'author_of',
-    'inventor_of',
-    'assignee_of',
-    'cites',
-    'supersedes',
-    'implements',
-    'used_in',
-    'similar_to',
-    'enables_3d',
-    'uses_component',
-    'competing_with',
-    'integrates_with',
-    'can_use',
-    'enhances',
-    'evolved_to',
-    'alternative_to',
+    'author_of', 'inventor_of', 'assignee_of', 'cites', 'supersedes',
+    'implements', 'used_in', 'similar_to', 'enables_3d', 'uses_component',
+    'competing_with', 'integrates_with', 'can_use', 'enhances', 'evolved_to', 'alternative_to'
   ]),
   dstId: z.string().uuid(),
   dstType: z.enum(['entity', 'document']),
@@ -38,26 +25,11 @@ const CreateRelationshipSchema = z.object({
 });
 
 const UpdateRelationshipSchema = z.object({
-  relation: z
-    .enum([
-      'author_of',
-      'inventor_of',
-      'assignee_of',
-      'cites',
-      'supersedes',
-      'implements',
-      'used_in',
-      'similar_to',
-      'enables_3d',
-      'uses_component',
-      'competing_with',
-      'integrates_with',
-      'can_use',
-      'enhances',
-      'evolved_to',
-      'alternative_to',
-    ])
-    .optional(),
+  relation: z.enum([
+    'author_of', 'inventor_of', 'assignee_of', 'cites', 'supersedes',
+    'implements', 'used_in', 'similar_to', 'enables_3d', 'uses_component',
+    'competing_with', 'integrates_with', 'can_use', 'enhances', 'evolved_to', 'alternative_to'
+  ]).optional(),
   weight: z.number().min(0).max(1).optional(),
   evidenceText: z.string().optional(),
   evidenceDocId: z.string().uuid().optional(),
@@ -87,19 +59,16 @@ export async function GET(request: NextRequest) {
   // Check admin permissions
   const authCheck = await checkAdminPermissions(request);
   if (authCheck.error) {
-    return NextResponse.json(
-      { error: authCheck.error },
-      { status: authCheck.status }
-    );
+    return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
   }
 
   try {
     const { searchParams } = new URL(request.url);
-    const params = SearchRelationshipsSchema.parse(
-      Object.fromEntries(searchParams)
-    );
+    const params = SearchRelationshipsSchema.parse(Object.fromEntries(searchParams));
 
-    let query = supabaseAdmin.from('edges').select(`
+    let query = supabaseAdmin
+      .from('edges')
+      .select(`
         id,
         src_id,
         src_type,
@@ -114,9 +83,7 @@ export async function GET(request: NextRequest) {
 
     // Apply filters
     if (params.entityId) {
-      query = query.or(
-        `src_id.eq.${params.entityId},dst_id.eq.${params.entityId}`
-      );
+      query = query.or(`src_id.eq.${params.entityId},dst_id.eq.${params.entityId}`);
     }
 
     if (params.relation) {
@@ -132,15 +99,12 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Failed to fetch relationships:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch relationships' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to fetch relationships' }, { status: 500 });
     }
 
     // Manually fetch related entities and documents
     const enrichedRelationships = await Promise.all(
-      (relationships || []).map(async rel => {
+      (relationships || []).map(async (rel) => {
         const enrichedRel = { ...rel };
 
         // Fetch source entity if it's an entity type
@@ -183,14 +147,12 @@ export async function GET(request: NextRequest) {
         total: count || 0,
         offset: params.offset,
         limit: params.limit,
-      },
+      }
     });
+
   } catch (error) {
     console.error('Error in GET /api/admin/relationships:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -202,10 +164,7 @@ export async function POST(request: NextRequest) {
   // Check admin permissions
   const authCheck = await checkAdminPermissions(request);
   if (authCheck.error) {
-    return NextResponse.json(
-      { error: authCheck.error },
-      { status: authCheck.status }
-    );
+    return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
   }
 
   try {
@@ -221,10 +180,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (!srcEntity) {
-        return NextResponse.json(
-          { error: 'Source entity not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Source entity not found' }, { status: 404 });
       }
     }
 
@@ -236,10 +192,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (!dstEntity) {
-        return NextResponse.json(
-          { error: 'Destination entity not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Destination entity not found' }, { status: 404 });
       }
     }
 
@@ -274,8 +227,7 @@ export async function POST(request: NextRequest) {
         evidence_text: validatedData.evidenceText,
         evidence_doc_id: validatedData.evidenceDocId,
       })
-      .select(
-        `
+      .select(`
         id,
         src_id,
         src_type,
@@ -288,30 +240,21 @@ export async function POST(request: NextRequest) {
         created_at,
         src_entity:entities!edges_src_id_fkey(name, kind),
         dst_entity:entities!edges_dst_id_fkey(name, kind)
-      `
-      )
+      `)
       .single();
 
     if (error) {
       console.error('Failed to create relationship:', error);
-      return NextResponse.json(
-        { error: 'Failed to create relationship' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to create relationship' }, { status: 500 });
     }
 
     return NextResponse.json({ relationship }, { status: 201 });
+
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid input', details: error.errors },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid input', details: error.errors }, { status: 400 });
     }
     console.error('Error in POST /api/admin/relationships:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

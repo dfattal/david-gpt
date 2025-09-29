@@ -14,19 +14,17 @@ export async function POST(req: NextRequest) {
     const supabase = createOptimizedAdminClient();
     const body = await req.json();
 
-    console.log('📋 Request body received:', {
-      documentsCount: body.documents?.length,
-    });
+    console.log('📋 Request body received:', { documentsCount: body.documents?.length });
 
     // Simple document insertion with new schema
     const testDoc = body.documents[0];
 
     const identifiers = {
-      test_id: 'minimal-test-' + Date.now(),
+      test_id: 'minimal-test-' + Date.now()
     };
 
     const dates = {
-      created: new Date().toISOString().split('T')[0],
+      created: new Date().toISOString().split('T')[0]
     };
 
     console.log('💾 Inserting document with new schema...');
@@ -39,7 +37,7 @@ export async function POST(req: NextRequest) {
         identifiers,
         dates,
         processing_status: 'completed',
-        created_by: 'b349bd11-bd69-4582-9713-3ada0ba58fcf', // Test user ID
+        created_by: 'b349bd11-bd69-4582-9713-3ada0ba58fcf' // Test user ID
       })
       .select()
       .single();
@@ -63,7 +61,7 @@ export async function POST(req: NextRequest) {
         token_count: Math.floor(testDoc.content.length / 4), // Rough estimate
         chunk_index: 0,
         chunk_type: 'content',
-        metadata: testDoc.metadata,
+        metadata: testDoc.metadata
       });
 
     if (chunkError) {
@@ -73,26 +71,21 @@ export async function POST(req: NextRequest) {
 
     console.log('✅ Chunk inserted successfully');
 
-    return NextResponse.json(
-      {
-        success: true,
-        documentId: document.id,
-        message: 'Minimal ingestion test completed successfully',
-        schema: {
-          identifiers: Object.keys(identifiers),
-          dates: Object.keys(dates),
-        },
-      },
-      { status: 201 }
-    );
+    return NextResponse.json({
+      success: true,
+      documentId: document.id,
+      message: 'Minimal ingestion test completed successfully',
+      schema: {
+        identifiers: Object.keys(identifiers),
+        dates: Object.keys(dates)
+      }
+    }, { status: 201 });
+
   } catch (error) {
     console.error('❌ Minimal ingestion test failed:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }

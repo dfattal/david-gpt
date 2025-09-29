@@ -1,7 +1,7 @@
 /**
  * Unified Document Analysis Service
- *
- * Consolidates document type detection, academic paper detection,
+ * 
+ * Consolidates document type detection, academic paper detection, 
  * and content analysis logic that was scattered across multiple files.
  * Enhanced with URL list detection for batch processing.
  */
@@ -45,6 +45,7 @@ export interface AnalysisInput {
 // =======================
 
 export class UnifiedDocumentAnalyzer {
+  
   /**
    * Analyze document and determine its type, academic nature, and other characteristics
    */
@@ -63,7 +64,7 @@ export class UnifiedDocumentAnalyzer {
       academicConfidence,
       authority,
       metadata,
-      characteristics,
+      characteristics
     };
   }
 
@@ -83,10 +84,7 @@ export class UnifiedDocumentAnalyzer {
 
     // Content-based detection for technical documents
     if (input.content) {
-      const contentAnalysis = this.analyzeContentType(
-        input.content,
-        input.fileName
-      );
+      const contentAnalysis = this.analyzeContentType(input.content, input.fileName);
       if (contentAnalysis.documentType !== 'note') {
         return contentAnalysis.documentType;
       }
@@ -95,13 +93,11 @@ export class UnifiedDocumentAnalyzer {
     // URL-based detection
     if (input.url) {
       const url = input.url.toLowerCase();
-
+      
       // Patent URLs
-      if (
-        url.includes('patents.google.com') ||
-        url.includes('uspto.gov') ||
-        url.includes('patentscope.wipo.int')
-      ) {
+      if (url.includes('patents.google.com') || 
+          url.includes('uspto.gov') || 
+          url.includes('patentscope.wipo.int')) {
         return 'patent';
       }
 
@@ -124,10 +120,7 @@ export class UnifiedDocumentAnalyzer {
 
     // Content-based fallback
     if (input.content) {
-      const contentAnalysis = this.analyzeContentType(
-        input.content,
-        input.fileName
-      );
+      const contentAnalysis = this.analyzeContentType(input.content, input.fileName);
       return contentAnalysis.documentType;
     }
 
@@ -140,11 +133,9 @@ export class UnifiedDocumentAnalyzer {
    */
   private detectAcademicDocument(input: AnalysisInput): boolean {
     // Explicit academic identifiers
-    if (
-      input.extractedMetadata?.doi ||
-      input.extractedMetadata?.arxivId ||
-      input.extractedMetadata?.pubmedId
-    ) {
+    if (input.extractedMetadata?.doi || 
+        input.extractedMetadata?.arxivId || 
+        input.extractedMetadata?.pubmedId) {
       return true;
     }
 
@@ -159,11 +150,9 @@ export class UnifiedDocumentAnalyzer {
     }
 
     // Metadata academic indicators
-    if (
-      input.extractedMetadata?.venue ||
-      input.extractedMetadata?.journal ||
-      input.extractedMetadata?.conference
-    ) {
+    if (input.extractedMetadata?.venue || 
+        input.extractedMetadata?.journal || 
+        input.extractedMetadata?.conference) {
       return true;
     }
 
@@ -173,10 +162,8 @@ export class UnifiedDocumentAnalyzer {
     }
 
     // GROBID structured data indicates academic paper
-    if (
-      input.extractedMetadata?.structuredData?.authors &&
-      input.extractedMetadata?.structuredData?.abstract
-    ) {
+    if (input.extractedMetadata?.structuredData?.authors && 
+        input.extractedMetadata?.structuredData?.abstract) {
       return true;
     }
 
@@ -225,11 +212,10 @@ export class UnifiedDocumentAnalyzer {
   private determineAuthority(input: AnalysisInput): string {
     if (input.url) {
       const url = input.url.toLowerCase();
-
+      
       // High authority academic sources
       if (url.includes('arxiv.org')) return 'arXiv';
-      if (url.includes('pubmed') || url.includes('ncbi.nlm.nih.gov'))
-        return 'PubMed';
+      if (url.includes('pubmed') || url.includes('ncbi.nlm.nih.gov')) return 'PubMed';
       if (url.includes('ieee.org')) return 'IEEE';
       if (url.includes('acm.org')) return 'ACM';
       if (url.includes('springer.com')) return 'Springer';
@@ -242,7 +228,7 @@ export class UnifiedDocumentAnalyzer {
 
     if (input.doi) return 'Crossref';
     if (input.patentUrl) return 'Patent Authority';
-
+    
     return 'GROBID'; // Default for PDF processing
   }
 
@@ -309,31 +295,16 @@ export class UnifiedDocumentAnalyzer {
 
   private isAcademicUrl(url: string): boolean {
     const academicDomains = [
-      'arxiv.org',
-      'ncbi.nlm.nih.gov',
-      'pubmed',
-      'ieee.org',
-      'acm.org',
-      'springer.com',
-      'sciencedirect.com',
-      'nature.com',
-      'science.org',
-      'plos.org',
-      'biorxiv.org',
-      'researchgate.net',
-      'scholar.google',
+      'arxiv.org', 'ncbi.nlm.nih.gov', 'pubmed', 'ieee.org', 'acm.org',
+      'springer.com', 'sciencedirect.com', 'nature.com', 'science.org',
+      'plos.org', 'biorxiv.org', 'researchgate.net', 'scholar.google'
     ];
-
+    
     return academicDomains.some(domain => url.includes(domain));
   }
 
   private calculateAcademicUrlScore(url: string): number {
-    const highAuthority = [
-      'arxiv.org',
-      'nature.com',
-      'science.org',
-      'ieee.org',
-    ];
+    const highAuthority = ['arxiv.org', 'nature.com', 'science.org', 'ieee.org'];
     const mediumAuthority = ['pubmed', 'springer.com', 'sciencedirect.com'];
     const lowAuthority = ['researchgate.net', 'scholar.google'];
 
@@ -351,18 +322,16 @@ export class UnifiedDocumentAnalyzer {
       /keywords[\s\n]*:?[\s\n]/i,
       /(?:figure|fig\.)\s*\d+/i,
       /(?:table|tab\.)\s*\d+/i,
-      /doi[\s\n]*:?[\s\n]*\d{2}\.\d{4}/i,
+      /doi[\s\n]*:?[\s\n]*\d{2}\.\d{4}/i
     ];
 
-    const patternMatches = academicPatterns.filter(pattern =>
-      pattern.test(content)
-    ).length;
+    const patternMatches = academicPatterns.filter(pattern => pattern.test(content)).length;
     return patternMatches >= 3;
   }
 
   private calculateContentAcademicScore(content: string): number {
     let score = 0;
-
+    
     // Academic structure patterns (up to 15 points)
     if (/abstract[\s\n]*:?[\s\n]/i.test(content)) score += 5;
     if (/(?:references|bibliography)/i.test(content)) score += 5;
@@ -371,19 +340,12 @@ export class UnifiedDocumentAnalyzer {
     if (/doi[\s\n]*:?[\s\n]*\d{2}\.\d{4}/i.test(content)) score += 3;
 
     // Citation patterns (up to 10 points)
-    const citationMatches =
-      content.match(/\[\d+\]|\(\d{4}\)|\w+\s+et\s+al\./gi) || [];
+    const citationMatches = content.match(/\[\d+\]|\(\d{4}\)|\w+\s+et\s+al\./gi) || [];
     score += Math.min(5, citationMatches.length);
 
     // Technical vocabulary (up to 5 points)
-    const technicalTerms = [
-      'hypothesis',
-      'methodology',
-      'analysis',
-      'conclusion',
-      'statistical',
-    ];
-    const technicalMatches = technicalTerms.filter(term =>
+    const technicalTerms = ['hypothesis', 'methodology', 'analysis', 'conclusion', 'statistical'];
+    const technicalMatches = technicalTerms.filter(term => 
       new RegExp(term, 'i').test(content)
     ).length;
     score += Math.min(5, technicalMatches);
@@ -391,15 +353,10 @@ export class UnifiedDocumentAnalyzer {
     return score;
   }
 
-  private calculateTypeConfidence(
-    input: AnalysisInput,
-    type: DocumentType
-  ): number {
+  private calculateTypeConfidence(input: AnalysisInput, type: DocumentType): number {
     switch (type) {
       case 'patent':
-        return input.patentUrl || input.extractedMetadata?.patentNumber
-          ? 0.95
-          : 0.7;
+        return (input.patentUrl || input.extractedMetadata?.patentNumber) ? 0.95 : 0.7;
       case 'paper':
         return input.doi ? 0.95 : 0.8;
       case 'pdf':
@@ -413,13 +370,8 @@ export class UnifiedDocumentAnalyzer {
 
   private isHighAuthoritySource(url: string): boolean {
     const highAuthoritySources = [
-      'nature.com',
-      'science.org',
-      'ieee.org',
-      'acm.org',
-      'arxiv.org',
-      'patents.google.com',
-      'uspto.gov',
+      'nature.com', 'science.org', 'ieee.org', 'acm.org',
+      'arxiv.org', 'patents.google.com', 'uspto.gov'
     ];
     return highAuthoritySources.some(domain => url.includes(domain));
   }
@@ -430,9 +382,9 @@ export class UnifiedDocumentAnalyzer {
       /\n\s*[A-Z][A-Z\s]+\n/, // Section headers
       /\n\s*Abstract\s*\n/i,
       /\n\s*Introduction\s*\n/i,
-      /\n\s*Conclusion\s*\n/i,
+      /\n\s*Conclusion\s*\n/i
     ];
-
+    
     return structureIndicators.some(pattern => pattern.test(content));
   }
 
@@ -441,49 +393,39 @@ export class UnifiedDocumentAnalyzer {
       /\b\d+\.\d+%\b/, // Percentages
       /\bp\s*[<>=]\s*0\.\d+/i, // P-values
       /\b(?:algorithm|method|approach|technique)\b/i,
-      /\b(?:equation|formula|calculation)\b/i,
+      /\b(?:equation|formula|calculation)\b/i
     ];
-
+    
     return technicalIndicators.some(pattern => pattern.test(content));
   }
 
   private hasReferences(content: string): boolean {
-    return (
-      /(?:references|bibliography)/i.test(content) ||
-      /\[\d+\]/.test(content) ||
-      /\(\d{4}\)/.test(content)
-    );
+    return /(?:references|bibliography)/i.test(content) ||
+           /\[\d+\]/.test(content) ||
+           /\(\d{4}\)/.test(content);
   }
 
   private hasTables(content: string): boolean {
-    return /(?:table|tab\.)\s*\d+/i.test(content) || /\|.*\|.*\|/.test(content);
+    return /(?:table|tab\.)\s*\d+/i.test(content) ||
+           /\|.*\|.*\|/.test(content);
   }
 
   private hasEquations(content: string): boolean {
-    return (
-      /(?:equation|eq\.)\s*\d+/i.test(content) ||
-      /\$.*\$/.test(content) ||
-      /\\[a-zA-Z]+/.test(content)
-    );
+    return /(?:equation|eq\.)\s*\d+/i.test(content) ||
+           /\$.*\$/.test(content) ||
+           /\\[a-zA-Z]+/.test(content);
   }
 
   /**
    * Analyze content type for better document classification
    */
-  private analyzeContentType(
-    content: string,
-    fileName?: string
-  ): {
-    documentType: DocumentType;
-    confidence: number;
-    characteristics: string[];
-  } {
+  private analyzeContentType(content: string, fileName?: string): { documentType: DocumentType; confidence: number; characteristics: string[] } {
     const characteristics: string[] = [];
-    const scores = {
+    let scores = {
       'press-article': 0,
-      note: 0,
-      paper: 0,
-      patent: 0,
+      'note': 0,
+      'paper': 0,
+      'patent': 0,
     };
 
     // Technical FAQ Detection
@@ -528,10 +470,7 @@ export class UnifiedDocumentAnalyzer {
         scores['note'] += 0.3;
         characteristics.push('faq-filename');
       }
-      if (
-        lowerFileName.includes('spec') ||
-        lowerFileName.includes('technical')
-      ) {
+      if (lowerFileName.includes('spec') || lowerFileName.includes('technical')) {
         scores['note'] += 0.2;
         characteristics.push('technical-filename');
       }
@@ -539,15 +478,12 @@ export class UnifiedDocumentAnalyzer {
 
     // Find the highest scoring type
     const maxScore = Math.max(...Object.values(scores));
-    const bestType =
-      (Object.entries(scores).find(
-        ([_, score]) => score === maxScore
-      )?.[0] as DocumentType) || 'note';
+    const bestType = Object.entries(scores).find(([_, score]) => score === maxScore)?.[0] as DocumentType || 'note';
 
     return {
       documentType: bestType,
       confidence: maxScore,
-      characteristics,
+      characteristics
     };
   }
 
@@ -559,11 +495,11 @@ export class UnifiedDocumentAnalyzer {
 
     // FAQ structure patterns
     const faqPatterns = [
-      /(?:^|\n)#{1,6}\s*(?:What|How|Why|When|Where|Which)\s+[^?\n]*\??\s*$/gim,
-      /(?:^|\n)\*\*Q(?:uestion)?:?\*\*\s+/gim,
-      /(?:^|\n)Q:?\s+/gim,
-      /(?:^|\n)\*\*A(?:nswer)?:?\*\*\s+/gim,
-      /(?:^|\n)A:?\s+/gim,
+      /(?:^|\n)#{1,6}\s*(?:What|How|Why|When|Where|Which)\s+[^?\n]*\??\s*$/gmi,
+      /(?:^|\n)\*\*Q(?:uestion)?:?\*\*\s+/gmi,
+      /(?:^|\n)Q:?\s+/gmi,
+      /(?:^|\n)\*\*A(?:nswer)?:?\*\*\s+/gmi,
+      /(?:^|\n)A:?\s+/gmi,
     ];
 
     let totalMatches = 0;
@@ -583,8 +519,8 @@ export class UnifiedDocumentAnalyzer {
     }
 
     // Check for Q&A structure prevalence
-    const qMatches = (content.match(/(?:^|\n)[Q][:.]?\s+/gim) || []).length;
-    const aMatches = (content.match(/(?:^|\n)[A][:.]?\s+/gim) || []).length;
+    const qMatches = (content.match(/(?:^|\n)[Q][:.]?\s+/gmi) || []).length;
+    const aMatches = (content.match(/(?:^|\n)[A][:.]?\s+/gmi) || []).length;
     if (qMatches >= 3 && aMatches >= 3 && Math.abs(qMatches - aMatches) <= 2) {
       score += 0.4;
     }
@@ -678,11 +614,7 @@ export class UnifiedDocumentAnalyzer {
     if (quoteMatches >= 2) score += 0.3;
 
     // Date and attribution patterns
-    if (
-      /\b(?:today|yesterday|this\s+week|announced\s+(?:today|yesterday))\b/i.test(
-        content
-      )
-    ) {
+    if (/\b(?:today|yesterday|this\s+week|announced\s+(?:today|yesterday))\b/i.test(content)) {
       score += 0.2;
     }
 
@@ -697,14 +629,9 @@ export class UnifiedDocumentAnalyzer {
 
     // Academic structure
     const academicSections = [
-      /\babstract\b/i,
-      /\bintroduction\b/i,
-      /\bmethodology\b/i,
-      /\bresults\b/i,
-      /\bdiscussion\b/i,
-      /\bconclusion\b/i,
-      /\breferences\b/i,
-      /\backnowledg/i,
+      /\babstract\b/i, /\bintroduction\b/i, /\bmethodology\b/i,
+      /\bresults\b/i, /\bdiscussion\b/i, /\bconclusion\b/i,
+      /\breferences\b/i, /\backnowledg/i
     ];
 
     let sectionMatches = 0;
@@ -764,16 +691,10 @@ export class UnifiedDocumentAnalyzer {
   private detectLanguage(content: string): string {
     // Simple language detection - could be enhanced
     const englishIndicators = ['the', 'and', 'or', 'in', 'of', 'to', 'for'];
-    const englishScore = englishIndicators.reduce(
-      (score, word) =>
-        score +
-        content
-          .toLowerCase()
-          .split(' ')
-          .filter(w => w === word).length,
-      0
+    const englishScore = englishIndicators.reduce((score, word) => 
+      score + (content.toLowerCase().split(' ').filter(w => w === word).length), 0
     );
-
+    
     return englishScore > content.split(' ').length * 0.05 ? 'en' : 'unknown';
   }
 
@@ -781,12 +702,11 @@ export class UnifiedDocumentAnalyzer {
     // OpenAI's approximation: ~4 characters per token
     const normalized = text.trim().replace(/\s+/g, ' ');
     const baseCount = normalized.length / 4;
-
+    
     // Account for punctuation
-    const punctuationCount = (normalized.match(/[.!?,;:()\[\]{}'"]/g) || [])
-      .length;
-
-    return Math.ceil(baseCount + punctuationCount * 0.1);
+    const punctuationCount = (normalized.match(/[.!?,;:()\[\]{}'"]/g) || []).length;
+    
+    return Math.ceil(baseCount + (punctuationCount * 0.1));
   }
 }
 

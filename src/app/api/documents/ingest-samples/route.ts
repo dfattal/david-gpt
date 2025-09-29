@@ -4,19 +4,15 @@ import { AppError, handleApiError } from '@/lib/utils';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-const SAMPLES_DIR =
-  '/Users/david.fattal/Documents/GitHub/david-gpt/RAG-SAMPLES';
+const SAMPLES_DIR = '/Users/david.fattal/Documents/GitHub/david-gpt/RAG-SAMPLES';
 
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
-
+    
     // Get the authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
     if (authError || !user) {
       throw new AppError('Authentication required', 401);
     }
@@ -36,16 +32,13 @@ export async function POST(req: NextRequest) {
     const sampleDocuments = [
       {
         title: 'Immersity (former LeiaSR) Platform FAQ',
-        content: readFileSync(
-          join(SAMPLES_DIR, 'Immersity (LeiaSR) FAQ.md'),
-          'utf-8'
-        ),
+        content: readFileSync(join(SAMPLES_DIR, 'Immersity (LeiaSR) FAQ.md'), 'utf-8'),
         docType: 'note',
         metadata: {
           category: 'faq',
           topic: 'spatial-ai',
-          source: 'internal-documentation',
-        },
+          source: 'internal-documentation'
+        }
       },
       {
         title: 'Phase Engineering in 3D Displays',
@@ -54,8 +47,8 @@ export async function POST(req: NextRequest) {
         metadata: {
           category: 'technical-document',
           topic: 'display-technology',
-          source: 'internal-documentation',
-        },
+          source: 'internal-documentation'
+        }
       },
       {
         title: 'Leia Image Format (LIF) and Leia Video Format (LVF)',
@@ -64,96 +57,93 @@ export async function POST(req: NextRequest) {
         metadata: {
           category: 'specification',
           topic: 'file-formats',
-          source: 'internal-documentation',
-        },
+          source: 'internal-documentation'
+        }
       },
       // Patents from the patent-url-list.md
       {
         title: 'Patent US11281020B2 - Switchable LC Lens Technology',
         docType: 'patent',
-        patentUrl:
-          'https://patents.google.com/patent/US11281020B2/en?oq=WO2012038876A1',
+        patentUrl: 'https://patents.google.com/patent/US11281020B2/en?oq=WO2012038876A1',
         metadata: {
           category: 'patent',
           topic: 'display-technology',
-          source: 'google-patents',
-        },
+          source: 'google-patents'
+        }
       },
       {
         title: 'Patent WO2024145265A1 - Latest Patent Filing',
-        docType: 'patent',
-        patentUrl:
-          'https://patents.google.com/patent/WO2024145265A1/en?oq=WO2024145265A1',
+        docType: 'patent', 
+        patentUrl: 'https://patents.google.com/patent/WO2024145265A1/en?oq=WO2024145265A1',
         metadata: {
           category: 'patent',
           topic: 'spatial-ai',
-          source: 'google-patents',
-        },
-      },
+          source: 'google-patents'
+        }
+      }
     ];
 
     console.log('🚀 Starting RAG sample document ingestion...');
-
+    
     const results = [];
-
+    
     for (const doc of sampleDocuments) {
       try {
         console.log(`📄 Processing: ${doc.title}`);
-
+        
         // Use the internal ingestion logic
-        const ingestResponse = await fetch(
-          `${req.nextUrl.origin}/api/documents/ingest`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Cookie: req.headers.get('cookie') || '',
-            },
-            body: JSON.stringify(doc),
-          }
-        );
-
+        const ingestResponse = await fetch(`${req.nextUrl.origin}/api/documents/ingest`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cookie': req.headers.get('cookie') || '',
+          },
+          body: JSON.stringify(doc)
+        });
+        
         if (!ingestResponse.ok) {
           const error = await ingestResponse.text();
           throw new Error(`HTTP ${ingestResponse.status}: ${error}`);
         }
-
+        
         const result = await ingestResponse.json();
         results.push({
           title: doc.title,
           documentId: result.document.id,
           jobId: result.jobId,
-          status: 'queued',
+          status: 'queued'
         });
-
+        
         console.log(`✅ ${doc.title} - Job ID: ${result.jobId}`);
+        
       } catch (error) {
         console.error(`❌ Failed to process ${doc.title}:`, error);
         results.push({
           title: doc.title,
           error: error instanceof Error ? error.message : 'Unknown error',
-          status: 'failed',
+          status: 'failed'
         });
       }
     }
-
+    
     const successCount = results.filter(r => r.status === 'queued').length;
     const failedCount = results.filter(r => r.status === 'failed').length;
-
+    
     console.log(`\n📊 Ingestion Summary:`);
     console.log(`• Total documents: ${sampleDocuments.length}`);
     console.log(`• Successfully queued: ${successCount}`);
     console.log(`• Failed: ${failedCount}`);
-
+    
     return NextResponse.json({
       message: 'Sample document ingestion completed',
       summary: {
         total: sampleDocuments.length,
         queued: successCount,
-        failed: failedCount,
+        failed: failedCount
       },
-      results,
+      results
     });
+
   } catch (error) {
     return handleApiError(error);
   }

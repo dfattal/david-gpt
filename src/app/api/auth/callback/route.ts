@@ -1,28 +1,25 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url);
-  const code = searchParams.get('code');
-  const next = searchParams.get('next') ?? '/';
+  const { searchParams, origin } = new URL(request.url)
+  const code = searchParams.get('code')
+  const next = searchParams.get('next') ?? '/'
 
   if (code) {
-    const supabase = await createClient();
-
+    const supabase = await createClient()
+    
     try {
-      const {
-        data: { session },
-        error,
-      } = await supabase.auth.exchangeCodeForSession(code);
-
+      const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code)
+      
       if (error) {
-        console.error('Auth callback error:', error);
-        return NextResponse.redirect(`${origin}/auth/auth-code-error`);
+        console.error('Auth callback error:', error)
+        return NextResponse.redirect(`${origin}/auth/auth-code-error`)
       }
 
       if (session) {
         // Create or update user profile
-        const { user } = session;
+        const { user } = session
         const { error: profileError } = await supabase
           .from('user_profiles')
           .upsert({
@@ -30,31 +27,31 @@ export async function GET(request: NextRequest) {
             email: user.email!,
             display_name: user.user_metadata?.full_name || user.email,
             role: 'guest', // Default role, admin can upgrade
-            last_active_at: new Date().toISOString(),
-          });
-
+            last_active_at: new Date().toISOString()
+          })
+        
         if (profileError) {
-          console.error('Profile creation error:', profileError);
+          console.error('Profile creation error:', profileError)
         }
       }
-
-      const forwardedHost = request.headers.get('x-forwarded-host'); // original origin before load balancer
-      const isLocalEnv = process.env.NODE_ENV === 'development';
-
+      
+      const forwardedHost = request.headers.get('x-forwarded-host') // original origin before load balancer
+      const isLocalEnv = process.env.NODE_ENV === 'development'
+      
       if (isLocalEnv) {
         // we can be sure that there is no load balancer in between, so no need to watch for X-Forwarded-Host
-        return NextResponse.redirect(`${origin}${next}`);
+        return NextResponse.redirect(`${origin}${next}`)
       } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`);
+        return NextResponse.redirect(`https://${forwardedHost}${next}`)
       } else {
-        return NextResponse.redirect(`${origin}${next}`);
+        return NextResponse.redirect(`${origin}${next}`)
       }
     } catch (error) {
-      console.error('Unexpected auth error:', error);
-      return NextResponse.redirect(`${origin}/auth/auth-code-error`);
+      console.error('Unexpected auth error:', error)
+      return NextResponse.redirect(`${origin}/auth/auth-code-error`)
     }
   }
 
   // return the user to an error page with instructions
-  return NextResponse.redirect(`${origin}/auth/auth-code-error`);
+  return NextResponse.redirect(`${origin}/auth/auth-code-error`)
 }

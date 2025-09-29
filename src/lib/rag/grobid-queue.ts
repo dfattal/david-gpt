@@ -16,11 +16,11 @@ interface QueuedRequest<T> {
 }
 
 interface GROBIDQueueConfig {
-  requestDelay: number; // Delay between requests (ms)
-  maxRetries: number; // Maximum retry attempts
-  requestTimeout: number; // Request timeout (ms)
-  retryBackoffMs: number; // Base backoff for retries (ms)
-  enableLogging: boolean; // Enable detailed logging
+  requestDelay: number;        // Delay between requests (ms)
+  maxRetries: number;          // Maximum retry attempts
+  requestTimeout: number;      // Request timeout (ms)
+  retryBackoffMs: number;      // Base backoff for retries (ms)
+  enableLogging: boolean;      // Enable detailed logging
 }
 
 export class GROBIDQueue {
@@ -38,7 +38,7 @@ export class GROBIDQueue {
       maxRetries: parseInt(process.env.GROBID_MAX_RETRIES || '3', 10),
       requestTimeout: parseInt(process.env.GROBID_TIMEOUT || '60000', 10),
       retryBackoffMs: parseInt(process.env.GROBID_RETRY_BACKOFF || '1000', 10),
-      enableLogging: process.env.NODE_ENV !== 'production',
+      enableLogging: process.env.NODE_ENV !== 'production'
     };
 
     if (this.config.enableLogging) {
@@ -74,15 +74,13 @@ export class GROBIDQueue {
         reject,
         retries: 0,
         maxRetries,
-        createdAt: new Date(),
+        createdAt: new Date()
       };
 
       this.queue.push(queuedRequest);
 
       if (this.config.enableLogging) {
-        console.log(
-          `📥 GROBID request queued: ${requestId} (queue size: ${this.queue.length})`
-        );
+        console.log(`📥 GROBID request queued: ${requestId} (queue size: ${this.queue.length})`);
       }
 
       // Start processing if not already running
@@ -108,9 +106,7 @@ export class GROBIDQueue {
 
       try {
         if (this.config.enableLogging) {
-          console.log(
-            `🔄 Processing GROBID request: ${queuedRequest.id} (attempt ${queuedRequest.retries + 1}/${queuedRequest.maxRetries + 1})`
-          );
+          console.log(`🔄 Processing GROBID request: ${queuedRequest.id} (attempt ${queuedRequest.retries + 1}/${queuedRequest.maxRetries + 1})`);
         }
 
         // Execute request with timeout
@@ -124,42 +120,34 @@ export class GROBIDQueue {
         this.processedCount++;
 
         if (this.config.enableLogging) {
-          console.log(
-            `✅ GROBID request completed: ${queuedRequest.id} (total processed: ${this.processedCount})`
-          );
+          console.log(`✅ GROBID request completed: ${queuedRequest.id} (total processed: ${this.processedCount})`);
         }
+
       } catch (error) {
         const isRetryableError = this.isRetryableError(error);
-        const canRetry =
-          queuedRequest.retries < queuedRequest.maxRetries && isRetryableError;
+        const canRetry = queuedRequest.retries < queuedRequest.maxRetries && isRetryableError;
 
         if (canRetry) {
           // Retry with exponential backoff
           queuedRequest.retries++;
-          const backoffDelay =
-            this.config.retryBackoffMs * Math.pow(2, queuedRequest.retries - 1);
+          const backoffDelay = this.config.retryBackoffMs * Math.pow(2, queuedRequest.retries - 1);
 
           if (this.config.enableLogging) {
-            console.log(
-              `⚠️  GROBID request failed, retrying: ${queuedRequest.id} (${error.message}) - backoff: ${backoffDelay}ms`
-            );
+            console.log(`⚠️  GROBID request failed, retrying: ${queuedRequest.id} (${error.message}) - backoff: ${backoffDelay}ms`);
           }
 
           // Add back to front of queue after backoff
           setTimeout(() => {
             this.queue.unshift(queuedRequest);
           }, backoffDelay);
+
         } else {
           // Failed permanently
           this.failedCount++;
-          queuedRequest.reject(
-            error instanceof Error ? error : new Error('GROBID request failed')
-          );
+          queuedRequest.reject(error instanceof Error ? error : new Error('GROBID request failed'));
 
           if (this.config.enableLogging) {
-            console.error(
-              `❌ GROBID request failed permanently: ${queuedRequest.id} (${error.message}) - total failed: ${this.failedCount}`
-            );
+            console.error(`❌ GROBID request failed permanently: ${queuedRequest.id} (${error.message}) - total failed: ${this.failedCount}`);
           }
         }
       }
@@ -169,9 +157,7 @@ export class GROBIDQueue {
       // Rate limiting delay between requests (except for retries)
       if (this.queue.length > 0) {
         if (this.config.enableLogging) {
-          console.log(
-            `⏳ GROBID rate limiting delay: ${this.config.requestDelay}ms`
-          );
+          console.log(`⏳ GROBID rate limiting delay: ${this.config.requestDelay}ms`);
         }
         await this.delay(this.config.requestDelay);
       }
@@ -180,9 +166,7 @@ export class GROBIDQueue {
     this.isProcessing = false;
 
     if (this.config.enableLogging) {
-      console.log(
-        `🏁 GROBID queue processing completed. Processed: ${this.processedCount}, Failed: ${this.failedCount}`
-      );
+      console.log(`🏁 GROBID queue processing completed. Processed: ${this.processedCount}, Failed: ${this.failedCount}`);
     }
   }
 
@@ -222,10 +206,10 @@ export class GROBIDQueue {
     // Retryable conditions
     const retryableConditions = [
       // HTTP status codes
-      errorStatus === 503, // Service Unavailable
-      errorStatus === 502, // Bad Gateway
-      errorStatus === 504, // Gateway Timeout
-      errorStatus === 429, // Too Many Requests
+      errorStatus === 503,  // Service Unavailable
+      errorStatus === 502,  // Bad Gateway
+      errorStatus === 504,  // Gateway Timeout
+      errorStatus === 429,  // Too Many Requests
 
       // Error messages
       errorMessage.includes('service unavailable'),
@@ -237,7 +221,7 @@ export class GROBIDQueue {
 
       // Fetch errors
       errorMessage.includes('fetch'),
-      errorMessage.includes('abort'),
+      errorMessage.includes('abort')
     ];
 
     return retryableConditions.some(condition => condition);
@@ -260,7 +244,7 @@ export class GROBIDQueue {
       currentRequestId: this.currentRequestId,
       processedCount: this.processedCount,
       failedCount: this.failedCount,
-      config: this.config,
+      config: this.config
     };
   }
 

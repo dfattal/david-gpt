@@ -1,25 +1,25 @@
-import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
-import { AuthProvider } from '@/components/auth/auth-provider';
-import { QueryProvider } from '@/components/providers/query-provider';
-import { AppProvider } from '@/contexts/app-context';
-import { ToastProvider } from '@/components/ui/toast';
-import './globals.css';
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import { AuthProvider } from "@/components/auth/auth-provider";
+import { QueryProvider } from "@/components/providers/query-provider";
+import { AppProvider } from "@/contexts/app-context";
+import { ToastProvider } from "@/components/ui/toast";
+import "./globals.css";
 
 const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
 });
 
 const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: 'David-GPT',
+  title: "David-GPT",
   description:
-    'Personal RAG chatbot by David Fattal - Technology entrepreneur and Spatial AI enthusiast',
+    "Personal RAG chatbot by David Fattal - Technology entrepreneur and Spatial AI enthusiast",
 };
 
 export default function RootLayout({

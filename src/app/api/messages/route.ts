@@ -1,37 +1,34 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { AppError, handleApiError } from '@/lib/utils';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { AppError, handleApiError } from '@/lib/utils'
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient();
-
+    const supabase = await createClient()
+    
     // Get the authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
     if (authError || !user) {
-      throw new AppError('Authentication required', 401);
+      throw new AppError('Authentication required', 401)
     }
 
-    const {
+    const { 
       conversationId,
       role,
       content,
       turnType,
-      responseMode,
-    }: {
-      conversationId: string;
-      role: 'user' | 'assistant';
-      content: string;
-      turnType?: 'new-topic' | 'drill-down' | 'compare' | 'same-sources';
-      responseMode?: 'FACT' | 'EXPLAIN' | 'CONFLICTS';
-    } = await req.json();
+      responseMode 
+    }: { 
+      conversationId: string
+      role: 'user' | 'assistant'
+      content: string
+      turnType?: 'new-topic' | 'drill-down' | 'compare' | 'same-sources'
+      responseMode?: 'FACT' | 'EXPLAIN' | 'CONFLICTS'
+    } = await req.json()
 
     if (!conversationId || !role || !content?.trim()) {
-      throw new AppError('Missing required fields', 400);
+      throw new AppError('Missing required fields', 400)
     }
 
     // Verify user owns the conversation
@@ -40,10 +37,10 @@ export async function POST(req: NextRequest) {
       .select('id')
       .eq('id', conversationId)
       .eq('user_id', user.id)
-      .single();
+      .single()
 
     if (convError || !conversation) {
-      throw new AppError('Conversation not found', 404);
+      throw new AppError('Conversation not found', 404)
     }
 
     // Create the message
@@ -54,27 +51,27 @@ export async function POST(req: NextRequest) {
         role,
         content: content.trim(),
         turn_type: turnType || null,
-        response_mode: responseMode || null,
+        response_mode: responseMode || null
       })
       .select()
-      .single();
+      .single()
 
     if (msgError) {
-      console.error('Failed to create message:', msgError);
-      throw new AppError('Failed to create message', 500);
+      console.error('Failed to create message:', msgError)
+      throw new AppError('Failed to create message', 500)
     }
 
     // Update conversation's last message time
     await supabase
       .from('conversations')
-      .update({
+      .update({ 
         last_message_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
-      .eq('id', conversationId);
+      .eq('id', conversationId)
 
-    return NextResponse.json({ message }, { status: 201 });
+    return NextResponse.json({ message }, { status: 201 })
   } catch (error) {
-    return handleApiError(error);
+    return handleApiError(error)
   }
 }

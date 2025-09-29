@@ -3,9 +3,7 @@
 import { execSync } from 'child_process';
 
 // Load environment variables
-require('dotenv').config({
-  path: '/Users/david.fattal/Documents/GitHub/david-gpt/.env.local',
-});
+require('dotenv').config({ path: '/Users/david.fattal/Documents/GitHub/david-gpt/.env.local' });
 
 interface DocumentEntry {
   source_uri: string;
@@ -47,38 +45,22 @@ class ArxivTester {
     const entryContent = entryMatch ? entryMatch[1] : xmlText;
 
     const titleMatch = entryContent.match(/<title[^>]*>([^<]+)<\/title>/);
-    const summaryMatch = entryContent.match(
-      /<summary[^>]*>([\s\S]*?)<\/summary>/
-    );
-    const publishedMatch = entryContent.match(
-      /<published[^>]*>([^<]+)<\/published>/
-    );
+    const summaryMatch = entryContent.match(/<summary[^>]*>([\s\S]*?)<\/summary>/);
+    const publishedMatch = entryContent.match(/<published[^>]*>([^<]+)<\/published>/);
     const updatedMatch = entryContent.match(/<updated[^>]*>([^<]+)<\/updated>/);
 
     // Extract authors (skip feed-level authors)
-    const authorMatches = [
-      ...entryContent.matchAll(
-        /<author[^>]*>[\s\S]*?<name[^>]*>([^<]+)<\/name>[\s\S]*?<\/author>/g
-      ),
-    ];
-    const authors = authorMatches
-      .map(match => match[1].trim())
-      .filter(author => author && !author.includes('ArXiv'));
+    const authorMatches = [...entryContent.matchAll(/<author[^>]*>[\s\S]*?<name[^>]*>([^<]+)<\/name>[\s\S]*?<\/author>/g)];
+    const authors = authorMatches.map(match => match[1].trim()).filter(author => author && !author.includes('ArXiv'));
 
     // Extract categories
-    const categoryMatches = [
-      ...entryContent.matchAll(/<category[^>]*term="([^"]*)"[^>]*>/g),
-    ];
+    const categoryMatches = [...entryContent.matchAll(/<category[^>]*term="([^"]*)"[^>]*>/g)];
     const categories = categoryMatches.map(match => match[1]);
 
     // Extract DOI and journal reference if available
     const doiMatch = entryContent.match(/<arxiv:doi[^>]*>([^<]+)<\/arxiv:doi>/);
-    const journalMatch = entryContent.match(
-      /<arxiv:journal_ref[^>]*>([^<]+)<\/arxiv:journal_ref>/
-    );
-    const commentMatch = entryContent.match(
-      /<arxiv:comment[^>]*>([^<]+)<\/arxiv:comment>/
-    );
+    const journalMatch = entryContent.match(/<arxiv:journal_ref[^>]*>([^<]+)<\/arxiv:journal_ref>/);
+    const commentMatch = entryContent.match(/<arxiv:comment[^>]*>([^<]+)<\/arxiv:comment>/);
 
     return {
       title: titleMatch ? titleMatch[1].trim() : 'Unknown Title',
@@ -90,7 +72,7 @@ class ArxivTester {
       doi: doiMatch ? doiMatch[1].trim() : null,
       journal_ref: journalMatch ? journalMatch[1].trim() : null,
       comment: commentMatch ? commentMatch[1].trim() : null,
-      arxivId: null, // Will be set by caller
+      arxivId: null // Will be set by caller
     };
   }
 
@@ -102,10 +84,7 @@ class ArxivTester {
       .trim();
   }
 
-  private async extractPdfWithGemini(
-    pdfUrl: string,
-    metadata: any
-  ): Promise<string> {
+  private async extractPdfWithGemini(pdfUrl: string, metadata: any): Promise<string> {
     const prompt = `Extract and format this arXiv paper into a complete markdown document with proper YAML frontmatter.
 
 Known metadata from arXiv API:
@@ -131,7 +110,7 @@ Requirements:
    - technologies: (extract relevant technologies mentioned)
    - venue: "arXiv"
    - arxiv_id: "${metadata.arxivId}"
-   - categories: [${metadata.categories.map((c: any) => `"${c}"`).join(', ')}]
+   - categories: [${metadata.categories.map(c => `"${c}"`).join(', ')}]
 
 2. Extract and include the complete paper content:
    - Full abstract (from metadata)
@@ -150,7 +129,7 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
       const command = `gemini -y "${prompt.replace(/"/g, '\\"')}"`;
       const output = execSync(command, {
         encoding: 'utf-8',
-        maxBuffer: 1024 * 1024 * 20, // 20MB buffer for full papers
+        maxBuffer: 1024 * 1024 * 20 // 20MB buffer for full papers
       });
 
       return this.cleanMarkdownCodeFences(output.trim());
@@ -194,11 +173,9 @@ IMPORTANT: Return ONLY the raw markdown content starting with YAML frontmatter (
       console.log(`   Word count: ${wordCount} words`);
       console.log(`   First 500 characters:`);
       console.log('   ' + '-'.repeat(50));
-      console.log(
-        markdownContent.substring(0, 500) +
-          (markdownContent.length > 500 ? '...' : '')
-      );
+      console.log(markdownContent.substring(0, 500) + (markdownContent.length > 500 ? '...' : ''));
       console.log('   ' + '-'.repeat(50));
+
     } catch (error) {
       console.error(`❌ Test failed: ${error}`);
     }

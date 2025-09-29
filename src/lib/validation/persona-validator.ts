@@ -84,12 +84,12 @@ export class PersonaValidator {
     'Balance:',
     'Core Values',
     'Narrative Arc',
-    'How a Chatbot Should Speak',
+    'How a Chatbot Should Speak'
   ];
 
   private static readonly OPTIONAL_SECTIONS = [
     'Document Types and Metadata Preferences',
-    'Usage Instructions',
+    'Usage Instructions'
   ];
 
   private static readonly EXPERTISE_SUBSECTION_PATTERN = /^### \d+\. .+$/;
@@ -97,11 +97,7 @@ export class PersonaValidator {
   /**
    * Validate a complete persona markdown file
    */
-  static validatePersona(
-    content: string,
-    personaId: Persona,
-    filename?: string
-  ): PersonaValidationResult {
+  static validatePersona(content: string, personaId: Persona, filename?: string): PersonaValidationResult {
     const result: PersonaValidationResult = {
       isValid: true,
       errors: [],
@@ -113,28 +109,28 @@ export class PersonaValidator {
           hasRequiredSections: false,
           sectionCount: 0,
           headingHierarchy: false,
-          templateCompliance: 0,
+          templateCompliance: 0
         },
         content: {
           identityClarity: 0,
           expertiseDepth: 0,
           communicationSpecificity: 0,
-          valuesCohesion: 0,
+          valuesCohesion: 0
         },
         completeness: {
           requiredFieldsPresent: 0,
           optionalFieldsPresent: 0,
           domainCount: 0,
           keywordCount: 0,
-          completenessScore: 0,
+          completenessScore: 0
         },
         systemCompatibility: {
           parserCompatible: false,
           systemPromptGeneratable: false,
           entityExtractionReady: false,
-          documentTypesValid: false,
-        },
-      },
+          documentTypesValid: false
+        }
+      }
     };
 
     try {
@@ -158,32 +154,25 @@ export class PersonaValidator {
       result.analysis.completeness = completenessValidation.analysis;
 
       // Test system compatibility
-      const compatibilityValidation = this.validateSystemCompatibility(
-        content,
-        personaId
-      );
+      const compatibilityValidation = this.validateSystemCompatibility(content, personaId);
       result.errors.push(...compatibilityValidation.errors);
       result.warnings.push(...compatibilityValidation.warnings);
       result.analysis.systemCompatibility = compatibilityValidation.analysis;
 
       // Calculate quality score
-      result.qualityScore = this.calculateQualityScore(
-        result.analysis,
-        result.errors,
-        result.warnings
-      );
+      result.qualityScore = this.calculateQualityScore(result.analysis, result.errors, result.warnings);
 
       // Generate suggestions
       result.suggestions = this.generateSuggestions(result.analysis, sections);
 
       // Determine overall validity
-      result.isValid =
-        result.errors.filter(e => e.severity === 'error').length === 0;
+      result.isValid = result.errors.filter(e => e.severity === 'error').length === 0;
+
     } catch (error) {
       result.errors.push({
         type: 'format',
         message: `Persona parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        severity: 'error',
+        severity: 'error'
       });
       result.isValid = false;
       result.qualityScore = 0;
@@ -195,9 +184,7 @@ export class PersonaValidator {
   /**
    * Parse markdown content into sections
    */
-  private static parseMarkdownSections(
-    content: string
-  ): Record<string, string> {
+  private static parseMarkdownSections(content: string): Record<string, string> {
     const sections: Record<string, string> = {};
     const lines = content.split('\n');
 
@@ -232,10 +219,7 @@ export class PersonaValidator {
   /**
    * Validate markdown structure and template compliance
    */
-  private static validateStructure(
-    sections: Record<string, string>,
-    content: string
-  ): {
+  private static validateStructure(sections: Record<string, string>, content: string): {
     errors: PersonaValidationError[];
     warnings: PersonaValidationWarning[];
     analysis: StructureAnalysis;
@@ -254,7 +238,7 @@ export class PersonaValidator {
           type: 'structure',
           section,
           message: `Required section missing: ${section}`,
-          severity: 'error',
+          severity: 'error'
         });
       }
     }
@@ -269,7 +253,7 @@ export class PersonaValidator {
       errors.push({
         type: 'structure',
         message: 'Document must start with H1 title (# Persona Name)',
-        severity: 'error',
+        severity: 'error'
       });
       hierarchyValid = false;
     }
@@ -280,25 +264,22 @@ export class PersonaValidator {
       warnings.push({
         type: 'incomplete',
         message: 'Persona lacks sufficient section structure',
-        suggestion: 'Add more H2 sections (##) to organize content properly',
+        suggestion: 'Add more H2 sections (##) to organize content properly'
       });
     }
 
     // Validate expertise section structure
     if (sections['Expertise']) {
       const expertiseContent = sections['Expertise'];
-      const expertiseSubsections = expertiseContent
-        .split('\n')
+      const expertiseSubsections = expertiseContent.split('\n')
         .filter(line => this.EXPERTISE_SUBSECTION_PATTERN.test(line.trim()));
 
       if (expertiseSubsections.length < 2) {
         warnings.push({
           type: 'incomplete',
           section: 'Expertise',
-          message:
-            'Expertise section should have 2-4 numbered domains (### 1. Domain Name)',
-          suggestion:
-            'Structure expertise into numbered domains with clear descriptions',
+          message: 'Expertise section should have 2-4 numbered domains (### 1. Domain Name)',
+          suggestion: 'Structure expertise into numbered domains with clear descriptions'
         });
       }
 
@@ -307,7 +288,7 @@ export class PersonaValidator {
           type: 'suboptimal',
           section: 'Expertise',
           message: 'Too many expertise domains (more than 4)',
-          suggestion: 'Focus on 2-4 core expertise areas for better clarity',
+          suggestion: 'Focus on 2-4 core expertise areas for better clarity'
         });
       }
     }
@@ -316,10 +297,7 @@ export class PersonaValidator {
       hasRequiredSections: missingSections.length === 0,
       sectionCount: Object.keys(sections).length,
       headingHierarchy: hierarchyValid,
-      templateCompliance: Math.max(
-        0,
-        100 - missingSections.length * 20 - (hierarchyValid ? 0 : 20)
-      ),
+      templateCompliance: Math.max(0, 100 - (missingSections.length * 20) - (hierarchyValid ? 0 : 20))
     };
 
     return { errors, warnings, analysis };
@@ -342,8 +320,7 @@ export class PersonaValidator {
         type: 'suboptimal',
         section: 'Core Identity',
         message: 'Core identity lacks specificity and concrete details',
-        suggestion:
-          'Include specific achievements, numbers, and unique characteristics',
+        suggestion: 'Include specific achievements, numbers, and unique characteristics'
       });
     }
 
@@ -355,22 +332,19 @@ export class PersonaValidator {
         type: 'incomplete',
         section: 'Expertise',
         message: 'Expertise domains lack technical depth and specific details',
-        suggestion:
-          'Add technical skills, methodologies, tools, and quantifiable achievements',
+        suggestion: 'Add technical skills, methodologies, tools, and quantifiable achievements'
       });
     }
 
     // Analyze Communication Style specificity
     const communicationContent = sections['Personality & Tone'] || '';
-    const communicationSpecificity =
-      this.assessCommunicationSpecificity(communicationContent);
+    const communicationSpecificity = this.assessCommunicationSpecificity(communicationContent);
     if (communicationSpecificity < 60) {
       warnings.push({
         type: 'suboptimal',
         section: 'Personality & Tone',
         message: 'Communication style guidelines are too generic',
-        suggestion:
-          'Add specific examples of tone, preferred phrases, and communication patterns',
+        suggestion: 'Add specific examples of tone, preferred phrases, and communication patterns'
       });
     }
 
@@ -382,8 +356,7 @@ export class PersonaValidator {
         type: 'incomplete',
         section: 'Core Values',
         message: 'Core values lack depth and professional context',
-        suggestion:
-          'Explain how each value influences professional decisions and work approach',
+        suggestion: 'Explain how each value influences professional decisions and work approach'
       });
     }
 
@@ -391,7 +364,7 @@ export class PersonaValidator {
       identityClarity,
       expertiseDepth,
       communicationSpecificity,
-      valuesCohesion,
+      valuesCohesion
     };
 
     return { warnings, analysis };
@@ -414,21 +387,13 @@ export class PersonaValidator {
     const keywordCount = this.countKeywords(expertiseContent);
 
     // Check for chat guidelines
-    const chatSection = Object.keys(sections).find(key =>
-      key.includes('Chatbot Should Speak')
-    );
-    if (
-      !chatSection ||
-      sections[chatSection]
-        .split('\n')
-        .filter(line => line.trim().startsWith('*')).length < 3
-    ) {
+    const chatSection = Object.keys(sections).find(key => key.includes('Chatbot Should Speak'));
+    if (!chatSection || sections[chatSection].split('\n').filter(line => line.trim().startsWith('*')).length < 3) {
       warnings.push({
         type: 'incomplete',
         section: 'Chat Guidelines',
         message: 'Insufficient chat response guidelines',
-        suggestion:
-          'Add 3-5 specific guidelines for how the chatbot should respond',
+        suggestion: 'Add 3-5 specific guidelines for how the chatbot should respond'
       });
     }
 
@@ -439,8 +404,7 @@ export class PersonaValidator {
         type: 'missing',
         section: 'Document Types and Metadata Preferences',
         message: 'Missing document type preferences',
-        suggestion:
-          'Add section specifying preferred document types and metadata fields',
+        suggestion: 'Add section specifying preferred document types and metadata fields'
       });
     }
 
@@ -452,19 +416,18 @@ export class PersonaValidator {
       this.OPTIONAL_SECTIONS.some(opt => key.includes(opt))
     ).length;
 
-    const completenessScore = Math.min(
-      100,
+    const completenessScore = Math.min(100, (
       (requiredFieldsPresent / this.REQUIRED_SECTIONS.length) * 60 +
-        (optionalFieldsPresent / this.OPTIONAL_SECTIONS.length) * 20 +
-        (Math.min(domainCount, 4) / 4) * 20
-    );
+      (optionalFieldsPresent / this.OPTIONAL_SECTIONS.length) * 20 +
+      (Math.min(domainCount, 4) / 4) * 20
+    ));
 
     const analysis: CompletenessAnalysis = {
       requiredFieldsPresent,
       optionalFieldsPresent,
       domainCount,
       keywordCount,
-      completenessScore,
+      completenessScore
     };
 
     return { warnings, analysis };
@@ -473,10 +436,7 @@ export class PersonaValidator {
   /**
    * Test compatibility with persona parser and system
    */
-  private static validateSystemCompatibility(
-    content: string,
-    personaId: Persona
-  ): {
+  private static validateSystemCompatibility(content: string, personaId: Persona): {
     errors: PersonaValidationError[];
     warnings: PersonaValidationWarning[];
     analysis: CompatibilityAnalysis;
@@ -491,36 +451,28 @@ export class PersonaValidator {
 
     // Test parser compatibility
     try {
-      const parseResult = PersonaParser.parsePersonaContent(
-        content,
-        personaId,
-        filename
-      );
+      const parseResult = PersonaParser.parsePersonaContent(content, personaId, filename);
       parserCompatible = parseResult.success;
 
       if (!parseResult.success) {
         errors.push({
           type: 'format',
           message: `Persona parser failed: ${parseResult.errors.join(', ')}`,
-          severity: 'error',
+          severity: 'error'
         });
       } else if (parseResult.config) {
         systemPromptGeneratable = !!parseResult.config.chat?.systemPrompt;
-        entityExtractionReady =
-          parseResult.config.expertise?.domains?.length > 0;
+        entityExtractionReady = parseResult.config.expertise?.domains?.length > 0;
 
         // Check document types validity
         const docTypes = parseResult.config.documentTypes || [];
-        const invalidTypes = docTypes.filter(
-          type => !this.isValidDocumentType(type)
-        );
+        const invalidTypes = docTypes.filter(type => !this.isValidDocumentType(type));
         if (invalidTypes.length > 0) {
           documentTypesValid = false;
           warnings.push({
             type: 'inconsistent',
             message: `Invalid document types specified: ${invalidTypes.join(', ')}`,
-            suggestion:
-              'Use only supported document types or register new types in the system',
+            suggestion: 'Use only supported document types or register new types in the system'
           });
         }
       }
@@ -529,7 +481,7 @@ export class PersonaValidator {
       errors.push({
         type: 'format',
         message: `Parser compatibility test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        severity: 'error',
+        severity: 'error'
       });
     }
 
@@ -537,7 +489,7 @@ export class PersonaValidator {
       parserCompatible,
       systemPromptGeneratable,
       entityExtractionReady,
-      documentTypesValid,
+      documentTypesValid
     };
 
     return { errors, warnings, analysis };
@@ -551,37 +503,18 @@ export class PersonaValidator {
 
     // Check for specific achievements
     if (content.includes('PhD') || content.includes('Dr.')) score += 15;
-    if (/\d+\+?\s*(years?|patents?|papers?|employees?|users?)/.test(content))
-      score += 20;
-    if (
-      content.includes('founded') ||
-      content.includes('developed') ||
-      content.includes('invented')
-    )
-      score += 15;
+    if (/\d+\+?\s*(years?|patents?|papers?|employees?|users?)/.test(content)) score += 20;
+    if (content.includes('founded') || content.includes('developed') || content.includes('invented')) score += 15;
 
     // Check for current role clarity
-    if (
-      content.includes('CEO') ||
-      content.includes('CTO') ||
-      content.includes('Chief')
-    )
-      score += 10;
-    if (content.includes('Professor') || content.includes('Director'))
-      score += 10;
+    if (content.includes('CEO') || content.includes('CTO') || content.includes('Chief')) score += 10;
+    if (content.includes('Professor') || content.includes('Director')) score += 10;
 
     // Check for dual identity description
-    if (
-      content.includes('both') ||
-      content.includes('combines') ||
-      content.includes('bridges')
-    )
-      score += 15;
+    if (content.includes('both') || content.includes('combines') || content.includes('bridges')) score += 15;
 
     // Check for specificity vs. generic language
-    const specificTerms = (
-      content.match(/\b[A-Z][a-z]*(?:\s+[A-Z][a-z]*)*\b/g) || []
-    ).length;
+    const specificTerms = (content.match(/\b[A-Z][a-z]*(?:\s+[A-Z][a-z]*)*\b/g) || []).length;
     score += Math.min(15, specificTerms * 2);
 
     return Math.min(100, score);
@@ -598,32 +531,19 @@ export class PersonaValidator {
     score += Math.min(30, domainCount * 10);
 
     // Check for technical terms
-    const technicalTerms = (
-      content.match(/\b[A-Z]{2,}|\b[A-Z][a-z]*(?:[A-Z][a-z]*)+/g) || []
-    ).length;
+    const technicalTerms = (content.match(/\b[A-Z]{2,}|\b[A-Z][a-z]*(?:[A-Z][a-z]*)+/g) || []).length;
     score += Math.min(25, technicalTerms * 2);
 
     // Check for quantifiable achievements
-    const numbers = (
-      content.match(/\d+\+?[%\s]*(years?|patents?|papers?|[MB]B?)/g) || []
-    ).length;
+    const numbers = (content.match(/\d+\+?[%\s]*(years?|patents?|papers?|[MB]B?)/g) || []).length;
     score += Math.min(20, numbers * 5);
 
     // Check for tools and methodologies
-    const tools = (
-      content.match(
-        /Python|R|MATLAB|TensorFlow|PyTorch|Docker|AWS|Azure|GCP/gi
-      ) || []
-    ).length;
+    const tools = (content.match(/Python|R|MATLAB|TensorFlow|PyTorch|Docker|AWS|Azure|GCP/gi) || []).length;
     score += Math.min(15, tools * 3);
 
     // Check for industry context
-    if (
-      content.includes('industry') ||
-      content.includes('standard') ||
-      content.includes('adopted')
-    )
-      score += 10;
+    if (content.includes('industry') || content.includes('standard') || content.includes('adopted')) score += 10;
 
     return Math.min(100, score);
   }
@@ -635,42 +555,18 @@ export class PersonaValidator {
     let score = 0;
 
     // Check for specific tone descriptors
-    const toneWords = [
-      'conversational',
-      'analytical',
-      'direct',
-      'technical',
-      'accessible',
-      'authoritative',
-    ];
-    const toneScore = toneWords.filter(word =>
-      content.toLowerCase().includes(word)
-    ).length;
+    const toneWords = ['conversational', 'analytical', 'direct', 'technical', 'accessible', 'authoritative'];
+    const toneScore = toneWords.filter(word => content.toLowerCase().includes(word)).length;
     score += Math.min(25, toneScore * 5);
 
     // Check for style descriptions
-    if (
-      content.includes('balances') ||
-      content.includes('combines') ||
-      content.includes('maintains')
-    )
-      score += 15;
+    if (content.includes('balances') || content.includes('combines') || content.includes('maintains')) score += 15;
 
     // Check for presence components
-    if (
-      content.includes('Tone of Voice') &&
-      content.includes('Style') &&
-      content.includes('Presence')
-    )
-      score += 20;
+    if (content.includes('Tone of Voice') && content.includes('Style') && content.includes('Presence')) score += 20;
 
     // Check for specific examples or patterns
-    if (
-      content.includes('prefers') ||
-      content.includes('avoids') ||
-      content.includes('uses')
-    )
-      score += 20;
+    if (content.includes('prefers') || content.includes('avoids') || content.includes('uses')) score += 20;
 
     // Check for detailed bullet points
     const bulletPoints = (content.match(/^\s*[\*\-]\s+/gm) || []).length;
@@ -690,26 +586,16 @@ export class PersonaValidator {
     score += Math.min(30, valueCount * 6);
 
     // Check for explanations
-    const explanations = content
-      .split('\n')
-      .filter(line => line.includes(':') && line.length > 50).length;
+    const explanations = content.split('\n').filter(line =>
+      line.includes(':') && line.length > 50
+    ).length;
     score += Math.min(35, explanations * 7);
 
     // Check for professional context
-    if (
-      content.includes('work') ||
-      content.includes('professional') ||
-      content.includes('practice')
-    )
-      score += 15;
+    if (content.includes('work') || content.includes('professional') || content.includes('practice')) score += 15;
 
     // Check for consistency with identity
-    if (
-      content.includes('integrity') ||
-      content.includes('innovation') ||
-      content.includes('excellence')
-    )
-      score += 20;
+    if (content.includes('integrity') || content.includes('innovation') || content.includes('excellence')) score += 20;
 
     return Math.min(100, score);
   }
@@ -718,12 +604,8 @@ export class PersonaValidator {
    * Helper: Count keywords in expertise content
    */
   private static countKeywords(content: string): number {
-    const technicalTerms =
-      content.match(/\b[A-Z]{2,}|\b[A-Z][a-z]*(?:[A-Z][a-z]*)+/g) || [];
-    const domainSpecific =
-      content.match(
-        /algorithms?|models?|systems?|frameworks?|technologies?/gi
-      ) || [];
+    const technicalTerms = content.match(/\b[A-Z]{2,}|\b[A-Z][a-z]*(?:[A-Z][a-z]*)+/g) || [];
+    const domainSpecific = content.match(/algorithms?|models?|systems?|frameworks?|technologies?/gi) || [];
     return technicalTerms.length + domainSpecific.length;
   }
 
@@ -732,21 +614,10 @@ export class PersonaValidator {
    */
   private static isValidDocumentType(type: string): boolean {
     const validTypes = [
-      'paper',
-      'patent',
-      'technical-spec',
-      'press-article',
-      'book',
-      'legal-doc',
-      'case-law',
-      'statute',
-      'legal-brief',
-      'medical-paper',
-      'clinical-trial',
-      'medical-guideline',
-      'case-report',
-      'url',
-      'note',
+      'paper', 'patent', 'technical-spec', 'press-article', 'book',
+      'legal-doc', 'case-law', 'statute', 'legal-brief',
+      'medical-paper', 'clinical-trial', 'medical-guideline', 'case-report',
+      'url', 'note'
     ];
     return validTypes.includes(type);
   }
@@ -769,13 +640,11 @@ export class PersonaValidator {
     score -= warnings.length * 5;
 
     // Add component scores (weighted)
-    score = Math.min(
-      100,
-      score * 0.4 +
-        analysis.structure.templateCompliance * 0.25 +
-        analysis.content.identityClarity * 0.15 +
-        analysis.content.expertiseDepth * 0.15 +
-        analysis.completeness.completenessScore * 0.05
+    score = Math.min(100, score * 0.4 +
+      analysis.structure.templateCompliance * 0.25 +
+      analysis.content.identityClarity * 0.15 +
+      analysis.content.expertiseDepth * 0.15 +
+      analysis.completeness.completenessScore * 0.05
     );
 
     return Math.max(0, score);
@@ -792,54 +661,38 @@ export class PersonaValidator {
 
     // Structure suggestions
     if (analysis.structure.templateCompliance < 80) {
-      suggestions.push(
-        'Review the persona template and ensure all required sections are present'
-      );
+      suggestions.push('Review the persona template and ensure all required sections are present');
     }
 
     // Content suggestions
     if (analysis.content.identityClarity < 70) {
-      suggestions.push(
-        'Add more specific achievements, numbers, and concrete details to Core Identity'
-      );
+      suggestions.push('Add more specific achievements, numbers, and concrete details to Core Identity');
     }
 
     if (analysis.content.expertiseDepth < 70) {
-      suggestions.push(
-        'Include more technical details, tools, and quantifiable accomplishments in Expertise domains'
-      );
+      suggestions.push('Include more technical details, tools, and quantifiable accomplishments in Expertise domains');
     }
 
     if (analysis.content.communicationSpecificity < 70) {
-      suggestions.push(
-        'Add specific examples of communication style, preferred phrases, and tone guidelines'
-      );
+      suggestions.push('Add specific examples of communication style, preferred phrases, and tone guidelines');
     }
 
     // Completeness suggestions
     if (analysis.completeness.domainCount < 2) {
-      suggestions.push(
-        'Add at least 2-3 numbered expertise domains with clear descriptions'
-      );
+      suggestions.push('Add at least 2-3 numbered expertise domains with clear descriptions');
     }
 
     if (analysis.completeness.keywordCount < 20) {
-      suggestions.push(
-        'Include more technical terminology and domain-specific keywords'
-      );
+      suggestions.push('Include more technical terminology and domain-specific keywords');
     }
 
     // System compatibility suggestions
     if (!analysis.systemCompatibility.systemPromptGeneratable) {
-      suggestions.push(
-        'Ensure all sections have sufficient content for system prompt generation'
-      );
+      suggestions.push('Ensure all sections have sufficient content for system prompt generation');
     }
 
     if (!analysis.systemCompatibility.entityExtractionReady) {
-      suggestions.push(
-        'Add more entity-rich content with organizations, technologies, and technical terms'
-      );
+      suggestions.push('Add more entity-rich content with organizations, technologies, and technical terms');
     }
 
     return suggestions;
@@ -877,11 +730,7 @@ export class PersonaValidator {
 }
 
 // Export validation functions for convenience
-export const validatePersona =
-  PersonaValidator.validatePersona.bind(PersonaValidator);
-export const quickValidatePersona =
-  PersonaValidator.quickValidate.bind(PersonaValidator);
-export const getRequiredSections =
-  PersonaValidator.getRequiredSections.bind(PersonaValidator);
-export const getOptionalSections =
-  PersonaValidator.getOptionalSections.bind(PersonaValidator);
+export const validatePersona = PersonaValidator.validatePersona.bind(PersonaValidator);
+export const quickValidatePersona = PersonaValidator.quickValidate.bind(PersonaValidator);
+export const getRequiredSections = PersonaValidator.getRequiredSections.bind(PersonaValidator);
+export const getOptionalSections = PersonaValidator.getOptionalSections.bind(PersonaValidator);

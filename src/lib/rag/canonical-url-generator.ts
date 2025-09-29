@@ -16,6 +16,7 @@ export interface CanonicalUrlResult {
 }
 
 export class CanonicalUrlGenerator {
+
   /**
    * Generate canonical URL for any given URL
    */
@@ -40,7 +41,7 @@ export class CanonicalUrlGenerator {
     return {
       canonicalUrl: cleanUrl,
       originalUrl: url,
-      documentType: 'generic',
+      documentType: 'generic'
     };
   }
 
@@ -59,25 +60,15 @@ export class CanonicalUrlGenerator {
       const urlObj = new URL(normalized);
 
       // Normalize protocol
-      if (
-        urlObj.protocol === 'http:' &&
-        (urlObj.hostname.includes('arxiv.org') ||
-          urlObj.hostname.includes('doi.org') ||
-          urlObj.hostname.includes('patents.google.com'))
-      ) {
+      if (urlObj.protocol === 'http:' &&
+          (urlObj.hostname.includes('arxiv.org') ||
+           urlObj.hostname.includes('doi.org') ||
+           urlObj.hostname.includes('patents.google.com'))) {
         urlObj.protocol = 'https:';
       }
 
       // Remove common tracking parameters
-      const trackingParams = [
-        'utm_source',
-        'utm_medium',
-        'utm_campaign',
-        'utm_content',
-        'utm_term',
-        'ref',
-        'referrer',
-      ];
+      const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'ref', 'referrer'];
       trackingParams.forEach(param => urlObj.searchParams.delete(param));
 
       // Remove trailing slash for consistency
@@ -101,7 +92,7 @@ export class CanonicalUrlGenerator {
       // Abstract URLs: https://arxiv.org/abs/2405.10314
       /https?:\/\/arxiv\.org\/abs\/(\d{4}\.\d{4,5}(?:v\d+)?)/i,
       // Legacy URLs: https://arxiv.org/abs/math/0309285
-      /https?:\/\/arxiv\.org\/abs\/([a-z-]+\/\d{7}(?:v\d+)?)/i,
+      /https?:\/\/arxiv\.org\/abs\/([a-z-]+\/\d{7}(?:v\d+)?)/i
     ];
 
     for (const pattern of arxivPatterns) {
@@ -118,8 +109,8 @@ export class CanonicalUrlGenerator {
           metadata: {
             arxivId,
             pdfUrl: `https://arxiv.org/pdf/${arxivId}.pdf`,
-            abstractUrl: canonicalUrl,
-          },
+            abstractUrl: canonicalUrl
+          }
         };
       }
     }
@@ -137,7 +128,7 @@ export class CanonicalUrlGenerator {
       // DOI in various URL formats
       /https?:\/\/[^\/]+\/.*doi[\/=:]([^\/&?\s]+)/i,
       // DOI embedded in academic URLs
-      /https?:\/\/[^\/]+\/.*\/doi\/(?:full\/)?([^\/&?\s]+)/i,
+      /https?:\/\/[^\/]+\/.*\/doi\/(?:full\/)?([^\/&?\s]+)/i
     ];
 
     for (const pattern of doiPatterns) {
@@ -155,8 +146,8 @@ export class CanonicalUrlGenerator {
             documentId: cleanDoi,
             documentType: 'doi',
             metadata: {
-              doi: cleanDoi,
-            },
+              doi: cleanDoi
+            }
           };
         }
       }
@@ -170,9 +161,7 @@ export class CanonicalUrlGenerator {
    */
   private static generatePatentCanonical(url: string): CanonicalUrlResult {
     // Google Patents URLs
-    const googlePatentMatch = url.match(
-      /https?:\/\/patents\.google\.com\/patent\/([A-Z]{2}\d+[A-Z]?\d*)/i
-    );
+    const googlePatentMatch = url.match(/https?:\/\/patents\.google\.com\/patent\/([A-Z]{2}\d+[A-Z]?\d*)/i);
     if (googlePatentMatch) {
       const patentNumber = googlePatentMatch[1];
       const canonicalUrl = `https://patents.google.com/patent/${patentNumber}`;
@@ -184,15 +173,13 @@ export class CanonicalUrlGenerator {
         documentType: 'patent',
         metadata: {
           patentNumber,
-          source: 'Google Patents',
-        },
+          source: 'Google Patents'
+        }
       };
     }
 
     // USPTO URLs
-    const usptoMatch = url.match(
-      /patents\.uspto\.gov.*[?&](?:pn|Patent)=([A-Z]*\d+[A-Z]*\d*)/i
-    );
+    const usptoMatch = url.match(/patents\.uspto\.gov.*[?&](?:pn|Patent)=([A-Z]*\d+[A-Z]*\d*)/i);
     if (usptoMatch) {
       const patentNumber = usptoMatch[1];
       // Convert to Google Patents canonical format for consistency
@@ -206,8 +193,8 @@ export class CanonicalUrlGenerator {
         metadata: {
           patentNumber,
           source: 'USPTO',
-          originalSource: 'USPTO',
-        },
+          originalSource: 'USPTO'
+        }
       };
     }
 

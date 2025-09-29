@@ -1,25 +1,19 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  AlertTriangle,
-  Merge,
-  ArrowRight,
-  CheckCircle2,
-  AlertCircle,
+import { 
+  AlertTriangle, 
+  Merge, 
+  ArrowRight, 
+  CheckCircle2, 
+  AlertCircle 
 } from 'lucide-react';
 
 interface Entity {
@@ -54,19 +48,18 @@ const KIND_COLORS: Record<string, string> = {
   document: 'bg-gray-100 text-gray-800',
 };
 
-export function EntityMergeDialog({
-  open,
-  onClose,
-  selectedEntities,
-  onMergeComplete,
+export function EntityMergeDialog({ 
+  open, 
+  onClose, 
+  selectedEntities, 
+  onMergeComplete 
 }: EntityMergeDialogProps) {
   const [targetEntityId, setTargetEntityId] = useState<string>('');
   const [newName, setNewName] = useState<string>('');
   const [newDescription, setNewDescription] = useState<string>('');
   const [createAliases, setCreateAliases] = useState<boolean>(true);
   const [promoteToCanonical, setPromoteToCanonical] = useState<boolean>(false);
-  const [canonicalDomain, setCanonicalDomain] =
-    useState<string>('spatial_computing');
+  const [canonicalDomain, setCanonicalDomain] = useState<string>('spatial_computing');
   const [canonicalPriority, setCanonicalPriority] = useState<number>(5);
   const [canonicalDescription, setCanonicalDescription] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -81,28 +74,26 @@ export function EntityMergeDialog({
   const calculateSimilarity = (str1: string, str2: string): number => {
     const len1 = str1.length;
     const len2 = str2.length;
-
+    
     if (len1 === 0) return len2;
     if (len2 === 0) return len1;
-
-    const matrix = Array(len2 + 1)
-      .fill(null)
-      .map(() => Array(len1 + 1).fill(null));
-
+    
+    const matrix = Array(len2 + 1).fill(null).map(() => Array(len1 + 1).fill(null));
+    
     for (let i = 0; i <= len1; i++) matrix[0][i] = i;
     for (let j = 0; j <= len2; j++) matrix[j][0] = j;
-
+    
     for (let j = 1; j <= len2; j++) {
       for (let i = 1; i <= len1; i++) {
         const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
         matrix[j][i] = Math.min(
-          matrix[j][i - 1] + 1, // deletion
-          matrix[j - 1][i] + 1, // insertion
+          matrix[j][i - 1] + 1,     // deletion
+          matrix[j - 1][i] + 1,     // insertion
           matrix[j - 1][i - 1] + indicator // substitution
         );
       }
     }
-
+    
     const distance = matrix[len2][len1];
     const maxLen = Math.max(len1, len2);
     return (maxLen - distance) / maxLen;
@@ -131,11 +122,10 @@ export function EntityMergeDialog({
             entities[j].name.toLowerCase()
           );
 
-          if (similarity > 0.6) {
-            // 60% similarity threshold
+          if (similarity > 0.6) { // 60% similarity threshold
             duplicateGroups.push({
               entities: [entities[i], entities[j]],
-              similarity: Math.round(similarity * 100) / 100,
+              similarity: Math.round(similarity * 100) / 100
             });
           }
         }
@@ -160,7 +150,7 @@ export function EntityMergeDialog({
       setDuplicates([]);
 
       // Auto-select the entity with highest authority score as target
-      const bestEntity = selectedEntities.reduce((best, current) =>
+      const bestEntity = selectedEntities.reduce((best, current) => 
         current.authority_score > best.authority_score ? current : best
       );
       setTargetEntityId(bestEntity.id);
@@ -179,9 +169,7 @@ export function EntityMergeDialog({
     setLoadingCanonicals(true);
     try {
       const entityKind = selectedEntities[0].kind;
-      const response = await fetch(
-        `/api/admin/personas/david/canonical-entities`
-      );
+      const response = await fetch(`/api/admin/personas/david/canonical-entities`);
 
       if (response.ok) {
         const data = await response.json();
@@ -224,7 +212,7 @@ export function EntityMergeDialog({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('auth_token') || 'dummy_token'}`,
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || 'dummy_token'}`
         },
         body: JSON.stringify({
           targetEntityId,
@@ -233,14 +221,12 @@ export function EntityMergeDialog({
           newDescription: newDescription.trim() || undefined,
           createAliases,
           promoteToCanonical,
-          canonicalOptions: promoteToCanonical
-            ? {
-                domain: canonicalDomain,
-                priority: canonicalPriority,
-                description: canonicalDescription.trim(),
-              }
-            : undefined,
-        }),
+          canonicalOptions: promoteToCanonical ? {
+            domain: canonicalDomain,
+            priority: canonicalPriority,
+            description: canonicalDescription.trim()
+          } : undefined
+        })
       });
 
       if (!response.ok) {
@@ -250,12 +236,13 @@ export function EntityMergeDialog({
 
       const result = await response.json();
       console.log('Merge successful:', result);
-
+      
       setSuccess(true);
       setTimeout(() => {
         onMergeComplete();
         onClose();
       }, 1500);
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to merge entities');
       console.error('Error merging entities:', err);
@@ -264,8 +251,7 @@ export function EntityMergeDialog({
     }
   };
 
-  const cannotMerge =
-    selectedEntities.length < 2 ||
+  const cannotMerge = selectedEntities.length < 2 || 
     new Set(selectedEntities.map(e => e.kind)).size > 1;
 
   const sourceEntities = selectedEntities.filter(e => e.id !== targetEntityId);
@@ -281,8 +267,7 @@ export function EntityMergeDialog({
                 Entities Merged Successfully
               </h3>
               <p className="text-sm text-gray-600 mt-1">
-                {sourceEntities.length} entities have been merged into the
-                target entity
+                {sourceEntities.length} entities have been merged into the target entity
               </p>
             </div>
           </div>
@@ -309,9 +294,10 @@ export function EntityMergeDialog({
                 Cannot merge selected entities
               </p>
               <p className="text-sm text-yellow-700">
-                {selectedEntities.length < 2
+                {selectedEntities.length < 2 
                   ? 'Select at least 2 entities to merge'
-                  : 'Selected entities must be of the same kind (person, organization, etc.)'}
+                  : 'Selected entities must be of the same kind (person, organization, etc.)'
+                }
               </p>
             </div>
           </div>
@@ -321,9 +307,7 @@ export function EntityMergeDialog({
             {loadingDuplicates ? (
               <div className="flex items-center justify-center p-4">
                 <Spinner className="w-6 h-6 mr-2" />
-                <span className="text-sm text-gray-600">
-                  Analyzing for duplicates...
-                </span>
+                <span className="text-sm text-gray-600">Analyzing for duplicates...</span>
               </div>
             ) : duplicates.length > 0 ? (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -338,8 +322,7 @@ export function EntityMergeDialog({
                       </span>
                       <span className="mx-2 text-blue-700">similarity:</span>
                       <span className="text-blue-900">
-                        &quot;{group.entities[0].name}&quot; ↔ &quot;
-                        {group.entities[1].name}&quot;
+                        &quot;{group.entities[0].name}&quot; ↔ &quot;{group.entities[1].name}&quot;
                       </span>
                     </div>
                   ))}
@@ -349,15 +332,12 @@ export function EntityMergeDialog({
 
             {/* Target Entity Selection */}
             <div>
-              <h4 className="font-medium text-gray-900 mb-3">
-                Select Target Entity
-              </h4>
+              <h4 className="font-medium text-gray-900 mb-3">Select Target Entity</h4>
               <p className="text-sm text-gray-600 mb-4">
-                Choose which entity will be kept. All other entities will be
-                merged into this one.
+                Choose which entity will be kept. All other entities will be merged into this one.
               </p>
               <div className="grid gap-3">
-                {selectedEntities.map(entity => (
+                {selectedEntities.map((entity) => (
                   <div
                     key={entity.id}
                     className={`p-3 border rounded-lg cursor-pointer transition-colors ${
@@ -372,41 +352,27 @@ export function EntityMergeDialog({
                     }}
                   >
                     <div className="flex items-center space-x-3">
-                      <div
-                        className={`w-4 h-4 rounded-full border-2 ${
-                          targetEntityId === entity.id
-                            ? 'border-blue-500 bg-blue-500'
-                            : 'border-gray-300'
-                        }`}
-                      >
+                      <div className={`w-4 h-4 rounded-full border-2 ${
+                        targetEntityId === entity.id 
+                          ? 'border-blue-500 bg-blue-500' 
+                          : 'border-gray-300'
+                      }`}>
                         {targetEntityId === entity.id && (
                           <div className="w-full h-full rounded-full bg-white scale-50" />
                         )}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center space-x-2">
-                          <span className="font-medium text-gray-900">
-                            {entity.name}
-                          </span>
-                          <Badge
-                            className={
-                              KIND_COLORS[entity.kind] ||
-                              'bg-gray-100 text-gray-800'
-                            }
-                          >
+                          <span className="font-medium text-gray-900">{entity.name}</span>
+                          <Badge className={KIND_COLORS[entity.kind] || 'bg-gray-100 text-gray-800'}>
                             {entity.kind}
                           </Badge>
                         </div>
                         {entity.description && (
-                          <p className="text-sm text-gray-600 mt-1">
-                            {entity.description}
-                          </p>
+                          <p className="text-sm text-gray-600 mt-1">{entity.description}</p>
                         )}
                         <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                          <span>
-                            Authority:{' '}
-                            {Math.round(entity.authority_score * 100)}%
-                          </span>
+                          <span>Authority: {Math.round(entity.authority_score * 100)}%</span>
                           <span>Mentions: {entity.mention_count}</span>
                         </div>
                       </div>
@@ -424,20 +390,10 @@ export function EntityMergeDialog({
                 </h4>
                 <div className="bg-gray-50 rounded-lg p-3">
                   <div className="flex flex-wrap gap-2">
-                    {sourceEntities.map(entity => (
-                      <div
-                        key={entity.id}
-                        className="flex items-center space-x-2 bg-white px-3 py-1 rounded-md border"
-                      >
-                        <span className="text-sm text-gray-900">
-                          {entity.name}
-                        </span>
-                        <Badge
-                          className={
-                            KIND_COLORS[entity.kind] ||
-                            'bg-gray-100 text-gray-800'
-                          }
-                        >
+                    {sourceEntities.map((entity) => (
+                      <div key={entity.id} className="flex items-center space-x-2 bg-white px-3 py-1 rounded-md border">
+                        <span className="text-sm text-gray-900">{entity.name}</span>
+                        <Badge className={KIND_COLORS[entity.kind] || 'bg-gray-100 text-gray-800'}>
                           {entity.kind}
                         </Badge>
                       </div>
@@ -445,8 +401,7 @@ export function EntityMergeDialog({
                   </div>
                   <div className="flex items-center mt-3 text-sm text-gray-600">
                     <ArrowRight className="w-4 h-4 mr-2" />
-                    These entities will be deleted and their relationships
-                    transferred to the target entity
+                    These entities will be deleted and their relationships transferred to the target entity
                   </div>
                 </div>
               </div>
@@ -455,32 +410,25 @@ export function EntityMergeDialog({
             {/* Merge Options */}
             <div className="space-y-4">
               <div>
-                <label
-                  htmlFor="newName"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Entity Name (optional - leave blank to keep target entity
-                  name)
+                <label htmlFor="newName" className="block text-sm font-medium text-gray-700 mb-1">
+                  Entity Name (optional - leave blank to keep target entity name)
                 </label>
                 <Input
                   id="newName"
                   value={newName}
-                  onChange={e => setNewName(e.target.value)}
+                  onChange={(e) => setNewName(e.target.value)}
                   placeholder="Enter new name for merged entity"
                 />
               </div>
 
               <div>
-                <label
-                  htmlFor="newDescription"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
+                <label htmlFor="newDescription" className="block text-sm font-medium text-gray-700 mb-1">
                   Description (optional)
                 </label>
                 <Textarea
                   id="newDescription"
                   value={newDescription}
-                  onChange={e => setNewDescription(e.target.value)}
+                  onChange={(e) => setNewDescription(e.target.value)}
                   placeholder="Enter description for merged entity"
                   rows={3}
                 />
@@ -492,10 +440,7 @@ export function EntityMergeDialog({
                   checked={createAliases}
                   onCheckedChange={setCreateAliases}
                 />
-                <label
-                  htmlFor="createAliases"
-                  className="text-sm font-medium text-gray-700"
-                >
+                <label htmlFor="createAliases" className="text-sm font-medium text-gray-700">
                   Create aliases from source entity names
                 </label>
               </div>
@@ -508,10 +453,7 @@ export function EntityMergeDialog({
                     checked={promoteToCanonical}
                     onCheckedChange={setPromoteToCanonical}
                   />
-                  <label
-                    htmlFor="promoteToCanonical"
-                    className="text-sm font-medium text-gray-700"
-                  >
+                  <label htmlFor="promoteToCanonical" className="text-sm font-medium text-gray-700">
                     Promote to canonical entity
                   </label>
                 </div>
@@ -519,24 +461,18 @@ export function EntityMergeDialog({
                 {promoteToCanonical && (
                   <div className="ml-6 space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <p className="text-sm text-blue-700 mb-3">
-                      This will create a canonical entity definition that can be
-                      used for future entity consolidation.
+                      This will create a canonical entity definition that can be used for future entity consolidation.
                     </p>
 
                     {/* Show existing canonical entities */}
                     {availableCanonicals.length > 0 && (
                       <div className="mb-4">
                         <p className="text-sm font-medium text-blue-800 mb-2">
-                          Existing canonical entities for{' '}
-                          {selectedEntities[0]?.kind}:
+                          Existing canonical entities for {selectedEntities[0]?.kind}:
                         </p>
                         <div className="flex flex-wrap gap-2">
-                          {availableCanonicals.map(canonical => (
-                            <Badge
-                              key={canonical}
-                              variant="outline"
-                              className="text-xs"
-                            >
+                          {availableCanonicals.map((canonical) => (
+                            <Badge key={canonical} variant="outline" className="text-xs">
                               {canonical}
                             </Badge>
                           ))}
@@ -545,16 +481,13 @@ export function EntityMergeDialog({
                     )}
 
                     <div>
-                      <label
-                        htmlFor="canonicalDescription"
-                        className="block text-sm font-medium text-blue-700 mb-1"
-                      >
+                      <label htmlFor="canonicalDescription" className="block text-sm font-medium text-blue-700 mb-1">
                         Canonical Description
                       </label>
                       <Textarea
                         id="canonicalDescription"
                         value={canonicalDescription}
-                        onChange={e => setCanonicalDescription(e.target.value)}
+                        onChange={(e) => setCanonicalDescription(e.target.value)}
                         placeholder="Describe this canonical entity for future reference"
                         rows={2}
                       />
@@ -562,10 +495,7 @@ export function EntityMergeDialog({
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label
-                          htmlFor="canonicalPriority"
-                          className="block text-sm font-medium text-blue-700 mb-1"
-                        >
+                        <label htmlFor="canonicalPriority" className="block text-sm font-medium text-blue-700 mb-1">
                           Priority (1-10)
                         </label>
                         <Input
@@ -574,23 +504,18 @@ export function EntityMergeDialog({
                           min={1}
                           max={10}
                           value={canonicalPriority}
-                          onChange={e =>
-                            setCanonicalPriority(parseInt(e.target.value) || 5)
-                          }
+                          onChange={(e) => setCanonicalPriority(parseInt(e.target.value) || 5)}
                         />
                       </div>
 
                       <div>
-                        <label
-                          htmlFor="canonicalDomain"
-                          className="block text-sm font-medium text-blue-700 mb-1"
-                        >
+                        <label htmlFor="canonicalDomain" className="block text-sm font-medium text-blue-700 mb-1">
                           Domain
                         </label>
                         <Input
                           id="canonicalDomain"
                           value={canonicalDomain}
-                          onChange={e => setCanonicalDomain(e.target.value)}
+                          onChange={(e) => setCanonicalDomain(e.target.value)}
                           placeholder="e.g., spatial_computing"
                         />
                       </div>
@@ -614,7 +539,10 @@ export function EntityMergeDialog({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleMerge} disabled={cannotMerge || loading}>
+          <Button 
+            onClick={handleMerge} 
+            disabled={cannotMerge || loading}
+          >
             {loading ? (
               <>
                 <Spinner className="w-4 h-4 mr-2" />

@@ -1,17 +1,17 @@
 /**
  * Technical Document Entity and Relationship Extractor
- *
+ * 
  * Specialized extractor for technical FAQs, specifications, and documentation.
  * Optimized for capturing domain-specific technical components, software features,
  * and technical processes with semantic + lexical consolidation.
  */
 
-import type {
-  Entity,
-  EntityKind,
+import type { 
+  Entity, 
+  EntityKind, 
   KnowledgeEdge,
   RelationType,
-  DocumentMetadata,
+  DocumentMetadata 
 } from './types';
 import OpenAI from 'openai';
 
@@ -26,13 +26,13 @@ const LEIA_HARDWARE_PATTERNS = [
   /\b(?:switchable\s+Liquid\s+Crystal(?:\s+\(?LC\)?\s+lens)?|LC\s+lens(?:\s+technology)?|3D\s+Cell)\b/gi,
   /\b(?:nanoimprinted\s+diffractive\s+elements|diffractive\s+elements)\b/gi,
   /\b(?:dual\s+illumination\s+systems|backlight\s+systems)\b/gi,
-
+  
   // Optical components and properties
   /\b(?:lightfield\s+experience|true\s+lightfield|holographic\s+element)\b/gi,
   /\b(?:optical\s+efficiency|transmission\s+rate|brightness\s+loss)\b/gi,
   /\b(?:wavelength[-\s]specific\s+diffraction|color\s+uniformity)\b/gi,
   /\b(?:crosstalk\s+levels?|crosstalk\s+mitigation|cross[-\s]talk)\b/gi,
-
+  
   // Display compatibility
   /\b(?:LCD[-\s]only|OLED\s+compatible|microLED\s+compatible)\b/gi,
   /\b(?:base\s+display|display\s+types?|switchable\s+LC\s+optical\s+layer)\b/gi,
@@ -46,13 +46,13 @@ const LEIA_SOFTWARE_PATTERNS = [
   /\b(?:Windowed\s+Weaving|windowed\s+mode\s+3D)\b/gi,
   /\b(?:Multi[-\s]Screen\s+Mixed\s+2D[\/\\]3D|heterogeneous\s+displays)\b/gi,
   /\b(?:Display\s+Runtime[\/\\]?SDK|Leia\s+Runtime)\b/gi,
-
+  
   // Calibration and tracking
   /\b(?:Advanced\s+Calibration|factory[-\s]calibrated|end[-\s]of[-\s]line\s+tool)\b/gi,
   /\b(?:lens\s+alignment|mechanical\s+deformation|lens\s+spacing)\b/gi,
   /\b(?:tracking\s+camera\s+alignment|stereo\s+weaving)\b/gi,
   /\b(?:crosstalk\s+maps|static\s+crosstalk|dynamic\s+crosstalk)\b/gi,
-
+  
   // Head/eye tracking features
   /\b(?:head\s+tracking|eye\s+tracking|predictive\s+tracking)\b/gi,
   /\b(?:real[-\s]time\s+head\s+tracking|motion\s+prediction)\b/gi,
@@ -65,12 +65,12 @@ const TECHNICAL_PROCESS_PATTERNS = [
   /\b(?:calibration\s+data|calibration\s+process|joint\s+calibration)\b/gi,
   /\b(?:factory\s+calibration|end[-\s]of[-\s]line\s+calibration)\b/gi,
   /\b(?:lens\s+alignment\s+calibration|camera\s+calibration)\b/gi,
-
+  
   // Rendering and processing
   /\b(?:stereo\s+rendering|3D\s+rendering|view\s+synthesis)\b/gi,
   /\b(?:subpixel\s+assignment|left[\/\\]right\s+view\s+assignment)\b/gi,
   /\b(?:dynamic\s+re[-\s]rendering|real[-\s]time\s+adaptation)\b/gi,
-
+  
   // Quality and performance metrics
   /\b(?:immersion\s+quality|viewing\s+experience|3D\s+effect)\b/gi,
   /\b(?:latency\s+reduction|frame\s+buffering|scan[-\s]out)\b/gi,
@@ -85,13 +85,13 @@ const HARDWARE_COMPONENT_PATTERNS = [
   /\b(?:\d+mm\s+baseline|baseline\s+distance|stereo\s+baseline)\b/gi,
   /\b(?:≥\d+°\s+horizontal|FOV|field\s+of\s+view|horizontal\s+FOV)\b/gi,
   /\b(?:monochrome\s+camera|RGB\s+camera|color\s+camera)\b/gi,
-
+  
   // Display specifications
   /\b(?:2D↔3D\s+switching|switching\s+speed|microseconds)\b/gi,
   /\b(?:~\d+%\s+transmission|optical\s+transmission|brightness\s+preservation)\b/gi,
   /\b(?:<\d+%\s+crosstalk|crosstalk\s+levels?|production\s+crosstalk)\b/gi,
   /\b(?:full\s+2D\s+resolution|half\s+resolution\s+3D|resolution\s+tradeoff)\b/gi,
-
+  
   // Technical measurements
   /\b(?:\d+\s*rad[\/\\]s²|angular\s+velocity|head\s+movement\s+speed)\b/gi,
   /\b(?:viewing\s+distances?|shorter\s+distances?|farther\s+distances?)\b/gi,
@@ -103,12 +103,12 @@ const SOFTWARE_ARCHITECTURE_PATTERNS = [
   /\b(?:DX11|DX12|DirectX|OpenGL|Vulkan)\b/gi,
   /\b(?:stereo\s+rendering\s+pipelines?|graphics\s+pipelines?)\b/gi,
   /\b(?:application\s+buffering|frame\s+buffering|stable\s+FPS)\b/gi,
-
+  
   // Integration patterns
   /\b(?:intimate\s+knowledge|lens\s+design\s+knowledge)\b/gi,
   /\b(?:operating\s+systems?|window\s+caching|window\s+dragging)\b/gi,
   /\b(?:seamless\s+work|mixed\s+display\s+setups)\b/gi,
-
+  
   // Privacy and security
   /\b(?:on[-\s]chip\s+computation|ASIC\s+eye[-\s]position)\b/gi,
   /\b(?:raw\s+camera\s+feed|anonymized\s+data|privacy\s+protection)\b/gi,
@@ -118,14 +118,14 @@ const SOFTWARE_ARCHITECTURE_PATTERNS = [
 // FAQ-Specific Patterns for Questions and Definitions
 const FAQ_STRUCTURE_PATTERNS = [
   // Question patterns
-  /(?:^|\n)#{1,6}\s*(?:What|How|Why|When|Where|Which)\s+[^?\n]*\??\s*$/gim,
-  /(?:^|\n)\*\*Q(?:uestion)?:?\*\*\s+([^?\n]+\??)/gim,
-  /(?:^|\n)Q:?\s+([^?\n]+\??)/gim,
-
+  /(?:^|\n)#{1,6}\s*(?:What|How|Why|When|Where|Which)\s+[^?\n]*\??\s*$/gmi,
+  /(?:^|\n)\*\*Q(?:uestion)?:?\*\*\s+([^?\n]+\??)/gmi,
+  /(?:^|\n)Q:?\s+([^?\n]+\??)/gmi,
+  
   // Answer patterns with technical definitions
-  /(?:^|\n)\*\*A(?:nswer)?:?\*\*\s+([^.\n]+(?:\.|$))/gim,
-  /(?:^|\n)A:?\s+([^.\n]+(?:\.|$))/gim,
-
+  /(?:^|\n)\*\*A(?:nswer)?:?\*\*\s+([^.\n]+(?:\.|$))/gmi,
+  /(?:^|\n)A:?\s+([^.\n]+(?:\.|$))/gmi,
+  
   // Definition patterns
   /\b([A-Z][A-Za-z\s]+)\s+is\s+(?:a|an|the)\s+([^.]+\.)/gi,
   /\b([A-Z][A-Za-z\s]+):\s+([^.\n]+\.)/gi,
@@ -180,35 +180,32 @@ const TECHNICAL_RELATIONSHIP_PATTERNS = {
  */
 function cleanEntityName(rawName: string): string {
   if (!rawName) return '';
-
+  
   let cleaned = rawName.trim();
-
+  
   // Remove markdown artifacts
   cleaned = cleaned.replace(/^#{1,6}\s*/, ''); // Remove markdown headers
   cleaned = cleaned.replace(/\*\*([^*]+)\*\*/g, '$1'); // Remove bold formatting
   cleaned = cleaned.replace(/`([^`]+)`/g, '$1'); // Remove code formatting
-
+  
   // Remove FAQ artifacts
   cleaned = cleaned.replace(/^[QA]:\s*/, ''); // Remove Q: A: prefixes
-  cleaned = cleaned.replace(/^\*\*[QA](?:uestion|nswer)?:?\*\*\s*/, ''); // Remove **Q:** **A:**
-
+  cleaned = cleaned.replace(/^\*\*[QA](?:uestion|nswer)?:?\*\*\s*/, ''); // Remove **Q:** **A:** 
+  
   // Remove incomplete sentences and fragments
-  cleaned = cleaned.replace(
-    /^(?:What|How|Why|When|Where|Which)\s+.*?\?.*$/,
-    ''
-  ); // Remove question fragments
+  cleaned = cleaned.replace(/^(?:What|How|Why|When|Where|Which)\s+.*?\?.*$/, ''); // Remove question fragments
   cleaned = cleaned.replace(/^A:\*\*.*$/, ''); // Remove answer fragments
   cleaned = cleaned.replace(/^.*?(?:includes?|supports?|features?)\s+/, ''); // Remove leading descriptive text
-
+  
   // Remove special characters but keep important technical ones
   cleaned = cleaned.replace(/[^\w\s\-\(\)\/\\\.%°]/g, ' ');
-
+  
   // Clean up whitespace
   cleaned = cleaned.replace(/\s+/g, ' ').trim();
-
+  
   // Remove trailing incomplete words
   cleaned = cleaned.replace(/\s+\w{1,2}$/, ''); // Remove 1-2 char trailing words
-
+  
   return cleaned;
 }
 
@@ -217,51 +214,27 @@ function cleanEntityName(rawName: string): string {
  */
 function preFilterSpecifications(name: string): boolean {
   const lowerName = name.toLowerCase();
-
+  
   // Technical specifications (frame rates, resolutions, etc.)
   if (/^\d+\s*(fps|hz|p|k|mhz|ghz)$/i.test(lowerName)) return false;
-  if (
-    /^(frame\s+rate|refresh\s+rate|resolution|fov|field\s+of\s+view)$/i.test(
-      lowerName
-    )
-  )
-    return false;
+  if (/^(frame\s+rate|refresh\s+rate|resolution|fov|field\s+of\s+view)$/i.test(lowerName)) return false;
   if (/^\d+[-–]\d+\s*(fps|hz)$/i.test(lowerName)) return false; // ranges like "90-120 fps"
-
+  
   // Generic API names without context
-  if (/^(dx11|dx12|directx|opengl|vulkan|metal)$/i.test(lowerName))
-    return false;
-
+  if (/^(dx11|dx12|directx|opengl|vulkan|metal)$/i.test(lowerName)) return false;
+  
   // Performance metrics
-  if (
-    /^(stable\s+fps|latency|transmission\s+rate|brightness\s+loss)$/i.test(
-      lowerName
-    )
-  )
-    return false;
-
+  if (/^(stable\s+fps|latency|transmission\s+rate|brightness\s+loss)$/i.test(lowerName)) return false;
+  
   // Vague concepts
-  if (
-    /^(3d\s+effect|immersion|viewing\s+experience|experience)$/i.test(lowerName)
-  )
-    return false;
-
+  if (/^(3d\s+effect|immersion|viewing\s+experience|experience)$/i.test(lowerName)) return false;
+  
   // Generic measurements
-  if (
-    /^\d+\s*(mm|cm|inches?|°|degrees?|microseconds?|milliseconds?)$/i.test(
-      lowerName
-    )
-  )
-    return false;
-
+  if (/^\d+\s*(mm|cm|inches?|°|degrees?|microseconds?|milliseconds?)$/i.test(lowerName)) return false;
+  
   // Generic technical terms without Leia context
-  if (
-    /^(calibration\s+data|3d\s+rendering|stereo\s+rendering|calibration)$/i.test(
-      lowerName
-    )
-  )
-    return false;
-
+  if (/^(calibration\s+data|3d\s+rendering|stereo\s+rendering|calibration)$/i.test(lowerName)) return false;
+  
   return true;
 }
 
@@ -270,65 +243,35 @@ function preFilterSpecifications(name: string): boolean {
  */
 function isValidEntity(name: string): boolean {
   if (!name || name.length < 3 || name.length > 80) return false;
-
+  
   // Pre-filter obvious specifications
   if (!preFilterSpecifications(name)) return false;
-
+  
   // Reject common stop words and non-entities
   const stopWords = [
-    'the',
-    'and',
-    'or',
-    'but',
-    'in',
-    'on',
-    'at',
-    'to',
-    'for',
-    'of',
-    'with',
-    'by',
-    'what',
-    'how',
-    'why',
-    'when',
-    'where',
-    'which',
-    'this',
-    'that',
-    'these',
-    'those',
-    'some',
-    'any',
-    'all',
-    'most',
-    'many',
-    'few',
-    'much',
-    'more',
-    'less',
-    'other',
+    'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
+    'what', 'how', 'why', 'when', 'where', 'which', 'this', 'that', 'these', 'those',
+    'some', 'any', 'all', 'most', 'many', 'few', 'much', 'more', 'less', 'other'
   ];
-
+  
   const lowerName = name.toLowerCase();
   if (stopWords.includes(lowerName)) return false;
-
+  
   // Reject pure numeric or mostly punctuation
   if (/^\d+$/.test(name)) return false;
   if (!/[a-zA-Z]/.test(name)) return false;
-
+  
   // Reject if starts with common question/answer words
-  if (/^(what|how|why|when|where|which|our|some|many|this)\s/i.test(name))
-    return false;
-
+  if (/^(what|how|why|when|where|which|our|some|many|this)\s/i.test(name)) return false;
+  
   // Reject incomplete technical fragments
   if (/^(a\*\*|the\s+\w{1,3}$|and\s+|or\s+)/i.test(name)) return false;
-
+  
   // Must have at least one meaningful word (3+ chars)
   const words = name.split(/\s+/);
   const meaningfulWords = words.filter(w => w.length >= 3 && !/^\d+$/.test(w));
   if (meaningfulWords.length === 0) return false;
-
+  
   return true;
 }
 
@@ -337,34 +280,21 @@ function isValidEntity(name: string): boolean {
  */
 function isLeiaSpecific(name: string, kind: EntityKind): boolean {
   const lowerName = name.toLowerCase();
-
+  
   // Known Leia-specific terms are always valid
   const leiaSpecificTerms = [
-    'late latching',
-    'windowed weaving',
-    'stereo view mapping',
-    'advanced calibration',
-    '3d cell',
-    'dlb',
-    'diffractive lightfield backlight',
-    'lc lens',
-    'switchable liquid crystal',
-    'display runtime',
-    'leia runtime',
-    'crosstalk mitigation',
-    'tracking camera alignment',
-    'stereo weaving',
-    'predictive tracking',
-    'asic eye-position',
-    'end-of-line tool',
+    'late latching', 'windowed weaving', 'stereo view mapping', 'advanced calibration',
+    '3d cell', 'dlb', 'diffractive lightfield backlight', 'lc lens', 'switchable liquid crystal',
+    'display runtime', 'leia runtime', 'crosstalk mitigation', 'tracking camera alignment',
+    'stereo weaving', 'predictive tracking', 'asic eye-position', 'end-of-line tool'
   ];
-
+  
   for (const term of leiaSpecificTerms) {
     if (lowerName.includes(term) || term.includes(lowerName)) {
       return true;
     }
   }
-
+  
   // Product names with known OEMs are valid
   if (kind === 'product') {
     const oemProducts = ['samsung odyssey', 'zte nubia', 'acer spatiallabs'];
@@ -372,28 +302,19 @@ function isLeiaSpecific(name: string, kind: EntityKind): boolean {
       if (lowerName.includes(product)) return true;
     }
   }
-
+  
   // Generic terms that require more context
   const genericTerms = [
-    'head tracking',
-    'eye tracking',
-    'calibration',
-    '3d rendering',
-    'stereo rendering',
-    'frame rate',
-    'latency',
-    'transmission',
-    'brightness',
-    'optical',
-    'mechanical',
+    'head tracking', 'eye tracking', 'calibration', '3d rendering', 'stereo rendering',
+    'frame rate', 'latency', 'transmission', 'brightness', 'optical', 'mechanical'
   ];
-
+  
   for (const generic of genericTerms) {
     if (lowerName === generic) {
       return false; // Too generic without Leia context
     }
   }
-
+  
   // If not generic and not obviously invalid, assume it's valid
   // (this catches new Leia-specific terms we haven't seen before)
   return true;
@@ -407,28 +328,17 @@ function isLeiaSpecific(name: string, kind: EntityKind): boolean {
  * Use LLM to validate and clean technical entities
  */
 async function cleanEntitiesWithLLM(
-  rawEntities: Array<{
-    name: string;
-    kind: EntityKind;
-    context: string;
-    mentionCount: number;
-  }>,
+  rawEntities: Array<{name: string; kind: EntityKind; context: string; mentionCount: number}>,
   documentContext: string
-): Promise<
-  Array<{
-    name: string;
-    kind: EntityKind;
-    isValid: boolean;
-    cleanedName?: string;
-  }>
-> {
+): Promise<Array<{name: string; kind: EntityKind; isValid: boolean; cleanedName?: string}>> {
+  
   if (!process.env.OPENAI_API_KEY) {
     console.warn('⚠️ OpenAI API key not found, skipping LLM entity cleaning');
-    return rawEntities.map(e => ({
-      name: e.name,
-      kind: e.kind,
+    return rawEntities.map(e => ({ 
+      name: e.name, 
+      kind: e.kind, 
       isValid: isValidEntity(e.name),
-      cleanedName: e.name,
+      cleanedName: e.name 
     }));
   }
 
@@ -440,21 +350,13 @@ async function cleanEntitiesWithLLM(
     batches.push(rawEntities.slice(i, i + 20));
   }
 
-  const allResults: Array<{
-    name: string;
-    kind: EntityKind;
-    isValid: boolean;
-    cleanedName?: string;
-  }> = [];
+  const allResults: Array<{name: string; kind: EntityKind; isValid: boolean; cleanedName?: string}> = [];
 
   for (const batch of batches) {
     try {
-      const entityList = batch
-        .map(
-          (e, i) =>
-            `${i + 1}. "${e.name}" (${e.kind}, ${e.mentionCount} mentions)`
-        )
-        .join('\n');
+      const entityList = batch.map((e, i) => 
+        `${i + 1}. "${e.name}" (${e.kind}, ${e.mentionCount} mentions)`
+      ).join('\n');
 
       const systemPrompt = `You are a technical entity validator for 3D display technology documentation. 
 
@@ -521,7 +423,7 @@ Return the JSON array for validation results.`;
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
+          { role: 'user', content: userPrompt }
         ],
         temperature: 0.1,
         max_tokens: 2000,
@@ -548,20 +450,18 @@ Return the JSON array for validation results.`;
       for (let i = 0; i < batch.length; i++) {
         const entity = batch[i];
         const result = validationResults[i];
-
+        
         if (result) {
           // Post-LLM validation - double-check for any remaining specifications
-          const isValidAfterLLM =
-            result.valid &&
-            result.cleaned &&
-            preFilterSpecifications(result.cleaned) &&
-            isLeiaSpecific(result.cleaned, entity.kind);
-
+          const isValidAfterLLM = result.valid && result.cleaned && 
+                                 preFilterSpecifications(result.cleaned) &&
+                                 isLeiaSpecific(result.cleaned, entity.kind);
+          
           allResults.push({
             name: entity.name,
             kind: entity.kind,
             isValid: isValidAfterLLM,
-            cleanedName: isValidAfterLLM ? result.cleaned : undefined,
+            cleanedName: isValidAfterLLM ? result.cleaned : undefined
           });
         } else {
           // Fallback to regex validation if LLM result is missing
@@ -569,10 +469,11 @@ Return the JSON array for validation results.`;
             name: entity.name,
             kind: entity.kind,
             isValid: isValidEntity(entity.name),
-            cleanedName: entity.name,
+            cleanedName: entity.name
           });
         }
       }
+
     } catch (error) {
       console.error('LLM entity cleaning failed for batch:', error);
       // Fallback to regex validation for this batch
@@ -581,7 +482,7 @@ Return the JSON array for validation results.`;
           name: entity.name,
           kind: entity.kind,
           isValid: isValidEntity(entity.name),
-          cleanedName: entity.name,
+          cleanedName: entity.name
         });
       }
     }
@@ -599,75 +500,45 @@ function classifyTechnicalEntity(name: string, context: string): EntityKind {
   const lowerContext = context.toLowerCase();
 
   // Hardware technologies and components
-  if (
-    lowerName.includes('dlb') ||
-    lowerName.includes('diffractive lightfield') ||
-    lowerName.includes('lc lens') ||
-    lowerName.includes('liquid crystal') ||
-    lowerName.includes('3d cell') ||
-    lowerName.includes('optical layer')
-  ) {
+  if (lowerName.includes('dlb') || lowerName.includes('diffractive lightfield') ||
+      lowerName.includes('lc lens') || lowerName.includes('liquid crystal') ||
+      lowerName.includes('3d cell') || lowerName.includes('optical layer')) {
     return 'component';
   }
 
   // Software features and algorithms
-  if (
-    lowerName.includes('mapping') ||
-    lowerName.includes('latching') ||
-    lowerName.includes('weaving') ||
-    lowerName.includes('runtime') ||
-    lowerName.includes('sdk') ||
-    lowerName.includes('algorithm')
-  ) {
+  if (lowerName.includes('mapping') || lowerName.includes('latching') ||
+      lowerName.includes('weaving') || lowerName.includes('runtime') ||
+      lowerName.includes('sdk') || lowerName.includes('algorithm')) {
     return 'technology';
   }
 
   // Calibration and processes
-  if (
-    lowerName.includes('calibration') ||
-    lowerName.includes('process') ||
-    lowerName.includes('mitigation') ||
-    lowerName.includes('alignment')
-  ) {
+  if (lowerName.includes('calibration') || lowerName.includes('process') ||
+      lowerName.includes('mitigation') || lowerName.includes('alignment')) {
     return 'technology';
   }
 
   // Display products and devices
-  if (
-    lowerName.includes('odyssey') ||
-    lowerName.includes('nubia') ||
-    lowerName.includes('spatiallabs') ||
-    lowerName.includes('pad')
-  ) {
+  if (lowerName.includes('odyssey') || lowerName.includes('nubia') ||
+      lowerName.includes('spatiallabs') || lowerName.includes('pad')) {
     return 'product';
   }
 
   // Organizations and companies
-  if (
-    lowerName.includes('leia') ||
-    lowerName.includes('samsung') ||
-    lowerName.includes('acer') ||
-    lowerName.includes('zte')
-  ) {
+  if (lowerName.includes('leia') || lowerName.includes('samsung') ||
+      lowerName.includes('acer') || lowerName.includes('zte')) {
     return 'organization';
   }
 
   // Default classification based on context
-  if (
-    lowerContext.includes('camera') ||
-    lowerContext.includes('sensor') ||
-    lowerContext.includes('hardware') ||
-    lowerContext.includes('component')
-  ) {
+  if (lowerContext.includes('camera') || lowerContext.includes('sensor') ||
+      lowerContext.includes('hardware') || lowerContext.includes('component')) {
     return 'component';
   }
 
-  if (
-    lowerContext.includes('software') ||
-    lowerContext.includes('algorithm') ||
-    lowerContext.includes('method') ||
-    lowerContext.includes('technique')
-  ) {
+  if (lowerContext.includes('software') || lowerContext.includes('algorithm') ||
+      lowerContext.includes('method') || lowerContext.includes('technique')) {
     return 'technology';
   }
 
@@ -678,53 +549,33 @@ function classifyTechnicalEntity(name: string, context: string): EntityKind {
 // Authority Scoring for Technical Entities
 // =======================
 
-function calculateTechnicalAuthorityScore(
-  name: string,
-  context: string,
-  mentionCount: number
-): number {
+function calculateTechnicalAuthorityScore(name: string, context: string, mentionCount: number): number {
   let score = 0.5; // Base score
 
   const lowerName = name.toLowerCase();
   const lowerContext = context.toLowerCase();
 
   // Core Leia technologies get high authority
-  if (
-    lowerName.includes('dlb') ||
-    lowerName.includes('diffractive lightfield') ||
-    lowerName.includes('lc lens') ||
-    lowerName.includes('liquid crystal')
-  ) {
+  if (lowerName.includes('dlb') || lowerName.includes('diffractive lightfield') ||
+      lowerName.includes('lc lens') || lowerName.includes('liquid crystal')) {
     score += 0.4;
   }
 
-  // Key runtime features get high authority
-  if (
-    lowerName.includes('stereo view mapping') ||
-    lowerName.includes('late latching') ||
-    lowerName.includes('windowed weaving') ||
-    lowerName.includes('advanced calibration')
-  ) {
+  // Key runtime features get high authority  
+  if (lowerName.includes('stereo view mapping') || lowerName.includes('late latching') ||
+      lowerName.includes('windowed weaving') || lowerName.includes('advanced calibration')) {
     score += 0.3;
   }
 
   // Technical definitions and explanations boost authority
-  if (
-    lowerContext.includes('is a') ||
-    lowerContext.includes('is the') ||
-    lowerContext.includes('refers to') ||
-    lowerContext.includes('means')
-  ) {
+  if (lowerContext.includes('is a') || lowerContext.includes('is the') ||
+      lowerContext.includes('refers to') || lowerContext.includes('means')) {
     score += 0.2;
   }
 
   // FAQ context provides authoritative definitions
-  if (
-    lowerContext.includes('a:**') ||
-    lowerContext.includes('answer:') ||
-    lowerContext.includes('q:**') ||
-    lowerContext.includes('question:')
-  ) {
+  if (lowerContext.includes('a:**') || lowerContext.includes('answer:') ||
+      lowerContext.includes('q:**') || lowerContext.includes('question:')) {
     score += 0.15;
   }
 
@@ -787,7 +638,7 @@ export async function extractTechnicalEntities(
     product: 0,
     technology: 0,
     component: 0,
-    document: 0,
+    document: 0
   };
 
   // Combine all technical patterns
@@ -805,15 +656,12 @@ export async function extractTechnicalEntities(
     while ((match = pattern.exec(content)) !== null) {
       const entityName = match[1] || match[0];
       const cleanName = cleanEntityName(entityName);
-
+      
       if (!isValidEntity(cleanName)) continue;
 
       // Get context around the match
       const start = Math.max(0, match.index - 100);
-      const end = Math.min(
-        content.length,
-        match.index + entityName.length + 100
-      );
+      const end = Math.min(content.length, match.index + entityName.length + 100);
       const context = content.slice(start, end);
 
       const kind = classifyTechnicalEntity(cleanName, context);
@@ -851,38 +699,29 @@ export async function extractTechnicalEntities(
     name: entity.name,
     kind: entity.kind,
     context: entity.firstContext,
-    mentionCount: entity.mentionCount,
+    mentionCount: entity.mentionCount
   }));
 
-  console.log(
-    `🧪 Running LLM entity cleaning on ${rawEntitiesForCleaning.length} entities...`
-  );
-
+  console.log(`🧪 Running LLM entity cleaning on ${rawEntitiesForCleaning.length} entities...`);
+  
   // Use LLM to clean and validate entities
-  const cleaningResults = await cleanEntitiesWithLLM(
-    rawEntitiesForCleaning,
-    content
-  );
-
+  const cleaningResults = await cleanEntitiesWithLLM(rawEntitiesForCleaning, content);
+  
   // Filter to only valid entities and apply cleaned names
   const validatedEntities = cleaningResults
     .filter(result => result.isValid && result.cleanedName)
     .map(result => {
-      const originalEntity = entities.get(
-        `${result.name.toLowerCase()}_${result.kind}`
-      );
+      const originalEntity = entities.get(`${result.name.toLowerCase()}_${result.kind}`);
       return {
         name: result.cleanedName!,
         kind: result.kind,
         mentionCount: originalEntity?.mentionCount || 1,
         contexts: originalEntity?.contexts || [],
-        firstContext: originalEntity?.firstContext || '',
+        firstContext: originalEntity?.firstContext || ''
       };
     });
 
-  console.log(
-    `✅ LLM cleaning: ${rawEntitiesForCleaning.length} → ${validatedEntities.length} entities (${Math.round((validatedEntities.length / rawEntitiesForCleaning.length) * 100)}% kept)`
-  );
+  console.log(`✅ LLM cleaning: ${rawEntitiesForCleaning.length} → ${validatedEntities.length} entities (${Math.round(validatedEntities.length/rawEntitiesForCleaning.length*100)}% kept)`);
 
   // Calculate authority scores for validated entities
   const finalEntities = validatedEntities.map(entity => {
@@ -898,34 +737,29 @@ export async function extractTechnicalEntities(
       mentionCount: entity.mentionCount,
       authorityScore,
       context: entity.firstContext,
-      description:
-        entity.contexts.length > 1
-          ? `Technical entity mentioned ${entity.mentionCount} times in document`
-          : undefined,
+      description: entity.contexts.length > 1 ? 
+        `Technical entity mentioned ${entity.mentionCount} times in document` : 
+        undefined,
     };
   });
 
   // Extract relationships using technical patterns
-  for (const [relationType, patterns] of Object.entries(
-    TECHNICAL_RELATIONSHIP_PATTERNS
-  )) {
+  for (const [relationType, patterns] of Object.entries(TECHNICAL_RELATIONSHIP_PATTERNS)) {
     for (const pattern of patterns) {
       let match;
       while ((match = pattern.exec(content)) !== null) {
         const srcName = match[1]?.trim();
         const dstName = match[2]?.trim();
-
+        
         if (srcName && dstName && srcName !== dstName) {
-          const srcEntity = finalEntities.find(
-            e =>
-              e.name.toLowerCase().includes(srcName.toLowerCase()) ||
-              srcName.toLowerCase().includes(e.name.toLowerCase())
+          const srcEntity = finalEntities.find(e => 
+            e.name.toLowerCase().includes(srcName.toLowerCase()) ||
+            srcName.toLowerCase().includes(e.name.toLowerCase())
           );
-
-          const dstEntity = finalEntities.find(
-            e =>
-              e.name.toLowerCase().includes(dstName.toLowerCase()) ||
-              dstName.toLowerCase().includes(e.name.toLowerCase())
+          
+          const dstEntity = finalEntities.find(e => 
+            e.name.toLowerCase().includes(dstName.toLowerCase()) ||
+            dstName.toLowerCase().includes(e.name.toLowerCase())
           );
 
           if (srcEntity && dstEntity) {
@@ -949,21 +783,15 @@ export async function extractTechnicalEntities(
   const technicalTerms = finalEntities.length;
   const technicalTermDensity = (technicalTerms / totalWords) * 1000; // per 1000 words
 
-  const avgAuthorityScore =
-    finalEntities.length > 0
-      ? finalEntities.reduce((sum, e) => sum + e.authorityScore, 0) /
-        finalEntities.length
-      : 0;
+  const avgAuthorityScore = finalEntities.length > 0 
+    ? finalEntities.reduce((sum, e) => sum + e.authorityScore, 0) / finalEntities.length 
+    : 0;
 
   const extractionTime = Date.now() - startTime;
-
+  
   console.log(`🧪 Technical extraction completed in ${extractionTime}ms`);
-  console.log(
-    `📊 Found ${finalEntities.length} technical entities, ${relationships.length} relationships`
-  );
-  console.log(
-    `🎯 Technical term density: ${technicalTermDensity.toFixed(1)} terms per 1000 words`
-  );
+  console.log(`📊 Found ${finalEntities.length} technical entities, ${relationships.length} relationships`);
+  console.log(`🎯 Technical term density: ${technicalTermDensity.toFixed(1)} terms per 1000 words`);
   console.log(`📈 Average authority score: ${avgAuthorityScore.toFixed(2)}`);
 
   return {
@@ -976,7 +804,7 @@ export async function extractTechnicalEntities(
       relationshipsFound: relationships.length,
       faqStructureDetected,
       technicalTermDensity,
-    },
+    }
   };
 }
 
@@ -984,6 +812,5 @@ export async function extractTechnicalEntities(
 export const technicalDocumentEntityExtractor = {
   extractEntities: extractTechnicalEntities,
   name: 'Technical Documentation',
-  description:
-    'Specialized extraction for technical FAQs, specifications, and documentation',
+  description: 'Specialized extraction for technical FAQs, specifications, and documentation',
 };

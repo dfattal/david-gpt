@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Spinner } from '@/components/ui/spinner';
-import { useToast } from '@/components/ui/toast';
-import { supabase } from '@/lib/supabase/client';
+import { useState, useEffect } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
+import { useToast } from "@/components/ui/toast";
+import { supabase } from "@/lib/supabase/client";
 
 interface Document {
   id: string;
@@ -34,38 +34,29 @@ interface DocumentListProps {
   onDocumentUpdate?: () => void;
 }
 
-export function DocumentList({
-  refreshKey,
-  onDocumentUpdate,
-}: DocumentListProps) {
+export function DocumentList({ refreshKey, onDocumentUpdate }: DocumentListProps) {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<
-    'all' | 'completed' | 'processing' | 'failed'
-  >('all');
-  const [typeFilter, setTypeFilter] = useState<
-    'all' | 'pdf' | 'paper' | 'patent' | 'note' | 'url'
-  >('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'processing' | 'failed'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'pdf' | 'paper' | 'patent' | 'note' | 'url'>('all');
   const { addToast } = useToast();
 
   const loadDocuments = async () => {
     try {
       let query = supabase
         .from('documents')
-        .select(
-          `
+        .select(`
           *,
           document_chunks(count)
-        `
-        )
+        `)
         .order('created_at', { ascending: false });
 
       // Apply filters
       if (statusFilter !== 'all') {
         query = query.eq('processing_status', statusFilter);
       }
-
+      
       if (typeFilter !== 'all') {
         query = query.eq('doc_type', typeFilter);
       }
@@ -83,12 +74,11 @@ export function DocumentList({
       // Apply search filter
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
-        filteredData = filteredData.filter(
-          doc =>
-            doc.title.toLowerCase().includes(searchLower) ||
-            doc.doi?.toLowerCase().includes(searchLower) ||
-            doc.patent_no?.toLowerCase().includes(searchLower) ||
-            doc.arxiv_id?.toLowerCase().includes(searchLower)
+        filteredData = filteredData.filter(doc =>
+          doc.title.toLowerCase().includes(searchLower) ||
+          doc.doi?.toLowerCase().includes(searchLower) ||
+          doc.patent_no?.toLowerCase().includes(searchLower) ||
+          doc.arxiv_id?.toLowerCase().includes(searchLower)
         );
       }
 
@@ -106,11 +96,7 @@ export function DocumentList({
   }, [refreshKey, statusFilter, typeFilter, searchTerm]);
 
   const deleteDocument = async (documentId: string) => {
-    if (
-      !confirm(
-        'Are you sure you want to delete this document? This action cannot be undone.'
-      )
-    ) {
+    if (!confirm('Are you sure you want to delete this document? This action cannot be undone.')) {
       return;
     }
 
@@ -136,11 +122,7 @@ export function DocumentList({
   };
 
   const reprocessDocument = async (documentId: string) => {
-    if (
-      !confirm(
-        'Are you sure you want to reprocess this document? This will overwrite existing chunks and embeddings.'
-      )
-    ) {
+    if (!confirm('Are you sure you want to reprocess this document? This will overwrite existing chunks and embeddings.')) {
       return;
     }
 
@@ -148,9 +130,9 @@ export function DocumentList({
       // Update document status to pending
       const { error } = await supabase
         .from('documents')
-        .update({
+        .update({ 
           processing_status: 'pending',
-          error_message: null,
+          error_message: null 
         })
         .eq('id', documentId);
 
@@ -230,14 +212,14 @@ export function DocumentList({
             <Input
               placeholder="Search documents by title, DOI, patent number..."
               value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-
+          
           <div className="flex gap-2">
             <select
               value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value as any)}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
               className="px-3 py-2 border border-gray-300 rounded-md text-sm"
             >
               <option value="all">All Statuses</option>
@@ -249,7 +231,7 @@ export function DocumentList({
 
             <select
               value={typeFilter}
-              onChange={e => setTypeFilter(e.target.value as any)}
+              onChange={(e) => setTypeFilter(e.target.value as any)}
               className="px-3 py-2 border border-gray-300 rounded-md text-sm"
             >
               <option value="all">All Types</option>
@@ -290,7 +272,7 @@ export function DocumentList({
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {documents.map(doc => (
+              {documents.map((doc) => (
                 <tr key={doc.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
@@ -303,16 +285,12 @@ export function DocumentList({
                     )}
                   </td>
                   <td className="px-6 py-4">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeBadge(doc.doc_type)}`}
-                    >
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeBadge(doc.doc_type)}`}>
                       {doc.doc_type}
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(doc.processing_status)}`}
-                    >
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(doc.processing_status)}`}>
                       {doc.processing_status}
                     </span>
                   </td>
@@ -321,12 +299,8 @@ export function DocumentList({
                       {doc.doi && <div>DOI: {doc.doi}</div>}
                       {doc.patent_no && <div>Patent: {doc.patent_no}</div>}
                       {doc.arxiv_id && <div>arXiv: {doc.arxiv_id}</div>}
-                      {doc.file_size && (
-                        <div>Size: {formatFileSize(doc.file_size)}</div>
-                      )}
-                      {doc.published_date && (
-                        <div>Published: {formatDate(doc.published_date)}</div>
-                      )}
+                      {doc.file_size && <div>Size: {formatFileSize(doc.file_size)}</div>}
+                      {doc.published_date && <div>Published: {formatDate(doc.published_date)}</div>}
                       <div>Chunks: {doc.document_chunks?.[0]?.count || 0}</div>
                     </div>
                   </td>
@@ -363,14 +337,15 @@ export function DocumentList({
             </tbody>
           </table>
         </div>
-
+        
         {documents.length === 0 && (
           <div className="text-center py-8 text-gray-500">
             <div className="text-lg font-medium mb-2">No documents found</div>
             <div className="text-sm">
-              {searchTerm || statusFilter !== 'all' || typeFilter !== 'all'
+              {searchTerm || statusFilter !== 'all' || typeFilter !== 'all' 
                 ? 'Try adjusting your search or filters'
-                : 'Upload your first document to get started'}
+                : 'Upload your first document to get started'
+              }
             </div>
           </div>
         )}

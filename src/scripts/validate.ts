@@ -78,12 +78,7 @@ function getScriptPath(command: string): string {
 function main() {
   const args = process.argv.slice(2);
 
-  if (
-    args.length === 0 ||
-    args[0] === 'help' ||
-    args[0] === '--help' ||
-    args[0] === '-h'
-  ) {
+  if (args.length === 0 || args[0] === 'help' || args[0] === '--help' || args[0] === '-h') {
     console.log(HELP_TEXT);
     process.exit(0);
   }
@@ -107,6 +102,7 @@ function main() {
       stdio: 'inherit',
       cwd: process.cwd(),
     });
+
   } catch (error: any) {
     // execSync throws on non-zero exit codes, which is expected for validation failures
     process.exit(error.status || 1);

@@ -1,6 +1,6 @@
 /**
  * Embedding Generation System
- *
+ * 
  * Handles text embeddings generation using OpenAI's API with batching,
  * retry logic, and caching for optimal performance.
  */
@@ -50,10 +50,10 @@ export class EmbeddingService {
     try {
       const response = await this.callOpenAIWithRetry([text]);
       const embedding = response.data[0].embedding;
-
+      
       // Cache the result
       this.cache.set(cacheKey, embedding);
-
+      
       return embedding;
     } catch (error) {
       console.error('Error generating embedding:', error);
@@ -94,15 +94,13 @@ export class EmbeddingService {
   /**
    * Generate embeddings for document chunks
    */
-  async generateChunkEmbeddings(
-    chunks: DocumentChunk[]
-  ): Promise<DocumentChunk[]> {
+  async generateChunkEmbeddings(chunks: DocumentChunk[]): Promise<DocumentChunk[]> {
     if (!chunks.length) {
       return [];
     }
 
     console.log(`Generating embeddings for ${chunks.length} chunks...`);
-
+    
     const texts = chunks.map(chunk => chunk.content);
     const embeddings = await this.generateEmbeddings(texts);
 
@@ -125,7 +123,7 @@ export class EmbeddingService {
     for (let i = 0; i < texts.length; i++) {
       const text = texts[i];
       const cacheKey = this.getCacheKey(text);
-
+      
       if (this.cache.has(cacheKey)) {
         results[i] = this.cache.get(cacheKey)!;
       } else {
@@ -137,12 +135,12 @@ export class EmbeddingService {
     // Generate embeddings for uncached texts
     if (uncachedTexts.length > 0) {
       const response = await this.callOpenAIWithRetry(uncachedTexts);
-
+      
       for (let i = 0; i < uncachedTexts.length; i++) {
         const text = uncachedTexts[i];
         const embedding = response.data[i].embedding;
         const originalIndex = uncachedIndices[i];
-
+        
         // Cache and store result
         this.cache.set(this.getCacheKey(text), embedding);
         results[originalIndex] = embedding;
@@ -156,7 +154,7 @@ export class EmbeddingService {
    * Call OpenAI API with retry logic
    */
   private async callOpenAIWithRetry(
-    texts: string[],
+    texts: string[], 
     attempt = 1
   ): Promise<OpenAI.Embeddings.CreateEmbeddingResponse> {
     try {
@@ -170,10 +168,8 @@ export class EmbeddingService {
     } catch (error: any) {
       if (attempt < this.config.maxRetries) {
         const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Exponential backoff
-        console.warn(
-          `Embedding API call failed (attempt ${attempt}), retrying in ${delay}ms...`
-        );
-
+        console.warn(`Embedding API call failed (attempt ${attempt}), retrying in ${delay}ms...`);
+        
         await this.sleep(delay);
         return this.callOpenAIWithRetry(texts, attempt + 1);
       }
@@ -188,11 +184,11 @@ export class EmbeddingService {
    */
   private createBatches(texts: string[]): string[][] {
     const batches: string[][] = [];
-
+    
     for (let i = 0; i < texts.length; i += this.config.batchSize) {
       batches.push(texts.slice(i, i + this.config.batchSize));
     }
-
+    
     return batches;
   }
 
@@ -253,7 +249,7 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   }
 
   const denominator = Math.sqrt(normA) * Math.sqrt(normB);
-
+  
   if (denominator === 0) {
     return 0;
   }
@@ -283,11 +279,11 @@ export function euclideanDistance(a: number[], b: number[]): number {
  */
 export function normalizeVector(vector: number[]): number[] {
   const magnitude = Math.sqrt(vector.reduce((sum, val) => sum + val * val, 0));
-
+  
   if (magnitude === 0) {
     return vector.slice(); // Return copy of zero vector
   }
-
+  
   return vector.map(val => val / magnitude);
 }
 
@@ -317,10 +313,7 @@ export function findMostSimilar(
 /**
  * Validate embedding dimensions
  */
-export function validateEmbedding(
-  embedding: number[],
-  expectedDim: number
-): boolean {
+export function validateEmbedding(embedding: number[], expectedDim: number): boolean {
   return (
     Array.isArray(embedding) &&
     embedding.length === expectedDim &&
@@ -382,7 +375,7 @@ export async function embedMany(texts: string[]): Promise<number[][]> {
 export async function generateQueryEmbedding(query: string): Promise<number[]> {
   // Normalize query for better matching
   const normalizedQuery = query.trim().toLowerCase();
-
+  
   if (!normalizedQuery) {
     throw new Error('Query cannot be empty');
   }

@@ -72,16 +72,11 @@ Only extract edges that follow the strict type constraints:
 
 Return JSON with "entities" and "edges" arrays. No prose.`,
 
-  focusDomains: [
-    'quantum',
-    'nanophotonics',
-    'spatial_computing',
-    'leia_technology',
-  ],
+  focusDomains: ['quantum', 'nanophotonics', 'spatial_computing', 'leia_technology'],
   entityTypes: ['person', 'organization', 'technology', 'product', 'component'],
   maxEntitiesPerDocument: 30,
   confidenceThreshold: 0.4,
-  includeDomainDescription: true,
+  includeDomainDescription: true
 };
 
 // =======================
@@ -152,7 +147,7 @@ Return JSON with "entities" and "edges" arrays. No prose.`,
   entityTypes: ['person', 'organization', 'technology', 'product', 'component'],
   maxEntitiesPerDocument: 25,
   confidenceThreshold: 0.5,
-  includeDomainDescription: false,
+  includeDomainDescription: false
 };
 
 // =======================
@@ -203,7 +198,7 @@ Return JSON with "entities" and "edges" arrays only.`,
   entityTypes: ['person', 'organization', 'technology', 'product', 'component'],
   maxEntitiesPerDocument: 20,
   confidenceThreshold: 0.6,
-  includeDomainDescription: true,
+  includeDomainDescription: true
 };
 
 // =======================
@@ -256,21 +251,19 @@ Return JSON with "entities" and "edges" arrays only.`,
   entityTypes: ['person', 'organization', 'technology', 'product', 'component'],
   maxEntitiesPerDocument: 15,
   confidenceThreshold: 0.5,
-  includeDomainDescription: false,
+  includeDomainDescription: false
 };
 
 // =======================
 // Configuration Selection Helper
 // =======================
 
-export function getExtractionConfig(
-  configName: string
-): LLMEntityExtractionConfig {
+export function getExtractionConfig(configName: string): LLMEntityExtractionConfig {
   const configs: Record<string, LLMEntityExtractionConfig> = {
     'david-gpt-leia': DAVID_GPT_LEIA_CONFIG,
     'generic-tech': GENERIC_TECH_CONFIG,
     'computer-vision': COMPUTER_VISION_CONFIG,
-    'business-press': BUSINESS_PRESS_CONFIG,
+    'business-press': BUSINESS_PRESS_CONFIG
   };
 
   const config = configs[configName];
@@ -294,57 +287,36 @@ export function selectConfigForDocument(
 
   // Check for David-GPT specific domains
   const davidGptKeywords = [
-    'leia',
-    'quantum',
-    'nanophotonic',
-    'lightfield',
-    'autostereoscopic',
-    '3d display',
-    'ar',
-    'vr',
-    'spatial computing',
+    'leia', 'quantum', 'nanophotonic', 'lightfield', 'autostereoscopic',
+    '3d display', 'ar', 'vr', 'spatial computing'
   ];
 
-  if (
-    davidGptKeywords.some(
-      keyword => titleLower.includes(keyword) || contentLower.includes(keyword)
-    )
-  ) {
+  if (davidGptKeywords.some(keyword =>
+    titleLower.includes(keyword) || contentLower.includes(keyword)
+  )) {
     return DAVID_GPT_LEIA_CONFIG;
   }
 
   // Check for computer vision research
   const cvKeywords = [
-    'computer vision',
-    'machine learning',
-    'neural network',
-    'deep learning',
-    'cnn',
-    'transformer',
-    'dataset',
-    'benchmark',
-    'nerf',
-    'gaussian splatting',
+    'computer vision', 'machine learning', 'neural network', 'deep learning',
+    'cnn', 'transformer', 'dataset', 'benchmark', 'nerf', 'gaussian splatting'
   ];
 
-  if (
-    cvKeywords.some(
-      keyword => titleLower.includes(keyword) || contentLower.includes(keyword)
-    )
-  ) {
+  if (cvKeywords.some(keyword =>
+    titleLower.includes(keyword) || contentLower.includes(keyword)
+  )) {
     return COMPUTER_VISION_CONFIG;
   }
 
   // Check for business/press content
-  if (
-    docType === 'press-article' ||
-    titleLower.includes('announces') ||
-    titleLower.includes('launches') ||
-    titleLower.includes('partnership') ||
-    contentLower.includes('market') ||
-    contentLower.includes('revenue') ||
-    contentLower.includes('samsung electronics')
-  ) {
+  if (docType === 'press-article' ||
+      titleLower.includes('announces') ||
+      titleLower.includes('launches') ||
+      titleLower.includes('partnership') ||
+      contentLower.includes('market') ||
+      contentLower.includes('revenue') ||
+      contentLower.includes('samsung electronics')) {
     return BUSINESS_PRESS_CONFIG;
   }
 
@@ -402,16 +374,10 @@ export class ExtractionConfigBuilder {
     return {
       systemPrompt: this.config.systemPrompt,
       focusDomains: this.config.focusDomains || ['technology'],
-      entityTypes: this.config.entityTypes || [
-        'person',
-        'organization',
-        'technology',
-        'product',
-        'component',
-      ],
+      entityTypes: this.config.entityTypes || ['person', 'organization', 'technology', 'product', 'component'],
       maxEntitiesPerDocument: this.config.maxEntitiesPerDocument || 20,
       confidenceThreshold: this.config.confidenceThreshold || 0.5,
-      includeDomainDescription: this.config.includeDomainDescription || false,
+      includeDomainDescription: this.config.includeDomainDescription || false
     };
   }
 }

@@ -1,25 +1,19 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
-import {
-  AlertCircle,
-  CheckCircle2,
+import { 
+  AlertCircle, 
+  CheckCircle2, 
   Search,
   ArrowRight,
   Plus,
-  Edit,
+  Edit
 } from 'lucide-react';
 
 interface Entity {
@@ -52,7 +46,7 @@ interface RelationshipEditorDialogProps {
 
 const RELATION_TYPES = [
   'author_of',
-  'inventor_of',
+  'inventor_of', 
   'assignee_of',
   'cites',
   'supersedes',
@@ -66,7 +60,7 @@ const RELATION_TYPES = [
   'can_use',
   'enhances',
   'evolved_to',
-  'alternative_to',
+  'alternative_to'
 ];
 
 const KIND_COLORS: Record<string, string> = {
@@ -78,11 +72,11 @@ const KIND_COLORS: Record<string, string> = {
   document: 'bg-gray-100 text-gray-800',
 };
 
-export function RelationshipEditorDialog({
-  open,
-  onClose,
+export function RelationshipEditorDialog({ 
+  open, 
+  onClose, 
   relationship,
-  onSave,
+  onSave 
 }: RelationshipEditorDialogProps) {
   const [formData, setFormData] = useState({
     srcId: '',
@@ -92,7 +86,7 @@ export function RelationshipEditorDialog({
     dstType: 'entity' as 'entity' | 'document',
     weight: 0.5,
     evidenceText: '',
-    evidenceDocId: '',
+    evidenceDocId: ''
   });
 
   const [srcEntity, setSrcEntity] = useState<Entity | null>(null);
@@ -102,7 +96,7 @@ export function RelationshipEditorDialog({
   const [srcSearchResults, setSrcSearchResults] = useState<Entity[]>([]);
   const [dstSearchResults, setDstSearchResults] = useState<Entity[]>([]);
   const [searchingEntities, setSearchingEntities] = useState(false);
-
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -122,7 +116,7 @@ export function RelationshipEditorDialog({
           dstType: relationship.dst_type as 'entity' | 'document',
           weight: relationship.weight,
           evidenceText: relationship.evidence_text || '',
-          evidenceDocId: relationship.evidence_doc_id || '',
+          evidenceDocId: relationship.evidence_doc_id || ''
         });
         setSrcEntity(relationship.src_entity || null);
         setDstEntity(relationship.dst_entity || null);
@@ -136,7 +130,7 @@ export function RelationshipEditorDialog({
           dstType: 'entity',
           weight: 0.5,
           evidenceText: '',
-          evidenceDocId: '',
+          evidenceDocId: ''
         });
         setSrcEntity(null);
         setDstEntity(null);
@@ -159,17 +153,17 @@ export function RelationshipEditorDialog({
     }
 
     setSearchingEntities(true);
-
+    
     try {
       const params = new URLSearchParams({
         q: query,
-        limit: '10',
+        limit: '10'
       });
 
       const response = await fetch(`/api/admin/entities?${params}`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('auth_token') || 'dummy_token'}`,
-        },
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || 'dummy_token'}`
+        }
       });
 
       if (!response.ok) {
@@ -177,12 +171,13 @@ export function RelationshipEditorDialog({
       }
 
       const data = await response.json();
-
+      
       if (target === 'src') {
         setSrcSearchResults(data.entities || []);
       } else {
         setDstSearchResults(data.entities || []);
       }
+      
     } catch (err) {
       console.error('Error searching entities:', err);
     } finally {
@@ -221,45 +216,40 @@ export function RelationshipEditorDialog({
     setError(null);
 
     try {
-      const url = isEditing
+      const url = isEditing 
         ? `/api/admin/relationships/${relationship!.id}`
         : '/api/admin/relationships';
-
+      
       const method = isEditing ? 'PUT' : 'POST';
-
-      const body = isEditing
-        ? {
-            relation: formData.relation,
-            weight: formData.weight,
-            evidenceText: formData.evidenceText || undefined,
-            evidenceDocId: formData.evidenceDocId || undefined,
-          }
-        : {
-            srcId: formData.srcId,
-            srcType: formData.srcType,
-            relation: formData.relation,
-            dstId: formData.dstId,
-            dstType: formData.dstType,
-            weight: formData.weight,
-            evidenceText: formData.evidenceText || undefined,
-            evidenceDocId: formData.evidenceDocId || undefined,
-          };
+      
+      const body = isEditing ? {
+        relation: formData.relation,
+        weight: formData.weight,
+        evidenceText: formData.evidenceText || undefined,
+        evidenceDocId: formData.evidenceDocId || undefined,
+      } : {
+        srcId: formData.srcId,
+        srcType: formData.srcType,
+        relation: formData.relation,
+        dstId: formData.dstId,
+        dstType: formData.dstType,
+        weight: formData.weight,
+        evidenceText: formData.evidenceText || undefined,
+        evidenceDocId: formData.evidenceDocId || undefined,
+      };
 
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('auth_token') || 'dummy_token'}`,
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || 'dummy_token'}`
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(body)
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(
-          errorData.error ||
-            `Failed to ${isEditing ? 'update' : 'create'} relationship`
-        );
+        throw new Error(errorData.error || `Failed to ${isEditing ? 'update' : 'create'} relationship`);
       }
 
       setSuccess(true);
@@ -267,16 +257,10 @@ export function RelationshipEditorDialog({
         onSave();
         onClose();
       }, 1500);
+
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : `Failed to ${isEditing ? 'update' : 'create'} relationship`
-      );
-      console.error(
-        `Error ${isEditing ? 'updating' : 'creating'} relationship:`,
-        err
-      );
+      setError(err instanceof Error ? err.message : `Failed to ${isEditing ? 'update' : 'create'} relationship`);
+      console.error(`Error ${isEditing ? 'updating' : 'creating'} relationship:`, err);
     } finally {
       setLoading(false);
     }
@@ -293,8 +277,7 @@ export function RelationshipEditorDialog({
                 Relationship {isEditing ? 'Updated' : 'Created'} Successfully
               </h3>
               <p className="text-sm text-gray-600 mt-1">
-                The relationship has been {isEditing ? 'updated' : 'added'} to
-                the knowledge graph
+                The relationship has been {isEditing ? 'updated' : 'added'} to the knowledge graph
               </p>
             </div>
           </div>
@@ -331,14 +314,8 @@ export function RelationshipEditorDialog({
             {srcEntity ? (
               <div className="flex items-center justify-between p-3 border rounded-lg bg-blue-50">
                 <div className="flex items-center space-x-2">
-                  <span className="font-medium text-gray-900">
-                    {srcEntity.name}
-                  </span>
-                  <Badge
-                    className={
-                      KIND_COLORS[srcEntity.kind] || 'bg-gray-100 text-gray-800'
-                    }
-                  >
+                  <span className="font-medium text-gray-900">{srcEntity.name}</span>
+                  <Badge className={KIND_COLORS[srcEntity.kind] || 'bg-gray-100 text-gray-800'}>
                     {srcEntity.kind}
                   </Badge>
                 </div>
@@ -363,7 +340,7 @@ export function RelationshipEditorDialog({
                   <Input
                     placeholder="Search for source entity..."
                     value={srcSearchQuery}
-                    onChange={e => {
+                    onChange={(e) => {
                       setSrcSearchQuery(e.target.value);
                       searchEntities(e.target.value, 'src');
                     }}
@@ -373,22 +350,15 @@ export function RelationshipEditorDialog({
                 </div>
                 {srcSearchResults.length > 0 && (
                   <div className="border rounded-lg max-h-40 overflow-y-auto">
-                    {srcSearchResults.map(entity => (
+                    {srcSearchResults.map((entity) => (
                       <div
                         key={entity.id}
                         className="flex items-center justify-between p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
                         onClick={() => selectEntity(entity, 'src')}
                       >
                         <div className="flex items-center space-x-2">
-                          <span className="font-medium text-gray-900">
-                            {entity.name}
-                          </span>
-                          <Badge
-                            className={
-                              KIND_COLORS[entity.kind] ||
-                              'bg-gray-100 text-gray-800'
-                            }
-                          >
+                          <span className="font-medium text-gray-900">{entity.name}</span>
+                          <Badge className={KIND_COLORS[entity.kind] || 'bg-gray-100 text-gray-800'}>
                             {entity.kind}
                           </Badge>
                         </div>
@@ -412,9 +382,7 @@ export function RelationshipEditorDialog({
             </label>
             <select
               value={formData.relation}
-              onChange={e =>
-                setFormData(prev => ({ ...prev, relation: e.target.value }))
-              }
+              onChange={(e) => setFormData(prev => ({ ...prev, relation: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {RELATION_TYPES.map(type => (
@@ -433,14 +401,8 @@ export function RelationshipEditorDialog({
             {dstEntity ? (
               <div className="flex items-center justify-between p-3 border rounded-lg bg-green-50">
                 <div className="flex items-center space-x-2">
-                  <span className="font-medium text-gray-900">
-                    {dstEntity.name}
-                  </span>
-                  <Badge
-                    className={
-                      KIND_COLORS[dstEntity.kind] || 'bg-gray-100 text-gray-800'
-                    }
-                  >
+                  <span className="font-medium text-gray-900">{dstEntity.name}</span>
+                  <Badge className={KIND_COLORS[dstEntity.kind] || 'bg-gray-100 text-gray-800'}>
                     {dstEntity.kind}
                   </Badge>
                 </div>
@@ -465,7 +427,7 @@ export function RelationshipEditorDialog({
                   <Input
                     placeholder="Search for destination entity..."
                     value={dstSearchQuery}
-                    onChange={e => {
+                    onChange={(e) => {
                       setDstSearchQuery(e.target.value);
                       searchEntities(e.target.value, 'dst');
                     }}
@@ -475,22 +437,15 @@ export function RelationshipEditorDialog({
                 </div>
                 {dstSearchResults.length > 0 && (
                   <div className="border rounded-lg max-h-40 overflow-y-auto">
-                    {dstSearchResults.map(entity => (
+                    {dstSearchResults.map((entity) => (
                       <div
                         key={entity.id}
                         className="flex items-center justify-between p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
                         onClick={() => selectEntity(entity, 'dst')}
                       >
                         <div className="flex items-center space-x-2">
-                          <span className="font-medium text-gray-900">
-                            {entity.name}
-                          </span>
-                          <Badge
-                            className={
-                              KIND_COLORS[entity.kind] ||
-                              'bg-gray-100 text-gray-800'
-                            }
-                          >
+                          <span className="font-medium text-gray-900">{entity.name}</span>
+                          <Badge className={KIND_COLORS[entity.kind] || 'bg-gray-100 text-gray-800'}>
                             {entity.kind}
                           </Badge>
                         </div>
@@ -510,9 +465,7 @@ export function RelationshipEditorDialog({
           {/* Relationship Preview */}
           {srcEntity && dstEntity && (
             <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="font-medium text-gray-900 mb-2">
-                Relationship Preview
-              </h4>
+              <h4 className="font-medium text-gray-900 mb-2">Relationship Preview</h4>
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
                   <span className="font-medium">{srcEntity.name}</span>
@@ -547,12 +500,7 @@ export function RelationshipEditorDialog({
               max="1"
               step="0.1"
               value={formData.weight}
-              onChange={e =>
-                setFormData(prev => ({
-                  ...prev,
-                  weight: parseFloat(e.target.value),
-                }))
-              }
+              onChange={(e) => setFormData(prev => ({ ...prev, weight: parseFloat(e.target.value) }))}
               className="w-full"
             />
             <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -568,9 +516,7 @@ export function RelationshipEditorDialog({
             </label>
             <Textarea
               value={formData.evidenceText}
-              onChange={e =>
-                setFormData(prev => ({ ...prev, evidenceText: e.target.value }))
-              }
+              onChange={(e) => setFormData(prev => ({ ...prev, evidenceText: e.target.value }))}
               placeholder="Provide evidence or context for this relationship..."
               rows={3}
             />
@@ -589,8 +535,8 @@ export function RelationshipEditorDialog({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            onClick={handleSubmit}
+          <Button 
+            onClick={handleSubmit} 
             disabled={loading || !formData.srcId || !formData.dstId}
           >
             {loading ? (

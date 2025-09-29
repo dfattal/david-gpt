@@ -1,25 +1,19 @@
-'use client';
+"use client";
 
 import { useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
-import {
-  AlertTriangle,
+import { 
+  AlertTriangle, 
   Skull,
   Database,
   Trash2,
   CheckCircle2,
   XCircle,
-  Clock,
+  Clock
 } from 'lucide-react';
 
 interface DatabaseResetDialogProps {
@@ -38,20 +32,12 @@ interface ResetResult {
   };
   initialCounts: Record<string, number>;
   finalCounts: Record<string, number>;
-  deletionResults: Record<
-    string,
-    { success: boolean; error?: string; deletedCount?: number }
-  >;
+  deletionResults: Record<string, { success: boolean; error?: string; deletedCount?: number }>;
   timestamp: string;
 }
 
-export function DatabaseResetDialog({
-  open,
-  onClose,
-}: DatabaseResetDialogProps) {
-  const [step, setStep] = useState<
-    'warning' | 'confirm' | 'executing' | 'complete'
-  >('warning');
+export function DatabaseResetDialog({ open, onClose }: DatabaseResetDialogProps) {
+  const [step, setStep] = useState<'warning' | 'confirm' | 'executing' | 'complete'>('warning');
   const [confirmationText, setConfirmationText] = useState('');
   const [understood, setUnderstood] = useState(false);
   const [resetResult, setResetResult] = useState<ResetResult | null>(null);
@@ -87,11 +73,11 @@ export function DatabaseResetDialog({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('auth_token') || 'dummy_token'}`,
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || 'dummy_token'}`
         },
         body: JSON.stringify({
-          confirmationText,
-        }),
+          confirmationText
+        })
       });
 
       const result = await response.json();
@@ -102,6 +88,7 @@ export function DatabaseResetDialog({
 
       setResetResult(result);
       setStep('complete');
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Database reset failed');
       setStep('confirm');
@@ -141,9 +128,7 @@ export function DatabaseResetDialog({
         <div className="flex items-start">
           <AlertTriangle className="w-5 h-5 text-yellow-600 mr-2 mt-0.5 flex-shrink-0" />
           <div>
-            <h4 className="font-medium text-yellow-900 mb-1">
-              Important Notes:
-            </h4>
+            <h4 className="font-medium text-yellow-900 mb-1">Important Notes:</h4>
             <ul className="text-sm text-yellow-800 space-y-1">
               <li>• This action is IRREVERSIBLE - there is no undo</li>
               <li>• No backups will be created automatically</li>
@@ -156,9 +141,7 @@ export function DatabaseResetDialog({
       </div>
 
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-        <h4 className="font-medium text-gray-900 mb-2">
-          Recommended Before Reset:
-        </h4>
+        <h4 className="font-medium text-gray-900 mb-2">Recommended Before Reset:</h4>
         <ol className="text-sm text-gray-700 space-y-1 list-decimal list-inside">
           <li>Backup any important data you want to preserve</li>
           <li>Confirm you&apos;re in a testing environment</li>
@@ -172,15 +155,11 @@ export function DatabaseResetDialog({
           type="checkbox"
           id="understood"
           checked={understood}
-          onChange={e => setUnderstood(e.target.checked)}
+          onChange={(e) => setUnderstood(e.target.checked)}
           className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
         />
-        <label
-          htmlFor="understood"
-          className="text-sm font-medium text-blue-900"
-        >
-          I understand this will permanently delete all data and cannot be
-          undone
+        <label htmlFor="understood" className="text-sm font-medium text-blue-900">
+          I understand this will permanently delete all data and cannot be undone
         </label>
       </div>
     </div>
@@ -202,14 +181,11 @@ export function DatabaseResetDialog({
 
       <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4">
         <p className="text-red-900 font-medium mb-3">
-          To proceed, type exactly:{' '}
-          <code className="bg-red-200 px-2 py-1 rounded font-mono">
-            DELETE ALL DATA
-          </code>
+          To proceed, type exactly: <code className="bg-red-200 px-2 py-1 rounded font-mono">DELETE ALL DATA</code>
         </p>
         <Input
           value={confirmationText}
-          onChange={e => setConfirmationText(e.target.value)}
+          onChange={(e) => setConfirmationText(e.target.value)}
           placeholder="Type: DELETE ALL DATA"
           className="font-mono text-center border-red-300 focus:border-red-500 focus:ring-red-500"
         />
@@ -239,8 +215,7 @@ export function DatabaseResetDialog({
 
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
         <p className="text-yellow-800 text-sm">
-          <strong>Last chance:</strong> Once you click &quot;Execute
-          Reset&quot;, all data will be permanently deleted.
+          <strong>Last chance:</strong> Once you click &quot;Execute Reset&quot;, all data will be permanently deleted.
         </p>
       </div>
     </div>
@@ -256,8 +231,7 @@ export function DatabaseResetDialog({
           Resetting Database...
         </h3>
         <p className="text-gray-600">
-          Please wait while all data is being deleted. This may take a few
-          moments.
+          Please wait while all data is being deleted. This may take a few moments.
         </p>
       </div>
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -277,11 +251,9 @@ export function DatabaseResetDialog({
     return (
       <div className="space-y-6">
         <div className="text-center">
-          <div
-            className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
-              resetResult.success ? 'bg-green-100' : 'bg-yellow-100'
-            }`}
-          >
+          <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
+            resetResult.success ? 'bg-green-100' : 'bg-yellow-100'
+          }`}>
             {resetResult.success ? (
               <CheckCircle2 className="w-8 h-8 text-green-600" />
             ) : (
@@ -289,10 +261,11 @@ export function DatabaseResetDialog({
             )}
           </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Database Reset{' '}
-            {resetResult.success ? 'Completed' : 'Completed with Errors'}
+            Database Reset {resetResult.success ? 'Completed' : 'Completed with Errors'}
           </h3>
-          <p className="text-gray-600">{resetResult.message}</p>
+          <p className="text-gray-600">
+            {resetResult.message}
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -313,34 +286,28 @@ export function DatabaseResetDialog({
         <div className="space-y-3">
           <h4 className="font-medium text-gray-900">Deletion Summary:</h4>
           <div className="space-y-2 max-h-32 overflow-y-auto">
-            {Object.entries(resetResult.deletionResults).map(
-              ([table, result]) => (
-                <div
-                  key={table}
-                  className="flex items-center justify-between text-sm"
-                >
-                  <span className="font-mono text-gray-700">{table}</span>
-                  {result.success ? (
-                    <div className="flex items-center text-green-600">
-                      <CheckCircle2 className="w-4 h-4 mr-1" />
-                      <span>{result.deletedCount || 0} deleted</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center text-red-600">
-                      <XCircle className="w-4 h-4 mr-1" />
-                      <span>Failed</span>
-                    </div>
-                  )}
-                </div>
-              )
-            )}
+            {Object.entries(resetResult.deletionResults).map(([table, result]) => (
+              <div key={table} className="flex items-center justify-between text-sm">
+                <span className="font-mono text-gray-700">{table}</span>
+                {result.success ? (
+                  <div className="flex items-center text-green-600">
+                    <CheckCircle2 className="w-4 h-4 mr-1" />
+                    <span>{result.deletedCount || 0} deleted</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center text-red-600">
+                    <XCircle className="w-4 h-4 mr-1" />
+                    <span>Failed</span>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
 
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
           <p className="text-blue-800 text-sm">
-            <strong>Next steps:</strong> You can now upload new documents and
-            test the system with fresh data.
+            <strong>Next steps:</strong> You can now upload new documents and test the system with fresh data.
           </p>
         </div>
       </div>
@@ -368,7 +335,7 @@ export function DatabaseResetDialog({
               <Button variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button
+              <Button 
                 onClick={handleContinueToConfirm}
                 disabled={!understood}
                 className="bg-red-600 hover:bg-red-700 text-white"
@@ -377,13 +344,13 @@ export function DatabaseResetDialog({
               </Button>
             </>
           )}
-
+          
           {step === 'confirm' && (
             <>
               <Button variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button
+              <Button 
                 onClick={handleExecuteReset}
                 disabled={confirmationText !== 'DELETE ALL DATA'}
                 className="bg-red-600 hover:bg-red-700 text-white"
@@ -393,19 +360,16 @@ export function DatabaseResetDialog({
               </Button>
             </>
           )}
-
+          
           {step === 'executing' && (
             <Button disabled className="bg-gray-400 cursor-not-allowed">
               <Spinner className="w-4 h-4 mr-2" />
               Resetting...
             </Button>
           )}
-
+          
           {step === 'complete' && (
-            <Button
-              onClick={handleClose}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
+            <Button onClick={handleClose} className="bg-blue-600 hover:bg-blue-700">
               Close
             </Button>
           )}

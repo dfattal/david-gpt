@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { Card } from '@/components/ui/card';
+import { Card } from "@/components/ui/card";
 
 export default function UsersPage() {
   return (
@@ -14,9 +14,7 @@ export default function UsersPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Admin Users
-          </h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Admin Users</h3>
           <p className="text-sm text-gray-600 mb-4">
             Users with full system access
           </p>
@@ -25,9 +23,7 @@ export default function UsersPage() {
         </Card>
 
         <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Member Users
-          </h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Member Users</h3>
           <p className="text-sm text-gray-600 mb-4">
             Authenticated users with conversation access
           </p>
@@ -36,9 +32,7 @@ export default function UsersPage() {
         </Card>
 
         <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Guest Users
-          </h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Guest Users</h3>
           <p className="text-sm text-gray-600 mb-4">
             Users with limited access
           </p>
@@ -49,12 +43,9 @@ export default function UsersPage() {
 
       <Card className="p-8 text-center">
         <div className="text-gray-500">
-          <div className="text-lg font-medium mb-2">
-            User Management Tools Coming Soon
-          </div>
+          <div className="text-lg font-medium mb-2">User Management Tools Coming Soon</div>
           <div className="text-sm">
-            User list, role management, and permission controls will be
-            implemented in Phase 3
+            User list, role management, and permission controls will be implemented in Phase 3
           </div>
         </div>
       </Card>

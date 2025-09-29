@@ -11,7 +11,7 @@ import type {
   EntityKind,
   EntityAlias,
   DocumentMetadata,
-  DocumentChunk,
+  DocumentChunk
 } from './types';
 
 // ===========================
@@ -52,6 +52,7 @@ export interface EntityExtractionResult {
 // ===========================
 
 export class UnifiedEntityProcessor {
+
   /**
    * Process entities from document using modern LLM approach
    */
@@ -66,22 +67,13 @@ export class UnifiedEntityProcessor {
 
     try {
       // Use the modern entity extractor with edge support
-      const {
-        entities,
-        aliases,
-        relationships,
-        edges,
-        rawLLMEdges,
-        originalEntitiesWithTempIds,
-      } = (await modernEntityExtractor.extractFromDocument(
+      const { entities, aliases, relationships, edges, rawLLMEdges, originalEntitiesWithTempIds } = await modernEntityExtractor.extractFromDocument(
         documentId,
         metadata,
         chunks
-      )) as any;
+      ) as any;
 
-      console.log(
-        `🔗 Extracted ${edges?.length || 0} edges, ${rawLLMEdges?.length || 0} raw LLM edges`
-      );
+      console.log(`🔗 Extracted ${edges?.length || 0} edges, ${rawLLMEdges?.length || 0} raw LLM edges`);
 
       // Calculate metadata
       const entitiesByKind = this.calculateEntitiesByKind(entities);
@@ -98,14 +90,13 @@ export class UnifiedEntityProcessor {
           totalEntitiesFound: entities.length,
           entitiesByKind,
           processingTime,
-          strategy: 'modern_llm',
-        },
+          strategy: 'modern_llm'
+        }
       };
 
-      console.log(
-        `✅ Entity processing completed: ${entities.length} entities in ${processingTime}ms`
-      );
+      console.log(`✅ Entity processing completed: ${entities.length} entities in ${processingTime}ms`);
       return result;
+
     } catch (error) {
       console.error('❌ Entity processing failed:', error);
       throw error;
@@ -115,16 +106,14 @@ export class UnifiedEntityProcessor {
   /**
    * Calculate entities by kind for reporting
    */
-  private calculateEntitiesByKind(
-    entities: Partial<Entity>[]
-  ): Record<EntityKind, number> {
+  private calculateEntitiesByKind(entities: Partial<Entity>[]): Record<EntityKind, number> {
     const counts: Record<EntityKind, number> = {
       person: 0,
       organization: 0,
       technology: 0,
       product: 0,
       component: 0,
-      document: 0,
+      document: 0
     };
 
     entities.forEach(entity => {
@@ -169,9 +158,7 @@ export const unifiedEntityProcessor = new UnifiedEntityProcessor();
 /**
  * Main processing function for documents
  */
-export async function processDocumentEntitiesUnified(
-  documentId: string
-): Promise<EntityExtractionResult> {
+export async function processDocumentEntitiesUnified(documentId: string): Promise<EntityExtractionResult> {
   const { supabaseAdmin } = await import('@/lib/supabase');
 
   // Get document metadata

@@ -14,19 +14,16 @@ export async function GET(
     const { personaId } = await context.params;
     const personaPath = join(process.cwd(), 'personas', personaId);
 
-    const validationResult =
-      await PersonaValidator.validateFromDisk(personaPath);
+    const validationResult = await PersonaValidator.validateFromDisk(personaPath);
 
     return NextResponse.json({
       persona_id: personaId,
       validation: validationResult,
-      report: PersonaValidator.formatValidationReport(validationResult),
+      report: PersonaValidator.formatValidationReport(validationResult)
     });
+
   } catch (error) {
-    console.error(
-      `Failed to validate persona ${(await context.params).personaId}:`,
-      error
-    );
+    console.error(`Failed to validate persona ${(await context.params).personaId}:`, error);
     return NextResponse.json(
       { error: 'Failed to validate persona' },
       { status: 500 }
@@ -47,13 +44,14 @@ export async function POST(request: NextRequest) {
 
     const validationResult = PersonaValidator.validateFromContent({
       personaMd: body.persona_md,
-      constraintsYaml: body.constraints_yaml,
+      constraintsYaml: body.constraints_yaml
     });
 
     return NextResponse.json({
       validation: validationResult,
-      report: PersonaValidator.formatValidationReport(validationResult),
+      report: PersonaValidator.formatValidationReport(validationResult)
     });
+
   } catch (error) {
     console.error('Failed to validate persona content:', error);
     return NextResponse.json(

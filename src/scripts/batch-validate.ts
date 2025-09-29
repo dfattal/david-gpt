@@ -142,13 +142,11 @@ async function findFiles(target: string): Promise<FileInfo[]> {
       return findFilesInDirectory(target);
     } else if (stat.isFile() && target.endsWith('.md')) {
       const type = inferFileType(target);
-      return [
-        {
-          path: target,
-          type,
-          size: stat.size,
-        },
-      ];
+      return [{
+        path: target,
+        type,
+        size: stat.size,
+      }];
     }
   } catch {
     // Not a directory or file, try as glob pattern
@@ -183,11 +181,7 @@ function findFilesInDirectory(dirPath: string): FileInfo[] {
 
         if (item.isDirectory()) {
           // Skip common non-content directories
-          if (
-            !['node_modules', '.git', '.next', 'dist', 'build'].includes(
-              item.name
-            )
-          ) {
+          if (!['node_modules', '.git', '.next', 'dist', 'build'].includes(item.name)) {
             traverse(fullPath);
           }
         } else if (item.isFile() && item.name.endsWith('.md')) {
@@ -200,10 +194,7 @@ function findFilesInDirectory(dirPath: string): FileInfo[] {
         }
       }
     } catch (error) {
-      console.warn(
-        `Warning: Could not read directory ${currentPath}:`,
-        error instanceof Error ? error.message : error
-      );
+      console.warn(`Warning: Could not read directory ${currentPath}:`, error instanceof Error ? error.message : error);
     }
   }
 
@@ -215,13 +206,11 @@ function inferFileType(filePath: string): 'document' | 'persona' {
   const filename = filePath.toLowerCase();
 
   // Common persona patterns
-  if (
-    filename.includes('persona') ||
-    filename.includes('expert') ||
-    filename.includes('character') ||
-    filename.includes('/personas/') ||
-    filename.includes('/people/')
-  ) {
+  if (filename.includes('persona') ||
+      filename.includes('expert') ||
+      filename.includes('character') ||
+      filename.includes('/personas/') ||
+      filename.includes('/people/')) {
     return 'persona';
   }
 
@@ -243,19 +232,15 @@ function formatFileSize(bytes: number): string {
 
 function formatPreview(files: FileInfo[], options: CLIOptions): string {
   if (options.json) {
-    return JSON.stringify(
-      {
-        preview: true,
-        files: files.map(f => ({
-          path: f.path,
-          type: f.type,
-          size: f.size,
-          sizeFormatted: formatFileSize(f.size),
-        })),
-      },
-      null,
-      2
-    );
+    return JSON.stringify({
+      preview: true,
+      files: files.map(f => ({
+        path: f.path,
+        type: f.type,
+        size: f.size,
+        sizeFormatted: formatFileSize(f.size),
+      })),
+    }, null, 2);
   }
 
   let output = '📋 BATCH VALIDATION PREVIEW\n';
@@ -289,10 +274,7 @@ function formatPreview(files: FileInfo[], options: CLIOptions): string {
   return output;
 }
 
-function formatSummary(
-  summary: BatchValidationSummary,
-  options: CLIOptions
-): string {
+function formatSummary(summary: BatchValidationSummary, options: CLIOptions): string {
   if (options.json) {
     return JSON.stringify(summary, null, 2);
   }
@@ -310,10 +292,9 @@ function formatSummary(
     output += `   ⚠️  With warnings: ${summary.documents.warnings}\n`;
     output += `   ❌ With errors: ${summary.documents.errors}\n`;
 
-    const docSuccessRate =
-      summary.documents.count > 0
-        ? Math.round((summary.documents.valid / summary.documents.count) * 100)
-        : 0;
+    const docSuccessRate = summary.documents.count > 0
+      ? Math.round((summary.documents.valid / summary.documents.count) * 100)
+      : 0;
     output += `   Success rate: ${docSuccessRate}%\n\n`;
   }
 
@@ -324,10 +305,9 @@ function formatSummary(
     output += `   ⚠️  With warnings: ${summary.personas.warnings}\n`;
     output += `   ❌ With errors: ${summary.personas.errors}\n`;
 
-    const personaSuccessRate =
-      summary.personas.count > 0
-        ? Math.round((summary.personas.valid / summary.personas.count) * 100)
-        : 0;
+    const personaSuccessRate = summary.personas.count > 0
+      ? Math.round((summary.personas.valid / summary.personas.count) * 100)
+      : 0;
     output += `   Success rate: ${personaSuccessRate}%\n\n`;
   }
 
@@ -346,10 +326,9 @@ function formatSummary(
   }
 
   const overallValid = summary.documents.valid + summary.personas.valid;
-  const overallRate =
-    summary.totalFiles > 0
-      ? Math.round((overallValid / summary.totalFiles) * 100)
-      : 0;
+  const overallRate = summary.totalFiles > 0
+    ? Math.round((overallValid / summary.totalFiles) * 100)
+    : 0;
 
   output += `🎯 Overall success rate: ${overallRate}%\n`;
 
@@ -430,8 +409,7 @@ async function main() {
         summary.results.push(fileResult);
 
         // Update type-specific counters
-        const typeCounter =
-          file.type === 'document' ? summary.documents : summary.personas;
+        const typeCounter = file.type === 'document' ? summary.documents : summary.personas;
 
         if (result.valid) {
           typeCounter.valid++;
@@ -448,9 +426,7 @@ async function main() {
         if (options.verbose && !options.json && !options.quiet) {
           const icon = file.type === 'document' ? '📄' : '🎭';
           const status = result.valid ? '✅' : '❌';
-          console.log(
-            `${icon} ${status} ${relative(process.cwd(), file.path)}`
-          );
+          console.log(`${icon} ${status} ${relative(process.cwd(), file.path)}`);
 
           if (!result.valid) {
             if (result.errors.length > 0) {
@@ -461,14 +437,11 @@ async function main() {
             }
           }
         }
-      } catch (error) {
-        console.error(
-          `Error processing file ${file.path}:`,
-          error instanceof Error ? error.message : error
-        );
 
-        const typeCounter =
-          file.type === 'document' ? summary.documents : summary.personas;
+      } catch (error) {
+        console.error(`Error processing file ${file.path}:`, error instanceof Error ? error.message : error);
+
+        const typeCounter = file.type === 'document' ? summary.documents : summary.personas;
         typeCounter.count++;
         typeCounter.errors++;
 
@@ -478,9 +451,7 @@ async function main() {
           valid: false,
           errors: 1,
           warnings: 0,
-          details: options.json
-            ? { error: 'Failed to process file' }
-            : undefined,
+          details: options.json ? { error: 'Failed to process file' } : undefined,
         });
       }
     }
@@ -489,21 +460,17 @@ async function main() {
     console.log(formatSummary(summary, options));
 
     // Exit with appropriate code
-    const hasErrors =
-      summary.documents.errors > 0 || summary.personas.errors > 0;
-    const hasWarnings =
-      summary.documents.warnings > 0 || summary.personas.warnings > 0;
+    const hasErrors = summary.documents.errors > 0 || summary.personas.errors > 0;
+    const hasWarnings = summary.documents.warnings > 0 || summary.personas.warnings > 0;
 
     if (hasErrors || (options.failOnWarnings && hasWarnings)) {
       process.exit(1);
     } else {
       process.exit(0);
     }
+
   } catch (error) {
-    console.error(
-      'Batch validation failed:',
-      error instanceof Error ? error.message : error
-    );
+    console.error('Batch validation failed:', error instanceof Error ? error.message : error);
     process.exit(1);
   }
 }

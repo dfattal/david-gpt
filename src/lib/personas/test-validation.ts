@@ -17,27 +17,24 @@ async function testPersonaValidation() {
 
     try {
       // Test persona validation
-      const validationResult =
-        await PersonaValidator.validateFromDisk(personaPath);
+      const validationResult = await PersonaValidator.validateFromDisk(personaPath);
       console.log(PersonaValidator.formatValidationReport(validationResult));
 
       console.log('\n');
 
       // Test constraints parsing
-      const parseResult =
-        await ConstraintsParser.parseFromPersonaFolder(personaPath);
+      const parseResult = await ConstraintsParser.parseFromPersonaFolder(personaPath);
 
       if (parseResult.success && parseResult.constraints) {
         console.log('Constraints Summary:');
-        console.log(
-          ConstraintsParser.generateConstraintsSummary(parseResult.constraints)
-        );
+        console.log(ConstraintsParser.generateConstraintsSummary(parseResult.constraints));
       } else {
         console.log('❌ Failed to parse constraints:');
         parseResult.errors.forEach(error => console.log(`   ${error}`));
       }
 
       console.log('\n' + '='.repeat(50) + '\n');
+
     } catch (error) {
       console.error(`❌ Error testing ${personaId}:`, error);
     }

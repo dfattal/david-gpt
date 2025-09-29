@@ -1,22 +1,22 @@
-'use client';
+"use client";
 
-import * as React from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
-import rehypeRaw from 'rehype-raw';
-import rehypeKatex from 'rehype-katex';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Card, CardContent } from '@/components/ui/card';
-import type { User } from '@supabase/supabase-js';
+import * as React from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeRaw from "rehype-raw";
+import rehypeKatex from "rehype-katex";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Card, CardContent } from "@/components/ui/card";
+import type { User } from "@supabase/supabase-js";
 
 // Import KaTeX CSS
-import 'katex/dist/katex.min.css';
+import "katex/dist/katex.min.css";
 
 interface MessageBubbleProps {
   message: {
     id: string;
-    role: 'user' | 'assistant';
+    role: "user" | "assistant";
     content: string;
     created_at?: string;
   };
@@ -30,13 +30,13 @@ export const MessageBubble = React.memo(
     user,
     isStreaming = false,
   }: MessageBubbleProps) {
-    const isUser = message.role === 'user';
+    const isUser = message.role === "user";
     const textContent = message.content;
 
     if (isUser) {
       // Get user profile information for avatar
       const googleIdentity = user?.identities?.find(
-        identity => identity.provider === 'google'
+        (identity) => identity.provider === "google"
       );
       const avatarUrl =
         user?.user_metadata?.avatar_url ||
@@ -48,11 +48,11 @@ export const MessageBubble = React.memo(
         googleIdentity?.identity_data?.name;
       const fallbackInitials = fullName
         ? fullName
-            .split(' ')
+            .split(" ")
             .map((n: string) => n[0])
-            .join('')
+            .join("")
             .toUpperCase()
-        : user?.email?.charAt(0).toUpperCase() || 'U';
+        : user?.email?.charAt(0).toUpperCase() || "U";
 
       // User messages: right-aligned with compact styling
       return (
@@ -62,10 +62,8 @@ export const MessageBubble = React.memo(
               <div className="text-sm leading-relaxed break-words prose prose-sm prose-invert max-w-none">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm, remarkMath]}
-                  rehypePlugins={[rehypeRaw, rehypeKatex]}
-                  onError={(error: any) =>
-                    console.error('ReactMarkdown error:', error)
-                  }
+                  rehypePlugins={[rehypeKatex]}
+                  onError={(error) => console.error('ReactMarkdown error:', error)}
                 >
                   {textContent}
                 </ReactMarkdown>
@@ -75,28 +73,28 @@ export const MessageBubble = React.memo(
               {avatarUrl ? (
                 <AvatarImage
                   src={avatarUrl}
-                  alt={fullName || user?.email || 'User'}
+                  alt={fullName || user?.email || "User"}
                   className="object-cover"
                   crossOrigin="anonymous"
                   referrerPolicy="no-referrer"
-                  onError={e => {
+                  onError={(e) => {
                     const img = e.currentTarget;
                     if (!img.dataset.retried) {
-                      img.dataset.retried = 'true';
-                      img.crossOrigin = '';
-                      img.referrerPolicy = '';
+                      img.dataset.retried = "true";
+                      img.crossOrigin = "";
+                      img.referrerPolicy = "";
                       img.src = avatarUrl;
                       return;
                     }
-                    img.style.display = 'none';
+                    img.style.display = "none";
                     const fallback = img.nextElementSibling as HTMLElement;
-                    if (fallback) fallback.style.display = 'block';
+                    if (fallback) fallback.style.display = "block";
                   }}
                 />
               ) : null}
               <AvatarFallback
                 className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-xs font-medium"
-                style={{ display: avatarUrl ? 'none' : 'block' }}
+                style={{ display: avatarUrl ? "none" : "block" }}
               >
                 {fallbackInitials}
               </AvatarFallback>
@@ -143,10 +141,8 @@ export const MessageBubble = React.memo(
             >
               <ReactMarkdown
                 remarkPlugins={[remarkGfm, remarkMath]}
-                rehypePlugins={[rehypeRaw, rehypeKatex]}
-                onError={error =>
-                  console.error('ReactMarkdown error: any:', error)
-                }
+                rehypePlugins={[rehypeKatex]}
+                onError={(error) => console.error('ReactMarkdown error:', error)}
                 components={{
                   // Custom components for better styling
                   // Enhanced headings with proper styling
@@ -203,7 +199,7 @@ export const MessageBubble = React.memo(
                   },
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   code({ inline, className, children, ...props }: any) {
-                    const match = /language-(\w+)/.exec(className || '');
+                    const match = /language-(\w+)/.exec(className || "");
                     return !inline && match ? (
                       <Card className="my-3 border bg-muted/30">
                         <CardContent className="p-4">

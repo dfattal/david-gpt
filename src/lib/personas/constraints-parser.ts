@@ -10,7 +10,7 @@ import {
   type DocTypeOverride,
   type CanonicalEntitiesConfig,
   type CanonicalEntityDefinition,
-  type CanonicalRelationshipDefinition,
+  type CanonicalRelationshipDefinition
 } from './types';
 
 export interface ParsedConstraints {
@@ -44,28 +44,24 @@ export class ConstraintsParser {
       max_error_rate: 10,
       require_metadata_chunk: true,
       require_content_chunks: true,
-      min_citation_coverage: 80,
+      min_citation_coverage: 80
     },
     canonical_entities: {},
-    canonical_relationships: [],
+    canonical_relationships: []
   };
 
   /**
    * Parse constraints from file path
    */
-  static async parseFromFile(
-    constraintsPath: string
-  ): Promise<ConstraintsParseResult> {
+  static async parseFromFile(constraintsPath: string): Promise<ConstraintsParseResult> {
     try {
       const content = readFileSync(constraintsPath, 'utf-8');
       return this.parseFromContent(content);
     } catch (error) {
       return {
         success: false,
-        errors: [
-          `Failed to read constraints file: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        ],
-        warnings: [],
+        errors: [`Failed to read constraints file: ${error instanceof Error ? error.message : 'Unknown error'}`],
+        warnings: []
       };
     }
   }
@@ -73,9 +69,7 @@ export class ConstraintsParser {
   /**
    * Parse constraints from persona folder
    */
-  static async parseFromPersonaFolder(
-    personaPath: string
-  ): Promise<ConstraintsParseResult> {
+  static async parseFromPersonaFolder(personaPath: string): Promise<ConstraintsParseResult> {
     const constraintsPath = join(personaPath, 'constraints.yaml');
     return this.parseFromFile(constraintsPath);
   }
@@ -95,7 +89,7 @@ export class ConstraintsParser {
         return {
           success: false,
           errors: ['Invalid YAML format or empty file'],
-          warnings: [],
+          warnings: []
         };
       }
 
@@ -115,7 +109,7 @@ export class ConstraintsParser {
           success: errors.length === 0,
           constraints,
           errors,
-          warnings,
+          warnings
         };
       } catch (zodError) {
         if (zodError instanceof Error) {
@@ -124,16 +118,15 @@ export class ConstraintsParser {
         return {
           success: false,
           errors,
-          warnings,
+          warnings
         };
       }
+
     } catch (error) {
       return {
         success: false,
-        errors: [
-          `YAML parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        ],
-        warnings: [],
+        errors: [`YAML parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`],
+        warnings: []
       };
     }
   }
@@ -148,7 +141,7 @@ export class ConstraintsParser {
     if (parsed.quality_gates) {
       merged.quality_gates = {
         ...this.DEFAULT_CONSTRAINTS.quality_gates,
-        ...parsed.quality_gates,
+        ...parsed.quality_gates
       };
     }
 
@@ -157,9 +150,7 @@ export class ConstraintsParser {
     merged.kg_required_entities = parsed.kg_required_entities || [];
     merged.kg_required_edges = parsed.kg_required_edges || [];
     merged.extra_identifiers = parsed.extra_identifiers || [];
-    merged.fallback_processors =
-      parsed.fallback_processors ||
-      this.DEFAULT_CONSTRAINTS.fallback_processors;
+    merged.fallback_processors = parsed.fallback_processors || this.DEFAULT_CONSTRAINTS.fallback_processors;
 
     // Handle canonical entities
     merged.canonical_entities = parsed.canonical_entities || {};
@@ -172,8 +163,8 @@ export class ConstraintsParser {
    * Validate constraints structure and values
    */
   private static validateStructure(constraints: any): {
-    errors: string[];
-    warnings: string[];
+    errors: string[],
+    warnings: string[]
   } {
     const errors: string[] = [];
     const warnings: string[] = [];
@@ -182,9 +173,7 @@ export class ConstraintsParser {
     if (!Array.isArray(constraints.required_doc_types)) {
       errors.push('required_doc_types must be an array');
     } else if (constraints.required_doc_types.length === 0) {
-      warnings.push(
-        'No document types specified - this persona may not process any documents'
-      );
+      warnings.push('No document types specified - this persona may not process any documents');
     }
 
     if (!Array.isArray(constraints.kg_required_entities)) {
@@ -196,31 +185,20 @@ export class ConstraintsParser {
     }
 
     // Validate chunk size constraints
-    if (
-      constraints.content_chunk_max_chars <= constraints.content_chunk_min_chars
-    ) {
-      errors.push(
-        'content_chunk_max_chars must be greater than content_chunk_min_chars'
-      );
+    if (constraints.content_chunk_max_chars <= constraints.content_chunk_min_chars) {
+      errors.push('content_chunk_max_chars must be greater than content_chunk_min_chars');
     }
 
     if (constraints.content_chunk_max_chars > 4000) {
-      warnings.push(
-        'Very large chunk size (>4000 chars) may impact retrieval performance'
-      );
+      warnings.push('Very large chunk size (>4000 chars) may impact retrieval performance');
     }
 
     if (constraints.content_chunk_min_chars < 200) {
-      warnings.push(
-        'Very small chunk size (<200 chars) may result in fragmented content'
-      );
+      warnings.push('Very small chunk size (<200 chars) may result in fragmented content');
     }
 
     // Validate overlap percentage
-    if (
-      constraints.chunk_overlap_percentage < 0 ||
-      constraints.chunk_overlap_percentage > 50
-    ) {
+    if (constraints.chunk_overlap_percentage < 0 || constraints.chunk_overlap_percentage > 50) {
       errors.push('chunk_overlap_percentage must be between 0-50');
     }
 
@@ -228,10 +206,7 @@ export class ConstraintsParser {
     if (constraints.quality_gates) {
       const qg = constraints.quality_gates;
 
-      if (
-        qg.min_completion_percentage < 0 ||
-        qg.min_completion_percentage > 100
-      ) {
+      if (qg.min_completion_percentage < 0 || qg.min_completion_percentage > 100) {
         errors.push('min_completion_percentage must be between 0-100');
       }
 
@@ -245,10 +220,7 @@ export class ConstraintsParser {
     }
 
     // Validate processors
-    if (
-      constraints.fallback_processors &&
-      !Array.isArray(constraints.fallback_processors)
-    ) {
+    if (constraints.fallback_processors && !Array.isArray(constraints.fallback_processors)) {
       errors.push('fallback_processors must be an array');
     }
 
@@ -258,9 +230,7 @@ export class ConstraintsParser {
         errors.push('canonical_entities must be an object');
       } else {
         // Validate each entity kind and its entities
-        for (const [entityKind, entities] of Object.entries(
-          constraints.canonical_entities
-        )) {
+        for (const [entityKind, entities] of Object.entries(constraints.canonical_entities)) {
           if (!entities || typeof entities !== 'object') {
             errors.push(`canonical_entities.${entityKind} must be an object`);
             continue;
@@ -268,27 +238,13 @@ export class ConstraintsParser {
 
           for (const [canonicalName, definition] of Object.entries(entities)) {
             if (!definition.description) {
-              errors.push(
-                `canonical_entities.${entityKind}.${canonicalName} must have a description`
-              );
+              errors.push(`canonical_entities.${entityKind}.${canonicalName} must have a description`);
             }
-            if (
-              !definition.aliases ||
-              !Array.isArray(definition.aliases) ||
-              definition.aliases.length === 0
-            ) {
-              errors.push(
-                `canonical_entities.${entityKind}.${canonicalName} must have at least one alias`
-              );
+            if (!definition.aliases || !Array.isArray(definition.aliases) || definition.aliases.length === 0) {
+              errors.push(`canonical_entities.${entityKind}.${canonicalName} must have at least one alias`);
             }
-            if (
-              typeof definition.priority !== 'number' ||
-              definition.priority < 1 ||
-              definition.priority > 10
-            ) {
-              errors.push(
-                `canonical_entities.${entityKind}.${canonicalName} priority must be a number between 1-10`
-              );
+            if (typeof definition.priority !== 'number' || definition.priority < 1 || definition.priority > 10) {
+              errors.push(`canonical_entities.${entityKind}.${canonicalName} priority must be a number between 1-10`);
             }
           }
         }
@@ -303,18 +259,10 @@ export class ConstraintsParser {
         for (let i = 0; i < constraints.canonical_relationships.length; i++) {
           const rel = constraints.canonical_relationships[i];
           if (!rel.from || !rel.relation || !rel.to) {
-            errors.push(
-              `canonical_relationships[${i}] must have from, relation, and to fields`
-            );
+            errors.push(`canonical_relationships[${i}] must have from, relation, and to fields`);
           }
-          if (
-            typeof rel.confidence !== 'number' ||
-            rel.confidence < 0 ||
-            rel.confidence > 1
-          ) {
-            errors.push(
-              `canonical_relationships[${i}].confidence must be a number between 0-1`
-            );
+          if (typeof rel.confidence !== 'number' || rel.confidence < 0 || rel.confidence > 1) {
+            errors.push(`canonical_relationships[${i}].confidence must be a number between 0-1`);
           }
         }
       }
@@ -326,30 +274,26 @@ export class ConstraintsParser {
   /**
    * Extract chunk constraints from parsed constraints
    */
-  static extractChunkConstraints(
-    constraints: PersonaConstraints
-  ): ChunkConstraints {
+  static extractChunkConstraints(constraints: PersonaConstraints): ChunkConstraints {
     return {
       abstract_max_words: constraints.abstract_max_words,
       metadata_chunk_max_chars: constraints.metadata_chunk_max_chars,
       content_chunk_min_chars: constraints.content_chunk_min_chars,
       content_chunk_max_chars: constraints.content_chunk_max_chars,
-      chunk_overlap_percentage: constraints.chunk_overlap_percentage,
+      chunk_overlap_percentage: constraints.chunk_overlap_percentage
     };
   }
 
   /**
    * Extract entity requirements from parsed constraints
    */
-  static extractEntityRequirements(
-    constraints: PersonaConstraints
-  ): EntityRequirements {
+  static extractEntityRequirements(constraints: PersonaConstraints): EntityRequirements {
     return {
       kg_required_entities: constraints.kg_required_entities,
       kg_required_edges: constraints.kg_required_edges,
       min_entities_per_document: constraints.min_entities_per_document,
       min_edges_per_document: constraints.min_edges_per_document,
-      require_evidence_for_edges: constraints.require_evidence_for_edges,
+      require_evidence_for_edges: constraints.require_evidence_for_edges
     };
   }
 
@@ -363,35 +307,23 @@ export class ConstraintsParser {
   /**
    * Get document type specific overrides
    */
-  static getDocTypeOverrides(
-    constraints: PersonaConstraints,
-    docType: string
-  ): DocTypeOverride | undefined {
+  static getDocTypeOverrides(constraints: PersonaConstraints, docType: string): DocTypeOverride | undefined {
     return constraints.doctype_overrides?.[docType];
   }
 
   /**
    * Check if a document type is supported by the persona
    */
-  static isDocTypeSupported(
-    constraints: PersonaConstraints,
-    docType: string
-  ): boolean {
+  static isDocTypeSupported(constraints: PersonaConstraints, docType: string): boolean {
     return constraints.required_doc_types.includes(docType);
   }
 
   /**
    * Get effective processor for a document type
    */
-  static getEffectiveProcessor(
-    constraints: PersonaConstraints,
-    docType?: string
-  ): string {
+  static getEffectiveProcessor(constraints: PersonaConstraints, docType?: string): string {
     // Check for document type specific processor
-    if (
-      docType &&
-      constraints.doctype_overrides?.[docType]?.default_processor
-    ) {
+    if (docType && constraints.doctype_overrides?.[docType]?.default_processor) {
       return constraints.doctype_overrides[docType].default_processor;
     }
 
@@ -402,15 +334,9 @@ export class ConstraintsParser {
   /**
    * Get fallback processors in order
    */
-  static getFallbackProcessors(
-    constraints: PersonaConstraints,
-    docType?: string
-  ): string[] {
+  static getFallbackProcessors(constraints: PersonaConstraints, docType?: string): string[] {
     // Check for document type specific fallbacks
-    if (
-      docType &&
-      constraints.doctype_overrides?.[docType]?.fallback_processors
-    ) {
+    if (docType && constraints.doctype_overrides?.[docType]?.fallback_processors) {
       return constraints.doctype_overrides[docType].fallback_processors;
     }
 
@@ -421,15 +347,12 @@ export class ConstraintsParser {
   /**
    * Validate constraints against a document
    */
-  static validateDocument(
-    constraints: PersonaConstraints,
-    document: {
-      doc_type: string;
-      content_length?: number;
-      entities_count?: number;
-      edges_count?: number;
-    }
-  ): {
+  static validateDocument(constraints: PersonaConstraints, document: {
+    doc_type: string;
+    content_length?: number;
+    entities_count?: number;
+    edges_count?: number;
+  }): {
     isValid: boolean;
     errors: string[];
     warnings: string[];
@@ -439,108 +362,73 @@ export class ConstraintsParser {
 
     // Check if document type is supported
     if (!this.isDocTypeSupported(constraints, document.doc_type)) {
-      errors.push(
-        `Document type '${document.doc_type}' is not supported by this persona`
-      );
+      errors.push(`Document type '${document.doc_type}' is not supported by this persona`);
     }
 
     // Check content length against chunk constraints
     if (document.content_length) {
       if (document.content_length < constraints.content_chunk_min_chars) {
-        warnings.push(
-          `Document content is shorter than minimum chunk size (${constraints.content_chunk_min_chars} chars)`
-        );
+        warnings.push(`Document content is shorter than minimum chunk size (${constraints.content_chunk_min_chars} chars)`);
       }
     }
 
     // Check entity requirements
-    if (
-      document.entities_count !== undefined &&
-      document.entities_count < constraints.min_entities_per_document
-    ) {
-      warnings.push(
-        `Document has fewer entities than required (${constraints.min_entities_per_document})`
-      );
+    if (document.entities_count !== undefined && document.entities_count < constraints.min_entities_per_document) {
+      warnings.push(`Document has fewer entities than required (${constraints.min_entities_per_document})`);
     }
 
     // Check edge requirements
-    if (
-      document.edges_count !== undefined &&
-      document.edges_count < constraints.min_edges_per_document
-    ) {
-      warnings.push(
-        `Document has fewer relationships than required (${constraints.min_edges_per_document})`
-      );
+    if (document.edges_count !== undefined && document.edges_count < constraints.min_edges_per_document) {
+      warnings.push(`Document has fewer relationships than required (${constraints.min_edges_per_document})`);
     }
 
     return {
       isValid: errors.length === 0,
       errors,
-      warnings,
+      warnings
     };
   }
 
   /**
    * Extract canonical entities from parsed constraints
    */
-  static extractCanonicalEntities(
-    constraints: PersonaConstraints
-  ): CanonicalEntitiesConfig {
+  static extractCanonicalEntities(constraints: PersonaConstraints): CanonicalEntitiesConfig {
     return constraints.canonical_entities || {};
   }
 
   /**
    * Extract canonical relationships from parsed constraints
    */
-  static extractCanonicalRelationships(
-    constraints: PersonaConstraints
-  ): CanonicalRelationshipDefinition[] {
+  static extractCanonicalRelationships(constraints: PersonaConstraints): CanonicalRelationshipDefinition[] {
     return constraints.canonical_relationships || [];
   }
 
   /**
    * Get canonical entities for a specific entity kind
    */
-  static getCanonicalEntitiesForKind(
-    constraints: PersonaConstraints,
-    entityKind: string
-  ): Record<string, CanonicalEntityDefinition> {
+  static getCanonicalEntitiesForKind(constraints: PersonaConstraints, entityKind: string): Record<string, CanonicalEntityDefinition> {
     return constraints.canonical_entities?.[entityKind] || {};
   }
 
   /**
    * Check if a canonical entity exists
    */
-  static hasCanonicalEntity(
-    constraints: PersonaConstraints,
-    entityKind: string,
-    canonicalName: string
-  ): boolean {
-    return !!constraints.canonical_entities?.[entityKind]?.[canonicalName];
+  static hasCanonicalEntity(constraints: PersonaConstraints, entityKind: string, canonicalName: string): boolean {
+    return !!(constraints.canonical_entities?.[entityKind]?.[canonicalName]);
   }
 
   /**
    * Get all aliases for all canonical entities
    */
-  static getAllCanonicalAliases(
-    constraints: PersonaConstraints
-  ): Map<string, { canonicalName: string; entityKind: string }> {
-    const aliasMap = new Map<
-      string,
-      { canonicalName: string; entityKind: string }
-    >();
+  static getAllCanonicalAliases(constraints: PersonaConstraints): Map<string, { canonicalName: string; entityKind: string }> {
+    const aliasMap = new Map<string, { canonicalName: string; entityKind: string }>();
 
     if (!constraints.canonical_entities) return aliasMap;
 
-    for (const [entityKind, entities] of Object.entries(
-      constraints.canonical_entities
-    )) {
+    for (const [entityKind, entities] of Object.entries(constraints.canonical_entities)) {
       for (const [canonicalName, definition] of Object.entries(entities)) {
         // Add canonical name itself as an alias
-        aliasMap.set(canonicalName.toLowerCase(), {
-          canonicalName,
-          entityKind,
-        });
+        aliasMap.set(canonicalName.toLowerCase(), { canonicalName, entityKind });
 
         // Add all defined aliases
         for (const alias of definition.aliases) {
@@ -561,20 +449,12 @@ export class ConstraintsParser {
     lines.push('Persona Constraints Summary');
     lines.push('==========================');
     lines.push(`Document Types: ${constraints.required_doc_types.join(', ')}`);
-    lines.push(
-      `Chunk Size: ${constraints.content_chunk_min_chars}-${constraints.content_chunk_max_chars} chars`
-    );
+    lines.push(`Chunk Size: ${constraints.content_chunk_min_chars}-${constraints.content_chunk_max_chars} chars`);
     lines.push(`Chunk Overlap: ${constraints.chunk_overlap_percentage}%`);
-    lines.push(
-      `Required Entities: ${constraints.kg_required_entities.join(', ')}`
-    );
-    lines.push(
-      `Required Relationships: ${constraints.kg_required_edges.join(', ')}`
-    );
+    lines.push(`Required Entities: ${constraints.kg_required_entities.join(', ')}`);
+    lines.push(`Required Relationships: ${constraints.kg_required_edges.join(', ')}`);
     lines.push(`Default Processor: ${constraints.default_processor}`);
-    lines.push(
-      `Fallback Processors: ${constraints.fallback_processors.join(', ')}`
-    );
+    lines.push(`Fallback Processors: ${constraints.fallback_processors.join(', ')}`);
 
     const qg = constraints.quality_gates;
     lines.push('Quality Gates:');
@@ -582,45 +462,25 @@ export class ConstraintsParser {
     lines.push(`  Max Error Rate: ${qg.max_error_rate}%`);
     lines.push(`  Min Citation Coverage: ${qg.min_citation_coverage}%`);
 
-    if (
-      constraints.doctype_overrides &&
-      Object.keys(constraints.doctype_overrides).length > 0
-    ) {
+    if (constraints.doctype_overrides && Object.keys(constraints.doctype_overrides).length > 0) {
       lines.push('Document Type Overrides:');
-      for (const [docType, overrides] of Object.entries(
-        constraints.doctype_overrides
-      )) {
+      for (const [docType, overrides] of Object.entries(constraints.doctype_overrides)) {
         lines.push(`  ${docType}: ${Object.keys(overrides).length} overrides`);
       }
     }
 
     // Canonical entities summary
-    if (
-      constraints.canonical_entities &&
-      Object.keys(constraints.canonical_entities).length > 0
-    ) {
+    if (constraints.canonical_entities && Object.keys(constraints.canonical_entities).length > 0) {
       lines.push('Canonical Entities:');
-      for (const [entityKind, entities] of Object.entries(
-        constraints.canonical_entities
-      )) {
+      for (const [entityKind, entities] of Object.entries(constraints.canonical_entities)) {
         const entityCount = Object.keys(entities).length;
-        const aliasCount = Object.values(entities).reduce(
-          (sum, def) => sum + def.aliases.length,
-          0
-        );
-        lines.push(
-          `  ${entityKind}: ${entityCount} entities, ${aliasCount} aliases`
-        );
+        const aliasCount = Object.values(entities).reduce((sum, def) => sum + def.aliases.length, 0);
+        lines.push(`  ${entityKind}: ${entityCount} entities, ${aliasCount} aliases`);
       }
     }
 
-    if (
-      constraints.canonical_relationships &&
-      constraints.canonical_relationships.length > 0
-    ) {
-      lines.push(
-        `Canonical Relationships: ${constraints.canonical_relationships.length} defined`
-      );
+    if (constraints.canonical_relationships && constraints.canonical_relationships.length > 0) {
+      lines.push(`Canonical Relationships: ${constraints.canonical_relationships.length} defined`);
     }
 
     return lines.join('\n');

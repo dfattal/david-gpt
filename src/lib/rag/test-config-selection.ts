@@ -4,12 +4,7 @@
  * Tests the configuration selection logic without requiring OpenAI API calls.
  */
 
-import {
-  selectConfigForDocument,
-  DAVID_GPT_LEIA_CONFIG,
-  COMPUTER_VISION_CONFIG,
-  BUSINESS_PRESS_CONFIG,
-} from './extraction-configs';
+import { selectConfigForDocument, DAVID_GPT_LEIA_CONFIG, COMPUTER_VISION_CONFIG, BUSINESS_PRESS_CONFIG } from './extraction-configs';
 
 // Test samples
 const LEIA_CONTENT = `
@@ -36,11 +31,7 @@ function testConfigSelection(): void {
   console.log('🧪 Testing configuration selection logic...');
 
   // Test 1: Leia-specific content
-  const leiaConfig = selectConfigForDocument(
-    'paper',
-    'Switchable 3D Display Technology',
-    LEIA_CONTENT
-  );
+  const leiaConfig = selectConfigForDocument('paper', 'Switchable 3D Display Technology', LEIA_CONTENT);
   console.assert(
     leiaConfig.focusDomains.includes('leia_technology'),
     'Should select Leia configuration for Leia content'
@@ -48,11 +39,7 @@ function testConfigSelection(): void {
   console.log('✅ Leia content correctly identified');
 
   // Test 2: Computer vision content
-  const cvConfig = selectConfigForDocument(
-    'paper',
-    'Neural Radiance Fields with Gaussian Splatting',
-    CV_CONTENT
-  );
+  const cvConfig = selectConfigForDocument('paper', 'Neural Radiance Fields with Gaussian Splatting', CV_CONTENT);
   console.assert(
     cvConfig.focusDomains.includes('computer_vision'),
     'Should select CV configuration for computer vision content'
@@ -60,11 +47,7 @@ function testConfigSelection(): void {
   console.log('✅ Computer vision content correctly identified');
 
   // Test 3: Business/press content
-  const businessConfig = selectConfigForDocument(
-    'press-article',
-    'Samsung Partnership Announcement',
-    BUSINESS_CONTENT
-  );
+  const businessConfig = selectConfigForDocument('press-article', 'Samsung Partnership Announcement', BUSINESS_CONTENT);
   console.assert(
     businessConfig.focusDomains.includes('business'),
     'Should select business configuration for press articles'
@@ -72,11 +55,7 @@ function testConfigSelection(): void {
   console.log('✅ Business content correctly identified');
 
   // Test 4: Title-based detection
-  const quantumConfig = selectConfigForDocument(
-    'paper',
-    'Quantum Computing with Lightfield Displays',
-    ''
-  );
+  const quantumConfig = selectConfigForDocument('paper', 'Quantum Computing with Lightfield Displays', '');
   console.assert(
     quantumConfig.focusDomains.includes('quantum'),
     'Should select Leia configuration for quantum+lightfield title'
@@ -92,7 +71,7 @@ function demonstrateConfigurations(): void {
   const configs = [
     { name: 'David-GPT Leia', config: DAVID_GPT_LEIA_CONFIG },
     { name: 'Computer Vision', config: COMPUTER_VISION_CONFIG },
-    { name: 'Business Press', config: BUSINESS_PRESS_CONFIG },
+    { name: 'Business Press', config: BUSINESS_PRESS_CONFIG }
   ];
 
   configs.forEach(({ name, config }) => {

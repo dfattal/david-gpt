@@ -21,15 +21,9 @@ async function testEnhancedPersonaManager() {
         console.log(`   - Persona ID: ${configResult.config.persona_id}`);
         console.log(`   - Active: ${configResult.config.is_active}`);
         console.log(`   - Title: ${configResult.config.metadata.title}`);
-        console.log(
-          `   - Document Types: ${configResult.config.constraints.required_doc_types.length}`
-        );
-        console.log(
-          `   - Entity Types: ${configResult.config.constraints.kg_required_entities.length}`
-        );
-        console.log(
-          `   - Relationship Types: ${configResult.config.constraints.kg_required_edges.length}`
-        );
+        console.log(`   - Document Types: ${configResult.config.constraints.required_doc_types.length}`);
+        console.log(`   - Entity Types: ${configResult.config.constraints.kg_required_entities.length}`);
+        console.log(`   - Relationship Types: ${configResult.config.constraints.kg_required_edges.length}`);
 
         if (configResult.warnings && configResult.warnings.length > 0) {
           console.log(`   - Warnings: ${configResult.warnings.join(', ')}`);
@@ -42,28 +36,17 @@ async function testEnhancedPersonaManager() {
 
       // Test document processing config
       console.log('\n2. Loading DocumentProcessingConfig...');
-      const processingResult =
-        await personaManager.getDocumentProcessingConfig(personaId);
+      const processingResult = await personaManager.getDocumentProcessingConfig(personaId);
 
       if (processingResult.success && processingResult.config) {
         console.log('✅ DocumentProcessingConfig loaded successfully');
-        console.log(
-          `   - Document Types: ${processingResult.config.document_types.join(', ')}`
-        );
-        console.log(
-          `   - Default Processor: ${processingResult.config.default_processor}`
-        );
-        console.log(
-          `   - Chunk Size: ${processingResult.config.chunk_constraints.content_chunk_min_chars}-${processingResult.config.chunk_constraints.content_chunk_max_chars}`
-        );
-        console.log(
-          `   - Quality Gate - Min Completion: ${processingResult.config.quality_gates.min_completion_percentage}%`
-        );
+        console.log(`   - Document Types: ${processingResult.config.document_types.join(', ')}`);
+        console.log(`   - Default Processor: ${processingResult.config.default_processor}`);
+        console.log(`   - Chunk Size: ${processingResult.config.chunk_constraints.content_chunk_min_chars}-${processingResult.config.chunk_constraints.content_chunk_max_chars}`);
+        console.log(`   - Quality Gate - Min Completion: ${processingResult.config.quality_gates.min_completion_percentage}%`);
       } else {
         console.log('❌ DocumentProcessingConfig loading failed');
-        processingResult.errors?.forEach(error =>
-          console.log(`      ${error}`)
-        );
+        processingResult.errors?.forEach(error => console.log(`      ${error}`));
       }
 
       // Test search config
@@ -72,15 +55,9 @@ async function testEnhancedPersonaManager() {
 
       if (searchResult.success && searchResult.config) {
         console.log('✅ SearchConfig loaded successfully');
-        console.log(
-          `   - Allowed Doc Types: ${searchResult.config.allowed_document_types.length} types`
-        );
-        console.log(
-          `   - Allowed Entity Kinds: ${searchResult.config.allowed_entity_kinds.length} kinds`
-        );
-        console.log(
-          `   - Allowed Relationships: ${searchResult.config.allowed_relationship_types.length} types`
-        );
+        console.log(`   - Allowed Doc Types: ${searchResult.config.allowed_document_types.length} types`);
+        console.log(`   - Allowed Entity Kinds: ${searchResult.config.allowed_entity_kinds.length} kinds`);
+        console.log(`   - Allowed Relationships: ${searchResult.config.allowed_relationship_types.length} types`);
       } else {
         console.log('❌ SearchConfig loading failed');
         searchResult.errors?.forEach(error => console.log(`      ${error}`));
@@ -91,24 +68,17 @@ async function testEnhancedPersonaManager() {
       const testDocTypes = ['patent', 'legal-doc', 'case-law', 'note'];
 
       for (const docType of testDocTypes) {
-        const isAllowed = await personaManager.validateDocumentType(
-          personaId,
-          docType
-        );
-        console.log(
-          `   - ${docType}: ${isAllowed ? '✅ Allowed' : '❌ Not allowed'}`
-        );
+        const isAllowed = await personaManager.validateDocumentType(personaId, docType);
+        console.log(`   - ${docType}: ${isAllowed ? '✅ Allowed' : '❌ Not allowed'}`);
       }
 
       // Test processor selection
       console.log('\n5. Testing processor selection...');
-      const processor = await personaManager.getEffectiveProcessor(
-        personaId,
-        'patent'
-      );
+      const processor = await personaManager.getEffectiveProcessor(personaId, 'patent');
       console.log(`   - Effective processor for 'patent': ${processor}`);
 
       console.log('\n' + '='.repeat(70) + '\n');
+
     } catch (error) {
       console.error(`❌ Error testing ${personaId}:`, error);
     }

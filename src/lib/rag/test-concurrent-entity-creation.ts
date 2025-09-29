@@ -6,9 +6,7 @@
  */
 
 // Load environment variables FIRST before any other imports
-require('dotenv').config({
-  path: require('path').resolve(process.cwd(), '.env.local'),
-});
+require('dotenv').config({ path: require('path').resolve(process.cwd(), '.env.local') });
 
 import { entityConsolidator } from './entity-consolidator';
 import { supabaseAdmin } from '@/lib/supabase';
@@ -31,7 +29,10 @@ async function testConcurrentEntityCreation(): Promise<TestResult> {
 
   try {
     // Clean up any existing test entities
-    await supabaseAdmin.from('entities').delete().like('name', 'Test Entity%');
+    await supabaseAdmin
+      .from('entities')
+      .delete()
+      .like('name', 'Test Entity%');
 
     // Simulate concurrent creation by running multiple consolidation calls in parallel
     const promises = Array.from({ length: 5 }, (_, i) =>
@@ -59,45 +60,42 @@ async function testConcurrentEntityCreation(): Promise<TestResult> {
         const entity = entities[0];
         console.log(`✅ Success: Only one entity created with ID ${entity.id}`);
         console.log(`   Mention count: ${entity.mention_count}`);
-        console.log(
-          `   Results breakdown:`,
-          results.map(r => ({
-            entityId: r.entityId,
-            wasReused: r.wasReused,
-          }))
-        );
+        console.log(`   Results breakdown:`, results.map(r => ({
+          entityId: r.entityId,
+          wasReused: r.wasReused
+        })));
 
         // Clean up
-        await supabaseAdmin.from('entities').delete().eq('id', entity.id);
+        await supabaseAdmin
+          .from('entities')
+          .delete()
+          .eq('id', entity.id);
 
         return {
           success: true,
           message: `Concurrent entity creation test passed. Single entity created with ${entity.mention_count} mentions.`,
-          details: {
-            entityId: entity.id,
-            mentionCount: entity.mention_count,
-            results,
-          },
+          details: { entityId: entity.id, mentionCount: entity.mention_count, results }
         };
       } else {
         return {
           success: false,
           message: `Multiple entities found in database: ${entities?.length || 0}`,
-          details: entities,
+          details: entities
         };
       }
     } else {
       return {
         success: false,
         message: `Multiple entity IDs returned: ${Array.from(uniqueEntityIds).join(', ')}`,
-        details: results,
+        details: results
       };
     }
+
   } catch (error) {
     return {
       success: false,
       message: `Test failed with error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      details: error,
+      details: error
     };
   }
 }
@@ -144,33 +142,34 @@ async function testConcurrentConsolidationRules(): Promise<TestResult> {
 
       console.log(`✅ Success: OLED consolidation worked`);
       console.log(`   Entity:`, entities?.[0]);
-      console.log(
-        `   Aliases:`,
-        aliases?.map(a => a.alias)
-      );
+      console.log(`   Aliases:`, aliases?.map(a => a.alias));
 
       // Clean up
       if (entities?.[0]) {
-        await supabaseAdmin.from('entities').delete().eq('id', entities[0].id);
+        await supabaseAdmin
+          .from('entities')
+          .delete()
+          .eq('id', entities[0].id);
       }
 
       return {
         success: true,
         message: `Concurrent consolidation rules test passed. Entity: ${entities?.[0]?.name}, Aliases: ${aliases?.length || 0}`,
-        details: { entity: entities?.[0], aliases: aliases?.map(a => a.alias) },
+        details: { entity: entities?.[0], aliases: aliases?.map(a => a.alias) }
       };
     } else {
       return {
         success: false,
         message: `Multiple entity IDs for OLED variants: ${Array.from(uniqueEntityIds).join(', ')}`,
-        details: results,
+        details: results
       };
     }
+
   } catch (error) {
     return {
       success: false,
       message: `Consolidation rules test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      details: error,
+      details: error
     };
   }
 }
@@ -207,10 +206,7 @@ async function testNoDuplicatesWithExistingEntities(): Promise<TestResult> {
     const allResults = [firstResult, ...results];
     const uniqueEntityIds = new Set(allResults.map(r => r.entityId));
 
-    if (
-      uniqueEntityIds.size === 1 &&
-      uniqueEntityIds.has(firstResult.entityId)
-    ) {
+    if (uniqueEntityIds.size === 1 && uniqueEntityIds.has(firstResult.entityId)) {
       // Verify only one entity exists in database
       const { data: entities } = await supabaseAdmin
         .from('entities')
@@ -225,32 +221,36 @@ async function testNoDuplicatesWithExistingEntities(): Promise<TestResult> {
         console.log(`   Mention count: ${entity.mention_count}`);
 
         // Clean up
-        await supabaseAdmin.from('entities').delete().eq('id', entity.id);
+        await supabaseAdmin
+          .from('entities')
+          .delete()
+          .eq('id', entity.id);
 
         return {
           success: true,
           message: `No duplicates test passed. Reused existing entity with ${entity.mention_count} mentions.`,
-          details: { entityId: entity.id, mentionCount: entity.mention_count },
+          details: { entityId: entity.id, mentionCount: entity.mention_count }
         };
       } else {
         return {
           success: false,
           message: `Expected 1 entity, found ${entities?.length || 0}`,
-          details: entities,
+          details: entities
         };
       }
     } else {
       return {
         success: false,
         message: `Expected all results to use same entity ID, got: ${Array.from(uniqueEntityIds).join(', ')}`,
-        details: allResults,
+        details: allResults
       };
     }
+
   } catch (error) {
     return {
       success: false,
       message: `No duplicates test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      details: error,
+      details: error
     };
   }
 }
@@ -263,14 +263,8 @@ export async function runConcurrentEntityCreationTests(): Promise<void> {
 
   const tests = [
     { name: 'Concurrent Entity Creation', test: testConcurrentEntityCreation },
-    {
-      name: 'Concurrent Consolidation Rules',
-      test: testConcurrentConsolidationRules,
-    },
-    {
-      name: 'No Duplicates with Existing Entities',
-      test: testNoDuplicatesWithExistingEntities,
-    },
+    { name: 'Concurrent Consolidation Rules', test: testConcurrentConsolidationRules },
+    { name: 'No Duplicates with Existing Entities', test: testNoDuplicatesWithExistingEntities },
   ];
 
   const results: Array<TestResult & { testName: string }> = [];
@@ -292,7 +286,7 @@ export async function runConcurrentEntityCreationTests(): Promise<void> {
         testName: name,
         success: false,
         message: `Test crashed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        details: error,
+        details: error
       });
     }
   }
@@ -310,15 +304,13 @@ export async function runConcurrentEntityCreationTests(): Promise<void> {
     console.log('\n⚠️ Some tests failed. Review the results above.');
 
     // Log failed test details
-    results
-      .filter(r => !r.success)
-      .forEach(result => {
-        console.log(`\n❌ ${result.testName}:`);
-        console.log(`   Message: ${result.message}`);
-        if (result.details) {
-          console.log(`   Details:`, result.details);
-        }
-      });
+    results.filter(r => !r.success).forEach(result => {
+      console.log(`\n❌ ${result.testName}:`);
+      console.log(`   Message: ${result.message}`);
+      if (result.details) {
+        console.log(`   Details:`, result.details);
+      }
+    });
   }
 }
 

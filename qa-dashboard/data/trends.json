@@ -1,8 +1,0 @@
-[
-  {
-    "metric": "buildSuccess",
-    "trend": "stable",
-    "changePercent": -1.3,
-    "recommendation": "buildSuccess is stable - maintain current practices"
-  }
-]

@@ -113,9 +113,7 @@ export function useUpdatePersona() {
     onSuccess: (_, variables) => {
       // Invalidate affected queries
       queryClient.invalidateQueries({ queryKey: personaKeys.all });
-      queryClient.invalidateQueries({
-        queryKey: personaKeys.detail(variables.id),
-      });
+      queryClient.invalidateQueries({ queryKey: personaKeys.detail(variables.id) });
     },
   });
 }

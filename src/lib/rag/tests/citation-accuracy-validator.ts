@@ -169,40 +169,22 @@ export class CitationAccuracyValidator {
     console.log(`  📄 Validating citation ${citationMarker}...`);
 
     // Extract citation context from response
-    const citationContext = this.extractCitationContext(
-      responseText,
-      citationMarker
-    );
+    const citationContext = this.extractCitationContext(responseText, citationMarker);
 
     // Get full source content
     const sourceContent = await this.getFullSourceContent(sourceResult);
 
     // Validate different aspects
-    const accuracy = await this.validateAccuracy(
-      citationContext,
-      sourceContent,
-      criteria
-    );
+    const accuracy = await this.validateAccuracy(citationContext, sourceContent, criteria);
     const formatting = this.validateFormatting(citationMarker, sourceResult);
     const linkage = await this.validateLinkage(sourceResult);
     const completeness = this.validateCompleteness(sourceResult);
 
     // Calculate overall score
-    const overallScore = this.calculateOverallCitationScore(
-      accuracy,
-      formatting,
-      linkage,
-      completeness
-    );
+    const overallScore = this.calculateOverallCitationScore(accuracy, formatting, linkage, completeness);
 
     // Identify issues
-    const issues = this.identifyCitationIssues(
-      accuracy,
-      formatting,
-      linkage,
-      completeness,
-      criteria
-    );
+    const issues = this.identifyCitationIssues(accuracy, formatting, linkage, completeness, criteria);
 
     return {
       citationId: citationMarker,
@@ -211,17 +193,14 @@ export class CitationAccuracyValidator {
       linkage,
       completeness,
       overallScore,
-      issues,
+      issues
     };
   }
 
   /**
    * Extract citation context from response text
    */
-  private extractCitationContext(
-    responseText: string,
-    citationMarker: string
-  ): string {
+  private extractCitationContext(responseText: string, citationMarker: string): string {
     // Find the sentence(s) containing the citation marker
     const markerIndex = responseText.indexOf(citationMarker);
     if (markerIndex === -1) return '';
@@ -243,9 +222,7 @@ export class CitationAccuracyValidator {
   /**
    * Get full source content for validation
    */
-  private async getFullSourceContent(
-    sourceResult: SearchResult
-  ): Promise<string> {
+  private async getFullSourceContent(sourceResult: SearchResult): Promise<string> {
     try {
       // Get the full document content if available
       const { data: documentChunks } = await this.supabase
@@ -275,16 +252,10 @@ export class CitationAccuracyValidator {
     criteria: ValidationCriteria
   ): Promise<CitationAccuracy> {
     // Content match: How well the citation content matches the source
-    const contentMatch = this.calculateContentSimilarity(
-      citationContext,
-      sourceContent
-    );
+    const contentMatch = this.calculateContentSimilarity(citationContext, sourceContent);
 
     // Context relevance: How relevant the citation is to its context
-    const contextRelevance = this.calculateContextRelevance(
-      citationContext,
-      sourceContent
-    );
+    const contextRelevance = this.calculateContextRelevance(citationContext, sourceContent);
 
     // Factual correctness: Validate factual claims
     const factualCorrectness = criteria.validateFactualClaims
@@ -300,36 +271,21 @@ export class CitationAccuracyValidator {
       contentMatch,
       contextRelevance,
       factualCorrectness,
-      quotationAccuracy,
+      quotationAccuracy
     };
   }
 
   /**
    * Calculate content similarity between citation and source
    */
-  private calculateContentSimilarity(
-    citationText: string,
-    sourceContent: string
-  ): number {
+  private calculateContentSimilarity(citationText: string, sourceContent: string): number {
     if (!citationText || !sourceContent) return 0;
 
     // Simple similarity based on word overlap
-    const citationWords = new Set(
-      citationText
-        .toLowerCase()
-        .split(/\W+/)
-        .filter(w => w.length > 2)
-    );
-    const sourceWords = new Set(
-      sourceContent
-        .toLowerCase()
-        .split(/\W+/)
-        .filter(w => w.length > 2)
-    );
+    const citationWords = new Set(citationText.toLowerCase().split(/\W+/).filter(w => w.length > 2));
+    const sourceWords = new Set(sourceContent.toLowerCase().split(/\W+/).filter(w => w.length > 2));
 
-    const intersection = new Set(
-      [...citationWords].filter(w => sourceWords.has(w))
-    );
+    const intersection = new Set([...citationWords].filter(w => sourceWords.has(w)));
     const union = new Set([...citationWords, ...sourceWords]);
 
     return union.size > 0 ? intersection.size / union.size : 0;
@@ -338,15 +294,9 @@ export class CitationAccuracyValidator {
   /**
    * Calculate context relevance
    */
-  private calculateContextRelevance(
-    citationContext: string,
-    sourceContent: string
-  ): number {
+  private calculateContextRelevance(citationContext: string, sourceContent: string): number {
     // Check if key terms from citation appear in source
-    const citationTerms = citationContext
-      .toLowerCase()
-      .split(/\W+/)
-      .filter(w => w.length > 3);
+    const citationTerms = citationContext.toLowerCase().split(/\W+/).filter(w => w.length > 3);
     const sourceTermFrequency = new Map<string, number>();
 
     // Count term frequencies in source
@@ -376,22 +326,13 @@ export class CitationAccuracyValidator {
   /**
    * Validate factual claims in citation
    */
-  private async validateFactualClaims(
-    citationContext: string,
-    sourceContent: string
-  ): Promise<number> {
+  private async validateFactualClaims(citationContext: string, sourceContent: string): Promise<number> {
     // Simplified factual validation
     // In practice, this would use NLP to extract and verify factual claims
 
     // Check for contradictions
     const contradictionIndicators = [
-      'not',
-      'never',
-      'false',
-      'incorrect',
-      'wrong',
-      'contrary',
-      'opposite',
+      'not', 'never', 'false', 'incorrect', 'wrong', 'contrary', 'opposite'
     ];
 
     const citationLower = citationContext.toLowerCase();
@@ -399,10 +340,7 @@ export class CitationAccuracyValidator {
 
     // If citation contains factual claims that contradict the source
     for (const indicator of contradictionIndicators) {
-      if (
-        citationLower.includes(indicator) &&
-        !sourceLower.includes(indicator)
-      ) {
+      if (citationLower.includes(indicator) && !sourceLower.includes(indicator)) {
         return 0.5; // Potential contradiction
       }
     }
@@ -414,10 +352,7 @@ export class CitationAccuracyValidator {
   /**
    * Validate direct quotes
    */
-  private validateDirectQuotes(
-    citationContext: string,
-    sourceContent: string
-  ): number {
+  private validateDirectQuotes(citationContext: string, sourceContent: string): number {
     // Extract quoted text from citation
     const quoteMatches = citationContext.match(/"([^"]*)"/g);
     if (!quoteMatches) return 1.0; // No quotes to validate
@@ -438,10 +373,7 @@ export class CitationAccuracyValidator {
   /**
    * Validate citation formatting
    */
-  private validateFormatting(
-    citationMarker: string,
-    sourceResult: SearchResult
-  ): CitationFormatting {
+  private validateFormatting(citationMarker: string, sourceResult: SearchResult): CitationFormatting {
     // Check format compliance (e.g., [1], [2] format)
     const formatCompliance = /^\[\d+\]$/.test(citationMarker) ? 1.0 : 0.5;
 
@@ -452,14 +384,13 @@ export class CitationAccuracyValidator {
     const readabilityScore = this.calculateReadabilityScore(sourceResult);
 
     // Metadata completeness
-    const metadataCompleteness =
-      this.calculateMetadataCompleteness(sourceResult);
+    const metadataCompleteness = this.calculateMetadataCompleteness(sourceResult);
 
     return {
       formatCompliance,
       consistencyScore,
       readabilityScore,
-      metadataCompleteness,
+      metadataCompleteness
     };
   }
 
@@ -471,8 +402,7 @@ export class CitationAccuracyValidator {
     const hasTitle = title.length > 0 ? 0.3 : 0;
     const hasAuthors = sourceResult.metadata?.authors ? 0.3 : 0;
     const hasYear = sourceResult.metadata?.publication_year ? 0.2 : 0;
-    const hasSource =
-      sourceResult.metadata?.venue || sourceResult.metadata?.url ? 0.2 : 0;
+    const hasSource = sourceResult.metadata?.venue || sourceResult.metadata?.url ? 0.2 : 0;
 
     return hasTitle + hasAuthors + hasYear + hasSource;
   }
@@ -484,14 +414,7 @@ export class CitationAccuracyValidator {
     let completenessScore = 0;
     let totalFields = 0;
 
-    const requiredFields = [
-      'title',
-      'authors',
-      'publication_year',
-      'venue',
-      'doi',
-      'url',
-    ];
+    const requiredFields = ['title', 'authors', 'publication_year', 'venue', 'doi', 'url'];
 
     requiredFields.forEach(field => {
       totalFields++;
@@ -506,9 +429,7 @@ export class CitationAccuracyValidator {
   /**
    * Validate citation linkage
    */
-  private async validateLinkage(
-    sourceResult: SearchResult
-  ): Promise<CitationLinkage> {
+  private async validateLinkage(sourceResult: SearchResult): Promise<CitationLinkage> {
     // Source verification: Does the citation link to the correct document?
     const sourceVerification = await this.verifySourceDocument(sourceResult);
 
@@ -525,16 +446,14 @@ export class CitationAccuracyValidator {
       sourceVerification,
       chunkAlignment,
       documentMapping,
-      pageRangeAccuracy,
+      pageRangeAccuracy
     };
   }
 
   /**
    * Verify source document exists and is accessible
    */
-  private async verifySourceDocument(
-    sourceResult: SearchResult
-  ): Promise<number> {
+  private async verifySourceDocument(sourceResult: SearchResult): Promise<number> {
     try {
       const { data: document } = await this.supabase
         .from('documents')
@@ -572,16 +491,12 @@ export class CitationAccuracyValidator {
   /**
    * Validate citation completeness
    */
-  private validateCompleteness(
-    sourceResult: SearchResult
-  ): CitationCompleteness {
-    const requiredFieldsPresent =
-      this.calculateMetadataCompleteness(sourceResult);
+  private validateCompleteness(sourceResult: SearchResult): CitationCompleteness {
+    const requiredFieldsPresent = this.calculateMetadataCompleteness(sourceResult);
 
     const authorInformation = sourceResult.metadata?.authors ? 0.9 : 0.5;
 
-    const publicationDetails =
-      this.calculatePublicationDetailsScore(sourceResult);
+    const publicationDetails = this.calculatePublicationDetailsScore(sourceResult);
 
     const accessibilityInfo = this.calculateAccessibilityScore(sourceResult);
 
@@ -589,7 +504,7 @@ export class CitationAccuracyValidator {
       requiredFieldsPresent,
       authorInformation,
       publicationDetails,
-      accessibilityInfo,
+      accessibilityInfo
     };
   }
 
@@ -601,8 +516,7 @@ export class CitationAccuracyValidator {
 
     if (sourceResult.metadata?.venue) score += 0.4;
     if (sourceResult.metadata?.publication_year) score += 0.3;
-    if (sourceResult.metadata?.volume || sourceResult.metadata?.issue)
-      score += 0.3;
+    if (sourceResult.metadata?.volume || sourceResult.metadata?.issue) score += 0.3;
 
     return score;
   }
@@ -630,44 +544,23 @@ export class CitationAccuracyValidator {
     completeness: CitationCompleteness
   ): number {
     const weights = {
-      accuracy: 0.4,
-      formatting: 0.2,
+      accuracy: 0.40,
+      formatting: 0.20,
       linkage: 0.25,
-      completeness: 0.15,
+      completeness: 0.15
     };
 
-    const accuracyScore =
-      (accuracy.contentMatch +
-        accuracy.contextRelevance +
-        accuracy.factualCorrectness +
-        accuracy.quotationAccuracy) /
-      4;
-    const formattingScore =
-      (formatting.formatCompliance +
-        formatting.consistencyScore +
-        formatting.readabilityScore +
-        formatting.metadataCompleteness) /
-      4;
-    const linkageScore =
-      (linkage.sourceVerification +
-        linkage.chunkAlignment +
-        linkage.documentMapping +
-        linkage.pageRangeAccuracy) /
-      4;
-    const completenessScore =
-      (completeness.requiredFieldsPresent +
-        completeness.authorInformation +
-        completeness.publicationDetails +
-        completeness.accessibilityInfo) /
-      4;
+    const accuracyScore = (accuracy.contentMatch + accuracy.contextRelevance + accuracy.factualCorrectness + accuracy.quotationAccuracy) / 4;
+    const formattingScore = (formatting.formatCompliance + formatting.consistencyScore + formatting.readabilityScore + formatting.metadataCompleteness) / 4;
+    const linkageScore = (linkage.sourceVerification + linkage.chunkAlignment + linkage.documentMapping + linkage.pageRangeAccuracy) / 4;
+    const completenessScore = (completeness.requiredFieldsPresent + completeness.authorInformation + completeness.publicationDetails + completeness.accessibilityInfo) / 4;
 
     return (
-      (accuracyScore * weights.accuracy +
-        formattingScore * weights.formatting +
-        linkageScore * weights.linkage +
-        completenessScore * weights.completeness) *
-      100
-    );
+      accuracyScore * weights.accuracy +
+      formattingScore * weights.formatting +
+      linkageScore * weights.linkage +
+      completenessScore * weights.completeness
+    ) * 100;
   }
 
   /**
@@ -689,7 +582,7 @@ export class CitationAccuracyValidator {
         severity: 'high',
         description: 'Low content match between citation and source',
         suggestedFix: 'Review citation content against source material',
-        affectedCitations: [],
+        affectedCitations: []
       });
     }
 
@@ -699,7 +592,7 @@ export class CitationAccuracyValidator {
         severity: 'critical',
         description: 'Potential factual inaccuracies detected',
         suggestedFix: 'Verify factual claims against source content',
-        affectedCitations: [],
+        affectedCitations: []
       });
     }
 
@@ -710,7 +603,7 @@ export class CitationAccuracyValidator {
         severity: 'medium',
         description: 'Citation format does not comply with standards',
         suggestedFix: 'Use standard citation format [1], [2], etc.',
-        affectedCitations: [],
+        affectedCitations: []
       });
     }
 
@@ -721,7 +614,7 @@ export class CitationAccuracyValidator {
         severity: 'high',
         description: 'Source document verification failed',
         suggestedFix: 'Ensure citation links to correct and accessible source',
-        affectedCitations: [],
+        affectedCitations: []
       });
     }
 
@@ -732,7 +625,7 @@ export class CitationAccuracyValidator {
         severity: 'medium',
         description: 'Missing required citation metadata',
         suggestedFix: 'Include author, title, year, and source information',
-        affectedCitations: [],
+        affectedCitations: []
       });
     }
 
@@ -748,19 +641,15 @@ export class CitationAccuracyValidator {
       requireDirectQuotes: false,
       enforceMetadataCompleteness: true,
       validateFactualClaims: true,
-      checkSourceAvailability: true,
+      checkSourceAvailability: true
     };
   }
 
   /**
    * Run citation benchmark tests
    */
-  async runCitationBenchmark(
-    testCases: CitationTestCase[]
-  ): Promise<CitationBenchmarkReport> {
-    console.log(
-      `🧪 Running citation benchmark with ${testCases.length} test cases...`
-    );
+  async runCitationBenchmark(testCases: CitationTestCase[]): Promise<CitationBenchmarkReport> {
+    console.log(`🧪 Running citation benchmark with ${testCases.length} test cases...`);
 
     const timestamp = new Date();
     const testCaseResults: CitationTestCaseResult[] = [];
@@ -786,39 +675,36 @@ export class CitationAccuracyValidator {
             citationId: expectedCitation.citationMarker,
             accuracy: {
               contentMatch: 0.85,
-              contextRelevance: 0.9,
+              contextRelevance: 0.90,
               factualCorrectness: 0.92,
-              quotationAccuracy: 0.88,
+              quotationAccuracy: 0.88
             },
             formatting: {
               formatCompliance: 0.95,
-              consistencyScore: 0.9,
+              consistencyScore: 0.90,
               readabilityScore: 0.85,
-              metadataCompleteness: 0.8,
+              metadataCompleteness: 0.80
             },
             linkage: {
-              sourceVerification: 0.9,
+              sourceVerification: 0.90,
               chunkAlignment: 0.95,
               documentMapping: 1.0,
-              pageRangeAccuracy: 0.75,
+              pageRangeAccuracy: 0.75
             },
             completeness: {
-              requiredFieldsPresent: 0.8,
+              requiredFieldsPresent: 0.80,
               authorInformation: 0.85,
               publicationDetails: 0.75,
-              accessibilityInfo: 0.7,
+              accessibilityInfo: 0.70
             },
             overallScore: 85.5,
-            issues: [],
+            issues: []
           };
 
           citationResults.push(mockValidationResult);
           totalCitations++;
 
-          if (
-            mockValidationResult.overallScore >=
-            expectedCitation.requiredAccuracy * 100
-          ) {
+          if (mockValidationResult.overallScore >= expectedCitation.requiredAccuracy * 100) {
             passedValidations++;
           } else {
             failedValidations++;
@@ -829,10 +715,7 @@ export class CitationAccuracyValidator {
           issueCount += mockValidationResult.issues.length;
         }
 
-        averageAccuracy =
-          citationResults.length > 0
-            ? averageAccuracy / citationResults.length
-            : 0;
+        averageAccuracy = citationResults.length > 0 ? averageAccuracy / citationResults.length : 0;
 
         testCaseResults.push({
           testCaseId: testCase.id,
@@ -840,8 +723,9 @@ export class CitationAccuracyValidator {
           citationResults,
           averageAccuracy,
           issueCount,
-          executionTimeMs: Date.now() - startTime,
+          executionTimeMs: Date.now() - startTime
         });
+
       } catch (error) {
         console.error(`❌ Test case ${testCase.id} failed:`, error);
         testCaseResults.push({
@@ -850,14 +734,13 @@ export class CitationAccuracyValidator {
           citationResults: [],
           averageAccuracy: 0,
           issueCount: 1,
-          executionTimeMs: Date.now() - startTime,
+          executionTimeMs: Date.now() - startTime
         });
         failedValidations++;
       }
     }
 
-    const overallAccuracy =
-      totalCitations > 0 ? passedValidations / totalCitations : 0;
+    const overallAccuracy = totalCitations > 0 ? passedValidations / totalCitations : 0;
 
     return {
       testSuiteId: 'citation_accuracy_benchmark',
@@ -868,87 +751,60 @@ export class CitationAccuracyValidator {
       failedValidations,
       testCaseResults,
       commonIssues: this.identifyCommonIssues(testCaseResults),
-      recommendations: this.generateRecommendations(
-        testCaseResults,
-        overallAccuracy
-      ),
+      recommendations: this.generateRecommendations(testCaseResults, overallAccuracy)
     };
   }
 
   /**
    * Identify common issues across test results
    */
-  private identifyCommonIssues(
-    testCaseResults: CitationTestCaseResult[]
-  ): CitationIssue[] {
+  private identifyCommonIssues(testCaseResults: CitationTestCaseResult[]): CitationIssue[] {
     const issueFrequency = new Map<string, number>();
     const allIssues: CitationIssue[] = [];
 
     testCaseResults.forEach(result => {
       result.citationResults.forEach(citation => {
         citation.issues.forEach(issue => {
-          issueFrequency.set(
-            issue.description,
-            (issueFrequency.get(issue.description) || 0) + 1
-          );
+          issueFrequency.set(issue.description, (issueFrequency.get(issue.description) || 0) + 1);
           allIssues.push(issue);
         });
       });
     });
 
     // Return issues that occur frequently
-    return allIssues.filter(
-      issue => (issueFrequency.get(issue.description) || 0) >= 2
+    return allIssues.filter(issue =>
+      (issueFrequency.get(issue.description) || 0) >= 2
     );
   }
 
   /**
    * Generate recommendations based on test results
    */
-  private generateRecommendations(
-    testCaseResults: CitationTestCaseResult[],
-    overallAccuracy: number
-  ): string[] {
+  private generateRecommendations(testCaseResults: CitationTestCaseResult[], overallAccuracy: number): string[] {
     const recommendations: string[] = [];
 
     if (overallAccuracy < 0.8) {
-      recommendations.push(
-        'Overall citation accuracy is below target (80%). Focus on improving content matching and source verification.'
-      );
+      recommendations.push('Overall citation accuracy is below target (80%). Focus on improving content matching and source verification.');
     }
 
-    const avgAccuracy =
-      testCaseResults.reduce((sum, result) => sum + result.averageAccuracy, 0) /
-      testCaseResults.length;
+    const avgAccuracy = testCaseResults.reduce((sum, result) => sum + result.averageAccuracy, 0) / testCaseResults.length;
 
     if (avgAccuracy < 85) {
-      recommendations.push(
-        'Average citation accuracy is low. Review citation generation process and source alignment.'
-      );
+      recommendations.push('Average citation accuracy is low. Review citation generation process and source alignment.');
     }
 
-    const highIssueTests = testCaseResults.filter(
-      result => result.issueCount > 2
-    );
+    const highIssueTests = testCaseResults.filter(result => result.issueCount > 2);
     if (highIssueTests.length > 0) {
-      recommendations.push(
-        'Several test cases have multiple issues. Implement systematic citation validation in the generation pipeline.'
-      );
+      recommendations.push('Several test cases have multiple issues. Implement systematic citation validation in the generation pipeline.');
     }
 
-    const slowTests = testCaseResults.filter(
-      result => result.executionTimeMs > 5000
-    );
+    const slowTests = testCaseResults.filter(result => result.executionTimeMs > 5000);
     if (slowTests.length > 0) {
-      recommendations.push(
-        'Citation validation is slow for some cases. Consider optimizing source content retrieval and validation algorithms.'
-      );
+      recommendations.push('Citation validation is slow for some cases. Consider optimizing source content retrieval and validation algorithms.');
     }
 
     if (recommendations.length === 0) {
-      recommendations.push(
-        'Citation accuracy is meeting targets. Continue monitoring and maintain current quality standards.'
-      );
+      recommendations.push('Citation accuracy is meeting targets. Continue monitoring and maintain current quality standards.');
     }
 
     return recommendations;
@@ -966,17 +822,16 @@ export const CITATION_TEST_CASES: CitationTestCase[] = [
     query: 'Who created the Holopix50k dataset?',
     expectedCitations: [
       {
-        documentTitle:
-          'Holopix50k: A Large-Scale In-the-wild Stereo Image Dataset',
+        documentTitle: 'Holopix50k: A Large-Scale In-the-wild Stereo Image Dataset',
         citationMarker: '[1]',
         expectedContent: 'Holopix50k dataset',
         expectedMetadata: {
           authors: ['Yiwen Hua', 'Puneet Kohli'],
           year: '2020',
-          url: 'https://arxiv.org/abs/2003.11172v1',
+          url: 'https://arxiv.org/abs/2003.11172v1'
         },
-        requiredAccuracy: 0.85,
-      },
+        requiredAccuracy: 0.85
+      }
     ],
     difficultyLevel: 'easy',
     validationCriteria: {
@@ -984,8 +839,8 @@ export const CITATION_TEST_CASES: CitationTestCase[] = [
       requireDirectQuotes: false,
       enforceMetadataCompleteness: true,
       validateFactualClaims: true,
-      checkSourceAvailability: true,
-    },
+      checkSourceAvailability: true
+    }
   },
   {
     id: 'technical_explanation_citation',
@@ -993,25 +848,24 @@ export const CITATION_TEST_CASES: CitationTestCase[] = [
     query: 'How does depth estimation work in computer vision?',
     expectedCitations: [
       {
-        documentTitle:
-          'Depth Anything: Unleashing the Power of Large-Scale Unlabeled Data',
+        documentTitle: 'Depth Anything: Unleashing the Power of Large-Scale Unlabeled Data',
         citationMarker: '[1]',
         expectedContent: 'depth estimation',
         expectedMetadata: {
           authors: ['Lihe Yang', 'Bingyi Kang'],
-          year: '2024',
+          year: '2024'
         },
-        requiredAccuracy: 0.8,
-      },
+        requiredAccuracy: 0.80
+      }
     ],
     difficultyLevel: 'medium',
     validationCriteria: {
-      minimumAccuracy: 0.8,
+      minimumAccuracy: 0.80,
       requireDirectQuotes: false,
       enforceMetadataCompleteness: true,
       validateFactualClaims: true,
-      checkSourceAvailability: true,
-    },
+      checkSourceAvailability: true
+    }
   },
   {
     id: 'company_information_citation',
@@ -1025,20 +879,20 @@ export const CITATION_TEST_CASES: CitationTestCase[] = [
         expectedMetadata: {
           authors: ['Charlie Fink'],
           year: '2020',
-          url: 'https://www.forbes.com/sites/charliefink/2020/02/28/leia-the-display-of-the-future/',
+          url: 'https://www.forbes.com/sites/charliefink/2020/02/28/leia-the-display-of-the-future/'
         },
-        requiredAccuracy: 0.9,
-      },
+        requiredAccuracy: 0.90
+      }
     ],
     difficultyLevel: 'easy',
     validationCriteria: {
-      minimumAccuracy: 0.9,
+      minimumAccuracy: 0.90,
       requireDirectQuotes: false,
       enforceMetadataCompleteness: true,
       validateFactualClaims: true,
-      checkSourceAvailability: true,
-    },
-  },
+      checkSourceAvailability: true
+    }
+  }
 ];
 
 // =======================
@@ -1055,11 +909,7 @@ export async function validateResponseCitations(
   sourceResults: SearchResult[]
 ): Promise<CitationValidationResult[]> {
   const validator = new CitationAccuracyValidator(supabase);
-  return validator.validateCitations(
-    responseText,
-    citationMarkers,
-    sourceResults
-  );
+  return validator.validateCitations(responseText, citationMarkers, sourceResults);
 }
 
 /**

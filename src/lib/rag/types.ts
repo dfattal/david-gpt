@@ -1,6 +1,6 @@
 /**
  * RAG System Type Definitions
- *
+ * 
  * Comprehensive type definitions for the citation-first RAG system
  * including document processing, hybrid search, and mini-KG structures.
  */
@@ -13,35 +13,20 @@ import { z } from 'zod';
 
 // Base document types supported by all personas
 export const BaseDocumentTypeSchema = z.enum([
-  'pdf',
-  'paper',
-  'patent',
-  'note',
-  'url',
-  'book',
-  'press-article',
-  'url-list',
+  'pdf', 'paper', 'patent', 'note', 'url', 'book', 'press-article', 'url-list'
 ]);
 
 // Extended document types for specific personas
 export const LegalDocumentTypeSchema = z.enum([
-  'legal-doc',
-  'case-law',
-  'statute',
-  'legal-brief',
+  'legal-doc', 'case-law', 'statute', 'legal-brief'
 ]);
 
 export const MedicalDocumentTypeSchema = z.enum([
-  'medical-paper',
-  'clinical-trial',
-  'medical-guideline',
-  'case-report',
+  'medical-paper', 'clinical-trial', 'medical-guideline', 'case-report'
 ]);
 
 export const TechnicalDocumentTypeSchema = z.enum([
-  'technical-spec',
-  'api-doc',
-  'manual',
+  'technical-spec', 'api-doc', 'manual'
 ]);
 
 // Combined schema that includes all possible document types
@@ -50,15 +35,11 @@ export const DocumentTypeSchema = z.union([
   LegalDocumentTypeSchema,
   MedicalDocumentTypeSchema,
   TechnicalDocumentTypeSchema,
-  z.string(), // Allow custom types for extensibility
+  z.string() // Allow custom types for extensibility
 ]);
 
 export const DocumentStatusSchema = z.enum([
-  'draft',
-  'published',
-  'granted',
-  'expired',
-  'superseded',
+  'draft', 'published', 'granted', 'expired', 'superseded'
 ]);
 
 export type DocumentType = z.infer<typeof DocumentTypeSchema>;
@@ -153,39 +134,39 @@ export interface BaseDocumentMetadata {
   filePath?: string;
   fileSize?: number;
   fileHash?: string;
-
+  
   // Academic identifiers
   doi?: string;
   arxivId?: string;
   pubmedId?: string;
-
+  
   // Patent identifiers
   patentNo?: string;
   publicationNo?: string;
   applicationNo?: string;
   grantNo?: string;
   fundingAgency?: string;
-
+  
   // Web identifiers
   url?: string;
   canonicalUrl?: string;
-
+  
   // Date fields
   rawDate?: string;
   isoDate?: Date;
   filedDate?: Date;
   grantedDate?: Date;
   publishedDate?: Date;
-
+  
   // Relationship fields
   canonicalOf?: string;
   supersededBy?: string;
-
+  
   // Processing status
   processingStatus: 'pending' | 'processing' | 'completed' | 'failed';
   processedAt?: Date;
   errorMessage?: string;
-
+  
   // New lean patent metadata fields
   inventors?: string[];
   assignees?: string[];
@@ -202,9 +183,9 @@ export interface BaseDocumentMetadata {
   independentClaimCount?: number;
   classification?: string[];
   metaTitle?: string;
-
+  
   // Academic article metadata fields
-  authorsAffiliations?: Array<{ name: string; affiliation?: string }>;
+  authorsAffiliations?: Array<{name: string, affiliation?: string}>;
   venue?: string;
   publicationYear?: number;
   keywords?: string[];
@@ -212,7 +193,7 @@ export interface BaseDocumentMetadata {
   conferenceDate?: Date;
   impactFactor?: number;
   openAccess?: boolean;
-
+  
   // Press article metadata fields
   oem?: string;
   model?: string;
@@ -226,7 +207,7 @@ export interface BaseDocumentMetadata {
   launchYear?: number;
   marketRegion?: string[];
   priceRange?: string;
-
+  
   createdBy?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -357,14 +338,8 @@ export interface DocumentChunk {
 
 // Specialized chunk types for patent documents
 export const PatentSectionTypeSchema = z.enum([
-  'title',
-  'abstract',
-  'independent_claim',
-  'dependent_claims',
-  'background',
-  'summary',
-  'detailed_description',
-  'drawings',
+  'title', 'abstract', 'independent_claim', 'dependent_claims', 
+  'background', 'summary', 'detailed_description', 'drawings'
 ]);
 
 export type PatentSectionType = z.infer<typeof PatentSectionTypeSchema>;
@@ -372,24 +347,15 @@ export type PatentSectionType = z.infer<typeof PatentSectionTypeSchema>;
 export interface PatentChunk extends DocumentChunk {
   sectionType: PatentSectionType;
   claimNumber?: number; // For claim chunks
-  dependsOnClaim?: number; // For dependent claim chunks
+  dependsOnClaim?: number; // For dependent claim chunks  
   headingPath?: string; // e.g., "Background > Prior Art > Related Patents"
 }
 
 // Specialized chunk types for academic articles
 export const ArticleSectionTypeSchema = z.enum([
-  'title',
-  'abstract',
-  'introduction',
-  'related_work',
-  'methodology',
-  'results',
-  'discussion',
-  'conclusion',
-  'references',
-  'appendix',
-  'figure_caption',
-  'table_caption',
+  'title', 'abstract', 'introduction', 'related_work', 'methodology', 
+  'results', 'discussion', 'conclusion', 'references', 'appendix',
+  'figure_caption', 'table_caption'
 ]);
 
 export type ArticleSectionType = z.infer<typeof ArticleSectionTypeSchema>;
@@ -406,65 +372,39 @@ export interface ArticleChunk extends DocumentChunk {
 // =======================
 
 export const EntityKindSchema = z.enum([
-  'person',
-  'organization',
-  'product',
-  'technology',
-  'component',
-  'document',
+  'person', 'organization', 'product', 'technology', 'component', 'document'
 ]);
 
 // Simplified, strict edge types for single-pass extraction
 export const RelationTypeSchema = z.enum([
-  'affiliated_with', // person → organization
-  'made_by', // product → organization
-  'created_by', // technology → person
-  'developed_by', // technology → organization
-  'authored_by', // technology → person
-  'implements', // technology → product
-  'uses_component', // product → component
-  'supplied_by', // component → organization
-  'related_to', // technology → technology
-  'based_on', // technology → technology
+  'affiliated_with',  // person → organization
+  'made_by',         // product → organization
+  'created_by',      // technology → person
+  'developed_by',    // technology → organization
+  'authored_by',     // technology → person
+  'implements',      // technology → product
+  'uses_component',  // product → component
+  'supplied_by',     // component → organization
+  'related_to',      // technology → technology
+  'based_on'         // technology → technology
 ]);
 
 // Legacy relations (kept for backward compatibility but not extracted)
 export const LegacyRelationTypeSchema = z.enum([
   // Patent/Document relations
-  'author_of',
-  'inventor_of',
-  'assignee_of',
-  'cites',
-  'supersedes',
+  'author_of', 'inventor_of', 'assignee_of', 'cites', 'supersedes',
   // Technical relations
-  'used_in',
-  'similar_to',
+  'used_in', 'similar_to',
   // Spatial computing relations
-  'enables_3d',
-  'competing_with',
-  'integrates_with',
+  'enables_3d', 'competing_with', 'integrates_with',
   // Alternative implementation and enhancement relations
-  'can_use',
-  'enhances',
-  'evolved_to',
-  'alternative_to',
+  'can_use', 'enhances', 'evolved_to', 'alternative_to'
 ]);
 
 export const EventTypeSchema = z.enum([
-  'filed',
-  'published',
-  'granted',
-  'expires',
-  'product_launch',
-  'acquired',
-  'founded',
+  'filed', 'published', 'granted', 'expires', 'product_launch', 'acquired', 'founded',
   // Academic events
-  'submitted',
-  'accepted',
-  'presented',
-  'conference',
-  'preprint_posted',
-  'peer_reviewed',
+  'submitted', 'accepted', 'presented', 'conference', 'preprint_posted', 'peer_reviewed'
 ]);
 
 export type EntityKind = z.infer<typeof EntityKindSchema>;
@@ -520,23 +460,20 @@ export interface ExtractedEdge {
 }
 
 // Validation matrix for allowed edge combinations
-export const EDGE_VALIDATION_MATRIX: Record<
-  RelationType,
-  {
-    srcType: EntityKind;
-    dstType: EntityKind;
-  }
-> = {
-  affiliated_with: { srcType: 'person', dstType: 'organization' },
-  made_by: { srcType: 'product', dstType: 'organization' },
-  created_by: { srcType: 'technology', dstType: 'person' },
-  developed_by: { srcType: 'technology', dstType: 'organization' },
-  authored_by: { srcType: 'technology', dstType: 'person' },
-  implements: { srcType: 'technology', dstType: 'product' },
-  uses_component: { srcType: 'product', dstType: 'component' },
-  supplied_by: { srcType: 'component', dstType: 'organization' },
-  related_to: { srcType: 'technology', dstType: 'technology' },
-  based_on: { srcType: 'technology', dstType: 'technology' },
+export const EDGE_VALIDATION_MATRIX: Record<RelationType, {
+  srcType: EntityKind;
+  dstType: EntityKind;
+}> = {
+  'affiliated_with': { srcType: 'person', dstType: 'organization' },
+  'made_by': { srcType: 'product', dstType: 'organization' },
+  'created_by': { srcType: 'technology', dstType: 'person' },
+  'developed_by': { srcType: 'technology', dstType: 'organization' },
+  'authored_by': { srcType: 'technology', dstType: 'person' },
+  'implements': { srcType: 'technology', dstType: 'product' },
+  'uses_component': { srcType: 'product', dstType: 'component' },
+  'supplied_by': { srcType: 'component', dstType: 'organization' },
+  'related_to': { srcType: 'technology', dstType: 'technology' },
+  'based_on': { srcType: 'technology', dstType: 'technology' }
 };
 
 // Combined extraction result
@@ -623,13 +560,12 @@ export interface HybridSearchResult {
 // =======================
 
 export const TurnTypeSchema = z.enum([
-  'new-topic',
-  'drill-down',
-  'compare',
-  'same-sources',
+  'new-topic', 'drill-down', 'compare', 'same-sources'
 ]);
 
-export const ResponseModeSchema = z.enum(['FACT', 'EXPLAIN', 'CONFLICTS']);
+export const ResponseModeSchema = z.enum([
+  'FACT', 'EXPLAIN', 'CONFLICTS'
+]);
 
 export type TurnType = z.infer<typeof TurnTypeSchema>;
 export type ResponseMode = z.infer<typeof ResponseModeSchema>;
@@ -686,19 +622,12 @@ export interface MessageCitation {
 // =======================
 
 export const JobTypeSchema = z.enum([
-  'document_ingest',
-  'entity_extraction',
-  'embedding_generation',
-  'kg_processing',
-  'reindexing',
+  'document_ingest', 'entity_extraction', 'embedding_generation', 
+  'kg_processing', 'reindexing'
 ]);
 
 export const JobStatusSchema = z.enum([
-  'pending',
-  'processing',
-  'completed',
-  'failed',
-  'cancelled',
+  'pending', 'processing', 'completed', 'failed', 'cancelled'
 ]);
 
 export type JobType = z.infer<typeof JobTypeSchema>;
@@ -780,7 +709,7 @@ export interface LeanPatentMetadata {
 // Lean academic article metadata structure (stored in documents table)
 export interface LeanArticleMetadata {
   title: string;
-  authors: Array<{ name: string; affiliation?: string }>;
+  authors: Array<{name: string, affiliation?: string}>;
   venue: string;
   doi?: string;
   arxivId?: string;
@@ -797,32 +726,32 @@ export interface LeanArticleMetadata {
 export interface PressArticleMetadata {
   title: string;
   // OEM Information
-  oem: string; // e.g., "Samsung", "LG", "TCL"
-  model?: string; // e.g., "Galaxy Tab S10", "OLED C4"
-
+  oem: string;                    // e.g., "Samsung", "LG", "TCL" 
+  model?: string;                 // e.g., "Galaxy Tab S10", "OLED C4"
+  
   // Display Technology
-  displaySize?: string; // e.g., "55-inch", "6.7-inch"
+  displaySize?: string;           // e.g., "55-inch", "6.7-inch"
   displayType?: 'OLED' | 'LCD' | 'MicroLED' | 'Other';
-  refreshRate?: string; // e.g., "120Hz", "240Hz"
-
+  refreshRate?: string;           // e.g., "120Hz", "240Hz"
+  
   // Leia Technology
-  leiaFeature: string[]; // e.g., ["3D Display", "Immersive Gaming", "AR Interface"]
-  productCategory: string; // e.g., "TV", "Smartphone", "Tablet", "Monitor"
-
+  leiaFeature: string[];          // e.g., ["3D Display", "Immersive Gaming", "AR Interface"]
+  productCategory: string;        // e.g., "TV", "Smartphone", "Tablet", "Monitor"
+  
   // Article Metadata
   publicationDate: Date;
   journalist?: string[];
-  outlet: string; // e.g., "The Verge", "CNET", "TechCrunch"
-
+  outlet: string;                 // e.g., "The Verge", "CNET", "TechCrunch"
+  
   // Market Context
   launchYear?: number;
-  marketRegion?: string[]; // e.g., ["North America", "Europe", "Asia"]
-  priceRange?: string; // e.g., "$500-$1000", "Premium"
-
+  marketRegion?: string[];        // e.g., ["North America", "Europe", "Asia"]
+  priceRange?: string;           // e.g., "$500-$1000", "Premium"
+  
   // Content
   abstract: string;
   sourceUrl: string;
-  authority: string; // EXA, Direct
+  authority: string;             // EXA, Direct
 }
 
 export interface GROBIDResponse {

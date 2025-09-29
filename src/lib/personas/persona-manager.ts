@@ -21,10 +21,9 @@ import type {
   PersonaConfig,
   PersonaConfigResult,
   DocumentProcessingConfig,
-  SearchConfig,
+  SearchConfig
 } from './types';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Persona } from '@/lib/rag/types';
 
 export class PersonaManager {
   private supabase: SupabaseClient;
@@ -44,9 +43,7 @@ export class PersonaManager {
   /**
    * Create a new persona
    */
-  async createPersona(
-    request: CreatePersonaRequest
-  ): Promise<PersonaOperationResult> {
+  async createPersona(request: CreatePersonaRequest): Promise<PersonaOperationResult> {
     try {
       const { persona_id, content, validate = true } = request;
 
@@ -55,22 +52,19 @@ export class PersonaManager {
       if (existing.success) {
         return {
           success: false,
-          errors: [`Persona '${persona_id}' already exists`],
+          errors: [`Persona '${persona_id}' already exists`]
         };
       }
 
       // Validate persona definition if requested
       let validationResult: PersonaValidationResult | null = null;
       if (validate) {
-        validationResult = await this.validator.validatePersona({
-          persona_id,
-          content,
-        });
+        validationResult = await this.validator.validatePersona({ persona_id, content });
         if (!validationResult.isValid) {
           return {
             success: false,
             errors: validationResult.errors,
-            warnings: validationResult.warnings,
+            warnings: validationResult.warnings
           };
         }
       }
@@ -79,14 +73,10 @@ export class PersonaManager {
       const personaData = {
         persona_id,
         content,
-        validation_status: validate
-          ? validationResult?.isValid
-            ? 'valid'
-            : 'invalid'
-          : null,
+        validation_status: validate ? (validationResult?.isValid ? 'valid' : 'invalid') : null,
         validation_errors: validationResult?.errors || [],
         metadata: validationResult?.extractedMetadata || {},
-        is_active: true,
+        is_active: true
       };
 
       const { data, error } = await this.supabase
@@ -104,19 +94,16 @@ export class PersonaManager {
       return {
         success: true,
         persona: data,
-        warnings: validationResult?.warnings,
+        warnings: validationResult?.warnings
       };
+
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      await this.logPersonaOperation('create', request.persona_id, {
-        success: false,
-        error: errorMessage,
-      });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await this.logPersonaOperation('create', request.persona_id, { success: false, error: errorMessage });
 
       return {
         success: false,
-        errors: [errorMessage],
+        errors: [errorMessage]
       };
     }
   }
@@ -133,11 +120,10 @@ export class PersonaManager {
         .single();
 
       if (error) {
-        if (error.code === 'PGRST116') {
-          // Not found
+        if (error.code === 'PGRST116') { // Not found
           return {
             success: false,
-            errors: [`Persona '${persona_id}' not found`],
+            errors: [`Persona '${persona_id}' not found`]
           };
         }
         throw error;
@@ -145,14 +131,14 @@ export class PersonaManager {
 
       return {
         success: true,
-        persona: data,
+        persona: data
       };
+
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return {
         success: false,
-        errors: [errorMessage],
+        errors: [errorMessage]
       };
     }
   }
@@ -181,9 +167,7 @@ export class PersonaManager {
       }
 
       if (filters?.expertise_domain) {
-        query = query.contains('metadata->expertise_domains', [
-          filters.expertise_domain,
-        ]);
+        query = query.contains('metadata->expertise_domains', [filters.expertise_domain]);
       }
 
       const { data, error } = await query;
@@ -194,14 +178,14 @@ export class PersonaManager {
 
       return {
         success: true,
-        personas: data || [],
+        personas: data || []
       };
+
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return {
         success: false,
-        errors: [errorMessage],
+        errors: [errorMessage]
       };
     }
   }
@@ -209,10 +193,7 @@ export class PersonaManager {
   /**
    * Update a persona
    */
-  async updatePersona(
-    persona_id: string,
-    request: UpdatePersonaRequest
-  ): Promise<PersonaOperationResult> {
+  async updatePersona(persona_id: string, request: UpdatePersonaRequest): Promise<PersonaOperationResult> {
     try {
       const { content, is_active, validate = true } = request;
 
@@ -223,7 +204,7 @@ export class PersonaManager {
       }
 
       const updateData: Partial<PersonaRecord> = {
-        updated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
 
       // Update content if provided
@@ -232,13 +213,8 @@ export class PersonaManager {
 
         // Revalidate if requested
         if (validate) {
-          const validationResult = await this.validator.validatePersona({
-            persona_id,
-            content,
-          });
-          updateData.validation_status = validationResult.isValid
-            ? 'valid'
-            : 'invalid';
+          const validationResult = await this.validator.validatePersona({ persona_id, content });
+          updateData.validation_status = validationResult.isValid ? 'valid' : 'invalid';
           updateData.validation_errors = validationResult.errors;
           updateData.metadata = validationResult.extractedMetadata || {};
         }
@@ -264,19 +240,16 @@ export class PersonaManager {
 
       return {
         success: true,
-        persona: data,
+        persona: data
       };
+
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      await this.logPersonaOperation('update', persona_id, {
-        success: false,
-        error: errorMessage,
-      });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await this.logPersonaOperation('update', persona_id, { success: false, error: errorMessage });
 
       return {
         success: false,
-        errors: [errorMessage],
+        errors: [errorMessage]
       };
     }
   }
@@ -302,9 +275,7 @@ export class PersonaManager {
       if (documents && documents.length > 0) {
         return {
           success: false,
-          errors: [
-            `Cannot delete persona '${persona_id}': it has associated documents`,
-          ],
+          errors: [`Cannot delete persona '${persona_id}': it has associated documents`]
         };
       }
 
@@ -320,19 +291,16 @@ export class PersonaManager {
       await this.logPersonaOperation('delete', persona_id, { success: true });
 
       return {
-        success: true,
+        success: true
       };
+
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      await this.logPersonaOperation('delete', persona_id, {
-        success: false,
-        error: errorMessage,
-      });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await this.logPersonaOperation('delete', persona_id, { success: false, error: errorMessage });
 
       return {
         success: false,
-        errors: [errorMessage],
+        errors: [errorMessage]
       };
     }
   }
@@ -344,9 +312,7 @@ export class PersonaManager {
   /**
    * Validate a persona definition
    */
-  async validatePersona(
-    definition: PersonaDefinition
-  ): Promise<PersonaValidationResult> {
+  async validatePersona(definition: PersonaDefinition): Promise<PersonaValidationResult> {
     return this.validator.validatePersona(definition);
   }
 
@@ -363,7 +329,7 @@ export class PersonaManager {
       if (!persona.success || !persona.persona) {
         return {
           success: false,
-          errors: [`Persona '${persona_id}' not found`],
+          errors: [`Persona '${persona_id}' not found`]
         };
       }
 
@@ -374,14 +340,14 @@ export class PersonaManager {
 
       return {
         success: true,
-        constraints,
+        constraints
       };
+
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return {
         success: false,
-        errors: [errorMessage],
+        errors: [errorMessage]
       };
     }
   }
@@ -400,10 +366,7 @@ export class PersonaManager {
     errors?: string[];
   }> {
     try {
-      const result = await this.listPersonas({
-        is_active: true,
-        validation_status: 'valid',
-      });
+      const result = await this.listPersonas({ is_active: true, validation_status: 'valid' });
 
       if (!result.success) {
         return result;
@@ -413,19 +376,19 @@ export class PersonaManager {
         persona_id: p.persona_id,
         name: p.metadata.name,
         description: p.metadata.description,
-        expertise_domains: p.metadata.expertise_domains,
+        expertise_domains: p.metadata.expertise_domains
       }));
 
       return {
         success: true,
-        personas,
+        personas
       };
+
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return {
         success: false,
-        errors: [errorMessage],
+        errors: [errorMessage]
       };
     }
   }
@@ -445,7 +408,7 @@ export class PersonaManager {
       if (!personaResult.success || !personaResult.persona) {
         return {
           success: false,
-          errors: [`Persona '${persona_id}' not found in database`],
+          errors: [`Persona '${persona_id}' not found in database`]
         };
       }
 
@@ -455,7 +418,7 @@ export class PersonaManager {
       if (!persona.is_active) {
         return {
           success: false,
-          errors: [`Persona '${persona_id}' is not active`],
+          errors: [`Persona '${persona_id}' is not active`]
         };
       }
 
@@ -469,9 +432,9 @@ export class PersonaManager {
           success: false,
           errors: [
             `Failed to load constraints for persona '${persona_id}'`,
-            ...(constraintsResult.errors || []),
+            ...(constraintsResult.errors || [])
           ],
-          warnings: constraintsResult.warnings,
+          warnings: constraintsResult.warnings
         };
       }
 
@@ -485,9 +448,9 @@ export class PersonaManager {
           success: false,
           errors: [
             `Persona '${persona_id}' validation failed`,
-            ...validationResult.errors,
+            ...validationResult.errors
           ],
-          warnings: validationResult.warnings,
+          warnings: validationResult.warnings
         };
       }
 
@@ -498,23 +461,20 @@ export class PersonaManager {
         constraints: constraintsResult.constraints,
         database_id: persona.id,
         is_active: persona.is_active,
-        validation_status: persona.validation_status,
+        validation_status: persona.validation_status
       };
 
       return {
         success: true,
         config,
-        warnings: [
-          ...(constraintsResult.warnings || []),
-          ...(validationResult.warnings || []),
-        ],
+        warnings: [...(constraintsResult.warnings || []), ...(validationResult.warnings || [])]
       };
+
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return {
         success: false,
-        errors: [`Failed to load persona config: ${errorMessage}`],
+        errors: [`Failed to load persona config: ${errorMessage}`]
       };
     }
   }
@@ -532,7 +492,7 @@ export class PersonaManager {
     if (!result.success || !result.config) {
       return {
         success: false,
-        errors: result.errors,
+        errors: result.errors
       };
     }
 
@@ -542,17 +502,16 @@ export class PersonaManager {
       persona_id,
       document_types: constraints.required_doc_types,
       chunk_constraints: ConstraintsParser.extractChunkConstraints(constraints),
-      entity_requirements:
-        ConstraintsParser.extractEntityRequirements(constraints),
+      entity_requirements: ConstraintsParser.extractEntityRequirements(constraints),
       quality_gates: ConstraintsParser.extractQualityGates(constraints),
       default_processor: constraints.default_processor,
       fallback_processors: constraints.fallback_processors,
-      doctype_overrides: constraints.doctype_overrides,
+      doctype_overrides: constraints.doctype_overrides
     };
 
     return {
       success: true,
-      config: processingConfig,
+      config: processingConfig
     };
   }
 
@@ -570,7 +529,7 @@ export class PersonaManager {
       if (!result.success || !result.config) {
         return {
           success: false,
-          errors: result.errors,
+          errors: result.errors
         };
       }
 
@@ -578,7 +537,7 @@ export class PersonaManager {
       const [docTypes, entityKinds, relTypes] = await Promise.all([
         this.getAllowedDocumentTypes(persona_id),
         this.getAllowedEntityKinds(persona_id),
-        this.getAllowedRelationshipTypes(persona_id),
+        this.getAllowedRelationshipTypes(persona_id)
       ]);
 
       const searchConfig: SearchConfig = {
@@ -588,20 +547,20 @@ export class PersonaManager {
         allowed_relationship_types: relTypes,
         reranking_config: {
           max_results: 20,
-          diversity_threshold: 0.7,
-        },
+          diversity_threshold: 0.7
+        }
       };
 
       return {
         success: true,
-        config: searchConfig,
+        config: searchConfig
       };
+
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return {
         success: false,
-        errors: [`Failed to build search config: ${errorMessage}`],
+        errors: [`Failed to build search config: ${errorMessage}`]
       };
     }
   }
@@ -613,12 +572,10 @@ export class PersonaManager {
     try {
       const { data } = await this.supabase
         .from('persona_document_type_permissions')
-        .select(
-          `
+        .select(`
           document_types!inner(name),
           personas!inner(persona_id)
-        `
-        )
+        `)
         .eq('personas.persona_id', persona_id);
 
       return data?.map(item => item.document_types.name) || [];
@@ -635,12 +592,10 @@ export class PersonaManager {
     try {
       const { data } = await this.supabase
         .from('persona_entity_kind_permissions')
-        .select(
-          `
+        .select(`
           entity_kinds!inner(name),
           personas!inner(persona_id)
-        `
-        )
+        `)
         .eq('personas.persona_id', persona_id);
 
       return data?.map(item => item.entity_kinds.name) || [];
@@ -653,18 +608,14 @@ export class PersonaManager {
   /**
    * Get allowed relationship types for a persona from database
    */
-  private async getAllowedRelationshipTypes(
-    persona_id: string
-  ): Promise<string[]> {
+  private async getAllowedRelationshipTypes(persona_id: string): Promise<string[]> {
     try {
       const { data } = await this.supabase
         .from('persona_relationship_type_permissions')
-        .select(
-          `
+        .select(`
           relationship_types!inner(name),
           personas!inner(persona_id)
-        `
-        )
+        `)
         .eq('personas.persona_id', persona_id);
 
       return data?.map(item => item.relationship_types.name) || [];
@@ -677,10 +628,7 @@ export class PersonaManager {
   /**
    * Validate that a document type is allowed for a persona
    */
-  async validateDocumentType(
-    persona_id: string,
-    doc_type: string
-  ): Promise<boolean> {
+  async validateDocumentType(persona_id: string, doc_type: string): Promise<boolean> {
     const allowedTypes = await this.getAllowedDocumentTypes(persona_id);
     return allowedTypes.includes(doc_type);
   }
@@ -688,20 +636,14 @@ export class PersonaManager {
   /**
    * Get effective processor for a document type and persona
    */
-  async getEffectiveProcessor(
-    persona_id: string,
-    doc_type?: string
-  ): Promise<string> {
+  async getEffectiveProcessor(persona_id: string, doc_type?: string): Promise<string> {
     const result = await this.getPersonaConfig(persona_id);
 
     if (!result.success || !result.config) {
       return 'auto'; // fallback
     }
 
-    return ConstraintsParser.getEffectiveProcessor(
-      result.config.constraints,
-      doc_type
-    );
+    return ConstraintsParser.getEffectiveProcessor(result.config.constraints, doc_type);
   }
 
   /**
@@ -713,102 +655,18 @@ export class PersonaManager {
     result: { success: boolean; error?: string }
   ): Promise<void> {
     try {
-      console.log(
-        `📝 Persona ${operation}: ${persona_id} - ${result.success ? 'SUCCESS' : 'FAILED'}`,
-        {
-          operation,
-          persona_id,
-          success: result.success,
-          error: result.error,
-          timestamp: new Date().toISOString(),
-        }
-      );
+      console.log(`📝 Persona ${operation}: ${persona_id} - ${result.success ? 'SUCCESS' : 'FAILED'}`, {
+        operation,
+        persona_id,
+        success: result.success,
+        error: result.error,
+        timestamp: new Date().toISOString()
+      });
 
       // Could also store in a personas_audit_log table if needed
     } catch (error) {
       console.error('Failed to log persona operation:', error);
     }
-  }
-
-  /**
-   * Check if a persona has enhanced capabilities (for now, always return true)
-   */
-  isEnhanced(persona: Persona): boolean {
-    // For now, all personas are considered enhanced
-    // This could be extended to check for specific features, configurations, etc.
-    return true;
-  }
-
-  /**
-   * Load persona from markdown file (placeholder method)
-   */
-  async loadPersonaFromMarkdown(persona: Persona): Promise<void> {
-    // This is a placeholder method that could load enhanced persona configurations
-    // from markdown files in the future
-    console.log(`Loading enhanced persona configuration for: ${persona}`);
-  }
-
-  /**
-   * Generate system prompt for a persona
-   */
-  generateSystemPrompt(persona: Persona): string {
-    const personaConfigs = {
-      david: {
-        identity:
-          'You are David Fattal, a physicist turned entrepreneur and inventor of glasses-free 3D display technology. You are the Co-Founder and CTO of Leia Inc.',
-        expertise:
-          'lightfield displays, nanotechnology, optical interconnects, 3D display technology, photonics, holographic displays',
-        style:
-          'technical but accessible, enthusiastic about innovation, draws from personal experience',
-      },
-      legal: {
-        identity:
-          'You are a seasoned attorney and legal scholar with deep expertise in intellectual property law, corporate litigation, and regulatory compliance.',
-        expertise:
-          'patent law, intellectual property, corporate law, litigation, regulatory compliance, legal research',
-        style:
-          'precise, analytical, cites relevant legal precedents and statutes',
-      },
-      medical: {
-        identity:
-          'You are a medical professional with extensive clinical and research experience.',
-        expertise:
-          'clinical medicine, medical research, healthcare systems, patient care, medical technology',
-        style:
-          'evidence-based, compassionate, emphasizes patient safety and best practices',
-      },
-      technical: {
-        identity:
-          'You are a technical expert with broad engineering and technology knowledge.',
-        expertise:
-          'software engineering, hardware design, system architecture, emerging technologies',
-        style:
-          'methodical, detail-oriented, focuses on implementation and best practices',
-      },
-    };
-
-    // Extract persona name from object or use as string
-    const personaName =
-      typeof persona === 'string' ? persona : persona?.persona_id || 'david';
-    const config = personaConfigs[personaName] || personaConfigs.david; // fallback to david
-
-    return `You are an AI assistant that responds in the voice and style of this expert persona.
-
-CORE IDENTITY:
-${config.identity}
-
-EXPERTISE DOMAINS:
-${config.expertise}
-
-COMMUNICATION STYLE:
-${config.style}
-
-GUIDELINES:
-- Respond authentically in this persona's voice
-- Draw from the expertise domains when relevant
-- Maintain the specified communication style
-- Provide accurate, helpful information
-- Cite sources when discussing specific facts or research`;
   }
 }
 

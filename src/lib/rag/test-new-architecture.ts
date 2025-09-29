@@ -11,18 +11,15 @@ import {
   validateDocumentMetadata,
   classifyQueryByDocumentType,
   getAllDocumentTypes,
-  type GenericDocumentMetadata,
+  type GenericDocumentMetadata
 } from './document-type-registry';
 import { generateMetadataChunk } from './rich-metadata-chunks';
 import {
   convertToGenericMetadata,
   buildGenericDocumentUpdate,
-  validateGenericDocument,
+  validateGenericDocument
 } from './generic-ingestion-adapter';
-import {
-  classifySearchQuery,
-  type QueryClassification,
-} from './three-tier-search';
+import { classifySearchQuery, type QueryClassification } from './three-tier-search';
 
 // =======================
 // Test Data
@@ -35,14 +32,14 @@ const testPatentMetadata: GenericDocumentMetadata = {
   identifiers: {
     patent_no: 'US11234567B2',
     publication_no: 'US20210123456A1',
-    application_no: '16/987654',
+    application_no: '16/987654'
   },
   dates: {
     priority: '2019-12-15',
     filed: '2020-03-15',
     published: '2021-06-24',
     granted: '2022-07-22',
-    expires: '2040-03-15',
+    expires: '2040-03-15'
   },
   inventors: ['David A. Fattal', 'John Smith', 'Jane Doe'],
   assignees: ['Leia Inc.'],
@@ -52,11 +49,10 @@ const testPatentMetadata: GenericDocumentMetadata = {
   claimCount: 20,
   independentClaimCount: 3,
   patentStatus: 'active',
-  abstract:
-    'A lightfield display system that provides enhanced 3D visualization capabilities...',
+  abstract: 'A lightfield display system that provides enhanced 3D visualization capabilities...',
   classification: ['G02B 27/22', 'H04N 13/30'],
   createdAt: new Date(),
-  updatedAt: new Date(),
+  updatedAt: new Date()
 };
 
 const testPaperMetadata: GenericDocumentMetadata = {
@@ -65,28 +61,27 @@ const testPaperMetadata: GenericDocumentMetadata = {
   docType: 'paper',
   identifiers: {
     doi: '10.1038/s41566-023-01234-5',
-    arxiv_id: '2301.12345',
+    arxiv_id: '2301.12345'
   },
   dates: {
     submitted: '2022-11-15',
     accepted: '2023-01-20',
-    published: '2023-02-10',
+    published: '2023-02-10'
   },
   authorsAffiliations: [
     { name: 'David A. Fattal', affiliation: 'Leia Inc.' },
     { name: 'Alice Johnson', affiliation: 'Stanford University' },
-    { name: 'Bob Wilson', affiliation: 'MIT' },
+    { name: 'Bob Wilson', affiliation: 'MIT' }
   ],
   venue: 'Nature Photonics',
   publicationYear: 2023,
   keywords: ['lightfield', 'computational imaging', '3D displays', 'optics'],
   citationCount: 15,
-  abstract:
-    'This paper presents novel advances in computational lightfield imaging techniques...',
+  abstract: 'This paper presents novel advances in computational lightfield imaging techniques...',
   impactFactor: 31.241,
   openAccess: false,
   createdAt: new Date(),
-  updatedAt: new Date(),
+  updatedAt: new Date()
 };
 
 // =======================
@@ -160,35 +155,27 @@ async function testDocumentTypeRegistry(): Promise<TestResult> {
     }
 
     // Test query classification
-    const patentQuery = classifyQueryByDocumentType(
-      'patent invention lightfield'
-    );
-    const paperQuery = classifyQueryByDocumentType(
-      'research paper journal conference'
-    );
+    const patentQuery = classifyQueryByDocumentType('patent invention lightfield');
+    const paperQuery = classifyQueryByDocumentType('research paper journal conference');
 
     const allTypes = getAllDocumentTypes();
     const typeCount = Object.keys(allTypes).length;
 
     console.log(`   ✅ Registry contains ${typeCount} document types`);
-    console.log(
-      `   ✅ Patent query classification: ${patentQuery.documentTypes.join(', ')}`
-    );
-    console.log(
-      `   ✅ Paper query classification: ${paperQuery.documentTypes.join(', ')}`
-    );
+    console.log(`   ✅ Patent query classification: ${patentQuery.documentTypes.join(', ')}`);
+    console.log(`   ✅ Paper query classification: ${paperQuery.documentTypes.join(', ')}`);
 
     return {
       name: 'Document Type Registry',
       passed: true,
       message: `Registry working correctly with ${typeCount} document types`,
-      details: { patentType, paperType, typeCount },
+      details: { patentType, paperType, typeCount }
     };
   } catch (error) {
     return {
       name: 'Document Type Registry',
       passed: false,
-      message: `Registry test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      message: `Registry test failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     };
   }
 }
@@ -198,33 +185,20 @@ async function testMetadataValidation(): Promise<TestResult> {
     console.log('✅ Testing Metadata Validation...');
 
     // Test valid patent metadata
-    const patentValidation = validateDocumentMetadata(
-      'patent',
-      testPatentMetadata
-    );
+    const patentValidation = validateDocumentMetadata('patent', testPatentMetadata);
     if (!patentValidation.valid) {
-      throw new Error(
-        `Patent validation failed: ${patentValidation.errors.join(', ')}`
-      );
+      throw new Error(`Patent validation failed: ${patentValidation.errors.join(', ')}`);
     }
 
     // Test valid paper metadata
-    const paperValidation = validateDocumentMetadata(
-      'paper',
-      testPaperMetadata
-    );
+    const paperValidation = validateDocumentMetadata('paper', testPaperMetadata);
     if (!paperValidation.valid) {
-      throw new Error(
-        `Paper validation failed: ${paperValidation.errors.join(', ')}`
-      );
+      throw new Error(`Paper validation failed: ${paperValidation.errors.join(', ')}`);
     }
 
     // Test invalid metadata (missing title)
     const invalidMetadata = { ...testPatentMetadata, title: '' };
-    const invalidValidation = validateDocumentMetadata(
-      'patent',
-      invalidMetadata
-    );
+    const invalidValidation = validateDocumentMetadata('patent', invalidMetadata);
     if (invalidValidation.valid) {
       throw new Error('Invalid metadata should fail validation');
     }
@@ -233,16 +207,10 @@ async function testMetadataValidation(): Promise<TestResult> {
     const genericPatentValidation = validateGenericDocument(testPatentMetadata);
     const genericPaperValidation = validateGenericDocument(testPaperMetadata);
 
-    console.log(
-      `   ✅ Patent metadata validation: ${patentValidation.valid ? 'PASS' : 'FAIL'}`
-    );
-    console.log(
-      `   ✅ Paper metadata validation: ${paperValidation.valid ? 'PASS' : 'FAIL'}`
-    );
+    console.log(`   ✅ Patent metadata validation: ${patentValidation.valid ? 'PASS' : 'FAIL'}`);
+    console.log(`   ✅ Paper metadata validation: ${paperValidation.valid ? 'PASS' : 'FAIL'}`);
     console.log(`   ✅ Invalid metadata correctly rejected`);
-    console.log(
-      `   ✅ Generic validation warnings: ${genericPatentValidation.warnings.length + genericPaperValidation.warnings.length}`
-    );
+    console.log(`   ✅ Generic validation warnings: ${genericPatentValidation.warnings.length + genericPaperValidation.warnings.length}`);
 
     return {
       name: 'Metadata Validation',
@@ -251,14 +219,14 @@ async function testMetadataValidation(): Promise<TestResult> {
       details: {
         patentValid: patentValidation.valid,
         paperValid: paperValidation.valid,
-        invalidRejected: !invalidValidation.valid,
-      },
+        invalidRejected: !invalidValidation.valid
+      }
     };
   } catch (error) {
     return {
       name: 'Metadata Validation',
       passed: false,
-      message: `Validation test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      message: `Validation test failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     };
   }
 }
@@ -270,7 +238,7 @@ async function testRichMetadataChunks(): Promise<TestResult> {
     // Test patent metadata chunk
     const patentChunk = generateMetadataChunk(testPatentMetadata, {
       includeContext: true,
-      includeRelationships: false,
+      includeRelationships: false
     });
 
     if (!patentChunk) {
@@ -280,7 +248,7 @@ async function testRichMetadataChunks(): Promise<TestResult> {
     // Test paper metadata chunk
     const paperChunk = generateMetadataChunk(testPaperMetadata, {
       includeContext: true,
-      includeRelationships: false,
+      includeRelationships: false
     });
 
     if (!paperChunk) {
@@ -298,20 +266,14 @@ async function testRichMetadataChunks(): Promise<TestResult> {
 
     // Check token counts are reasonable
     if (patentChunk.tokenCount < 50 || patentChunk.tokenCount > 800) {
-      throw new Error(
-        `Patent chunk token count unreasonable: ${patentChunk.tokenCount}`
-      );
+      throw new Error(`Patent chunk token count unreasonable: ${patentChunk.tokenCount}`);
     }
 
     if (paperChunk.tokenCount < 50 || paperChunk.tokenCount > 800) {
-      throw new Error(
-        `Paper chunk token count unreasonable: ${paperChunk.tokenCount}`
-      );
+      throw new Error(`Paper chunk token count unreasonable: ${paperChunk.tokenCount}`);
     }
 
-    console.log(
-      `   ✅ Patent metadata chunk: ${patentChunk.tokenCount} tokens`
-    );
+    console.log(`   ✅ Patent metadata chunk: ${patentChunk.tokenCount} tokens`);
     console.log(`   ✅ Paper metadata chunk: ${paperChunk.tokenCount} tokens`);
     console.log(`   ✅ Both chunks contain expected metadata elements`);
 
@@ -323,14 +285,14 @@ async function testRichMetadataChunks(): Promise<TestResult> {
         patentTokens: patentChunk.tokenCount,
         paperTokens: paperChunk.tokenCount,
         patentChunkType: patentChunk.chunkType,
-        paperChunkType: paperChunk.chunkType,
-      },
+        paperChunkType: paperChunk.chunkType
+      }
     };
   } catch (error) {
     return {
       name: 'Rich Metadata Chunks',
       passed: false,
-      message: `Chunk generation test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      message: `Chunk generation test failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     };
   }
 }
@@ -348,17 +310,14 @@ async function testGenericSchemaConversion(): Promise<TestResult> {
       assignee: testPatentMetadata.assignees?.[0],
       filedDate: new Date(testPatentMetadata.dates.filed!),
       grantedDate: new Date(testPatentMetadata.dates.granted!),
-      abstract: testPatentMetadata.abstract,
+      abstract: testPatentMetadata.abstract
     };
 
     // Convert to generic format
     const converted = convertToGenericMetadata(legacyPatentMetadata, 'patent');
 
     // Validate conversion
-    if (
-      converted.identifiers.patent_no !==
-      testPatentMetadata.identifiers.patent_no
-    ) {
+    if (converted.identifiers.patent_no !== testPatentMetadata.identifiers.patent_no) {
       throw new Error('Patent number conversion failed');
     }
 
@@ -366,10 +325,7 @@ async function testGenericSchemaConversion(): Promise<TestResult> {
       throw new Error('Filed date conversion failed');
     }
 
-    if (
-      !converted.inventors ||
-      converted.inventors.length !== testPatentMetadata.inventors!.length
-    ) {
+    if (!converted.inventors || converted.inventors.length !== testPatentMetadata.inventors!.length) {
       throw new Error('Inventors conversion failed');
     }
 
@@ -381,12 +337,8 @@ async function testGenericSchemaConversion(): Promise<TestResult> {
     }
 
     console.log(`   ✅ Legacy metadata converted successfully`);
-    console.log(
-      `   ✅ Generated ${Object.keys(updateData.identifiers).length} identifiers`
-    );
-    console.log(
-      `   ✅ Generated ${Object.keys(updateData.dates).length} date fields`
-    );
+    console.log(`   ✅ Generated ${Object.keys(updateData.identifiers).length} identifiers`);
+    console.log(`   ✅ Generated ${Object.keys(updateData.dates).length} date fields`);
     console.log(`   ✅ Document update data structure valid`);
 
     return {
@@ -396,14 +348,14 @@ async function testGenericSchemaConversion(): Promise<TestResult> {
       details: {
         identifierCount: Object.keys(updateData.identifiers).length,
         dateCount: Object.keys(updateData.dates).length,
-        updateFields: Object.keys(updateData).length,
-      },
+        updateFields: Object.keys(updateData).length
+      }
     };
   } catch (error) {
     return {
       name: 'Generic Schema Conversion',
       passed: false,
-      message: `Schema conversion test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      message: `Schema conversion test failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     };
   }
 }
@@ -413,65 +365,29 @@ async function testQueryClassification(): Promise<TestResult> {
     console.log('🔍 Testing Query Classification...');
 
     const testQueries = [
-      {
-        query: 'Patent US11234567',
-        expectedTier: 'sql',
-        expectedIntent: 'exact_lookup',
-      },
-      {
-        query: 'DOI 10.1038/s41566-023-01234-5',
-        expectedTier: 'sql',
-        expectedIntent: 'exact_lookup',
-      },
-      {
-        query: 'Who are the inventors of the lightfield patent?',
-        expectedTier: 'vector',
-        expectedIntent: 'metadata_semantic',
-      },
-      {
-        query: 'How does a lightfield display work?',
-        expectedTier: 'content',
-        expectedIntent: 'content_search',
-      },
-      {
-        query: 'David Fattal patents from 2020 to 2023',
-        expectedTier: 'sql',
-        expectedIntent: 'exact_lookup',
-      },
-      {
-        query: 'Explain the principle behind 3D displays',
-        expectedTier: 'content',
-        expectedIntent: 'content_search',
-      },
-      {
-        query: 'Find papers about computational imaging',
-        expectedTier: 'vector',
-        expectedIntent: 'metadata_semantic',
-      },
+      { query: 'Patent US11234567', expectedTier: 'sql', expectedIntent: 'exact_lookup' },
+      { query: 'DOI 10.1038/s41566-023-01234-5', expectedTier: 'sql', expectedIntent: 'exact_lookup' },
+      { query: 'Who are the inventors of the lightfield patent?', expectedTier: 'vector', expectedIntent: 'metadata_semantic' },
+      { query: 'How does a lightfield display work?', expectedTier: 'content', expectedIntent: 'content_search' },
+      { query: 'David Fattal patents from 2020 to 2023', expectedTier: 'sql', expectedIntent: 'exact_lookup' },
+      { query: 'Explain the principle behind 3D displays', expectedTier: 'content', expectedIntent: 'content_search' },
+      { query: 'Find papers about computational imaging', expectedTier: 'vector', expectedIntent: 'metadata_semantic' }
     ];
 
-    const results: Array<{
-      query: string;
-      actual: QueryClassification;
-      passed: boolean;
-    }> = [];
+    const results: Array<{ query: string; actual: QueryClassification; passed: boolean }> = [];
 
     for (const test of testQueries) {
       const classification = classifySearchQuery(test.query);
-      const passed =
-        classification.tier === test.expectedTier &&
-        classification.intent === test.expectedIntent;
+      const passed = classification.tier === test.expectedTier && classification.intent === test.expectedIntent;
 
       results.push({
         query: test.query,
         actual: classification,
-        passed,
+        passed
       });
 
       const status = passed ? '✅' : '❌';
-      console.log(
-        `   ${status} "${test.query}" → Tier ${classification.tier.toUpperCase()} (${classification.intent})`
-      );
+      console.log(`   ${status} "${test.query}" → Tier ${classification.tier.toUpperCase()} (${classification.intent})`);
     }
 
     const passedCount = results.filter(r => r.passed).length;
@@ -479,22 +395,20 @@ async function testQueryClassification(): Promise<TestResult> {
 
     if (passedCount < totalCount) {
       const failedQueries = results.filter(r => !r.passed).map(r => r.query);
-      throw new Error(
-        `${totalCount - passedCount} queries misclassified: ${failedQueries.join(', ')}`
-      );
+      throw new Error(`${totalCount - passedCount} queries misclassified: ${failedQueries.join(', ')}`);
     }
 
     return {
       name: 'Query Classification',
       passed: true,
       message: `All ${totalCount} test queries classified correctly`,
-      details: { passedCount, totalCount, results },
+      details: { passedCount, totalCount, results }
     };
   } catch (error) {
     return {
       name: 'Query Classification',
       passed: false,
-      message: `Query classification test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      message: `Query classification test failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     };
   }
 }
@@ -508,18 +422,18 @@ async function testThreeTierSearchLogic(): Promise<TestResult> {
       {
         query: 'Patent US11234567B2 details',
         expectedStrategy: 'SQL (exact lookups)',
-        reason: 'Direct patent number lookup',
+        reason: 'Direct patent number lookup'
       },
       {
         query: 'Who invented the lightfield display system?',
         expectedStrategy: 'Vector (semantic metadata)',
-        reason: 'Semantic metadata query about inventors',
+        reason: 'Semantic metadata query about inventors'
       },
       {
         query: 'How do lightfield displays create 3D images?',
         expectedStrategy: 'Content (hybrid search)',
-        reason: 'Technical explanation query',
-      },
+        reason: 'Technical explanation query'
+      }
     ];
 
     let passedCases = 0;
@@ -531,7 +445,7 @@ async function testThreeTierSearchLogic(): Promise<TestResult> {
       const tierNames = {
         sql: 'SQL (exact lookups)',
         vector: 'Vector (semantic metadata)',
-        content: 'Content (hybrid search)',
+        content: 'Content (hybrid search)'
       };
 
       const actualStrategy = tierNames[classification.tier];
@@ -549,9 +463,7 @@ async function testThreeTierSearchLogic(): Promise<TestResult> {
     }
 
     if (passedCases !== testCases.length) {
-      throw new Error(
-        `${testCases.length - passedCases} tier routing cases failed`
-      );
+      throw new Error(`${testCases.length - passedCases} tier routing cases failed`);
     }
 
     console.log(`   ✅ Fallback strategy logic implemented`);
@@ -561,13 +473,13 @@ async function testThreeTierSearchLogic(): Promise<TestResult> {
       name: 'Three-Tier Search Logic',
       passed: true,
       message: `All ${testCases.length} tier routing tests passed`,
-      details: { passedCases, totalCases: testCases.length },
+      details: { passedCases, totalCases: testCases.length }
     };
   } catch (error) {
     return {
       name: 'Three-Tier Search Logic',
       passed: false,
-      message: `Three-tier search test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      message: `Three-tier search test failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     };
   }
 }
@@ -593,13 +505,9 @@ export async function runManualTest(): Promise<void> {
   console.log(`\n${summary}`);
 
   if (success) {
-    console.log(
-      '\n🎉 All tests passed! The new RAG metadata architecture is ready for deployment.'
-    );
+    console.log('\n🎉 All tests passed! The new RAG metadata architecture is ready for deployment.');
   } else {
-    console.log(
-      '\n⚠️ Some tests failed. Please review the issues above before proceeding.'
-    );
+    console.log('\n⚠️ Some tests failed. Please review the issues above before proceeding.');
   }
 }
 

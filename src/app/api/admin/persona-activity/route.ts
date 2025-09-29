@@ -5,10 +5,7 @@ import { AppError, handleApiError } from '@/lib/utils';
 export async function GET(req: NextRequest) {
   try {
     const supabase = await createClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
       throw new AppError('Authentication required', 401);
@@ -26,9 +23,8 @@ export async function GET(req: NextRequest) {
     }
 
     // Get persona activity data
-    const { data: activityData, error: activityError } = await supabase.rpc(
-      'get_persona_activity_realtime'
-    );
+    const { data: activityData, error: activityError } = await supabase
+      .rpc('get_persona_activity_realtime');
 
     if (activityError) {
       throw new AppError('Failed to fetch persona activity', 500);
@@ -52,10 +48,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(personaActivity, {
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
-        Pragma: 'no-cache',
-        Expires: '0',
+        'Pragma': 'no-cache',
+        'Expires': '0',
       },
     });
+
   } catch (error) {
     console.error('❌ Persona activity error:', error);
     return handleApiError(error);
@@ -69,11 +66,7 @@ function determinePersonaStatus(
 ): 'active' | 'idle' | 'busy' {
   if (conversationsLastHour === 0 && messagesLastHour === 0) {
     return 'idle';
-  } else if (
-    conversationsLastHour > 10 ||
-    messagesLastHour > 50 ||
-    avgResponseTime > 5000
-  ) {
+  } else if (conversationsLastHour > 10 || messagesLastHour > 50 || avgResponseTime > 5000) {
     return 'busy';
   }
   return 'active';

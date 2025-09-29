@@ -1,15 +1,12 @@
 /**
  * Batch Migration Script for Metadata Injection
- *
+ * 
  * Updates all existing documents to include metadata in their abstract/title chunks
  * for improved RAG retrieval accuracy.
  */
 
 import { createClient } from '@supabase/supabase-js';
-import {
-  injectMetadataIntoContent,
-  estimateTokensWithMetadata,
-} from './metadata-templates';
+import { injectMetadataIntoContent, estimateTokensWithMetadata } from './metadata-templates';
 import type { DocumentMetadata } from './types';
 
 // Initialize Supabase client
@@ -42,18 +39,16 @@ interface MigrationStats {
  */
 async function getDocumentsToMigrate(): Promise<any[]> {
   console.log('📊 Fetching documents for migration...');
-
+  
   const { data: documents, error } = await supabase
     .from('documents')
-    .select(
-      `
+    .select(`
       id, title, doc_type, patent_no, doi, arxiv_id,
       inventors, assignees, original_assignee,
       authors_affiliations, venue, publication_year,
       filed_date, granted_date, published_date,
       citation_count, keywords, url
-    `
-    )
+    `)
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -76,9 +71,7 @@ async function getChunksToUpdate(documentId: string): Promise<any[]> {
     .order('chunk_index', { ascending: true });
 
   if (error) {
-    throw new Error(
-      `Failed to fetch chunks for document ${documentId}: ${error.message}`
-    );
+    throw new Error(`Failed to fetch chunks for document ${documentId}: ${error.message}`);
   }
 
   return chunks || [];
@@ -89,17 +82,10 @@ async function getChunksToUpdate(documentId: string): Promise<any[]> {
  */
 function hasMetadataInjection(content: string, docType: string): boolean {
   const indicators = [
-    'Patent ',
-    'Inventors:',
-    'Authors:',
-    'Published:',
-    'DOI:',
-    'arXiv:',
-    'Assignee:',
-    'Source:',
-    'Book -',
+    'Patent ', 'Inventors:', 'Authors:', 'Published:', 
+    'DOI:', 'arXiv:', 'Assignee:', 'Source:', 'Book -'
   ];
-
+  
   return indicators.some(indicator => content.includes(indicator));
 }
 
@@ -124,7 +110,7 @@ function convertToDocumentMetadata(doc: any): DocumentMetadata {
     date: doc.published_date,
     citationCount: doc.citation_count,
     keywords: doc.keywords,
-    url: doc.url,
+    url: doc.url
   };
 }
 
@@ -134,13 +120,11 @@ function convertToDocumentMetadata(doc: any): DocumentMetadata {
 async function processDocument(doc: any, stats: MigrationStats): Promise<void> {
   try {
     console.log(`🔄 Processing ${doc.doc_type}: ${doc.title}`);
-
+    
     const chunks = await getChunksToUpdate(doc.id);
-
+    
     if (chunks.length === 0) {
-      console.log(
-        `⚠️  No abstract/title chunks found for document: ${doc.title}`
-      );
+      console.log(`⚠️  No abstract/title chunks found for document: ${doc.title}`);
       stats.skippedDocuments++;
       return;
     }
@@ -158,55 +142,43 @@ async function processDocument(doc: any, stats: MigrationStats): Promise<void> {
 
       // For title chunks, we might want to skip injection to keep them clean
       if (chunk.section_title === 'Title' && chunk.content.length < 100) {
-        console.log(
-          `⏭️  Skipping title chunk (too short): ${chunk.content.slice(0, 50)}...`
-        );
+        console.log(`⏭️  Skipping title chunk (too short): ${chunk.content.slice(0, 50)}...`);
         continue;
       }
 
       // Inject metadata into content
-      const enhancedContent = injectMetadataIntoContent(
-        chunk.content,
-        metadata
-      );
-
+      const enhancedContent = injectMetadataIntoContent(chunk.content, metadata);
+      
       // Skip if no metadata was added
       if (enhancedContent === chunk.content) {
         console.log(`⏭️  No metadata to inject for: ${chunk.section_title}`);
         continue;
       }
 
-      const newTokenCount = estimateTokensWithMetadata(
-        chunk.token_count,
-        metadata
-      );
-
+      const newTokenCount = estimateTokensWithMetadata(chunk.token_count, metadata);
+      
       chunksToUpdate.push({
         id: chunk.id,
         newContent: enhancedContent,
-        newTokenCount,
+        newTokenCount
       });
 
-      console.log(
-        `📝 Enhanced ${chunk.section_title}: ${chunk.token_count} → ${newTokenCount} tokens`
-      );
+      console.log(`📝 Enhanced ${chunk.section_title}: ${chunk.token_count} → ${newTokenCount} tokens`);
     }
 
     // Batch update chunks
     if (chunksToUpdate.length > 0) {
       await updateChunks(chunksToUpdate);
       stats.updatedChunks += chunksToUpdate.length;
-      console.log(
-        `✅ Updated ${chunksToUpdate.length} chunks for: ${doc.title}`
-      );
+      console.log(`✅ Updated ${chunksToUpdate.length} chunks for: ${doc.title}`);
     } else {
       console.log(`⏭️  No chunks needed updating for: ${doc.title}`);
       stats.skippedDocuments++;
     }
 
     stats.processedDocuments++;
-    stats.documentTypeBreakdown[doc.doc_type] =
-      (stats.documentTypeBreakdown[doc.doc_type] || 0) + 1;
+    stats.documentTypeBreakdown[doc.doc_type] = (stats.documentTypeBreakdown[doc.doc_type] || 0) + 1;
+
   } catch (error) {
     console.error(`❌ Error processing document ${doc.title}:`, error);
     stats.errors++;
@@ -223,10 +195,10 @@ async function updateChunks(updates: DocumentChunkUpdate[]): Promise<void> {
       .update({
         content: update.newContent,
         token_count: update.newTokenCount,
-        tsvector_content: supabase.rpc('to_tsvector', {
-          config: 'english',
-          text: update.newContent,
-        }),
+        tsvector_content: supabase.rpc('to_tsvector', { 
+          config: 'english', 
+          text: update.newContent 
+        })
       })
       .eq('id', update.id);
 
@@ -239,20 +211,16 @@ async function updateChunks(updates: DocumentChunkUpdate[]): Promise<void> {
 /**
  * Main migration function
  */
-export async function runMetadataMigration(
-  dryRun: boolean = false
-): Promise<MigrationStats> {
-  console.log(
-    `🚀 Starting metadata migration (${dryRun ? 'DRY RUN' : 'LIVE RUN'})...`
-  );
-
+export async function runMetadataMigration(dryRun: boolean = false): Promise<MigrationStats> {
+  console.log(`🚀 Starting metadata migration (${dryRun ? 'DRY RUN' : 'LIVE RUN'})...`);
+  
   const stats: MigrationStats = {
     totalDocuments: 0,
     processedDocuments: 0,
     updatedChunks: 0,
     skippedDocuments: 0,
     errors: 0,
-    documentTypeBreakdown: {},
+    documentTypeBreakdown: {}
   };
 
   try {
@@ -261,9 +229,7 @@ export async function runMetadataMigration(
 
     console.log(`📋 Migration plan:`);
     console.log(`  - Total documents: ${stats.totalDocuments}`);
-    console.log(
-      `  - Mode: ${dryRun ? 'DRY RUN (no changes will be made)' : 'LIVE RUN'}`
-    );
+    console.log(`  - Mode: ${dryRun ? 'DRY RUN (no changes will be made)' : 'LIVE RUN'}`);
     console.log(`  - Processing abstract and title chunks only`);
     console.log('');
 
@@ -275,24 +241,19 @@ export async function runMetadataMigration(
         // In dry run, just log what would be processed
         const chunks = await getChunksToUpdate(doc.id);
         const metadata = convertToDocumentMetadata(doc);
-
+        
         console.log(`🔍 [DRY RUN] Would process ${doc.doc_type}: ${doc.title}`);
         console.log(`    Chunks available: ${chunks.length}`);
-
+        
         for (const chunk of chunks) {
           if (!hasMetadataInjection(chunk.content, doc.doc_type)) {
-            const enhancedContent = injectMetadataIntoContent(
-              chunk.content,
-              metadata
-            );
+            const enhancedContent = injectMetadataIntoContent(chunk.content, metadata);
             if (enhancedContent !== chunk.content) {
-              console.log(
-                `    Would enhance: ${chunk.section_title} (${chunk.token_count} tokens)`
-              );
+              console.log(`    Would enhance: ${chunk.section_title} (${chunk.token_count} tokens)`);
             }
           }
         }
-
+        
         stats.processedDocuments++;
       }
 
@@ -308,7 +269,7 @@ export async function runMetadataMigration(
     console.log(`  Skipped: ${stats.skippedDocuments}`);
     console.log(`  Errors: ${stats.errors}`);
     console.log('\n📋 By document type:');
-
+    
     Object.entries(stats.documentTypeBreakdown).forEach(([type, count]) => {
       console.log(`  ${type}: ${count}`);
     });
@@ -320,6 +281,7 @@ export async function runMetadataMigration(
     }
 
     return stats;
+
   } catch (error) {
     console.error('❌ Migration failed:', error);
     throw error;
@@ -331,13 +293,13 @@ export async function runMetadataMigration(
  */
 if (require.main === module) {
   const dryRun = process.argv.includes('--dry-run');
-
+  
   runMetadataMigration(dryRun)
-    .then(stats => {
+    .then((stats) => {
       console.log('Migration completed with stats:', stats);
       process.exit(0);
     })
-    .catch(error => {
+    .catch((error) => {
       console.error('Migration failed:', error);
       process.exit(1);
     });

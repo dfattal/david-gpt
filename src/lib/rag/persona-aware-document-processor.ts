@@ -11,7 +11,7 @@ import type {
   PersonaConfig,
   DocumentProcessingConfig,
   ChunkConstraints,
-  QualityGates,
+  QualityGates
 } from '@/lib/personas/types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -46,27 +46,15 @@ export class PersonaAwareDocumentProcessor {
   /**
    * Main document processing method
    */
-  async processDocument(
-    request: DocumentProcessingRequest
-  ): Promise<DocumentProcessingResult> {
+  async processDocument(request: DocumentProcessingRequest): Promise<DocumentProcessingResult> {
     const startTime = Date.now();
-    const {
-      document_id,
-      persona_id,
-      content,
-      doc_type,
-      file_path,
-      metadata = {},
-    } = request;
+    const { document_id, persona_id, content, doc_type, file_path, metadata = {} } = request;
 
-    console.log(
-      `🎭 Starting persona-aware processing for document ${document_id} with persona ${persona_id}`
-    );
+    console.log(`🎭 Starting persona-aware processing for document ${document_id} with persona ${persona_id}`);
 
     try {
       // Step 1: Load persona configuration
-      const configResult =
-        await personaManager.getDocumentProcessingConfig(persona_id);
+      const configResult = await personaManager.getDocumentProcessingConfig(persona_id);
 
       if (!configResult.success || !configResult.config) {
         return {
@@ -77,19 +65,14 @@ export class PersonaAwareDocumentProcessor {
           entities_extracted: 0,
           relationships_extracted: 0,
           processing_time_ms: Date.now() - startTime,
-          errors: [
-            `Failed to load persona config: ${configResult.errors?.join(', ')}`,
-          ],
+          errors: [`Failed to load persona config: ${configResult.errors?.join(', ')}`]
         };
       }
 
       const processingConfig = configResult.config;
 
       // Step 2: Validate document type permissions
-      const isAllowed = await personaManager.validateDocumentType(
-        persona_id,
-        doc_type
-      );
+      const isAllowed = await personaManager.validateDocumentType(persona_id, doc_type);
       if (!isAllowed) {
         return {
           success: false,
@@ -99,9 +82,7 @@ export class PersonaAwareDocumentProcessor {
           entities_extracted: 0,
           relationships_extracted: 0,
           processing_time_ms: Date.now() - startTime,
-          errors: [
-            `Document type '${doc_type}' not allowed for persona '${persona_id}'`,
-          ],
+          errors: [`Document type '${doc_type}' not allowed for persona '${persona_id}'`]
         };
       }
 
@@ -116,18 +97,12 @@ export class PersonaAwareDocumentProcessor {
           entities_extracted: 0,
           relationships_extracted: 0,
           processing_time_ms: Date.now() - startTime,
-          errors: [
-            `Could not resolve document type '${doc_type}' for persona '${persona_id}'`,
-          ],
+          errors: [`Could not resolve document type '${doc_type}' for persona '${persona_id}'`]
         };
       }
 
       // Step 4: Update document record with persona information
-      await this.updateDocumentWithPersona(
-        document_id,
-        persona_id,
-        documentTypeId
-      );
+      await this.updateDocumentWithPersona(document_id, persona_id, documentTypeId);
 
       // Step 5: Perform persona-specific chunking
       const chunksResult = await this.performPersonaChunking(
@@ -146,7 +121,7 @@ export class PersonaAwareDocumentProcessor {
           entities_extracted: 0,
           relationships_extracted: 0,
           processing_time_ms: Date.now() - startTime,
-          errors: chunksResult.errors,
+          errors: chunksResult.errors
         };
       }
 
@@ -168,11 +143,7 @@ export class PersonaAwareDocumentProcessor {
 
       // Step 8: Mark document as completed or failed based on quality gates
       const processingStatus = qualityResult.passed ? 'completed' : 'failed';
-      await this.updateDocumentStatus(
-        document_id,
-        processingStatus,
-        qualityResult.errors
-      );
+      await this.updateDocumentStatus(document_id, processingStatus, qualityResult.errors);
 
       const result: DocumentProcessingResult = {
         success: qualityResult.passed,
@@ -182,24 +153,23 @@ export class PersonaAwareDocumentProcessor {
         entities_extracted: entitiesResult.entities_extracted,
         relationships_extracted: entitiesResult.relationships_extracted,
         processing_time_ms: Date.now() - startTime,
-        warnings: qualityResult.warnings,
+        warnings: qualityResult.warnings
       };
 
       if (!qualityResult.passed) {
         result.errors = qualityResult.errors;
       }
 
-      console.log(
-        `✅ Completed persona-aware processing for ${document_id} in ${result.processing_time_ms}ms`
-      );
+      console.log(`✅ Completed persona-aware processing for ${document_id} in ${result.processing_time_ms}ms`);
 
       return result;
+
     } catch (error) {
       console.error(`❌ Error in persona-aware document processing:`, error);
 
       // Mark document as failed
       await this.updateDocumentStatus(document_id, 'failed', [
-        error instanceof Error ? error.message : 'Unknown processing error',
+        error instanceof Error ? error.message : 'Unknown processing error'
       ]);
 
       return {
@@ -210,7 +180,7 @@ export class PersonaAwareDocumentProcessor {
         entities_extracted: 0,
         relationships_extracted: 0,
         processing_time_ms: Date.now() - startTime,
-        errors: [error instanceof Error ? error.message : 'Unknown error'],
+        errors: [error instanceof Error ? error.message : 'Unknown error']
       };
     }
   }
@@ -218,17 +188,14 @@ export class PersonaAwareDocumentProcessor {
   /**
    * Get document type ID from database
    */
-  private async getDocumentTypeId(
-    docType: string,
-    personaId: string
-  ): Promise<number | null> {
+  private async getDocumentTypeId(docType: string, personaId: string): Promise<number | null> {
     try {
       // First try to find persona-specific document type
       const { data: personaType } = await this.supabase
         .from('document_types')
         .select('id')
         .eq('name', docType)
-        .eq('persona_id', await this.getPersonaUUID(personaId))
+        .eq('persona_id', (await this.getPersonaUUID(personaId)))
         .single();
 
       if (personaType) {
@@ -283,7 +250,7 @@ export class PersonaAwareDocumentProcessor {
       .update({
         persona_id: personaUUID,
         document_type_id: documentTypeId,
-        processing_status: 'processing',
+        processing_status: 'processing'
       })
       .eq('id', documentId);
   }
@@ -299,44 +266,44 @@ export class PersonaAwareDocumentProcessor {
   ): Promise<{ success: boolean; chunks_created: number; errors?: string[] }> {
     try {
       // Use persona-specific chunk constraints
-      const chunks = this.chunkContentWithConstraints(
-        content,
-        chunkConstraints
-      );
+      const chunks = this.chunkContentWithConstraints(content, chunkConstraints);
 
       let chunksCreated = 0;
 
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
 
-        await this.supabase.from('document_chunks').insert({
-          document_id: documentId,
-          content: chunk.content,
-          content_hash: this.generateContentHash(chunk.content),
-          token_count: this.estimateTokens(chunk.content),
-          chunk_index: i,
-          chunk_type: 'content',
-          overlap_start: chunk.overlap_start || 0,
-          overlap_end: chunk.overlap_end || 0,
-          metadata: {
-            persona_id: personaId,
-            chunk_constraints: chunkConstraints,
-          },
-        });
+        await this.supabase
+          .from('document_chunks')
+          .insert({
+            document_id: documentId,
+            content: chunk.content,
+            content_hash: this.generateContentHash(chunk.content),
+            token_count: this.estimateTokens(chunk.content),
+            chunk_index: i,
+            chunk_type: 'content',
+            overlap_start: chunk.overlap_start || 0,
+            overlap_end: chunk.overlap_end || 0,
+            metadata: {
+              persona_id: personaId,
+              chunk_constraints: chunkConstraints
+            }
+          });
 
         chunksCreated++;
       }
 
       return {
         success: true,
-        chunks_created: chunksCreated,
+        chunks_created: chunksCreated
       };
+
     } catch (error) {
       console.error('Error in persona chunking:', error);
       return {
         success: false,
         chunks_created: 0,
-        errors: [error instanceof Error ? error.message : 'Chunking failed'],
+        errors: [error instanceof Error ? error.message : 'Chunking failed']
       };
     }
   }
@@ -383,14 +350,8 @@ export class PersonaAwareDocumentProcessor {
       if (chunkContent.length > 0) {
         chunks.push({
           content: chunkContent,
-          overlap_start:
-            position > 0
-              ? Math.floor(chunkContent.length * (overlapPct / 100))
-              : 0,
-          overlap_end:
-            endPosition < contentLength
-              ? Math.floor(chunkContent.length * (overlapPct / 100))
-              : 0,
+          overlap_start: position > 0 ? Math.floor(chunkContent.length * (overlapPct / 100)) : 0,
+          overlap_end: endPosition < contentLength ? Math.floor(chunkContent.length * (overlapPct / 100)) : 0
         });
       }
 
@@ -445,25 +406,20 @@ export class PersonaAwareDocumentProcessor {
       // but filter results by config.entity_requirements.kg_required_entities
       // and config.entity_requirements.kg_required_edges
 
-      console.log(
-        `🔍 Entity extraction for persona ${personaId} - placeholder implementation`
-      );
-      console.log(
-        `   - Allowed entities: ${config.entity_requirements.kg_required_entities.join(', ')}`
-      );
-      console.log(
-        `   - Allowed relationships: ${config.entity_requirements.kg_required_edges.join(', ')}`
-      );
+      console.log(`🔍 Entity extraction for persona ${personaId} - placeholder implementation`);
+      console.log(`   - Allowed entities: ${config.entity_requirements.kg_required_entities.join(', ')}`);
+      console.log(`   - Allowed relationships: ${config.entity_requirements.kg_required_edges.join(', ')}`);
 
       return {
         entities_extracted: 0, // Placeholder
-        relationships_extracted: 0, // Placeholder
+        relationships_extracted: 0 // Placeholder
       };
+
     } catch (error) {
       console.error('Error in persona entity extraction:', error);
       return {
         entities_extracted: 0,
-        relationships_extracted: 0,
+        relationships_extracted: 0
       };
     }
   }
@@ -487,9 +443,7 @@ export class PersonaAwareDocumentProcessor {
     // Check minimum completion percentage
     const completionPercentage = chunksCreated > 0 ? 100 : 0; // Simplified
     if (completionPercentage < qualityGates.min_completion_percentage) {
-      errors.push(
-        `Completion ${completionPercentage}% below minimum ${qualityGates.min_completion_percentage}%`
-      );
+      errors.push(`Completion ${completionPercentage}% below minimum ${qualityGates.min_completion_percentage}%`);
     }
 
     // Check entity requirements
@@ -504,7 +458,7 @@ export class PersonaAwareDocumentProcessor {
     return {
       passed: errors.length === 0,
       errors,
-      warnings,
+      warnings
     };
   }
 
@@ -521,7 +475,7 @@ export class PersonaAwareDocumentProcessor {
       .update({
         processing_status: status,
         processed_at: new Date().toISOString(),
-        error_message: errors?.join('; ') || null,
+        error_message: errors?.join('; ') || null
       })
       .eq('id', documentId);
   }

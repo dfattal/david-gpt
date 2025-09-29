@@ -1,21 +1,15 @@
-'use client';
+"use client";
 
-import { useState, useRef } from 'react';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabase/client';
-import { Upload, Camera, X, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useState, useRef } from "react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase/client";
+import { Upload, Camera, X, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface AvatarUploadProps {
   currentAvatar?: string | null;
@@ -23,7 +17,7 @@ interface AvatarUploadProps {
   personaName: string;
   onAvatarChange: (newAvatarUrl: string | null) => void;
   className?: string;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: "sm" | "md" | "lg" | "xl";
   showLabel?: boolean;
 }
 
@@ -33,8 +27,8 @@ export function AvatarUpload({
   personaName,
   onAvatarChange,
   className,
-  size = 'md',
-  showLabel = true,
+  size = "md",
+  showLabel = true
 }: AvatarUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -44,10 +38,10 @@ export function AvatarUpload({
   const { toast } = useToast();
 
   const sizeClasses = {
-    sm: 'w-12 h-12',
-    md: 'w-16 h-16',
-    lg: 'w-24 h-24',
-    xl: 'w-32 h-32',
+    sm: "w-12 h-12",
+    md: "w-16 h-16",
+    lg: "w-24 h-24",
+    xl: "w-32 h-32"
   };
 
   const getPersonaInitials = () => {
@@ -64,18 +58,12 @@ export function AvatarUpload({
     if (!file) return;
 
     // Validate file type
-    const validTypes = [
-      'image/jpeg',
-      'image/jpg',
-      'image/png',
-      'image/webp',
-      'image/svg+xml',
-    ];
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/svg+xml'];
     if (!validTypes.includes(file.type)) {
       toast({
-        title: 'Invalid file type',
-        description: 'Please select a JPEG, PNG, WebP, or SVG image.',
-        variant: 'destructive',
+        title: "Invalid file type",
+        description: "Please select a JPEG, PNG, WebP, or SVG image.",
+        variant: "destructive",
       });
       return;
     }
@@ -83,9 +71,9 @@ export function AvatarUpload({
     // Validate file size (5MB limit)
     if (file.size > 5 * 1024 * 1024) {
       toast({
-        title: 'File too large',
-        description: 'Please select an image smaller than 5MB.',
-        variant: 'destructive',
+        title: "File too large",
+        description: "Please select an image smaller than 5MB.",
+        variant: "destructive",
       });
       return;
     }
@@ -112,7 +100,7 @@ export function AvatarUpload({
         .from('persona-avatars')
         .upload(filename, selectedFile, {
           contentType: selectedFile.type,
-          upsert: true,
+          upsert: true
         });
 
       if (uploadError) {
@@ -142,7 +130,9 @@ export function AvatarUpload({
       if (currentAvatar && currentAvatar.includes('persona-avatars')) {
         const oldFilename = currentAvatar.split('/').pop();
         if (oldFilename && oldFilename !== filename) {
-          await supabase.storage.from('persona-avatars').remove([oldFilename]);
+          await supabase.storage
+            .from('persona-avatars')
+            .remove([oldFilename]);
         }
       }
 
@@ -152,18 +142,16 @@ export function AvatarUpload({
       setPreviewUrl(null);
 
       toast({
-        title: 'Avatar updated',
-        description: 'Persona avatar has been successfully updated.',
+        title: "Avatar updated",
+        description: "Persona avatar has been successfully updated.",
       });
+
     } catch (error) {
       console.error('Avatar upload error:', error);
       toast({
-        title: 'Upload failed',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Failed to upload avatar. Please try again.',
-        variant: 'destructive',
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Failed to upload avatar. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setIsUploading(false);
@@ -189,7 +177,9 @@ export function AvatarUpload({
       if (currentAvatar.includes('persona-avatars')) {
         const filename = currentAvatar.split('/').pop();
         if (filename) {
-          await supabase.storage.from('persona-avatars').remove([filename]);
+          await supabase.storage
+            .from('persona-avatars')
+            .remove([filename]);
         }
       }
 
@@ -197,15 +187,16 @@ export function AvatarUpload({
       setIsOpen(false);
 
       toast({
-        title: 'Avatar removed',
-        description: 'Persona avatar has been removed.',
+        title: "Avatar removed",
+        description: "Persona avatar has been removed.",
       });
+
     } catch (error) {
       console.error('Avatar removal error:', error);
       toast({
-        title: 'Removal failed',
-        description: 'Failed to remove avatar. Please try again.',
-        variant: 'destructive',
+        title: "Removal failed",
+        description: "Failed to remove avatar. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setIsUploading(false);
@@ -222,16 +213,11 @@ export function AvatarUpload({
   };
 
   return (
-    <div className={cn('flex flex-col items-center space-y-2', className)}>
+    <div className={cn("flex flex-col items-center space-y-2", className)}>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
           <div className="relative group cursor-pointer">
-            <Avatar
-              className={cn(
-                sizeClasses[size],
-                'border-2 border-border hover:border-primary transition-colors'
-              )}
-            >
+            <Avatar className={cn(sizeClasses[size], "border-2 border-border hover:border-primary transition-colors")}>
               <AvatarImage
                 src={currentAvatar || undefined}
                 alt={`${personaName} avatar`}

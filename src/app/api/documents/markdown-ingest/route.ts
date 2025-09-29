@@ -1,14 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { AppError, handleApiError } from '@/lib/utils';
-import {
-  DocumentFormatValidator,
-  type ValidationResult,
-} from '@/lib/validation/document-format-validator';
-import {
-  unifiedIngestionService,
-  type SingleIngestionRequest,
-} from '@/lib/rag/ingestion-service';
+import { DocumentFormatValidator, type ValidationResult } from '@/lib/validation/document-format-validator';
+import { unifiedIngestionService, type SingleIngestionRequest } from '@/lib/rag/ingestion-service';
 import type { DocumentType } from '@/lib/rag/types';
 
 /**
@@ -22,33 +16,21 @@ export async function POST(req: NextRequest) {
   try {
     // Check for service role bypass (for testing only)
     const authHeader = req.headers.get('Authorization');
-    const isServiceRoleRequest = authHeader?.includes(
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const isServiceRoleRequest = authHeader?.includes(process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
     let supabase;
     let user;
 
     if (isServiceRoleRequest) {
       // Use admin client for service role requests
-      const { createOptimizedAdminClient } = await import(
-        '@/lib/supabase/server'
-      );
+      const { createOptimizedAdminClient } = await import('@/lib/supabase/server');
       supabase = createOptimizedAdminClient();
-      user = {
-        id: 'b349bd11-bd69-4582-9713-3ada0ba58fcf',
-        email: 'dfattal@gmail.com',
-      };
-      console.log(
-        '🔑 Using service role authentication for markdown ingestion'
-      );
+      user = { id: 'b349bd11-bd69-4582-9713-3ada0ba58fcf', email: 'dfattal@gmail.com' };
+      console.log('🔑 Using service role authentication for markdown ingestion');
     } else {
       // Standard authentication
       supabase = await createClient();
-      const {
-        data: { user: authUser },
-        error: userError,
-      } = await supabase.auth.getUser();
+      const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
 
       if (userError || !authUser) {
         throw new AppError('Authentication required', 401);
@@ -69,10 +51,7 @@ export async function POST(req: NextRequest) {
       const file = formData.get('file') as File | null;
       if (file) {
         if (!file.name.endsWith('.md') && !file.name.endsWith('.markdown')) {
-          throw new AppError(
-            'Only markdown files (.md, .markdown) are accepted',
-            400
-          );
+          throw new AppError('Only markdown files (.md, .markdown) are accepted', 400);
         }
 
         const arrayBuffer = await file.arrayBuffer();
@@ -82,9 +61,9 @@ export async function POST(req: NextRequest) {
 
       // Extract other form fields
       body = {
-        content: (formData.get('content') as string) || markdownContent,
+        content: formData.get('content') as string || markdownContent,
         validateOnly: formData.get('validateOnly') === 'true',
-        strictValidation: formData.get('strictValidation') === 'true',
+        strictValidation: formData.get('strictValidation') === 'true'
       };
     } else {
       // Handle JSON request
@@ -93,14 +72,15 @@ export async function POST(req: NextRequest) {
       fileName = body.fileName;
     }
 
-    const { content, validateOnly = false, strictValidation = false } = body;
+    const {
+      content,
+      validateOnly = false,
+      strictValidation = false
+    } = body;
 
     // Validation
     if (!content && !markdownContent) {
-      throw new AppError(
-        'Markdown content is required (either as content field or file upload)',
-        400
-      );
+      throw new AppError('Markdown content is required (either as content field or file upload)', 400);
     }
 
     const finalContent = content || markdownContent;
@@ -112,68 +92,51 @@ export async function POST(req: NextRequest) {
       fileName,
       contentLength: finalContent.length,
       validateOnly,
-      strictValidation,
+      strictValidation
     });
 
     // Comprehensive validation
-    const validation = DocumentFormatValidator.validateDocument(
-      finalContent,
-      fileName
-    );
+    const validation = DocumentFormatValidator.validateDocument(finalContent, fileName);
 
     // For validation-only requests, return validation results
     if (validateOnly) {
-      return NextResponse.json(
-        {
-          validation,
-          message: validation.isValid
-            ? 'Document format is valid and ready for ingestion'
-            : 'Document has validation issues that need to be addressed',
-        },
-        {
-          status: validation.isValid ? 200 : 400,
-        }
-      );
+      return NextResponse.json({
+        validation,
+        message: validation.isValid
+          ? 'Document format is valid and ready for ingestion'
+          : 'Document has validation issues that need to be addressed'
+      }, {
+        status: validation.isValid ? 200 : 400
+      });
     }
 
     // Check if validation meets requirements
     if (!validation.isValid) {
       const errorMessage = `Document validation failed. ${validation.errors.length} errors found.`;
 
-      return NextResponse.json(
-        {
-          error: errorMessage,
-          validation,
-          canProceed: false,
-          suggestion:
-            'Fix validation errors and try again, or use validateOnly=true to preview issues',
-        },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        error: errorMessage,
+        validation,
+        canProceed: false,
+        suggestion: 'Fix validation errors and try again, or use validateOnly=true to preview issues'
+      }, { status: 400 });
     }
 
     // For strict validation, also check warnings
     if (strictValidation && validation.warnings.length > 0) {
-      return NextResponse.json(
-        {
-          error: `Strict validation failed. ${validation.warnings.length} warnings found.`,
-          validation,
-          canProceed: false,
-          suggestion:
-            'Address warnings for optimal document quality, or disable strictValidation',
-        },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        error: `Strict validation failed. ${validation.warnings.length} warnings found.`,
+        validation,
+        canProceed: false,
+        suggestion: 'Address warnings for optimal document quality, or disable strictValidation'
+      }, { status: 400 });
     }
 
     // Extract metadata from frontmatter for processing
     const { frontmatter } = parseFrontmatter(finalContent);
 
     if (!frontmatter.title || !frontmatter.docType) {
-      throw new AppError(
-        'Document must have title and docType in frontmatter',
-        400
-      );
+      throw new AppError('Document must have title and docType in frontmatter', 400);
     }
 
     // Create ingestion request with validated content
@@ -187,9 +150,9 @@ export async function POST(req: NextRequest) {
         fileName: fileName,
         validationScore: validation.qualityScore,
         validationWarnings: validation.warnings.length,
-        ...frontmatter,
+        ...frontmatter
       },
-      userId: user.id,
+      userId: user.id
     };
 
     // Process through unified ingestion service
@@ -202,19 +165,17 @@ export async function POST(req: NextRequest) {
       throw new AppError(result.error || 'Markdown ingestion failed', 500);
     }
 
-    return NextResponse.json(
-      {
-        documentId: result.documentId,
-        jobId: result.jobId,
-        message: result.message,
-        validation: {
-          qualityScore: validation.qualityScore,
-          warningsCount: validation.warnings.length,
-          suggestionsCount: validation.suggestions.length,
-        },
-      },
-      { status: 201 }
-    );
+    return NextResponse.json({
+      documentId: result.documentId,
+      jobId: result.jobId,
+      message: result.message,
+      validation: {
+        qualityScore: validation.qualityScore,
+        warningsCount: validation.warnings.length,
+        suggestionsCount: validation.suggestions.length
+      }
+    }, { status: 201 });
+
   } catch (error) {
     return handleApiError(error);
   }
@@ -232,7 +193,7 @@ export async function GET(req: NextRequest) {
     if (action === 'supported-types') {
       return NextResponse.json({
         supportedTypes: DocumentFormatValidator.getSupportedDocTypes(),
-        message: 'List of supported document types for markdown ingestion',
+        message: 'List of supported document types for markdown ingestion'
       });
     }
 
@@ -244,7 +205,7 @@ export async function GET(req: NextRequest) {
         docType,
         requiredFields,
         schemaAvailable: !!schema,
-        message: `Required fields for document type: ${docType}`,
+        message: `Required fields for document type: ${docType}`
       });
     }
 
@@ -257,7 +218,7 @@ export async function GET(req: NextRequest) {
         docType,
         exampleMarkdown: example,
         validation,
-        message: `Example markdown document for type: ${docType}`,
+        message: `Example markdown document for type: ${docType}`
       });
     }
 
@@ -265,27 +226,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       endpoint: '/api/documents/markdown-ingest',
       methods: ['POST', 'GET'],
-      description:
-        'Markdown-first document ingestion with comprehensive validation',
+      description: 'Markdown-first document ingestion with comprehensive validation',
       usage: {
         POST: {
           contentTypes: ['application/json', 'multipart/form-data'],
           requiredFields: ['content'],
           optionalFields: ['validateOnly', 'strictValidation', 'fileName'],
           example: {
-            content:
-              '---\\ntitle: "Example Document"\\ndocType: "note"\\n...\\n---\\n\\n# Content here',
-          },
+            content: '---\\ntitle: "Example Document"\\ndocType: "note"\\n...\\n---\\n\\n# Content here'
+          }
         },
         GET: {
           queryParams: {
             action: ['supported-types', 'required-fields', 'validate-example'],
-            docType:
-              'Required for required-fields and validate-example actions',
-          },
-        },
-      },
+            docType: 'Required for required-fields and validate-example actions'
+          }
+        }
+      }
     });
+
   } catch (error) {
     return handleApiError(error);
   }
@@ -306,7 +265,7 @@ function parseFrontmatter(content: string): {
     return {
       frontmatter: {},
       content: content,
-      hasFrontmatter: false,
+      hasFrontmatter: false
     };
   }
 
@@ -316,12 +275,10 @@ function parseFrontmatter(content: string): {
     return {
       frontmatter: frontmatter || {},
       content: match[2],
-      hasFrontmatter: true,
+      hasFrontmatter: true
     };
   } catch (error) {
-    throw new Error(
-      `Invalid YAML frontmatter: ${error instanceof Error ? error.message : 'Parse error'}`
-    );
+    throw new Error(`Invalid YAML frontmatter: ${error instanceof Error ? error.message : 'Parse error'}`);
   }
 }
 
@@ -429,7 +386,7 @@ The present invention provides a novel approach...
 
 ## Detailed Description
 
-Referring to Figure 1, the system comprises...`,
+Referring to Figure 1, the system comprises...`
   };
 
   return examples[docType as keyof typeof examples] || examples.note;

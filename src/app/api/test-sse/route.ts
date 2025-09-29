@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { sendTitleUpdate, getActiveConnections } from '@/lib/sse-manager';
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { sendTitleUpdate, getActiveConnections } from "@/lib/sse-manager";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { error: "Authentication required" },
         { status: 401 }
       );
     }
@@ -31,8 +31,8 @@ export async function POST(req: NextRequest) {
     // Send a test title update
     console.log(`📡 Attempting to send test SSE message to user: ${user.id}`);
     const testSuccess = sendTitleUpdate(user.id, {
-      conversationId: conversationId || 'test-conversation-id',
-      title: 'Test Title Update ' + new Date().toLocaleTimeString(),
+      conversationId: conversationId || "test-conversation-id",
+      title: "Test Title Update " + new Date().toLocaleTimeString(),
     });
     console.log(`📡 Test SSE message result: ${testSuccess}`);
 
@@ -41,13 +41,13 @@ export async function POST(req: NextRequest) {
       userId: user.id,
       activeConnections: getActiveConnections(),
       message: testSuccess
-        ? 'Test SSE message sent successfully'
-        : 'Failed to send test SSE message - no active connection found',
+        ? "Test SSE message sent successfully"
+        : "Failed to send test SSE message - no active connection found",
     });
   } catch (error) {
-    console.error('Test SSE error:', error);
+    console.error("Test SSE error:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

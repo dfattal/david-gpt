@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useAuth } from '@/components/auth/auth-provider';
-import { LoginPage } from '@/components/auth/login-page';
-import { ChatLayout } from '@/components/chat/chat-layout';
+import { useAuth } from "@/components/auth/auth-provider";
+import { LoginPage } from "@/components/auth/login-page";
+import { ChatLayout } from "@/components/chat/chat-layout";
 
 export default function Home() {
   const { user, loading } = useAuth();

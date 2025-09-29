@@ -23,10 +23,7 @@ function runValidationTests(): void {
 
   // Test 1: Document Type Registry
   try {
-    const {
-      DOCUMENT_TYPES,
-      getDocumentType,
-    } = require('./document-type-registry');
+    const { DOCUMENT_TYPES, getDocumentType } = require('./document-type-registry');
 
     const patentType = getDocumentType('patent');
     const paperType = getDocumentType('paper');
@@ -36,9 +33,7 @@ function runValidationTests(): void {
     }
 
     const typeCount = Object.keys(DOCUMENT_TYPES).length;
-    console.log(
-      `✅ Test 1: Document Type Registry - ${typeCount} types registered`
-    );
+    console.log(`✅ Test 1: Document Type Registry - ${typeCount} types registered`);
     passedTests++;
   } catch (error) {
     console.log(`❌ Test 1: Document Type Registry - ${error}`);
@@ -57,7 +52,7 @@ function runValidationTests(): void {
       inventors: ['John Doe', 'Jane Smith'],
       assignees: ['Test Corp'],
       createdAt: new Date(),
-      updatedAt: new Date(),
+      updatedAt: new Date()
     };
 
     const chunk = generateMetadataChunk(testMetadata, { includeContext: true });
@@ -66,9 +61,7 @@ function runValidationTests(): void {
       throw new Error('Metadata chunk generation failed');
     }
 
-    console.log(
-      `✅ Test 2: Rich Metadata Chunks - Generated ${chunk.tokenCount} tokens`
-    );
+    console.log(`✅ Test 2: Rich Metadata Chunks - Generated ${chunk.tokenCount} tokens`);
     passedTests++;
   } catch (error) {
     console.log(`❌ Test 2: Rich Metadata Chunks - ${error}`);
@@ -76,10 +69,7 @@ function runValidationTests(): void {
 
   // Test 3: Generic Schema Conversion
   try {
-    const {
-      convertToGenericMetadata,
-      buildGenericDocumentUpdate,
-    } = require('./generic-ingestion-adapter');
+    const { convertToGenericMetadata, buildGenericDocumentUpdate } = require('./generic-ingestion-adapter');
 
     const legacyMetadata = {
       id: 'test-legacy',
@@ -88,7 +78,7 @@ function runValidationTests(): void {
       inventors: ['Alice Brown'],
       assignee: 'Legacy Corp',
       filedDate: new Date('2019-01-01'),
-      grantedDate: new Date('2021-01-01'),
+      grantedDate: new Date('2021-01-01')
     };
 
     const converted = convertToGenericMetadata(legacyMetadata, 'patent');
@@ -98,9 +88,7 @@ function runValidationTests(): void {
       throw new Error('Schema conversion failed');
     }
 
-    console.log(
-      `✅ Test 3: Schema Conversion - ${Object.keys(converted.identifiers).length} identifiers, ${Object.keys(converted.dates).length} dates`
-    );
+    console.log(`✅ Test 3: Schema Conversion - ${Object.keys(converted.identifiers).length} identifiers, ${Object.keys(converted.dates).length} dates`);
     passedTests++;
   } catch (error) {
     console.log(`❌ Test 3: Schema Conversion - ${error}`);
@@ -113,7 +101,7 @@ function runValidationTests(): void {
     const testQueries = [
       { query: 'Patent US12345678', expectedTier: 'sql' },
       { query: 'Who are the inventors?', expectedTier: 'vector' },
-      { query: 'How does this work?', expectedTier: 'content' },
+      { query: 'How does this work?', expectedTier: 'content' }
     ];
 
     let correctClassifications = 0;
@@ -126,14 +114,10 @@ function runValidationTests(): void {
     }
 
     if (correctClassifications !== testQueries.length) {
-      throw new Error(
-        `${testQueries.length - correctClassifications} queries misclassified`
-      );
+      throw new Error(`${testQueries.length - correctClassifications} queries misclassified`);
     }
 
-    console.log(
-      `✅ Test 4: Query Classification - ${correctClassifications}/${testQueries.length} correctly classified`
-    );
+    console.log(`✅ Test 4: Query Classification - ${correctClassifications}/${testQueries.length} correctly classified`);
     passedTests++;
   } catch (error) {
     console.log(`❌ Test 4: Query Classification - ${error}`);
@@ -166,7 +150,7 @@ function runValidationTests(): void {
       identifiers: { patent_no: 'US11111111' },
       dates: { filed: '2020-01-01' },
       createdAt: new Date(),
-      updatedAt: new Date(),
+      updatedAt: new Date()
     };
 
     const validation = validateGenericDocument(testDoc);
@@ -175,18 +159,14 @@ function runValidationTests(): void {
       throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
     }
 
-    console.log(
-      `✅ Test 6: Ingestion Adapter - Validation passed with ${validation.warnings.length} warnings`
-    );
+    console.log(`✅ Test 6: Ingestion Adapter - Validation passed with ${validation.warnings.length} warnings`);
     passedTests++;
   } catch (error) {
     console.log(`❌ Test 6: Ingestion Adapter - ${error}`);
   }
 
   // Summary
-  console.log(
-    `\n📊 Architecture Validation Results: ${passedTests}/${totalTests} tests passed`
-  );
+  console.log(`\n📊 Architecture Validation Results: ${passedTests}/${totalTests} tests passed`);
 
   if (passedTests === totalTests) {
     console.log('\n🎉 SUCCESS: All architecture components validated!');

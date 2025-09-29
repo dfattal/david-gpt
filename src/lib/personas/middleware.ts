@@ -26,9 +26,7 @@ export interface PersonaMiddlewareContext {
 /**
  * Validate that a persona exists and is active
  */
-export async function validatePersona(
-  persona_id: string
-): Promise<PersonaValidationResult> {
+export async function validatePersona(persona_id: string): Promise<PersonaValidationResult> {
   try {
     const result = await personaManager.getPersonaConfig(persona_id);
 
@@ -36,9 +34,7 @@ export async function validatePersona(
       return {
         success: false,
         persona_id,
-        errors: result.errors || [
-          `Persona '${persona_id}' not found or invalid`,
-        ],
+        errors: result.errors || [`Persona '${persona_id}' not found or invalid`]
       };
     }
 
@@ -46,7 +42,7 @@ export async function validatePersona(
       return {
         success: false,
         persona_id,
-        errors: [`Persona '${persona_id}' is not active`],
+        errors: [`Persona '${persona_id}' is not active`]
       };
     }
 
@@ -54,15 +50,13 @@ export async function validatePersona(
       success: true,
       persona_id,
       config: result.config,
-      warnings: result.warnings,
+      warnings: result.warnings
     };
   } catch (error) {
     return {
       success: false,
       persona_id,
-      errors: [
-        `Failed to validate persona: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      ],
+      errors: [`Failed to validate persona: ${error instanceof Error ? error.message : 'Unknown error'}`]
     };
   }
 }
@@ -70,9 +64,7 @@ export async function validatePersona(
 /**
  * Validate that a persona exists and get its document processing config
  */
-export async function validatePersonaForProcessing(
-  persona_id: string
-): Promise<PersonaValidationResult> {
+export async function validatePersonaForProcessing(persona_id: string): Promise<PersonaValidationResult> {
   try {
     const result = await personaManager.getDocumentProcessingConfig(persona_id);
 
@@ -80,24 +72,20 @@ export async function validatePersonaForProcessing(
       return {
         success: false,
         persona_id,
-        errors: result.errors || [
-          `Persona '${persona_id}' processing config not available`,
-        ],
+        errors: result.errors || [`Persona '${persona_id}' processing config not available`]
       };
     }
 
     return {
       success: true,
       persona_id,
-      config: result.config,
+      config: result.config
     };
   } catch (error) {
     return {
       success: false,
       persona_id,
-      errors: [
-        `Failed to load persona processing config: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      ],
+      errors: [`Failed to load persona processing config: ${error instanceof Error ? error.message : 'Unknown error'}`]
     };
   }
 }
@@ -110,41 +98,34 @@ export async function validateDocumentType(
   doc_type: string
 ): Promise<PersonaValidationResult> {
   try {
-    const isAllowed = await personaManager.validateDocumentType(
-      persona_id,
-      doc_type
-    );
+    const isAllowed = await personaManager.validateDocumentType(persona_id, doc_type);
 
     if (!isAllowed) {
       // Get allowed types for better error message
-      const configResult =
-        await personaManager.getDocumentProcessingConfig(persona_id);
-      const allowedTypes =
-        configResult.success && configResult.config
-          ? configResult.config.document_types
-          : [];
+      const configResult = await personaManager.getDocumentProcessingConfig(persona_id);
+      const allowedTypes = configResult.success && configResult.config
+        ? configResult.config.document_types
+        : [];
 
       return {
         success: false,
         persona_id,
         errors: [
           `Document type '${doc_type}' is not allowed for persona '${persona_id}'.`,
-          `Allowed types: ${allowedTypes.join(', ')}`,
-        ],
+          `Allowed types: ${allowedTypes.join(', ')}`
+        ]
       };
     }
 
     return {
       success: true,
-      persona_id,
+      persona_id
     };
   } catch (error) {
     return {
       success: false,
       persona_id,
-      errors: [
-        `Failed to validate document type: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      ],
+      errors: [`Failed to validate document type: ${error instanceof Error ? error.message : 'Unknown error'}`]
     };
   }
 }
@@ -161,7 +142,7 @@ export async function withPersonaValidation(
 ): Promise<{
   success: boolean;
   context?: PersonaMiddlewareContext;
-  response?: NextResponse;
+  response?: NextResponse
 }> {
   const { requireProcessingConfig = false, requireDocumentType } = options;
 
@@ -174,10 +155,10 @@ export async function withPersonaValidation(
         {
           error: 'Persona validation failed',
           persona_id,
-          details: personaValidation.errors,
+          details: personaValidation.errors
         },
         { status: 404 }
-      ),
+      )
     };
   }
 
@@ -192,10 +173,10 @@ export async function withPersonaValidation(
           {
             error: 'Persona processing configuration not available',
             persona_id,
-            details: processingValidation.errors,
+            details: processingValidation.errors
           },
           { status: 400 }
-        ),
+        )
       };
     }
     processingConfig = processingValidation.config as DocumentProcessingConfig;
@@ -203,10 +184,7 @@ export async function withPersonaValidation(
 
   // Step 3: Validate document type if required
   if (requireDocumentType) {
-    const docTypeValidation = await validateDocumentType(
-      persona_id,
-      requireDocumentType
-    );
+    const docTypeValidation = await validateDocumentType(persona_id, requireDocumentType);
     if (!docTypeValidation.success) {
       return {
         success: false,
@@ -215,10 +193,10 @@ export async function withPersonaValidation(
             error: 'Document type not allowed',
             persona_id,
             document_type: requireDocumentType,
-            details: docTypeValidation.errors,
+            details: docTypeValidation.errors
           },
           { status: 400 }
-        ),
+        )
       };
     }
   }
@@ -227,16 +205,12 @@ export async function withPersonaValidation(
   const context: PersonaMiddlewareContext = {
     persona_id,
     config: personaValidation.config as PersonaConfig,
-    processing_config:
-      processingConfig ||
-      (await personaManager
-        .getDocumentProcessingConfig(persona_id)
-        .then(r => r.config!)),
+    processing_config: processingConfig || await personaManager.getDocumentProcessingConfig(persona_id).then(r => r.config!)
   };
 
   return {
     success: true,
-    context,
+    context
   };
 }
 
@@ -282,7 +256,7 @@ export function withPersonaMiddleware<T extends any[]>(
       // Validate persona
       const validation = await withPersonaValidation(personaId, {
         requireProcessingConfig: options.requireProcessingConfig,
-        requireDocumentType,
+        requireDocumentType
       });
 
       if (!validation.success) {
@@ -291,12 +265,13 @@ export function withPersonaMiddleware<T extends any[]>(
 
       // Call the original handler with persona context
       return handler(request, context, validation.context!, ...args);
+
     } catch (error) {
       console.error('Persona middleware error:', error);
       return NextResponse.json(
         {
           error: 'Internal server error in persona middleware',
-          message: error instanceof Error ? error.message : 'Unknown error',
+          message: error instanceof Error ? error.message : 'Unknown error'
         },
         { status: 500 }
       );
@@ -318,7 +293,7 @@ export function createPersonaErrorResponse(
       error,
       persona_id,
       details: details || [],
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toISOString()
     },
     { status }
   );
@@ -332,15 +307,12 @@ export function logPersonaOperation(
   persona_id: string,
   result: { success: boolean; error?: string; details?: any }
 ): void {
-  console.log(
-    `🎭 Persona ${operation}: ${persona_id} - ${result.success ? 'SUCCESS' : 'FAILED'}`,
-    {
-      operation,
-      persona_id,
-      success: result.success,
-      error: result.error,
-      details: result.details,
-      timestamp: new Date().toISOString(),
-    }
-  );
+  console.log(`🎭 Persona ${operation}: ${persona_id} - ${result.success ? 'SUCCESS' : 'FAILED'}`, {
+    operation,
+    persona_id,
+    success: result.success,
+    error: result.error,
+    details: result.details,
+    timestamp: new Date().toISOString()
+  });
 }

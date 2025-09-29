@@ -6,16 +6,15 @@ export async function GET(request: NextRequest) {
     const supabase = createOptimizedAdminClient();
 
     // Use the optimized database function to get all analytics
-    const { data: analyticsData, error } = await supabase.rpc(
-      'get_persona_analytics'
-    );
+    const { data: analyticsData, error } = await supabase
+      .rpc('get_persona_analytics');
 
     if (error) {
       console.error('Database error loading persona analytics:', error);
       return NextResponse.json(
         {
           error: 'Failed to load persona analytics',
-          details: error.message,
+          details: error.message
         },
         { status: 500 }
       );
@@ -38,14 +37,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       analytics,
-      total: analytics.length,
+      total: analytics.length
     });
+
   } catch (error) {
     console.error('Error in admin/persona-analytics endpoint:', error);
     return NextResponse.json(
       {
         error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error',
+        message: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     );

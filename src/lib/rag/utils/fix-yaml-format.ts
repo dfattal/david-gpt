@@ -15,19 +15,22 @@ const INLINE_ARRAY_FIELDS = [
   'leiaFeature',
   'productCategory',
   'marketRegion',
-  'patentFamily',
+  'patentFamily'
 ];
 
 // Fields that should remain as block arrays (complex objects)
-const BLOCK_ARRAY_FIELDS = ['authors', 'inventors', 'assignees'];
+const BLOCK_ARRAY_FIELDS = [
+  'authors',
+  'inventors',
+  'assignees'
+];
 
 async function standardizeYamlFile(filePath: string): Promise<void> {
   console.log(`📝 Processing: ${filePath}`);
 
   try {
     const content = await readFile(filePath, 'utf-8');
-    const [, frontmatterStr, markdownContent] =
-      content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/) || [];
+    const [, frontmatterStr, markdownContent] = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/) || [];
 
     if (!frontmatterStr) {
       console.log(`   ⚠️  No frontmatter found, skipping`);
@@ -39,12 +42,12 @@ async function standardizeYamlFile(filePath: string): Promise<void> {
 
     // Add missing required fields
     if (!frontmatter.persona) {
-      frontmatter.persona = 'david';
+      frontmatter.persona = "david";
     }
 
     // Standardize docType naming
-    if (frontmatter.docType === 'press_article') {
-      frontmatter.docType = 'press-article';
+    if (frontmatter.docType === "press_article") {
+      frontmatter.docType = "press-article";
     }
 
     // Convert simple arrays to inline format and complex arrays to proper block format
@@ -71,7 +74,7 @@ async function standardizeYamlFile(filePath: string): Promise<void> {
       lineWidth: -1, // No line wrapping
       noArrayIndent: false, // Use proper array indentation
       quotingType: '"' as const,
-      forceQuotes: true,
+      forceQuotes: true
     };
 
     // Custom YAML serialization to handle inline vs block arrays
@@ -80,10 +83,7 @@ async function standardizeYamlFile(filePath: string): Promise<void> {
     // Fix inline arrays - convert block format to inline for simple arrays
     INLINE_ARRAY_FIELDS.forEach(field => {
       if (frontmatter[field] && Array.isArray(frontmatter[field])) {
-        const blockPattern = new RegExp(
-          `${field}:\\s*\\n(?:\\s+-\\s+"[^"]*"\\s*\\n)+`,
-          'g'
-        );
+        const blockPattern = new RegExp(`${field}:\\s*\\n(?:\\s+-\\s+"[^"]*"\\s*\\n)+`, 'g');
         yamlStr = yamlStr.replace(blockPattern, () => {
           const arrayStr = JSON.stringify(frontmatter[field]);
           return `${field}: ${arrayStr}\n`;
@@ -96,6 +96,7 @@ async function standardizeYamlFile(filePath: string): Promise<void> {
 
     await writeFile(filePath, newContent, 'utf-8');
     console.log(`   ✅ Standardized YAML format`);
+
   } catch (error) {
     console.error(`   ❌ Error processing ${filePath}:`, error);
   }
@@ -105,7 +106,10 @@ async function main() {
   console.log('🚀 Starting YAML format standardization...\n');
 
   // Find all markdown files in my-corpus
-  const patterns = ['my-corpus/**/*.md', 'RAG-RAW-DOCS/**/*.md'];
+  const patterns = [
+    'my-corpus/**/*.md',
+    'RAG-RAW-DOCS/**/*.md'
+  ];
 
   const allFiles: string[] = [];
   for (const pattern of patterns) {

@@ -33,9 +33,7 @@ export class JunkTitleCleanupMigration {
    * Main migration function
    */
   async runMigration(): Promise<void> {
-    console.log(
-      '🧹 Starting junk title and patent expiration cleanup migration...'
-    );
+    console.log('🧹 Starting junk title and patent expiration cleanup migration...');
 
     try {
       // Step 1: Clean up junk titles
@@ -58,9 +56,10 @@ export class JunkTitleCleanupMigration {
     console.log('\n📋 Step 1: Cleaning up junk titles...');
 
     // Query for potential junk titles
-    const { data: documents, error } = (await this.supabase
+    const { data: documents, error } = await this.supabase
       .from('documents')
-      .select('id, title, doc_type, source_url, created_at').or(`
+      .select('id, title, doc_type, source_url, created_at')
+      .or(`
         title.like.<rdf:li>,
         title.like.</%>,
         title.eq.Forbes,
@@ -73,7 +72,7 @@ export class JunkTitleCleanupMigration {
         title.like.https://%,
         title.like.http://%,
         char_length(title).lt.4
-      `)) as { data: JunkTitleInfo[] | null; error: any };
+      `) as { data: JunkTitleInfo[] | null; error: any };
 
     if (error) {
       throw new Error(`Failed to query junk titles: ${error.message}`);
@@ -84,9 +83,7 @@ export class JunkTitleCleanupMigration {
       return;
     }
 
-    console.log(
-      `🔍 Found ${documents.length} documents with potential junk titles:`
-    );
+    console.log(`🔍 Found ${documents.length} documents with potential junk titles:`);
     documents.forEach(doc => {
       console.log(`  - "${doc.title}" (${doc.doc_type}) [${doc.id}]`);
     });
@@ -140,19 +137,15 @@ export class JunkTitleCleanupMigration {
         const url = new URL(doc.source_url);
         const hostname = url.hostname.replace('www.', '');
         const platform = hostname.split('.')[0];
-        const capitalizedPlatform =
-          platform.charAt(0).toUpperCase() + platform.slice(1);
+        const capitalizedPlatform = platform.charAt(0).toUpperCase() + platform.slice(1);
 
         // Try to extract article slug from URL
-        const pathSegments = url.pathname
-          .split('/')
-          .filter(
-            seg =>
-              seg &&
-              seg.length > 10 &&
-              seg.includes('-') &&
-              !seg.match(/^(news|articles?|posts?|blog|[0-9]{4}|[0-9]{1,2})$/)
-          );
+        const pathSegments = url.pathname.split('/').filter(seg =>
+          seg &&
+          seg.length > 10 &&
+          seg.includes('-') &&
+          !seg.match(/^(news|articles?|posts?|blog|[0-9]{4}|[0-9]{1,2})$/)
+        );
 
         if (pathSegments.length > 0) {
           const articleSlug = pathSegments.reduce((longest, current) =>
@@ -196,16 +189,11 @@ export class JunkTitleCleanupMigration {
     console.log('\n📅 Step 2: Adding missing patent expiration dates...');
 
     // Query for patents missing expiration dates
-    const { data: patents, error } = (await this.supabase
+    const { data: patents, error } = await this.supabase
       .from('documents')
-      .select(
-        'id, title, patent_no, filed_date, priority_date, expiration_date, expiration_is_estimate'
-      )
+      .select('id, title, patent_no, filed_date, priority_date, expiration_date, expiration_is_estimate')
       .eq('doc_type', 'patent')
-      .is('expiration_date', null)) as {
-      data: PatentInfo[] | null;
-      error: any;
-    };
+      .is('expiration_date', null) as { data: PatentInfo[] | null; error: any };
 
     if (error) {
       throw new Error(`Failed to query patents: ${error.message}`);
@@ -226,24 +214,18 @@ export class JunkTitleCleanupMigration {
     // Calculate expiration dates
     for (const patent of patents) {
       let expirationDate: Date | undefined;
-      const isEstimate = true;
+      let isEstimate = true;
 
       if (patent.filed_date) {
         expirationDate = new Date(patent.filed_date);
         expirationDate.setFullYear(expirationDate.getFullYear() + 20);
-        console.log(
-          `📊 Calculated expiration from filing date for ${patent.patent_no}: ${expirationDate.toISOString().split('T')[0]}`
-        );
+        console.log(`📊 Calculated expiration from filing date for ${patent.patent_no}: ${expirationDate.toISOString().split('T')[0]}`);
       } else if (patent.priority_date) {
         expirationDate = new Date(patent.priority_date);
         expirationDate.setFullYear(expirationDate.getFullYear() + 20);
-        console.log(
-          `📊 Calculated expiration from priority date for ${patent.patent_no}: ${expirationDate.toISOString().split('T')[0]}`
-        );
+        console.log(`📊 Calculated expiration from priority date for ${patent.patent_no}: ${expirationDate.toISOString().split('T')[0]}`);
       } else {
-        console.log(
-          `⚠️  Cannot calculate expiration for ${patent.patent_no}: no filing or priority date`
-        );
+        console.log(`⚠️  Cannot calculate expiration for ${patent.patent_no}: no filing or priority date`);
         continue;
       }
 
@@ -252,24 +234,19 @@ export class JunkTitleCleanupMigration {
         .from('documents')
         .update({
           expiration_date: expirationDate.toISOString().split('T')[0],
-          expiration_is_estimate: isEstimate,
+          expiration_is_estimate: isEstimate
         })
         .eq('id', patent.id);
 
       if (updateError) {
-        console.error(
-          `❌ Failed to update expiration for ${patent.id}:`,
-          updateError.message
-        );
+        console.error(`❌ Failed to update expiration for ${patent.id}:`, updateError.message);
       } else {
         console.log(`✅ Added expiration date for ${patent.patent_no}`);
         calculatedCount++;
       }
     }
 
-    console.log(
-      `✅ Added expiration dates to ${calculatedCount}/${patents.length} patents`
-    );
+    console.log(`✅ Added expiration dates to ${calculatedCount}/${patents.length} patents`);
   }
 
   /**
@@ -285,7 +262,7 @@ export class JunkTitleCleanupMigration {
       .group('doc_type');
 
     console.log('\nDocument counts by type:');
-    docCounts?.forEach((row: any) => {
+    docCounts?.forEach(row => {
       console.log(`  - ${row.doc_type}: ${row.count}`);
     });
 
@@ -295,10 +272,8 @@ export class JunkTitleCleanupMigration {
       .select('expiration_date')
       .eq('doc_type', 'patent');
 
-    const withExpiration =
-      patentExpiration?.filter((p: any) => p.expiration_date).length || 0;
-    const withoutExpiration =
-      patentExpiration?.filter((p: any) => !p.expiration_date).length || 0;
+    const withExpiration = patentExpiration?.filter(p => p.expiration_date).length || 0;
+    const withoutExpiration = patentExpiration?.filter(p => !p.expiration_date).length || 0;
 
     console.log('\nPatent expiration dates:');
     console.log(`  - With expiration date: ${withExpiration}`);
@@ -310,9 +285,7 @@ export class JunkTitleCleanupMigration {
       .select('count(*)', { count: 'exact' })
       .or('title.like.<%>, title.like.https://%, char_length(title).lt.4');
 
-    console.log(
-      `\nPotential junk titles remaining: ${potentialJunk?.[0]?.count || 0}`
-    );
+    console.log(`\nPotential junk titles remaining: ${potentialJunk?.[0]?.count || 0}`);
   }
 }
 

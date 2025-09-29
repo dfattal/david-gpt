@@ -1,7 +1,7 @@
-import { openai } from '@ai-sdk/openai';
-import { generateText } from 'ai';
-import { createClient } from '@/lib/supabase/server';
-import { sendTitleUpdate } from '@/lib/sse-manager';
+import { openai } from "@ai-sdk/openai";
+import { generateText } from "ai";
+import { createClient } from "@/lib/supabase/server";
+import { sendTitleUpdate } from "@/lib/sse-manager";
 
 export async function generateConversationTitle(
   conversationId: string,
@@ -16,12 +16,12 @@ export async function generateConversationTitle(
 
     // Validate OpenAI API key
     if (!process.env.OPENAI_API_KEY) {
-      throw new Error('Missing OPENAI_API_KEY environment variable');
+      throw new Error("Missing OPENAI_API_KEY environment variable");
     }
 
     // Generate title using GPT-4o
     const result = await generateText({
-      model: openai('gpt-4o'),
+      model: openai("gpt-4o"),
       system: `You are a title generator. Create a concise, descriptive title for a conversation based on the user's first message. 
 
 Rules:
@@ -45,12 +45,12 @@ Examples:
     let generatedTitle = result.text.trim();
 
     // Strip quotes from the title (both single and double quotes)
-    generatedTitle = generatedTitle.replace(/^["']|["']$/g, '');
+    generatedTitle = generatedTitle.replace(/^["']|["']$/g, "");
 
     // Ensure the title doesn't exceed 45 characters
     const finalTitle =
       generatedTitle.length > 45
-        ? generatedTitle.substring(0, 42) + '...'
+        ? generatedTitle.substring(0, 42) + "..."
         : generatedTitle;
 
     console.log(`✨ Generated title: "${finalTitle}"`);
@@ -58,17 +58,17 @@ Examples:
     // Update the conversation with the generated title
     const supabase = await createClient();
     const { error: updateError } = await supabase
-      .from('conversations')
+      .from("conversations")
       .update({
         title: finalTitle,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', conversationId)
-      .eq('user_id', userId);
+      .eq("id", conversationId)
+      .eq("user_id", userId);
 
     if (updateError) {
-      console.error('Failed to update conversation title:', updateError);
-      throw new Error('Failed to update conversation title');
+      console.error("Failed to update conversation title:", updateError);
+      throw new Error("Failed to update conversation title");
     }
 
     console.log(`💾 Updated conversation ${conversationId} in database`);
@@ -88,10 +88,10 @@ Examples:
 
     return { success: true, title: finalTitle };
   } catch (error) {
-    console.error('❌ Title generation failed:', error);
+    console.error("❌ Title generation failed:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }

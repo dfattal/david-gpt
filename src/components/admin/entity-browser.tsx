@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
@@ -7,16 +7,16 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { EntityMergeDialog } from './entity-merge-dialog';
-import {
-  Search,
-  Filter,
-  Edit,
-  Trash2,
-  Merge,
+import { 
+  Search, 
+  Filter, 
+  Edit, 
+  Trash2, 
+  Merge, 
   Plus,
   ChevronLeft,
   ChevronRight,
-  AlertCircle,
+  AlertCircle
 } from 'lucide-react';
 
 interface Entity {
@@ -41,11 +41,11 @@ interface EntitySearchParams {
 
 const ENTITY_KINDS = [
   'person',
-  'organization',
+  'organization', 
   'product',
   'technology',
   'component',
-  'document',
+  'document'
 ];
 
 const KIND_COLORS: Record<string, string> = {
@@ -67,23 +67,21 @@ export function EntityBrowser() {
   const [entities, setEntities] = useState<Entity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedEntities, setSelectedEntities] = useState<Set<string>>(
-    new Set()
-  );
-
+  const [selectedEntities, setSelectedEntities] = useState<Set<string>>(new Set());
+  
   const [searchParams, setSearchParams] = useState<EntitySearchParams>({
     q: '',
     kind: '',
     limit: 25,
     offset: 0,
     sortBy: 'name',
-    sortOrder: 'asc',
+    sortOrder: 'asc'
   });
-
+  
   const [pagination, setPagination] = useState({
     total: 0,
     offset: 0,
-    limit: 25,
+    limit: 25
   });
 
   const [showFilters, setShowFilters] = useState(false);
@@ -94,7 +92,7 @@ export function EntityBrowser() {
   const fetchEntities = useCallback(async () => {
     setLoading(true);
     setError(null);
-
+    
     try {
       const params = new URLSearchParams();
       if (searchParams.q) params.set('q', searchParams.q);
@@ -106,8 +104,8 @@ export function EntityBrowser() {
 
       const response = await fetch(`/api/admin/entities?${params}`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('auth_token') || 'dummy_token'}`,
-        },
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || 'dummy_token'}`
+        }
       });
 
       if (!response.ok) {
@@ -117,6 +115,7 @@ export function EntityBrowser() {
       const data = await response.json();
       setEntities(data.entities || []);
       setPagination(data.pagination || { total: 0, offset: 0, limit: 25 });
+      
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch entities');
       console.error('Error fetching entities:', err);
@@ -135,7 +134,7 @@ export function EntityBrowser() {
     setSearchParams(prev => ({
       ...prev,
       q: value,
-      offset: 0, // Reset to first page
+      offset: 0 // Reset to first page
     }));
   };
 
@@ -144,7 +143,7 @@ export function EntityBrowser() {
     setSearchParams(prev => ({
       ...prev,
       kind: kind === prev.kind ? '' : kind, // Toggle filter
-      offset: 0,
+      offset: 0
     }));
   };
 
@@ -152,7 +151,7 @@ export function EntityBrowser() {
   const handlePageChange = (newOffset: number) => {
     setSearchParams(prev => ({
       ...prev,
-      offset: newOffset,
+      offset: newOffset
     }));
   };
 
@@ -161,9 +160,8 @@ export function EntityBrowser() {
     setSearchParams(prev => ({
       ...prev,
       sortBy,
-      sortOrder:
-        prev.sortBy === sortBy && prev.sortOrder === 'asc' ? 'desc' : 'asc',
-      offset: 0,
+      sortOrder: prev.sortBy === sortBy && prev.sortOrder === 'asc' ? 'desc' : 'asc',
+      offset: 0
     }));
   };
 
@@ -191,22 +189,18 @@ export function EntityBrowser() {
 
   // Handle entity deletion
   const handleDeleteEntity = async (entityId: string) => {
-    if (
-      !confirm(
-        'Are you sure you want to delete this entity? This will also remove all its relationships.'
-      )
-    ) {
+    if (!confirm('Are you sure you want to delete this entity? This will also remove all its relationships.')) {
       return;
     }
 
     setDeleteLoading(entityId);
-
+    
     try {
       const response = await fetch(`/api/admin/entities/${entityId}`, {
         method: 'DELETE',
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('auth_token') || 'dummy_token'}`,
-        },
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || 'dummy_token'}`
+        }
       });
 
       if (!response.ok) {
@@ -220,6 +214,7 @@ export function EntityBrowser() {
         newSet.delete(entityId);
         return newSet;
       });
+      
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete entity');
       console.error('Error deleting entity:', err);
@@ -231,37 +226,32 @@ export function EntityBrowser() {
   // Handle bulk delete
   const handleBulkDelete = async () => {
     if (selectedEntities.size === 0) return;
-
+    
     const entityCount = selectedEntities.size;
-    if (
-      !confirm(
-        `Are you sure you want to delete ${entityCount} entities? This will also remove all their relationships.`
-      )
-    ) {
+    if (!confirm(`Are you sure you want to delete ${entityCount} entities? This will also remove all their relationships.`)) {
       return;
     }
 
     setDeleteLoading('bulk');
-
+    
     try {
       const deletePromises = Array.from(selectedEntities).map(entityId =>
         fetch(`/api/admin/entities/${entityId}`, {
           method: 'DELETE',
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('auth_token') || 'dummy_token'}`,
-          },
+            'Authorization': `Bearer ${localStorage.getItem('auth_token') || 'dummy_token'}`
+          }
         })
       );
 
       await Promise.all(deletePromises);
-
+      
       // Refresh entities list
       await fetchEntities();
       setSelectedEntities(new Set());
+      
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to delete entities'
-      );
+      setError(err instanceof Error ? err.message : 'Failed to delete entities');
       console.error('Error deleting entities:', err);
     } finally {
       setDeleteLoading(null);
@@ -280,18 +270,14 @@ export function EntityBrowser() {
   const currentPage = Math.floor(pagination.offset / pagination.limit) + 1;
 
   // Get selected entities data for merge dialog
-  const selectedEntitiesData = entities.filter(entity =>
-    selectedEntities.has(entity.id)
-  );
+  const selectedEntitiesData = entities.filter(entity => selectedEntities.has(entity.id));
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Knowledge Graph Entities
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900">Knowledge Graph Entities</h1>
           <p className="text-gray-600 mt-1">
             Browse and manage entities in the knowledge graph
           </p>
@@ -312,7 +298,7 @@ export function EntityBrowser() {
               <Input
                 placeholder="Search entities by name..."
                 value={searchParams.q}
-                onChange={e => handleSearch(e.target.value)}
+                onChange={(e) => handleSearch(e.target.value)}
                 className="pl-10"
               />
             </div>
@@ -331,7 +317,7 @@ export function EntityBrowser() {
               {ENTITY_KINDS.map(kind => (
                 <Badge
                   key={kind}
-                  variant={searchParams.kind === kind ? 'default' : 'outline'}
+                  variant={searchParams.kind === kind ? "default" : "outline"}
                   className="cursor-pointer"
                   onClick={() => handleKindFilter(kind)}
                 >
@@ -348,8 +334,8 @@ export function EntityBrowser() {
                 {selectedEntities.size} entities selected
               </span>
               <div className="flex space-x-2">
-                <Button
-                  size="sm"
+                <Button 
+                  size="sm" 
                   variant="outline"
                   onClick={() => setShowMergeDialog(true)}
                   disabled={selectedEntities.size < 2}
@@ -357,8 +343,8 @@ export function EntityBrowser() {
                   <Merge className="w-4 h-4 mr-2" />
                   Merge Selected
                 </Button>
-                <Button
-                  size="sm"
+                <Button 
+                  size="sm" 
                   variant="destructive"
                   onClick={handleBulkDelete}
                   disabled={deleteLoading === 'bulk'}
@@ -408,10 +394,7 @@ export function EntityBrowser() {
                 <div className="col-span-1">
                   <input
                     type="checkbox"
-                    checked={
-                      selectedEntities.size === entities.length &&
-                      entities.length > 0
-                    }
+                    checked={selectedEntities.size === entities.length && entities.length > 0}
                     onChange={toggleSelectAll}
                     className="rounded border-gray-300"
                   />
@@ -421,24 +404,18 @@ export function EntityBrowser() {
                     onClick={() => handleSort('name')}
                     className="text-sm font-medium text-gray-700 hover:text-gray-900"
                   >
-                    Name{' '}
-                    {searchParams.sortBy === 'name' &&
-                      (searchParams.sortOrder === 'asc' ? '↑' : '↓')}
+                    Name {searchParams.sortBy === 'name' && (searchParams.sortOrder === 'asc' ? '↑' : '↓')}
                   </button>
                 </div>
                 <div className="col-span-2">
-                  <span className="text-sm font-medium text-gray-700">
-                    Kind
-                  </span>
+                  <span className="text-sm font-medium text-gray-700">Kind</span>
                 </div>
                 <div className="col-span-2">
                   <button
                     onClick={() => handleSort('authority_score')}
                     className="text-sm font-medium text-gray-700 hover:text-gray-900"
                   >
-                    Authority{' '}
-                    {searchParams.sortBy === 'authority_score' &&
-                      (searchParams.sortOrder === 'asc' ? '↑' : '↓')}
+                    Authority {searchParams.sortBy === 'authority_score' && (searchParams.sortOrder === 'asc' ? '↑' : '↓')}
                   </button>
                 </div>
                 <div className="col-span-2">
@@ -446,15 +423,11 @@ export function EntityBrowser() {
                     onClick={() => handleSort('mention_count')}
                     className="text-sm font-medium text-gray-700 hover:text-gray-900"
                   >
-                    Mentions{' '}
-                    {searchParams.sortBy === 'mention_count' &&
-                      (searchParams.sortOrder === 'asc' ? '↑' : '↓')}
+                    Mentions {searchParams.sortBy === 'mention_count' && (searchParams.sortOrder === 'asc' ? '↑' : '↓')}
                   </button>
                 </div>
                 <div className="col-span-1">
-                  <span className="text-sm font-medium text-gray-700">
-                    Actions
-                  </span>
+                  <span className="text-sm font-medium text-gray-700">Actions</span>
                 </div>
               </div>
             </div>
@@ -466,7 +439,7 @@ export function EntityBrowser() {
                   No entities found. Try adjusting your search criteria.
                 </div>
               ) : (
-                entities.map(entity => (
+                entities.map((entity) => (
                   <div key={entity.id} className="px-6 py-4 hover:bg-gray-50">
                     <div className="grid grid-cols-12 gap-4 items-center">
                       <div className="col-span-1">
@@ -479,9 +452,7 @@ export function EntityBrowser() {
                       </div>
                       <div className="col-span-4">
                         <div className="flex flex-col">
-                          <span className="font-medium text-gray-900">
-                            {entity.name}
-                          </span>
+                          <span className="font-medium text-gray-900">{entity.name}</span>
                           {entity.description && (
                             <span className="text-sm text-gray-500 truncate">
                               {entity.description}
@@ -490,12 +461,7 @@ export function EntityBrowser() {
                         </div>
                       </div>
                       <div className="col-span-2">
-                        <Badge
-                          className={
-                            KIND_COLORS[entity.kind] ||
-                            'bg-gray-100 text-gray-800'
-                          }
-                        >
+                        <Badge className={KIND_COLORS[entity.kind] || 'bg-gray-100 text-gray-800'}>
                           {entity.kind}
                         </Badge>
                       </div>
@@ -504,9 +470,7 @@ export function EntityBrowser() {
                           <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
                             <div
                               className="bg-blue-600 h-2 rounded-full"
-                              style={{
-                                width: `${entity.authority_score * 100}%`,
-                              }}
+                              style={{ width: `${entity.authority_score * 100}%` }}
                             />
                           </div>
                           <span className="text-sm text-gray-600">
@@ -515,9 +479,7 @@ export function EntityBrowser() {
                         </div>
                       </div>
                       <div className="col-span-2">
-                        <span className="text-sm text-gray-900">
-                          {entity.mention_count}
-                        </span>
+                        <span className="text-sm text-gray-900">{entity.mention_count}</span>
                       </div>
                       <div className="col-span-1">
                         <div className="flex space-x-1">
@@ -549,22 +511,13 @@ export function EntityBrowser() {
               <div className="bg-gray-50 px-6 py-3 border-t border-gray-200">
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-gray-700">
-                    Showing {pagination.offset + 1} to{' '}
-                    {Math.min(
-                      pagination.offset + pagination.limit,
-                      pagination.total
-                    )}{' '}
-                    of {pagination.total} entities
+                    Showing {pagination.offset + 1} to {Math.min(pagination.offset + pagination.limit, pagination.total)} of {pagination.total} entities
                   </div>
                   <div className="flex items-center space-x-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() =>
-                        handlePageChange(
-                          Math.max(0, pagination.offset - pagination.limit)
-                        )
-                      }
+                      onClick={() => handlePageChange(Math.max(0, pagination.offset - pagination.limit))}
                       disabled={pagination.offset === 0}
                     >
                       <ChevronLeft className="w-4 h-4" />
@@ -576,12 +529,8 @@ export function EntityBrowser() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() =>
-                        handlePageChange(pagination.offset + pagination.limit)
-                      }
-                      disabled={
-                        pagination.offset + pagination.limit >= pagination.total
-                      }
+                      onClick={() => handlePageChange(pagination.offset + pagination.limit)}
+                      disabled={pagination.offset + pagination.limit >= pagination.total}
                     >
                       Next
                       <ChevronRight className="w-4 h-4" />

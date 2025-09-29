@@ -1,6 +1,6 @@
 /**
  * Unified Document Ingestion Service
- *
+ * 
  * Consolidates single and batch document processing into a unified pipeline
  * that handles document processing, chunking, embedding generation, and database persistence.
  */
@@ -13,24 +13,13 @@ import { chunkText } from './chunking';
 import { createPatentChunks } from './patent-chunking';
 import { createArticleChunks } from './article-chunking';
 import { embeddingService } from './embeddings';
-import {
-  extractGooglePatentData,
-  formatPatentContent,
-} from './google-patents-extractor';
+import { extractGooglePatentData, formatPatentContent } from './google-patents-extractor';
 import { extractEntityFromSingleChunk } from './entity-extraction';
-import {
-  IngestionWebhookManager,
-  BatchProgressTracker,
-} from './ingestion-webhook';
+import { IngestionWebhookManager, BatchProgressTracker } from './ingestion-webhook';
 import { documentAnalyzer } from './unified-document-analyzer';
 import { typeRegistry, DEFAULT_PERSONA } from './type-registry';
 import { templateRegistry } from './metadata-templates';
-import type {
-  DocumentType,
-  DocumentMetadata,
-  ProcessingJob,
-  Persona,
-} from './types';
+import type { DocumentType, DocumentMetadata, ProcessingJob, Persona } from './types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // =======================
@@ -119,7 +108,7 @@ export class UnifiedIngestionService {
         return {
           success: false,
           message: 'Environment validation failed',
-          error: envValidation.error,
+          error: envValidation.error
         };
       }
 
@@ -133,7 +122,7 @@ export class UnifiedIngestionService {
       return {
         success: false,
         message: 'Ingestion failed',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -146,6 +135,7 @@ export class UnifiedIngestionService {
     context: ProcessingContext
   ): Promise<IngestionResult> {
     const { supabase, user } = context;
+
 
     // Continue with normal single document processing
     const finalTitle = await this.generateDocumentTitle(request);
@@ -163,28 +153,23 @@ export class UnifiedIngestionService {
         patentUrl: request.patentUrl,
         doi: request.doi,
         hasFile: !!request.fileBuffer,
-        fileName: request.fileName,
-      },
+        fileName: request.fileName
+      }
     });
 
     // Create document record
     const document = await this.createDocumentRecord({
       title: finalTitle,
       docType: docType,
-      url:
-        request.url ||
-        request.patentUrl ||
-        (request.doi ? `https://doi.org/${request.doi}` : null),
+      url: request.url || request.patentUrl || (request.doi ? `https://doi.org/${request.doi}` : null),
       sourceUrl: null, // Single documents don't have separate source URLs
       doi: request.doi || null,
-      patentNo: request.patentUrl
-        ? this.extractPatentNumber(request.patentUrl)
-        : null,
+      patentNo: request.patentUrl ? this.extractPatentNumber(request.patentUrl) : null,
       canonicalUrl: null,
       arxivId: null,
       userId: user.id,
       processingStatus: 'pending',
-      personaId: request.persona?.persona_id || null,
+      personaId: request.persona?.persona_id || null
     });
 
     // Update job with document ID
@@ -200,7 +185,7 @@ export class UnifiedIngestionService {
       success: true,
       documentId: document.id,
       jobId: job.id,
-      message: 'Document ingestion started. Processing in background.',
+      message: 'Document ingestion started. Processing in background.'
     };
   }
 
@@ -212,10 +197,10 @@ export class UnifiedIngestionService {
     context: ProcessingContext
   ): Promise<IngestionResult> {
     const { supabase, user } = context;
-
+    
     // Validate batch
     this.validateBatchRequest(request);
-
+    
     // Generate batch IDs
     const batchId = uuidv4();
     const batchJobId = uuidv4();
@@ -224,50 +209,39 @@ export class UnifiedIngestionService {
     await this.generateBatchTitles(request.documents);
 
     // Create batch progress tracker
-    const batchTracker = new BatchProgressTracker(
-      batchId,
-      user.id,
-      request.documents.length
-    );
-
+    const batchTracker = new BatchProgressTracker(batchId, user.id, request.documents.length);
+    
     // Create batch processing job
     const batchJob = await this.createProcessingJob({
       type: 'batch',
       userId: user.id,
       batchId,
       totalDocuments: request.documents.length,
-      batchDescription: request.batchDescription,
+      batchDescription: request.batchDescription
     });
 
     // Start background batch processing asynchronously
-    console.log(
-      `🚀 About to start background batch processing for batch ${batchId} with ${request.documents.length} documents`
-    );
-    this.processBatchBackground(batchId, batchJob.id, request, {
-      ...context,
-      progressTracker: batchTracker,
-    }).catch(error => {
-      console.error(
-        `❌ Background batch processing failed for batch ${batchId}:`,
-        error
-      );
-    });
+    console.log(`🚀 About to start background batch processing for batch ${batchId} with ${request.documents.length} documents`);
+    this.processBatchBackground(batchId, batchJob.id, request, { ...context, progressTracker: batchTracker })
+      .catch(error => {
+        console.error(`❌ Background batch processing failed for batch ${batchId}:`, error);
+      });
 
     return {
       success: true,
       batchId,
       batchJobId: batchJob.id,
       totalDocuments: request.documents.length,
-      message: `Batch ingestion started. Processing ${request.documents.length} documents in background.`,
+      message: `Batch ingestion started. Processing ${request.documents.length} documents in background.`
     };
   }
+
+
 
   /**
    * Generate appropriate title for document
    */
-  private async generateDocumentTitle(
-    request: SingleIngestionRequest
-  ): Promise<string> {
+  private async generateDocumentTitle(request: SingleIngestionRequest): Promise<string> {
     if (request.title?.trim()) {
       return request.title.trim();
     }
@@ -301,17 +275,12 @@ export class UnifiedIngestionService {
   /**
    * Generate titles for batch documents
    */
-  private async generateBatchTitles(
-    documents: BatchDocumentRequest[]
-  ): Promise<void> {
+  private async generateBatchTitles(documents: BatchDocumentRequest[]): Promise<void> {
     for (const doc of documents) {
       if (!doc.title?.trim()) {
         if (doc.metadata?.patentUrl) {
-          const patentMatch =
-            doc.metadata.patentUrl.match(/([A-Z]{2}\d+[A-Z]\d)/);
-          doc.title = patentMatch
-            ? `Patent ${patentMatch[1]}`
-            : 'Patent Document';
+          const patentMatch = doc.metadata.patentUrl.match(/([A-Z]{2}\d+[A-Z]\d)/);
+          doc.title = patentMatch ? `Patent ${patentMatch[1]}` : 'Patent Document';
         } else if (doc.metadata?.patentNumber) {
           doc.title = `Patent ${doc.metadata.patentNumber}`;
         } else if (doc.metadata?.doi) {
@@ -328,9 +297,7 @@ export class UnifiedIngestionService {
   /**
    * Determine document type based on request parameters
    */
-  private async determineDocumentType(
-    request: SingleIngestionRequest
-  ): Promise<DocumentType> {
+  private async determineDocumentType(request: SingleIngestionRequest): Promise<DocumentType> {
     if (request.docType) {
       return request.docType;
     }
@@ -367,18 +334,17 @@ export class UnifiedIngestionService {
     batchDescription?: string;
     metadata?: Record<string, any>;
   }): Promise<ProcessingJob> {
-    const jobConfig =
-      config.type === 'single'
-        ? {
-            title: config.title,
-            docType: config.docType,
-            ...config.metadata,
-          }
-        : {
-            batchId: config.batchId,
-            totalDocuments: config.totalDocuments,
-            batchDescription: config.batchDescription,
-          };
+    const jobConfig = config.type === 'single' 
+      ? {
+          title: config.title,
+          docType: config.docType,
+          ...config.metadata
+        }
+      : {
+          batchId: config.batchId,
+          totalDocuments: config.totalDocuments,
+          batchDescription: config.batchDescription
+        };
 
     const { data: job, error } = await this.supabaseAdmin
       .from('processing_jobs')
@@ -391,8 +357,8 @@ export class UnifiedIngestionService {
           status: 'processing',
           started_at: new Date().toISOString(),
           progress: 0.0,
-          progress_message: `Starting ${config.type} processing`,
-        }),
+          progress_message: `Starting ${config.type} processing`
+        })
       })
       .select()
       .single();
@@ -414,7 +380,10 @@ export class UnifiedIngestionService {
     patentNo?: string | null;
     canonicalUrl?: string | null;
   }): Promise<any | null> {
-    const query = this.supabaseAdmin.from('documents').select('*').limit(1);
+    let query = this.supabaseAdmin
+      .from('documents')
+      .select('*')
+      .limit(1);
 
     // Priority order for deduplication using new JSONB schema:
     // 1. DOI (most reliable)
@@ -427,10 +396,7 @@ export class UnifiedIngestionService {
 
     // 2. Patent number (very reliable)
     if (config.patentNo) {
-      const { data } = await query.eq(
-        'identifiers->patent_no',
-        config.patentNo
-      );
+      const { data } = await query.eq('identifiers->patent_no', config.patentNo);
       if (data && data.length > 0) {
         return data[0];
       }
@@ -463,9 +429,9 @@ export class UnifiedIngestionService {
     try {
       // Legacy document type mapping for backward compatibility
       const legacyMapping: Record<string, string> = {
-        paper: 'academic-paper',
+        'paper': 'academic-paper',
         'press-article': 'press-release',
-        note: 'internal-note',
+        'note': 'internal-note'
       };
 
       // Use mapped type or original type
@@ -478,9 +444,7 @@ export class UnifiedIngestionService {
         .single();
 
       if (error || !data) {
-        console.warn(
-          `⚠️ Document type not found: ${docType} (mapped to: ${mappedType})`
-        );
+        console.warn(`⚠️ Document type not found: ${docType} (mapped to: ${mappedType})`);
         return null;
       }
 
@@ -513,13 +477,11 @@ export class UnifiedIngestionService {
       url: config.canonicalUrl || config.url,
       doi: config.doi,
       patentNo: config.patentNo,
-      canonicalUrl: config.canonicalUrl,
+      canonicalUrl: config.canonicalUrl
     });
 
     if (existingDoc) {
-      console.log(
-        `📄 Document already exists: "${config.title}" (ID: ${existingDoc.id})`
-      );
+      console.log(`📄 Document already exists: "${config.title}" (ID: ${existingDoc.id})`);
       return existingDoc;
     }
 
@@ -549,7 +511,7 @@ export class UnifiedIngestionService {
         dates,
         processing_status: config.processingStatus,
         created_by: config.userId,
-        persona_id: config.personaId,
+        persona_id: config.personaId
       })
       .select()
       .single();
@@ -558,9 +520,7 @@ export class UnifiedIngestionService {
       throw new Error(`Failed to create document: ${error.message}`);
     }
 
-    console.log(
-      `✅ Created new document: "${config.title}" (ID: ${document.id})`
-    );
+    console.log(`✅ Created new document: "${config.title}" (ID: ${document.id})`);
     return document;
   }
 
@@ -574,15 +534,15 @@ export class UnifiedIngestionService {
   ): Promise<void> {
     try {
       const { supabase } = context;
-
+      
       // Update job status
       await this.supabaseAdmin
         .from('processing_jobs')
-        .update({
-          status: 'processing',
+        .update({ 
+          status: 'processing', 
           started_at: new Date().toISOString(),
           progress: 0.1,
-          progress_message: 'Starting document analysis and content extraction',
+          progress_message: 'Starting document analysis and content extraction'
         })
         .eq('document_id', documentId);
 
@@ -594,11 +554,8 @@ export class UnifiedIngestionService {
       if (request.fileBuffer) {
         // Check if it's a text-based file (markdown, txt, etc.)
         const fileName = request.fileName || '';
-        const isTextFile =
-          fileName.endsWith('.md') ||
-          fileName.endsWith('.txt') ||
-          fileName.endsWith('.json');
-
+        const isTextFile = fileName.endsWith('.md') || fileName.endsWith('.txt') || fileName.endsWith('.json');
+        
         if (isTextFile) {
           // For text-based files, read content directly
           processedContent = request.fileBuffer.toString('utf-8');
@@ -607,10 +564,7 @@ export class UnifiedIngestionService {
           if (fileName.endsWith('.md')) {
             const frontmatterResult = this.parseFrontmatter(processedContent);
             frontmatterMetadata = frontmatterResult.frontmatter;
-            console.log(
-              `✅ Parsed frontmatter metadata:`,
-              Object.keys(frontmatterMetadata)
-            );
+            console.log(`✅ Parsed frontmatter metadata:`, Object.keys(frontmatterMetadata));
           }
 
           extractedMetadata = { fileName };
@@ -619,7 +573,7 @@ export class UnifiedIngestionService {
           const result = await documentProcessor.processDocument({
             type: 'file',
             content: request.fileBuffer,
-            metadata: { title: request.title, ...request.metadata },
+            metadata: { title: request.title, ...request.metadata }
           });
           processedContent = result?.content || '';
           extractedMetadata = result?.metadata || {};
@@ -631,21 +585,18 @@ export class UnifiedIngestionService {
         // Parse frontmatter from markdown content
         const frontmatterResult = this.parseFrontmatter(processedContent);
         frontmatterMetadata = frontmatterResult.frontmatter;
-        console.log(
-          `✅ Parsed frontmatter metadata from content:`,
-          Object.keys(frontmatterMetadata)
-        );
+        console.log(`✅ Parsed frontmatter metadata from content:`, Object.keys(frontmatterMetadata));
       } else if (request.patentUrl) {
         // Google Patents URL - use EXA for better extraction
         console.log('Processing patent URL with EXA:', request.patentUrl);
         const result = await documentProcessor.processDocument({
           type: 'url',
           content: request.patentUrl,
-          metadata: { title: request.title },
+          metadata: { title: request.title }
         });
         processedContent = result?.content || '';
         extractedMetadata = result?.metadata || {};
-
+        
         // Fallback to old method if EXA fails
         if (!processedContent || processedContent.length < 500) {
           console.log('EXA failed, falling back to Google Patents extractor');
@@ -663,32 +614,25 @@ export class UnifiedIngestionService {
         const result = await documentProcessor.processDocument({
           type: processingType,
           content: request.doi,
-          metadata: { title: request.title },
+          metadata: { title: request.title }
         });
         processedContent = result?.content || '';
         extractedMetadata = result?.metadata || {};
       } else if (request.url) {
         // General URL processing - detect ArXiv URLs and route to enhanced processing
-        const isArxivUrl =
-          /arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5}(?:v\d+)?)/.test(
-            request.url
-          );
+        const isArxivUrl = /arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5}(?:v\d+)?)/.test(request.url);
 
         if (isArxivUrl) {
           // Extract ArXiv ID and process as ArXiv document
-          const arxivMatch = request.url.match(
-            /arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5}(?:v\d+)?)/
-          );
+          const arxivMatch = request.url.match(/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5}(?:v\d+)?)/);
           const arxivId = arxivMatch ? arxivMatch[1] : null;
 
-          console.log(
-            `📋 Detected ArXiv URL, processing as ArXiv document: ${arxivId}`
-          );
+          console.log(`📋 Detected ArXiv URL, processing as ArXiv document: ${arxivId}`);
 
           const result = await documentProcessor.processDocument({
             type: 'arxiv',
             content: arxivId,
-            metadata: { title: request.title },
+            metadata: { title: request.title }
           });
           processedContent = result?.content || '';
           extractedMetadata = result?.metadata || {};
@@ -697,7 +641,7 @@ export class UnifiedIngestionService {
           const result = await documentProcessor.processDocument({
             type: 'url',
             content: request.url,
-            metadata: { title: request.title },
+            metadata: { title: request.title }
           });
           processedContent = result?.content || '';
           extractedMetadata = result?.metadata || {};
@@ -708,10 +652,7 @@ export class UnifiedIngestionService {
 
       // ENHANCED CONTENT VALIDATION
       // Validate that we actually extracted meaningful content, not just URLs
-      const isValidContent = this.validateExtractedContent(
-        processedContent,
-        request
-      );
+      const isValidContent = this.validateExtractedContent(processedContent, request);
 
       if (!isValidContent.isValid) {
         // Mark document and job as failed due to content extraction failure
@@ -720,7 +661,7 @@ export class UnifiedIngestionService {
           .update({
             status: 'failed',
             completed_at: new Date().toISOString(),
-            error_message: isValidContent.reason,
+            error_message: isValidContent.reason
           })
           .eq('document_id', documentId);
 
@@ -728,49 +669,32 @@ export class UnifiedIngestionService {
           .from('documents')
           .update({
             processing_status: 'failed',
-            error_message: isValidContent.reason,
+            error_message: isValidContent.reason
           })
           .eq('id', documentId);
 
-        console.error(
-          `❌ Content extraction failed for document ${documentId}: ${isValidContent.reason}`
-        );
+        console.error(`❌ Content extraction failed for document ${documentId}: ${isValidContent.reason}`);
         return; // Exit early - don't proceed with chunking
       }
 
-      console.log(
-        `✅ Content validation passed: ${processedContent.length} characters extracted`
-      );
+      console.log(`✅ Content validation passed: ${processedContent.length} characters extracted`);
 
       // If we got here but content is still short, try one more extraction attempt with different strategy
-      if (
-        processedContent.length < 1000 &&
-        (request.url || request.patentUrl)
-      ) {
-        console.log(
-          `⚠️ Content is short (${processedContent.length} chars), attempting fallback extraction...`
-        );
+      if (processedContent.length < 1000 && (request.url || request.patentUrl)) {
+        console.log(`⚠️ Content is short (${processedContent.length} chars), attempting fallback extraction...`);
 
-        const fallbackContent = await this.attemptFallbackExtraction(
-          request.url || request.patentUrl
-        );
-        if (
-          fallbackContent &&
-          fallbackContent.length > processedContent.length
-        ) {
-          console.log(
-            `✅ Fallback extraction improved content: ${fallbackContent.length} chars`
-          );
+        const fallbackContent = await this.attemptFallbackExtraction(request.url || request.patentUrl);
+        if (fallbackContent && fallbackContent.length > processedContent.length) {
+          console.log(`✅ Fallback extraction improved content: ${fallbackContent.length} chars`);
           processedContent = fallbackContent;
         }
       }
 
       await this.supabaseAdmin
         .from('processing_jobs')
-        .update({
+        .update({ 
           progress: 0.3,
-          progress_message:
-            'Content analysis complete, starting document chunking',
+          progress_message: 'Content analysis complete, starting document chunking'
         })
         .eq('document_id', documentId);
 
@@ -782,7 +706,7 @@ export class UnifiedIngestionService {
         {
           title: request.title || 'Untitled Document',
           docType: request.docType as any,
-          ...extractedMetadata,
+          ...extractedMetadata
         }
       );
 
@@ -790,36 +714,26 @@ export class UnifiedIngestionService {
         .from('processing_jobs')
         .update({
           progress: 0.4,
-          progress_message: `Legacy chunking complete (${legacyChunks.length} chunks), applying enhanced metadata processing`,
+          progress_message: `Legacy chunking complete (${legacyChunks.length} chunks), applying enhanced metadata processing`
         })
         .eq('document_id', documentId);
 
       // Step 3: Enhanced processing with metadata chunks and actors extraction
-      console.log(
-        `🔄 Starting enhanced processing with metadata chunks and actors extraction`
-      );
+      console.log(`🔄 Starting enhanced processing with metadata chunks and actors extraction`);
 
       await this.supabaseAdmin
         .from('processing_jobs')
         .update({
           progress: 0.4,
-          progress_message: `Generating enhanced chunks and extracting actors (${legacyChunks.length} content chunks)`,
+          progress_message: `Generating enhanced chunks and extracting actors (${legacyChunks.length} content chunks)`
         })
         .eq('document_id', documentId);
 
       // Extract actors information from metadata (include frontmatter for better extraction)
-      const actors = this.extractActors(
-        extractedMetadata,
-        request,
-        frontmatterMetadata
-      );
+      const actors = this.extractActors(extractedMetadata, request, frontmatterMetadata);
 
       // Generate metadata chunk for SQL tier fast lookups
-      const metadataChunk = this.generateMetadataChunk(
-        extractedMetadata,
-        request,
-        actors
-      );
+      const metadataChunk = this.generateMetadataChunk(extractedMetadata, request, actors);
 
       // Prepare all chunks (content + metadata)
       const allChunks = [...legacyChunks];
@@ -828,23 +742,19 @@ export class UnifiedIngestionService {
       }
 
       // Generate embeddings for all chunks
-      const embeddings = await embeddingService.generateEmbeddings(
-        allChunks.map(c => c.content)
-      );
+      const embeddings = await embeddingService.generateEmbeddings(allChunks.map(c => c.content));
 
       const chunksToInsert = allChunks.map((chunk, index) => ({
         document_id: documentId,
         content: chunk.content,
-        content_hash:
-          chunk.content_hash ||
-          createHash('md5').update(chunk.content).digest('hex'),
+        content_hash: chunk.content_hash || createHash('md5').update(chunk.content).digest('hex'),
         token_count: chunk.token_count || Math.floor(chunk.content.length / 4),
         chunk_index: chunk.position || index,
         section_title: chunk.metadata?.section_title || null,
         embedding: JSON.stringify(embeddings[index]),
         metadata: chunk.metadata || null,
         tsvector_content: null,
-        chunk_type: chunk.chunk_type || 'content',
+        chunk_type: chunk.chunk_type || 'content'
       }));
 
       const { error: chunksError } = await this.supabaseAdmin
@@ -855,25 +765,22 @@ export class UnifiedIngestionService {
         throw new Error(`Failed to save chunks: ${chunksError.message}`);
       }
 
-      console.log(
-        `✅ Enhanced processing completed: ${legacyChunks.length} content chunks + ${metadataChunk ? 1 : 0} metadata chunk, actors extracted`
-      );
+      console.log(`✅ Enhanced processing completed: ${legacyChunks.length} content chunks + ${metadataChunk ? 1 : 0} metadata chunk, actors extracted`);
 
       await this.supabaseAdmin
         .from('processing_jobs')
         .update({
           progress: 0.7,
-          progress_message: 'Embeddings generated, starting entity extraction',
+          progress_message: 'Embeddings generated, starting entity extraction'
         })
         .eq('document_id', documentId);
 
       // Step 5: Extract entities and relationships for knowledge graph
       await this.supabaseAdmin
         .from('processing_jobs')
-        .update({
+        .update({ 
           progress: 0.7,
-          progress_message:
-            'Extracting entities and relationships for knowledge graph',
+          progress_message: 'Extracting entities and relationships for knowledge graph'
         })
         .eq('document_id', documentId);
 
@@ -881,33 +788,22 @@ export class UnifiedIngestionService {
         // Extract entities and relationships using unified processor
         const { processDocumentEntities } = await import('./entity-extraction');
         await processDocumentEntities(documentId);
-        console.log(
-          `✅ Unified entity extraction completed for document: ${request.title}`
-        );
+        console.log(`✅ Unified entity extraction completed for document: ${request.title}`);
       } catch (error) {
-        console.warn(
-          `Unified entity extraction failed for document ${request.title}:`,
-          error
-        );
+        console.warn(`Unified entity extraction failed for document ${request.title}:`, error);
         // Don't fail the entire ingestion for entity extraction errors
       }
 
       await this.supabaseAdmin
         .from('processing_jobs')
-        .update({
+        .update({ 
           progress: 0.95,
-          progress_message:
-            'Knowledge graph updated, finalizing document metadata',
+          progress_message: 'Knowledge graph updated, finalizing document metadata'
         })
         .eq('document_id', documentId);
 
       // Step 6: Update document with extracted metadata and actors
-      const documentUpdate = await this.buildDocumentUpdate(
-        extractedMetadata,
-        request,
-        actors,
-        frontmatterMetadata
-      );
+      const documentUpdate = await this.buildDocumentUpdate(extractedMetadata, request, actors, frontmatterMetadata);
       await this.supabaseAdmin
         .from('documents')
         .update(documentUpdate)
@@ -919,7 +815,7 @@ export class UnifiedIngestionService {
         embeddingsGenerated: legacyChunks.length,
         enhancedProcessing: false,
         simpleProcessing: true,
-        metadata: extractedMetadata,
+        metadata: extractedMetadata
       };
 
       await this.supabaseAdmin
@@ -928,26 +824,23 @@ export class UnifiedIngestionService {
           status: 'completed',
           completed_at: new Date().toISOString(),
           progress: 1.0,
-          progress_message:
-            'Document ingestion completed successfully - ready for search and chat',
-          results: finalResults,
+          progress_message: 'Document ingestion completed successfully - ready for search and chat',
+          results: finalResults
         })
         .eq('document_id', documentId);
 
-      console.log(
-        `✅ Document ${documentId} processed successfully with simple processing`
-      );
+      console.log(`✅ Document ${documentId} processed successfully with simple processing`);
+
     } catch (error) {
       console.error(`❌ Document processing failed for ${documentId}:`, error);
-
+      
       // Update job with error
       await this.supabaseAdmin
         .from('processing_jobs')
-        .update({
+        .update({ 
           status: 'failed',
           completed_at: new Date().toISOString(),
-          error_message:
-            error instanceof Error ? error.message : 'Unknown error',
+          error_message: error instanceof Error ? error.message : 'Unknown error'
         })
         .eq('document_id', documentId);
 
@@ -956,8 +849,7 @@ export class UnifiedIngestionService {
         .from('documents')
         .update({
           processing_status: 'failed',
-          error_message:
-            error instanceof Error ? error.message : 'Processing failed',
+          error_message: error instanceof Error ? error.message : 'Processing failed'
         })
         .eq('id', documentId);
     }
@@ -974,11 +866,9 @@ export class UnifiedIngestionService {
   ): Promise<void> {
     try {
       const { progressTracker } = context;
-
-      console.log(
-        `Starting background batch processing for batch ${batchId} with ${request.documents.length} documents`
-      );
-
+      
+      console.log(`Starting background batch processing for batch ${batchId} with ${request.documents.length} documents`);
+      
       // Update batch job status to processing
       await this.supabaseAdmin
         .from('processing_jobs')
@@ -986,23 +876,20 @@ export class UnifiedIngestionService {
           status: 'processing',
           started_at: new Date().toISOString(),
           progress: 0.1,
-          progress_message: `Starting batch processing for ${request.documents.length} documents`,
+          progress_message: `Starting batch processing for ${request.documents.length} documents`
         })
         .eq('id', batchJobId);
 
       // Determine if we need sequential processing (for URL extractions)
-      const hasUrlDocuments = request.documents.some(
-        doc =>
-          doc.metadata?.sourceUrl ||
-          doc.metadata?.patentUrl ||
-          doc.content?.includes('http') ||
-          doc.metadata?.doi
+      const hasUrlDocuments = request.documents.some(doc =>
+        doc.metadata?.sourceUrl ||
+        doc.metadata?.patentUrl ||
+        doc.content?.includes('http') ||
+        doc.metadata?.doi
       );
 
       if (hasUrlDocuments) {
-        console.log(
-          `📋 Detected URL documents, processing sequentially to avoid rate limits and 403 errors`
-        );
+        console.log(`📋 Detected URL documents, processing sequentially to avoid rate limits and 403 errors`);
 
         // Process sequentially for URL-based documents
         let totalProcessedCount = 0;
@@ -1012,8 +899,7 @@ export class UnifiedIngestionService {
             await this.processBatchDocument(doc, context, batchId);
             totalProcessedCount++;
 
-            const progressPercent =
-              totalProcessedCount / request.documents.length;
+            const progressPercent = totalProcessedCount / request.documents.length;
 
             // Update batch progress in database for SSE to pick up
             await this.supabaseAdmin
@@ -1021,7 +907,7 @@ export class UnifiedIngestionService {
               .update({
                 progress: progressPercent * 0.9, // Keep some room for final completion
                 progress_message: `Processed ${totalProcessedCount}/${request.documents.length} documents (sequential)`,
-                updated_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
               })
               .eq('id', batchJobId);
 
@@ -1030,26 +916,20 @@ export class UnifiedIngestionService {
               await progressTracker.updateProgress(progressPercent);
             }
 
-            console.log(
-              `📊 Sequential progress: ${totalProcessedCount}/${request.documents.length} documents processed (${Math.round(progressPercent * 100)}%)`
-            );
+            console.log(`📊 Sequential progress: ${totalProcessedCount}/${request.documents.length} documents processed (${Math.round(progressPercent * 100)}%)`);
 
             // Small delay between sequential requests to be respectful to external APIs
             if (totalProcessedCount < request.documents.length) {
               await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
             }
+
           } catch (error) {
-            console.error(
-              `❌ Failed to process document "${doc.title}" in sequential batch:`,
-              error
-            );
+            console.error(`❌ Failed to process document "${doc.title}" in sequential batch:`, error);
             totalProcessedCount++; // Still count as processed to avoid infinite loops
           }
         }
       } else {
-        console.log(
-          `📋 No URL documents detected, processing with concurrency limit of 3`
-        );
+        console.log(`📋 No URL documents detected, processing with concurrency limit of 3`);
 
         // Process documents concurrently but with some limit to avoid overwhelming external APIs
         const concurrencyLimit = 3;
@@ -1067,8 +947,7 @@ export class UnifiedIngestionService {
           );
 
           totalProcessedCount += batch.length;
-          const progressPercent =
-            totalProcessedCount / request.documents.length;
+          const progressPercent = totalProcessedCount / request.documents.length;
 
           // Update batch progress in database for SSE to pick up
           await this.supabaseAdmin
@@ -1076,7 +955,7 @@ export class UnifiedIngestionService {
             .update({
               progress: progressPercent * 0.9, // Keep some room for final completion
               progress_message: `Processed ${totalProcessedCount}/${request.documents.length} documents (concurrent)`,
-              updated_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
             })
             .eq('id', batchJobId);
 
@@ -1085,9 +964,7 @@ export class UnifiedIngestionService {
             await progressTracker.updateProgress(progressPercent);
           }
 
-          console.log(
-            `📊 Concurrent progress: ${totalProcessedCount}/${request.documents.length} documents processed (${Math.round(progressPercent * 100)}%)`
-          );
+          console.log(`📊 Concurrent progress: ${totalProcessedCount}/${request.documents.length} documents processed (${Math.round(progressPercent * 100)}%)`);
         }
       }
 
@@ -1102,19 +979,18 @@ export class UnifiedIngestionService {
           results: {
             totalDocuments: request.documents.length,
             completedDocuments: request.documents.length,
-            failedDocuments: 0, // TODO: Track failed documents properly
-          },
+            failedDocuments: 0 // TODO: Track failed documents properly
+          }
         })
         .eq('id', batchJobId);
-
-      console.log(
-        `✅ Batch processing completed for batch ${batchId}: ${request.documents.length} documents processed`
-      );
+      
+      console.log(`✅ Batch processing completed for batch ${batchId}: ${request.documents.length} documents processed`);
 
       // Send final batch completion notification
       if (progressTracker) {
         await progressTracker.notifyBatchProgress();
       }
+      
     } catch (error) {
       console.error(`❌ Batch processing failed for batch ${batchId}:`, error);
       throw error;
@@ -1142,7 +1018,7 @@ export class UnifiedIngestionService {
         arxivId: doc.metadata?.arxivId || null,
         userId: context.user.id,
         processingStatus: 'pending',
-        personaId: request.persona?.persona_id || null,
+        personaId: request.persona?.persona_id || null
       });
 
       // Create processing job
@@ -1154,8 +1030,8 @@ export class UnifiedIngestionService {
         metadata: {
           ...doc.metadata,
           batchId,
-          fileName: doc.metadata?.fileName,
-        },
+          fileName: doc.metadata?.fileName
+        }
       });
 
       // Update job with document ID
@@ -1167,30 +1043,22 @@ export class UnifiedIngestionService {
       // Convert BatchDocumentRequest to SingleIngestionRequest
       // ENHANCED: Add file content reading logic (same as single upload)
       let processedContent = doc.content;
-      const fileBuffer = doc.fileContent
-        ? Buffer.from(doc.fileContent, 'base64')
-        : undefined;
+      const fileBuffer = doc.fileContent ? Buffer.from(doc.fileContent, 'base64') : undefined;
 
       // Read text files if we have a buffer and filename (consistent with single upload)
       if (fileBuffer && doc.metadata?.fileName) {
         const fileName = doc.metadata.fileName;
-        const isTextFile =
-          fileName.endsWith('.md') ||
-          fileName.endsWith('.txt') ||
-          fileName.endsWith('.markdown') ||
-          fileName.endsWith('.json');
+        const isTextFile = fileName.endsWith('.md') ||
+                          fileName.endsWith('.txt') ||
+                          fileName.endsWith('.markdown') ||
+                          fileName.endsWith('.json');
 
         if (isTextFile && !processedContent) {
           try {
             processedContent = fileBuffer.toString('utf-8');
-            console.log(
-              `📄 Batch: Read text file content: ${fileName} (${processedContent.length} characters)`
-            );
+            console.log(`📄 Batch: Read text file content: ${fileName} (${processedContent.length} characters)`);
           } catch (error) {
-            console.warn(
-              `⚠️ Batch: Failed to read text file ${fileName}:`,
-              error
-            );
+            console.warn(`⚠️ Batch: Failed to read text file ${fileName}:`, error);
           }
         }
       }
@@ -1204,22 +1072,18 @@ export class UnifiedIngestionService {
         docType: doc.detectedType as DocumentType,
         url: doc.metadata?.sourceUrl || doc.metadata?.url || null, // FIXED: Check both sourceUrl and url
         patentUrl: doc.metadata?.patentUrl,
-        doi:
-          doc.metadata?.doi ||
-          (doc.metadata?.isArxiv ? doc.metadata?.arxivId : undefined),
+        doi: doc.metadata?.doi || (doc.metadata?.isArxiv ? doc.metadata?.arxivId : undefined),
         metadata: doc.metadata,
-        userId: context.user.id,
+        userId: context.user.id
       };
 
       // Process the document
       await this.processDocumentBackground(document.id, singleRequest, context);
-
+      
       console.log(`✅ Batch document processed: ${doc.title}`);
+      
     } catch (error) {
-      console.error(
-        `❌ Failed to process batch document "${doc.title}":`,
-        error
-      );
+      console.error(`❌ Failed to process batch document "${doc.title}":`, error);
       throw error;
     }
   }
@@ -1237,192 +1101,119 @@ export class UnifiedIngestionService {
     // Priority 1: Extract actors from frontmatter (highest priority)
     if (frontmatterMetadata) {
       // Handle authors from frontmatter (both 'authors' and 'author' fields)
-      if (
-        frontmatterMetadata.authors &&
-        Array.isArray(frontmatterMetadata.authors)
-      ) {
-        actors.authors = frontmatterMetadata.authors
-          .map((author: any, index: number) => ({
-            name: typeof author === 'string' ? author : author.name,
-            role: 'author',
-            primary: index === 0,
-            type: 'person',
-            affiliation: typeof author === 'object' ? author.affiliation : null,
-          }))
-          .filter(author => author.name);
-        console.log(
-          `✅ Extracted ${actors.authors.length} authors from frontmatter`
-        );
-      } else if (
-        frontmatterMetadata.author &&
-        Array.isArray(frontmatterMetadata.author)
-      ) {
-        actors.authors = frontmatterMetadata.author
-          .map((author: any, index: number) => ({
-            name: typeof author === 'string' ? author : author.name,
-            role: 'author',
-            primary: index === 0,
-            type: 'person',
-            affiliation: typeof author === 'object' ? author.affiliation : null,
-          }))
-          .filter(author => author.name);
-        console.log(
-          `✅ Extracted ${actors.authors.length} authors from frontmatter (singular field)`
-        );
+      if (frontmatterMetadata.authors && Array.isArray(frontmatterMetadata.authors)) {
+        actors.authors = frontmatterMetadata.authors.map((author: any, index: number) => ({
+          name: typeof author === 'string' ? author : author.name,
+          role: 'author',
+          primary: index === 0,
+          type: 'person',
+          affiliation: typeof author === 'object' ? author.affiliation : null
+        })).filter(author => author.name);
+        console.log(`✅ Extracted ${actors.authors.length} authors from frontmatter`);
+      } else if (frontmatterMetadata.author && Array.isArray(frontmatterMetadata.author)) {
+        actors.authors = frontmatterMetadata.author.map((author: any, index: number) => ({
+          name: typeof author === 'string' ? author : author.name,
+          role: 'author',
+          primary: index === 0,
+          type: 'person',
+          affiliation: typeof author === 'object' ? author.affiliation : null
+        })).filter(author => author.name);
+        console.log(`✅ Extracted ${actors.authors.length} authors from frontmatter (singular field)`);
       }
 
       // Handle inventors from frontmatter
-      if (
-        frontmatterMetadata.inventor &&
-        Array.isArray(frontmatterMetadata.inventor)
-      ) {
-        actors.inventors = frontmatterMetadata.inventor
-          .map((inventor: any, index: number) => ({
-            name: typeof inventor === 'string' ? inventor : inventor.name,
-            role: 'inventor',
-            primary: index === 0,
-            type: 'person',
-            affiliation:
-              typeof inventor === 'object' ? inventor.affiliation : null,
-          }))
-          .filter(inventor => inventor.name);
+      if (frontmatterMetadata.inventor && Array.isArray(frontmatterMetadata.inventor)) {
+        actors.inventors = frontmatterMetadata.inventor.map((inventor: any, index: number) => ({
+          name: typeof inventor === 'string' ? inventor : inventor.name,
+          role: 'inventor',
+          primary: index === 0,
+          type: 'person',
+          affiliation: typeof inventor === 'object' ? inventor.affiliation : null
+        })).filter(inventor => inventor.name);
       }
 
       // Handle assignees from frontmatter
-      if (
-        frontmatterMetadata.assignee &&
-        Array.isArray(frontmatterMetadata.assignee)
-      ) {
-        actors.assignees = frontmatterMetadata.assignee
-          .map((assignee: any) => ({
-            name: typeof assignee === 'string' ? assignee : assignee.name,
-            role: 'assignee',
-            type: 'organization',
-          }))
-          .filter(assignee => assignee.name);
+      if (frontmatterMetadata.assignee && Array.isArray(frontmatterMetadata.assignee)) {
+        actors.assignees = frontmatterMetadata.assignee.map((assignee: any) => ({
+          name: typeof assignee === 'string' ? assignee : assignee.name,
+          role: 'assignee',
+          type: 'organization'
+        })).filter(assignee => assignee.name);
       }
 
       // Handle journalists from frontmatter
-      if (
-        frontmatterMetadata.journalist &&
-        Array.isArray(frontmatterMetadata.journalist)
-      ) {
-        actors.journalists = frontmatterMetadata.journalist
-          .map((journalist: any, index: number) => ({
-            name: typeof journalist === 'string' ? journalist : journalist.name,
-            role: 'journalist',
-            primary: index === 0,
-            type: 'person',
-            affiliation:
-              typeof journalist === 'object' ? journalist.affiliation : null,
-          }))
-          .filter(journalist => journalist.name);
+      if (frontmatterMetadata.journalist && Array.isArray(frontmatterMetadata.journalist)) {
+        actors.journalists = frontmatterMetadata.journalist.map((journalist: any, index: number) => ({
+          name: typeof journalist === 'string' ? journalist : journalist.name,
+          role: 'journalist',
+          primary: index === 0,
+          type: 'person',
+          affiliation: typeof journalist === 'object' ? journalist.affiliation : null
+        })).filter(journalist => journalist.name);
       }
 
       // Handle companies/OEMs from frontmatter
       if (frontmatterMetadata.oem && Array.isArray(frontmatterMetadata.oem)) {
-        actors.companies = frontmatterMetadata.oem
-          .map((company: any) => ({
-            name: typeof company === 'string' ? company : company.name,
-            role: 'company',
-            type: 'organization',
-          }))
-          .filter(company => company.name);
+        actors.companies = frontmatterMetadata.oem.map((company: any) => ({
+          name: typeof company === 'string' ? company : company.name,
+          role: 'company',
+          type: 'organization'
+        })).filter(company => company.name);
       }
     }
 
     // Priority 2: Extract from extracted metadata (fallback if not in frontmatter)
     // Extract inventors from patent metadata (only if not already set from frontmatter)
-    if (
-      !actors.inventors &&
-      extractedMetadata.inventors &&
-      Array.isArray(extractedMetadata.inventors)
-    ) {
-      actors.inventors = extractedMetadata.inventors
-        .map((inventor: any, index: number) => ({
-          name:
-            typeof inventor === 'string'
-              ? inventor
-              : inventor.name || inventor.fullName,
-          role: 'inventor',
-          primary: index === 0, // First inventor is typically primary
-          type: 'person',
-        }))
-        .filter(inv => inv.name);
+    if (!actors.inventors && extractedMetadata.inventors && Array.isArray(extractedMetadata.inventors)) {
+      actors.inventors = extractedMetadata.inventors.map((inventor: any, index: number) => ({
+        name: typeof inventor === 'string' ? inventor : inventor.name || inventor.fullName,
+        role: 'inventor',
+        primary: index === 0, // First inventor is typically primary
+        type: 'person'
+      })).filter(inv => inv.name);
     }
 
     // Extract assignees from patent metadata (only if not already set from frontmatter)
-    if (
-      !actors.assignees &&
-      extractedMetadata.assignees &&
-      Array.isArray(extractedMetadata.assignees)
-    ) {
-      actors.assignees = extractedMetadata.assignees
-        .map((assignee: any) => ({
-          name: typeof assignee === 'string' ? assignee : assignee.name,
-          role: 'assignee',
-          type: 'organization',
-        }))
-        .filter(assignee => assignee.name);
+    if (!actors.assignees && extractedMetadata.assignees && Array.isArray(extractedMetadata.assignees)) {
+      actors.assignees = extractedMetadata.assignees.map((assignee: any) => ({
+        name: typeof assignee === 'string' ? assignee : assignee.name,
+        role: 'assignee',
+        type: 'organization'
+      })).filter(assignee => assignee.name);
     } else if (!actors.assignees && extractedMetadata.assignee) {
-      actors.assignees = [
-        {
-          name: extractedMetadata.assignee,
-          role: 'assignee',
-          type: 'organization',
-        },
-      ];
+      actors.assignees = [{
+        name: extractedMetadata.assignee,
+        role: 'assignee',
+        type: 'organization'
+      }];
     }
 
     // Extract authors from academic papers (only if not already set from frontmatter)
-    if (
-      !actors.authors &&
-      extractedMetadata.authors &&
-      Array.isArray(extractedMetadata.authors)
-    ) {
-      actors.authors = extractedMetadata.authors
-        .map((author: any, index: number) => ({
-          name:
-            typeof author === 'string'
-              ? author
-              : author.fullName ||
-                author.name ||
-                `${author.firstName || ''} ${author.surname || ''}`.trim(),
-          role: 'author',
-          primary: index === 0,
-          type: 'person',
-          affiliation: author.affiliation || null,
-        }))
-        .filter(author => author.name);
-    } else if (
-      !actors.authors &&
-      extractedMetadata.authorsAffiliations &&
-      Array.isArray(extractedMetadata.authorsAffiliations)
-    ) {
-      actors.authors = extractedMetadata.authorsAffiliations
-        .map((author: any, index: number) => ({
-          name: author.name,
-          role: 'author',
-          primary: index === 0,
-          type: 'person',
-          affiliation: author.affiliation || null,
-        }))
-        .filter(author => author.name);
+    if (!actors.authors && extractedMetadata.authors && Array.isArray(extractedMetadata.authors)) {
+      actors.authors = extractedMetadata.authors.map((author: any, index: number) => ({
+        name: typeof author === 'string' ? author : author.fullName || author.name || `${author.firstName || ''} ${author.surname || ''}`.trim(),
+        role: 'author',
+        primary: index === 0,
+        type: 'person',
+        affiliation: author.affiliation || null
+      })).filter(author => author.name);
+    } else if (!actors.authors && extractedMetadata.authorsAffiliations && Array.isArray(extractedMetadata.authorsAffiliations)) {
+      actors.authors = extractedMetadata.authorsAffiliations.map((author: any, index: number) => ({
+        name: author.name,
+        role: 'author',
+        primary: index === 0,
+        type: 'person',
+        affiliation: author.affiliation || null
+      })).filter(author => author.name);
     }
 
     // Extract editors, contributors, etc. for other document types (only if not already set from frontmatter)
-    if (
-      !actors.editors &&
-      extractedMetadata.editors &&
-      Array.isArray(extractedMetadata.editors)
-    ) {
-      actors.editors = extractedMetadata.editors
-        .map((editor: any) => ({
-          name: typeof editor === 'string' ? editor : editor.name,
-          role: 'editor',
-          type: 'person',
-        }))
-        .filter(editor => editor.name);
+    if (!actors.editors && extractedMetadata.editors && Array.isArray(extractedMetadata.editors)) {
+      actors.editors = extractedMetadata.editors.map((editor: any) => ({
+        name: typeof editor === 'string' ? editor : editor.name,
+        role: 'editor',
+        type: 'person'
+      })).filter(editor => editor.name);
     }
 
     console.log(`🎭 Extracted actors:`, {
@@ -1432,7 +1223,7 @@ export class UnifiedIngestionService {
       editors: actors.editors?.length || 0,
       journalists: actors.journalists?.length || 0,
       companies: actors.companies?.length || 0,
-      fromFrontmatter: !!frontmatterMetadata,
+      fromFrontmatter: !!frontmatterMetadata
     });
 
     return actors;
@@ -1446,17 +1237,14 @@ export class UnifiedIngestionService {
     request: SingleIngestionRequest,
     actors: Record<string, any>
   ): any | null {
-    const title =
-      extractedMetadata.title || request.title || 'Untitled Document';
+    const title = extractedMetadata.title || request.title || 'Untitled Document';
 
     // Build metadata content for searchable chunk
     const metadataLines = [`**Document**: ${title}`];
 
     // Add document type and identifiers
     if (extractedMetadata.patentNumber) {
-      metadataLines.push(
-        `**Patent Number**: ${extractedMetadata.patentNumber}`
-      );
+      metadataLines.push(`**Patent Number**: ${extractedMetadata.patentNumber}`);
     }
     if (extractedMetadata.doi) {
       metadataLines.push(`**DOI**: ${extractedMetadata.doi}`);
@@ -1467,39 +1255,27 @@ export class UnifiedIngestionService {
 
     // Add actors information
     if (actors.inventors?.length > 0) {
-      const inventorNames = actors.inventors
-        .map((inv: any) => inv.name)
-        .join(', ');
+      const inventorNames = actors.inventors.map((inv: any) => inv.name).join(', ');
       metadataLines.push(`**Inventors**: ${inventorNames}`);
     }
     if (actors.assignees?.length > 0) {
-      const assigneeNames = actors.assignees
-        .map((assignee: any) => assignee.name)
-        .join(', ');
+      const assigneeNames = actors.assignees.map((assignee: any) => assignee.name).join(', ');
       metadataLines.push(`**Assignees**: ${assigneeNames}`);
     }
     if (actors.authors?.length > 0) {
-      const authorNames = actors.authors
-        .map((author: any) => author.name)
-        .join(', ');
+      const authorNames = actors.authors.map((author: any) => author.name).join(', ');
       metadataLines.push(`**Authors**: ${authorNames}`);
     }
 
     // Add dates
     if (extractedMetadata.filingDate || extractedMetadata.filed_date) {
-      metadataLines.push(
-        `**Filed**: ${extractedMetadata.filingDate || extractedMetadata.filed_date}`
-      );
+      metadataLines.push(`**Filed**: ${extractedMetadata.filingDate || extractedMetadata.filed_date}`);
     }
     if (extractedMetadata.grantDate || extractedMetadata.granted_date) {
-      metadataLines.push(
-        `**Granted**: ${extractedMetadata.grantDate || extractedMetadata.granted_date}`
-      );
+      metadataLines.push(`**Granted**: ${extractedMetadata.grantDate || extractedMetadata.granted_date}`);
     }
     if (extractedMetadata.publishedDate || extractedMetadata.published_date) {
-      metadataLines.push(
-        `**Published**: ${extractedMetadata.publishedDate || extractedMetadata.published_date}`
-      );
+      metadataLines.push(`**Published**: ${extractedMetadata.publishedDate || extractedMetadata.published_date}`);
     }
 
     // Add abstract if available
@@ -1520,13 +1296,10 @@ export class UnifiedIngestionService {
       chunk_type: 'metadata',
       metadata: {
         type: 'metadata_chunk',
-        actors_count: Object.values(actors).reduce(
-          (total, actorList) =>
-            total + (Array.isArray(actorList) ? actorList.length : 0),
-          0
-        ),
-        created_at: new Date().toISOString(),
-      },
+        actors_count: Object.values(actors).reduce((total, actorList) =>
+          total + (Array.isArray(actorList) ? actorList.length : 0), 0),
+        created_at: new Date().toISOString()
+      }
     };
   }
 
@@ -1542,30 +1315,20 @@ export class UnifiedIngestionService {
   ): Promise<Record<string, any>> {
     const documentUpdate: Record<string, any> = {
       processing_status: 'completed',
-      processed_at: new Date().toISOString(),
+      processed_at: new Date().toISOString()
     };
 
     // Update document title - prioritize frontmatter over extraction
-    if (
-      frontmatterMetadata?.title &&
-      typeof frontmatterMetadata.title === 'string' &&
-      frontmatterMetadata.title.trim().length > 0
-    ) {
+    if (frontmatterMetadata?.title && typeof frontmatterMetadata.title === 'string' && frontmatterMetadata.title.trim().length > 0) {
       documentUpdate.title = frontmatterMetadata.title.trim();
-      console.log(
-        `✅ Using document title from frontmatter: "${frontmatterMetadata.title}"`
-      );
-    } else if (
-      extractedMetadata.title &&
-      typeof extractedMetadata.title === 'string' &&
-      extractedMetadata.title !== 'Untitled' &&
-      extractedMetadata.title !== 'PDF-1.5' &&
-      extractedMetadata.title.trim().length > 0
-    ) {
+      console.log(`✅ Using document title from frontmatter: "${frontmatterMetadata.title}"`);
+    } else if (extractedMetadata.title &&
+        typeof extractedMetadata.title === 'string' &&
+        extractedMetadata.title !== 'Untitled' &&
+        extractedMetadata.title !== 'PDF-1.5' &&
+        extractedMetadata.title.trim().length > 0) {
       documentUpdate.title = extractedMetadata.title.trim();
-      console.log(
-        `✅ Using document title from extraction: "${extractedMetadata.title}"`
-      );
+      console.log(`✅ Using document title from extraction: "${extractedMetadata.title}"`);
     }
 
     // Build identifiers JSONB object - prioritize frontmatter
@@ -1573,47 +1336,22 @@ export class UnifiedIngestionService {
 
     // First, extract identifiers from frontmatter
     if (frontmatterMetadata) {
-      if (
-        frontmatterMetadata.doi &&
-        typeof frontmatterMetadata.doi === 'string'
-      ) {
+      if (frontmatterMetadata.doi && typeof frontmatterMetadata.doi === 'string') {
         identifiers.doi = frontmatterMetadata.doi;
       }
-      if (
-        frontmatterMetadata.arxiv_id &&
-        typeof frontmatterMetadata.arxiv_id === 'string'
-      ) {
+      if (frontmatterMetadata.arxiv_id && typeof frontmatterMetadata.arxiv_id === 'string') {
         identifiers.arxiv_id = frontmatterMetadata.arxiv_id;
       }
-      if (
-        frontmatterMetadata.patent_no &&
-        typeof frontmatterMetadata.patent_no === 'string'
-      ) {
+      if (frontmatterMetadata.patent_no && typeof frontmatterMetadata.patent_no === 'string') {
         identifiers.patent_no = frontmatterMetadata.patent_no;
       }
-      // Support patentNo field (common in existing files)
-      if (
-        frontmatterMetadata.patentNo &&
-        typeof frontmatterMetadata.patentNo === 'string'
-      ) {
-        identifiers.patent_no = frontmatterMetadata.patentNo;
-      }
-      if (
-        frontmatterMetadata.application_no &&
-        typeof frontmatterMetadata.application_no === 'string'
-      ) {
+      if (frontmatterMetadata.application_no && typeof frontmatterMetadata.application_no === 'string') {
         identifiers.application_no = frontmatterMetadata.application_no;
       }
-      if (
-        frontmatterMetadata.publication_no &&
-        typeof frontmatterMetadata.publication_no === 'string'
-      ) {
+      if (frontmatterMetadata.publication_no && typeof frontmatterMetadata.publication_no === 'string') {
         identifiers.publication_no = frontmatterMetadata.publication_no;
       }
-      if (
-        frontmatterMetadata.url &&
-        typeof frontmatterMetadata.url === 'string'
-      ) {
+      if (frontmatterMetadata.url && typeof frontmatterMetadata.url === 'string') {
         identifiers.url = frontmatterMetadata.url;
       }
     }
@@ -1622,28 +1360,16 @@ export class UnifiedIngestionService {
     if (extractedMetadata.doi && typeof extractedMetadata.doi === 'string') {
       identifiers.doi = extractedMetadata.doi;
     }
-    if (
-      extractedMetadata.arxivId &&
-      typeof extractedMetadata.arxivId === 'string'
-    ) {
+    if (extractedMetadata.arxivId && typeof extractedMetadata.arxivId === 'string') {
       identifiers.arxiv_id = extractedMetadata.arxivId;
     }
-    if (
-      extractedMetadata.patentNumber &&
-      typeof extractedMetadata.patentNumber === 'string'
-    ) {
+    if (extractedMetadata.patentNumber && typeof extractedMetadata.patentNumber === 'string') {
       identifiers.patent_no = extractedMetadata.patentNumber;
     }
-    if (
-      extractedMetadata.applicationNumber &&
-      typeof extractedMetadata.applicationNumber === 'string'
-    ) {
+    if (extractedMetadata.applicationNumber && typeof extractedMetadata.applicationNumber === 'string') {
       identifiers.application_no = extractedMetadata.applicationNumber;
     }
-    if (
-      extractedMetadata.publicationNumber &&
-      typeof extractedMetadata.publicationNumber === 'string'
-    ) {
+    if (extractedMetadata.publicationNumber && typeof extractedMetadata.publicationNumber === 'string') {
       identifiers.publication_no = extractedMetadata.publicationNumber;
     }
 
@@ -1653,76 +1379,41 @@ export class UnifiedIngestionService {
     // First, extract dates from frontmatter
     if (frontmatterMetadata) {
       // Handle both published_date and publicationYear formats
-      if (
-        frontmatterMetadata.published_date &&
-        typeof frontmatterMetadata.published_date === 'string'
-      ) {
+      if (frontmatterMetadata.published_date && typeof frontmatterMetadata.published_date === 'string') {
         dates.published = frontmatterMetadata.published_date;
       } else if (frontmatterMetadata.publicationYear) {
-        const year =
-          typeof frontmatterMetadata.publicationYear === 'number'
-            ? frontmatterMetadata.publicationYear
-            : parseInt(frontmatterMetadata.publicationYear as string, 10);
+        const year = typeof frontmatterMetadata.publicationYear === 'number' ?
+          frontmatterMetadata.publicationYear :
+          parseInt(frontmatterMetadata.publicationYear as string, 10);
 
         if (!isNaN(year) && year > 1900 && year < 2100) {
           dates.published = `${year}-01-01`;
           console.log(`✅ Set publication year from frontmatter: ${year}`);
         }
       }
-      if (
-        frontmatterMetadata.filed_date &&
-        typeof frontmatterMetadata.filed_date === 'string'
-      ) {
+      if (frontmatterMetadata.filed_date && typeof frontmatterMetadata.filed_date === 'string') {
         dates.filed = frontmatterMetadata.filed_date;
       }
-      // Support filedDate field (common in existing files)
-      if (
-        frontmatterMetadata.filedDate &&
-        typeof frontmatterMetadata.filedDate === 'string'
-      ) {
-        dates.filed = frontmatterMetadata.filedDate;
-      }
-      if (
-        frontmatterMetadata.granted_date &&
-        typeof frontmatterMetadata.granted_date === 'string'
-      ) {
+      if (frontmatterMetadata.granted_date && typeof frontmatterMetadata.granted_date === 'string') {
         dates.granted = frontmatterMetadata.granted_date;
       }
-      if (
-        frontmatterMetadata.priority_date &&
-        typeof frontmatterMetadata.priority_date === 'string'
-      ) {
+      if (frontmatterMetadata.priority_date && typeof frontmatterMetadata.priority_date === 'string') {
         dates.priority = frontmatterMetadata.priority_date;
       }
-      if (
-        frontmatterMetadata.expires_date &&
-        typeof frontmatterMetadata.expires_date === 'string'
-      ) {
+      if (frontmatterMetadata.expires_date && typeof frontmatterMetadata.expires_date === 'string') {
         dates.expires = frontmatterMetadata.expires_date;
       }
     }
 
     // Fallback to extracted dates if not in frontmatter
-    if (
-      !dates.filed &&
-      (extractedMetadata.filingDate || extractedMetadata.filed_date)
-    ) {
-      dates.filed =
-        extractedMetadata.filingDate || extractedMetadata.filed_date;
+    if (!dates.filed && (extractedMetadata.filingDate || extractedMetadata.filed_date)) {
+      dates.filed = extractedMetadata.filingDate || extractedMetadata.filed_date;
     }
-    if (
-      !dates.granted &&
-      (extractedMetadata.grantDate || extractedMetadata.granted_date)
-    ) {
-      dates.granted =
-        extractedMetadata.grantDate || extractedMetadata.granted_date;
+    if (!dates.granted && (extractedMetadata.grantDate || extractedMetadata.granted_date)) {
+      dates.granted = extractedMetadata.grantDate || extractedMetadata.granted_date;
     }
-    if (
-      !dates.published &&
-      (extractedMetadata.publicationDate || extractedMetadata.published_date)
-    ) {
-      dates.published =
-        extractedMetadata.publicationDate || extractedMetadata.published_date;
+    if (!dates.published && (extractedMetadata.publicationDate || extractedMetadata.published_date)) {
+      dates.published = extractedMetadata.publicationDate || extractedMetadata.published_date;
     }
     if (!dates.priority && extractedMetadata.priorityDate) {
       dates.priority = extractedMetadata.priorityDate;
@@ -1736,19 +1427,15 @@ export class UnifiedIngestionService {
         const expirationDate = new Date(filingDate);
         expirationDate.setFullYear(expirationDate.getFullYear() + 20);
         dates.expires = expirationDate.toISOString().split('T')[0];
-        console.log(
-          '📊 Calculated patent expiration from filing date (20 years):',
-          dates.expires
-        );
+        console.log('📊 Calculated patent expiration from filing date (20 years):', dates.expires);
       }
     }
 
     // For academic papers, add publication year
     if (extractedMetadata.year) {
-      const year =
-        typeof extractedMetadata.year === 'number'
-          ? extractedMetadata.year
-          : parseInt(extractedMetadata.year as string, 10);
+      const year = typeof extractedMetadata.year === 'number' ?
+        extractedMetadata.year :
+        parseInt(extractedMetadata.year as string, 10);
 
       if (!isNaN(year) && year > 1900 && year < 2100) {
         dates.published = `${year}-01-01`;
@@ -1762,40 +1449,21 @@ export class UnifiedIngestionService {
       const frontmatterActors: Record<string, any> = {};
 
       // Map common frontmatter fields to actors
-      if (
-        frontmatterMetadata.inventor &&
-        Array.isArray(frontmatterMetadata.inventor)
-      ) {
+      if (frontmatterMetadata.inventor && Array.isArray(frontmatterMetadata.inventor)) {
         frontmatterActors.inventors = frontmatterMetadata.inventor;
       }
-      if (
-        frontmatterMetadata.assignee &&
-        Array.isArray(frontmatterMetadata.assignee)
-      ) {
+      if (frontmatterMetadata.assignee && Array.isArray(frontmatterMetadata.assignee)) {
         frontmatterActors.assignees = frontmatterMetadata.assignee;
       }
       // Handle both 'author' (singular) and 'authors' (plural) fields
-      if (
-        frontmatterMetadata.authors &&
-        Array.isArray(frontmatterMetadata.authors)
-      ) {
+      if (frontmatterMetadata.authors && Array.isArray(frontmatterMetadata.authors)) {
         frontmatterActors.authors = frontmatterMetadata.authors;
-        console.log(
-          `✅ Extracted ${frontmatterMetadata.authors.length} authors from frontmatter`
-        );
-      } else if (
-        frontmatterMetadata.author &&
-        Array.isArray(frontmatterMetadata.author)
-      ) {
+        console.log(`✅ Extracted ${frontmatterMetadata.authors.length} authors from frontmatter`);
+      } else if (frontmatterMetadata.author && Array.isArray(frontmatterMetadata.author)) {
         frontmatterActors.authors = frontmatterMetadata.author;
-        console.log(
-          `✅ Extracted ${frontmatterMetadata.author.length} authors from frontmatter (singular field)`
-        );
+        console.log(`✅ Extracted ${frontmatterMetadata.author.length} authors from frontmatter (singular field)`);
       }
-      if (
-        frontmatterMetadata.journalist &&
-        Array.isArray(frontmatterMetadata.journalist)
-      ) {
+      if (frontmatterMetadata.journalist && Array.isArray(frontmatterMetadata.journalist)) {
         frontmatterActors.journalists = frontmatterMetadata.journalist;
       }
       if (frontmatterMetadata.oem && Array.isArray(frontmatterMetadata.oem)) {
@@ -1822,9 +1490,7 @@ export class UnifiedIngestionService {
       dates: Object.keys(dates),
       actors: finalActors ? Object.keys(finalActors) : [],
       hasTitle: !!documentUpdate.title,
-      frontmatterFields: frontmatterMetadata
-        ? Object.keys(frontmatterMetadata)
-        : [],
+      frontmatterFields: frontmatterMetadata ? Object.keys(frontmatterMetadata) : []
     });
 
     return documentUpdate;
@@ -1834,11 +1500,7 @@ export class UnifiedIngestionService {
    * Validate batch request
    */
   private validateBatchRequest(request: BatchIngestionRequest): void {
-    if (
-      !request.documents ||
-      !Array.isArray(request.documents) ||
-      request.documents.length === 0
-    ) {
+    if (!request.documents || !Array.isArray(request.documents) || request.documents.length === 0) {
       throw new Error('Documents array is required');
     }
 
@@ -1847,16 +1509,9 @@ export class UnifiedIngestionService {
     }
 
     for (const doc of request.documents) {
-      if (
-        !doc.content &&
-        !doc.fileContent &&
-        !doc.fileKey &&
-        !doc.metadata?.doi &&
-        !doc.metadata?.patentUrl
-      ) {
-        throw new Error(
-          'Each document must have content, file content, file upload, or a URL/DOI'
-        );
+      if (!doc.content && !doc.fileContent && !doc.fileKey && 
+          !doc.metadata?.doi && !doc.metadata?.patentUrl) {
+        throw new Error('Each document must have content, file content, file upload, or a URL/DOI');
       }
     }
   }
@@ -1872,9 +1527,7 @@ export class UnifiedIngestionService {
   /**
    * Validate environment setup for required API keys
    */
-  private validateEnvironment(
-    request: SingleIngestionRequest | BatchIngestionRequest
-  ): {
+  private validateEnvironment(request: SingleIngestionRequest | BatchIngestionRequest): {
     isValid: boolean;
     error?: string;
   } {
@@ -1899,33 +1552,28 @@ export class UnifiedIngestionService {
     if (missingKeys.length > 0) {
       return {
         isValid: false,
-        error: `Missing required environment variables: ${missingKeys.join(', ')}. Please set these in your .env.local file.`,
+        error: `Missing required environment variables: ${missingKeys.join(', ')}. Please set these in your .env.local file.`
       };
     }
 
-    console.log(
-      `✅ Environment validation passed. Required keys: ${requiredKeys.join(', ')}`
-    );
+    console.log(`✅ Environment validation passed. Required keys: ${requiredKeys.join(', ')}`);
     return { isValid: true };
   }
 
   /**
    * Check if request requires EXA API
    */
-  private requiresExaApi(
-    request: SingleIngestionRequest | BatchIngestionRequest
-  ): boolean {
+  private requiresExaApi(request: SingleIngestionRequest | BatchIngestionRequest): boolean {
     if (request.type === 'single') {
       // Check for patent URLs, DOIs, or general URLs
       return !!(request.patentUrl || request.doi || request.url);
     } else {
       // Check batch documents
-      return request.documents.some(
-        doc =>
-          doc.metadata?.patentUrl ||
-          doc.metadata?.doi ||
-          doc.content?.includes('http') ||
-          (doc.metadata?.fileName?.endsWith('.md') && doc.content) // Markdown files might contain URL lists
+      return request.documents.some(doc => 
+        doc.metadata?.patentUrl || 
+        doc.metadata?.doi || 
+        doc.content?.includes('http') ||
+        (doc.metadata?.fileName?.endsWith('.md') && doc.content) // Markdown files might contain URL lists
       );
     }
   }
@@ -1947,22 +1595,21 @@ export class UnifiedIngestionService {
     if (urlRegex.test(content.trim())) {
       return {
         isValid: false,
-        reason: `Content extraction failed: only URL returned (${content.trim()})`,
+        reason: `Content extraction failed: only URL returned (${content.trim()})`
       };
     }
 
     // Check for minimum content length (more lenient for text files)
-    const isTextFile =
-      request.fileName?.endsWith('.md') ||
-      request.fileName?.endsWith('.txt') ||
-      request.content; // Direct content input
+    const isTextFile = request.fileName?.endsWith('.md') ||
+                      request.fileName?.endsWith('.txt') ||
+                      request.content; // Direct content input
 
     const minLength = isTextFile ? 100 : 500; // Text files can be shorter
 
     if (content.length < minLength) {
       return {
         isValid: false,
-        reason: `Content too short: ${content.length} chars (minimum ${minLength} required)`,
+        reason: `Content too short: ${content.length} chars (minimum ${minLength} required)`
       };
     }
 
@@ -1980,7 +1627,7 @@ export class UnifiedIngestionService {
       if (pattern.test(content)) {
         return {
           isValid: false,
-          reason: `Content extraction error detected: ${content.substring(0, 100)}...`,
+          reason: `Content extraction error detected: ${content.substring(0, 100)}...`
         };
       }
     }
@@ -2002,10 +1649,9 @@ export class UnifiedIngestionService {
           const response = await fetch(url, {
             headers: {
               'User-Agent': 'Mozilla/5.0 (compatible; research-bot/1.0)',
-              Accept:
-                'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
             },
-            timeout: 10000, // 10 second timeout
+            timeout: 10000 // 10 second timeout
           } as any);
 
           if (response.ok) {
@@ -2020,9 +1666,7 @@ export class UnifiedIngestionService {
               .trim();
 
             if (cleanText.length > 1000) {
-              console.log(
-                `✅ Fallback web scraping successful: ${cleanText.length} chars`
-              );
+              console.log(`✅ Fallback web scraping successful: ${cleanText.length} chars`);
               return cleanText;
             }
           }
@@ -2034,8 +1678,7 @@ export class UnifiedIngestionService {
       // Strategy 2: For DOI links, try different API approaches
       if (url.includes('doi.org') || url.includes('dx.doi.org')) {
         try {
-          const doiMatch =
-            url.match(/doi\.org\/(.+)/) || url.match(/dx\.doi\.org\/(.+)/);
+          const doiMatch = url.match(/doi\.org\/(.+)/) || url.match(/dx\.doi\.org\/(.+)/);
           if (doiMatch) {
             const { CrossrefClient } = await import('./document-processors');
             const crossref = new CrossrefClient();
@@ -2053,13 +1696,11 @@ export class UnifiedIngestionService {
 
       return null;
     } catch (error) {
-      console.error(
-        `❌ All fallback extraction strategies failed for ${url}:`,
-        error
-      );
+      console.error(`❌ All fallback extraction strategies failed for ${url}:`, error);
       return null;
     }
   }
+
 
   /**
    * Parse frontmatter from markdown content
@@ -2076,7 +1717,7 @@ export class UnifiedIngestionService {
       return {
         frontmatter: {},
         content: content,
-        hasFrontmatter: false,
+        hasFrontmatter: false
       };
     }
 
@@ -2087,14 +1728,14 @@ export class UnifiedIngestionService {
       return {
         frontmatter: frontmatter || {},
         content: match[2],
-        hasFrontmatter: true,
+        hasFrontmatter: true
       };
     } catch (error) {
       console.error('Failed to parse frontmatter YAML:', error);
       return {
         frontmatter: {},
         content: content,
-        hasFrontmatter: false,
+        hasFrontmatter: false
       };
     }
   }

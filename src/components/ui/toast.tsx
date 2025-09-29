@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   createContext,
@@ -6,11 +6,11 @@ import {
   useState,
   useCallback,
   useEffect,
-} from 'react';
-import { cn } from '@/lib/utils';
-import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
+} from "react";
+import { cn } from "@/lib/utils";
+import { X, CheckCircle, AlertCircle, Info } from "lucide-react";
 
-type ToastType = 'success' | 'error' | 'info' | 'warning';
+type ToastType = "success" | "error" | "info" | "warning";
 
 interface Toast {
   id: string;
@@ -35,7 +35,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       const id = Math.random().toString(36).substr(2, 9);
       const toast = { id, message, type, duration };
 
-      setToasts(prev => [...prev, toast]);
+      setToasts((prev) => [...prev, toast]);
 
       if (duration > 0) {
         setTimeout(() => {
@@ -47,7 +47,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   );
 
   const removeToast = useCallback((id: string) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
   return (
@@ -61,7 +61,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 export function useToast() {
   const context = useContext(ToastContext);
   if (!context) {
-    throw new Error('useToast must be used within a ToastProvider');
+    throw new Error("useToast must be used within a ToastProvider");
   }
   return context;
 }
@@ -76,7 +76,7 @@ function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
 
   return (
     <div className="fixed top-4 right-4 z-50 space-y-2">
-      {toasts.map(toast => (
+      {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} onRemove={onRemove} />
       ))}
     </div>
@@ -103,15 +103,15 @@ function ToastItem({ toast, onRemove }: ToastItemProps) {
   const typeConfig = {
     success: {
       icon: CheckCircle,
-      className: 'bg-green-50 border-green-200 text-green-800',
+      className: "bg-green-50 border-green-200 text-green-800",
     },
     error: {
       icon: AlertCircle,
-      className: 'bg-red-50 border-red-200 text-red-800',
+      className: "bg-red-50 border-red-200 text-red-800",
     },
     info: {
       icon: Info,
-      className: 'bg-blue-50 border-blue-200 text-blue-800',
+      className: "bg-blue-50 border-blue-200 text-blue-800",
     },
   };
 
@@ -121,9 +121,9 @@ function ToastItem({ toast, onRemove }: ToastItemProps) {
   return (
     <div
       className={cn(
-        'flex items-center gap-3 p-4 rounded-lg border shadow-lg transition-all duration-150 min-w-[300px]',
+        "flex items-center gap-3 p-4 rounded-lg border shadow-lg transition-all duration-150 min-w-[300px]",
         config.className,
-        isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
+        isVisible ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"
       )}
     >
       <Icon className="w-5 h-5 flex-shrink-0" />

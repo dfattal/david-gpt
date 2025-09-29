@@ -23,7 +23,7 @@ import type {
   RelationType,
   ExtractedEdge,
   EntityEdgeExtractionResult,
-  Persona,
+  Persona
 } from './types';
 import { EDGE_VALIDATION_MATRIX } from './types';
 
@@ -55,41 +55,24 @@ export interface ExtractedEntity {
 
 const ExtractedEntitySchema = z.object({
   name: z.string().min(1).max(80),
-  type: z.enum([
-    'person',
-    'organization',
-    'technology',
-    'product',
-    'component',
-  ]),
+  type: z.enum(['person', 'organization', 'technology', 'product', 'component']),
   aliases: z.array(z.string()).max(5),
   evidence: z.string().max(200),
   confidence: z.number().min(0).max(1),
-  temp_id: z.string().min(1).max(10), // e1, e2, e3, etc.
+  temp_id: z.string().min(1).max(10) // e1, e2, e3, etc.
 });
 
 const ExtractedEdgeSchema = z.object({
   src_temp_id: z.string().min(1).max(10),
   dst_temp_id: z.string().min(1).max(10),
-  relation: z.enum([
-    'affiliated_with',
-    'made_by',
-    'created_by',
-    'developed_by',
-    'authored_by',
-    'implements',
-    'uses_component',
-    'supplied_by',
-    'related_to',
-    'based_on',
-  ]),
+  relation: z.enum(['affiliated_with', 'made_by', 'created_by', 'developed_by', 'authored_by', 'implements', 'uses_component', 'supplied_by', 'related_to', 'based_on']),
   evidence: z.string().max(200),
-  confidence: z.number().min(0).max(1),
+  confidence: z.number().min(0).max(1)
 });
 
 const EntityEdgeExtractionResultSchema = z.object({
   entities: z.array(ExtractedEntitySchema).max(50),
-  edges: z.array(ExtractedEdgeSchema).max(100),
+  edges: z.array(ExtractedEdgeSchema).max(100)
 });
 
 // =======================
@@ -98,7 +81,7 @@ const EntityEdgeExtractionResultSchema = z.object({
 
 export class UnifiedLLMEntityExtractor {
   private readonly model = openai('gpt-4o', {
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey: process.env.OPENAI_API_KEY
   });
 
   /**
@@ -109,45 +92,29 @@ export class UnifiedLLMEntityExtractor {
 
     if (enhancedPersona) {
       // Use rich persona configuration to create extraction config
-      const domainKeywords = enhancedPersona.expertise.domains.flatMap(
-        (domain: any) => domain.keywords
-      );
-      const focusDomains = enhancedPersona.expertise.domains.map(
-        (domain: any) => `${domain.name}: ${domain.description}`
-      );
+      const domainKeywords = enhancedPersona.expertise.domains.flatMap(domain => domain.keywords);
+      const focusDomains = enhancedPersona.expertise.domains.map(domain => `${domain.name}: ${domain.description}`);
 
       return {
         systemPrompt: `You are an expert entity extractor specializing in ${enhancedPersona.name}.
 
 EXTRACTION FOCUS:
-${enhancedPersona.expertise.domains
-  .map((domain: any) => `- ${domain.name}: ${domain.description}`)
-  .join('\n')}
+${enhancedPersona.expertise.domains.map(domain =>
+  `- ${domain.name}: ${domain.description}`
+).join('\n')}
 
 SPECIALIZED KNOWLEDGE:
-${enhancedPersona.expertise.achievements
-  .slice(0, 5)
-  .map((achievement: any) => `- ${achievement}`)
-  .join('\n')}
+${enhancedPersona.expertise.achievements.slice(0, 5).map(achievement => `- ${achievement}`).join('\n')}
 
 Extract entities that are relevant to this expertise, focusing on:
-${domainKeywords
-  .slice(0, 10)
-  .map((keyword: any) => `- ${keyword}`)
-  .join('\n')}
+${domainKeywords.slice(0, 10).map(keyword => `- ${keyword}`).join('\n')}
 
 Prioritize entities that align with the persona's specialized knowledge and domain expertise.`,
         focusDomains,
-        entityTypes: [
-          'person',
-          'organization',
-          'technology',
-          'product',
-          'component',
-        ],
+        entityTypes: ['person', 'organization', 'technology', 'product', 'component'],
         maxEntitiesPerDocument: 30,
         confidenceThreshold: 0.6,
-        includeDomainDescription: true,
+        includeDomainDescription: true
       };
     }
 
@@ -163,56 +130,30 @@ Prioritize entities that align with the persona's specialized knowledge and doma
       david: {
         systemPrompt: `You are extracting entities from documents in David Fattal's technology domain.
 Focus on 3D display technology, spatial computing, patents, and emerging tech.`,
-        focusDomains: [
-          '3D Display Technology',
-          'Spatial Computing',
-          'Patent Innovation',
-          'Emerging Technology',
-        ],
-        entityTypes: [
-          'person',
-          'organization',
-          'technology',
-          'product',
-          'component',
-        ] as EntityKind[],
+        focusDomains: ['3D Display Technology', 'Spatial Computing', 'Patent Innovation', 'Emerging Technology'],
+        entityTypes: ['person', 'organization', 'technology', 'product', 'component'] as EntityKind[],
         maxEntitiesPerDocument: 25,
         confidenceThreshold: 0.6,
-        includeDomainDescription: true,
+        includeDomainDescription: true
       },
       legal: {
         systemPrompt: `You are extracting entities from legal documents.
 Focus on legal entities, court cases, statutes, and judicial proceedings.`,
-        focusDomains: [
-          'Legal Entities',
-          'Court Cases',
-          'Statutes and Regulations',
-          'Judicial Proceedings',
-        ],
+        focusDomains: ['Legal Entities', 'Court Cases', 'Statutes and Regulations', 'Judicial Proceedings'],
         entityTypes: ['person', 'organization'] as EntityKind[],
         maxEntitiesPerDocument: 20,
         confidenceThreshold: 0.7,
-        includeDomainDescription: true,
+        includeDomainDescription: true
       },
       medical: {
         systemPrompt: `You are extracting entities from medical and clinical documents.
 Focus on medical entities, clinical trials, treatments, and healthcare organizations.`,
-        focusDomains: [
-          'Medical Entities',
-          'Clinical Trials',
-          'Treatments and Therapies',
-          'Healthcare Organizations',
-        ],
-        entityTypes: [
-          'person',
-          'organization',
-          'technology',
-          'product',
-        ] as EntityKind[],
+        focusDomains: ['Medical Entities', 'Clinical Trials', 'Treatments and Therapies', 'Healthcare Organizations'],
+        entityTypes: ['person', 'organization', 'technology', 'product'] as EntityKind[],
         maxEntitiesPerDocument: 20,
         confidenceThreshold: 0.7,
-        includeDomainDescription: true,
-      },
+        includeDomainDescription: true
+      }
     };
 
     return configs[persona] || configs.david;
@@ -227,19 +168,14 @@ Focus on medical entities, clinical trials, treatments, and healthcare organizat
     metadata: DocumentMetadata,
     config: LLMEntityExtractionConfig
   ): Promise<EntityEdgeExtractionResult> {
-    console.log(
-      `🤖 Starting LLM entity+edge extraction for: ${metadata.title}`
-    );
+    console.log(`🤖 Starting LLM entity+edge extraction for: ${metadata.title}`);
     console.log(`🎯 Domain focus: ${config.focusDomains.join(', ')}`);
     console.log(`📊 Entity types: ${config.entityTypes.join(', ')}`);
-    console.log(
-      `📝 Checking against ${existingEntities.length} existing entities`
-    );
+    console.log(`📝 Checking against ${existingEntities.length} existing entities`);
 
     try {
       // Prepare existing entities list for deduplication
-      const existingEntitiesJson =
-        this.formatExistingEntities(existingEntities);
+      const existingEntitiesJson = this.formatExistingEntities(existingEntities);
 
       // Construct user prompt with document content and existing entities
       const userPrompt = this.buildUserPrompt(
@@ -264,28 +200,19 @@ Focus on medical entities, clinical trials, treatments, and healthcare organizat
       );
 
       // Validate and filter edges
-      const validatedEdges = this.validateEdges(
-        result.object.edges,
-        filteredEntities,
-        config.confidenceThreshold
-      );
+      const validatedEdges = this.validateEdges(result.object.edges, filteredEntities, config.confidenceThreshold);
 
-      console.log(
-        `✅ LLM extracted ${result.object.entities.length} entities (${filteredEntities.length} above confidence threshold)`
-      );
-      console.log(
-        `✅ LLM extracted ${result.object.edges.length} edges (${validatedEdges.length} validated)`
-      );
+      console.log(`✅ LLM extracted ${result.object.entities.length} entities (${filteredEntities.length} above confidence threshold)`);
+      console.log(`✅ LLM extracted ${result.object.edges.length} edges (${validatedEdges.length} validated)`);
 
       return {
         entities: filteredEntities,
-        edges: validatedEdges,
+        edges: validatedEdges
       };
+
     } catch (error) {
       console.error('❌ LLM entity+edge extraction failed:', error);
-      throw new Error(
-        `LLM entity+edge extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      throw new Error(`LLM entity+edge extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -302,9 +229,7 @@ Focus on medical entities, clinical trials, treatments, and healthcare organizat
     return edges.filter(edge => {
       // Check confidence threshold
       if (edge.confidence < confidenceThreshold) {
-        console.log(
-          `🔄 Dropping edge ${edge.src_temp_id}->${edge.dst_temp_id} (${edge.relation}): low confidence (${edge.confidence})`
-        );
+        console.log(`🔄 Dropping edge ${edge.src_temp_id}->${edge.dst_temp_id} (${edge.relation}): low confidence (${edge.confidence})`);
         return false;
       }
 
@@ -313,28 +238,19 @@ Focus on medical entities, clinical trials, treatments, and healthcare organizat
       const dstEntity = entityMap.get(edge.dst_temp_id);
 
       if (!srcEntity || !dstEntity) {
-        console.log(
-          `🔄 Dropping edge ${edge.src_temp_id}->${edge.dst_temp_id} (${edge.relation}): missing entities`
-        );
+        console.log(`🔄 Dropping edge ${edge.src_temp_id}->${edge.dst_temp_id} (${edge.relation}): missing entities`);
         return false;
       }
 
       // Validate against edge matrix
       const validationRule = EDGE_VALIDATION_MATRIX[edge.relation];
       if (!validationRule) {
-        console.log(
-          `🔄 Dropping edge ${edge.src_temp_id}->${edge.dst_temp_id}: unknown relation (${edge.relation})`
-        );
+        console.log(`🔄 Dropping edge ${edge.src_temp_id}->${edge.dst_temp_id}: unknown relation (${edge.relation})`);
         return false;
       }
 
-      if (
-        srcEntity.type !== validationRule.srcType ||
-        dstEntity.type !== validationRule.dstType
-      ) {
-        console.log(
-          `🔄 Dropping edge ${edge.src_temp_id}->${edge.dst_temp_id} (${edge.relation}): invalid types (${srcEntity.type}->${dstEntity.type}, expected ${validationRule.srcType}->${validationRule.dstType})`
-        );
+      if (srcEntity.type !== validationRule.srcType || dstEntity.type !== validationRule.dstType) {
+        console.log(`🔄 Dropping edge ${edge.src_temp_id}->${edge.dst_temp_id} (${edge.relation}): invalid types (${srcEntity.type}->${dstEntity.type}, expected ${validationRule.srcType}->${validationRule.dstType})`);
         return false;
       }
 
@@ -351,20 +267,17 @@ Focus on medical entities, clinical trials, treatments, and healthcare organizat
     }
 
     // Group entities by type for better organization
-    const groupedEntities = entities.reduce(
-      (acc, entity) => {
-        if (!acc[entity.kind]) {
-          acc[entity.kind] = [];
-        }
-        acc[entity.kind].push({
-          name: entity.name,
-          aliases: [], // TODO: Load aliases if needed
-          authority_score: entity.authorityScore,
-        });
-        return acc;
-      },
-      {} as Record<string, any[]>
-    );
+    const groupedEntities = entities.reduce((acc, entity) => {
+      if (!acc[entity.kind]) {
+        acc[entity.kind] = [];
+      }
+      acc[entity.kind].push({
+        name: entity.name,
+        aliases: [], // TODO: Load aliases if needed
+        authority_score: entity.authorityScore
+      });
+      return acc;
+    }, {} as Record<string, any[]>);
 
     return JSON.stringify(groupedEntities, null, 2);
   }
@@ -404,18 +317,12 @@ ${documentText.substring(0, 8000)} ${documentText.length > 8000 ? '...' : ''}
    */
   private getDomainContext(domains: string[]): string {
     const domainDescriptions: Record<string, string> = {
-      quantum:
-        'Quantum computing technologies including qubits, quantum gates, error correction, and quantum algorithms.',
-      nanophotonics:
-        'Nanoscale photonic devices, metamaterials, plasmonics, and optical nanostructures.',
-      spatial_computing:
-        '3D displays, AR/VR technologies, spatial interfaces, eye tracking, and immersive computing.',
-      leia_technology:
-        'Leia Inc. display technologies including lightfield displays, autostereoscopic screens, switchable 2D/3D displays.',
-      computer_vision:
-        'Machine learning for visual perception, depth estimation, object recognition, and image processing.',
-      display_technology:
-        'LCD, OLED, MicroLED displays, optical components, and visual interface technologies.',
+      'quantum': 'Quantum computing technologies including qubits, quantum gates, error correction, and quantum algorithms.',
+      'nanophotonics': 'Nanoscale photonic devices, metamaterials, plasmonics, and optical nanostructures.',
+      'spatial_computing': '3D displays, AR/VR technologies, spatial interfaces, eye tracking, and immersive computing.',
+      'leia_technology': 'Leia Inc. display technologies including lightfield displays, autostereoscopic screens, switchable 2D/3D displays.',
+      'computer_vision': 'Machine learning for visual perception, depth estimation, object recognition, and image processing.',
+      'display_technology': 'LCD, OLED, MicroLED displays, optical components, and visual interface technologies.'
     };
 
     const descriptions = domains
@@ -443,7 +350,7 @@ ${descriptions.map(desc => `• ${desc}`).join('\n')}
       kind: entity.type,
       description: `${this.getKindDescription(entity.type)} extracted via LLM from document content`,
       authorityScore: entity.confidence,
-      mentionCount: 1,
+      mentionCount: 1
     }));
   }
 
@@ -461,15 +368,13 @@ ${descriptions.map(desc => `• ${desc}`).join('\n')}
     confidence: number;
     evidenceText: string;
   }> {
-    return extractedEdges
-      .map(edge => ({
-        srcEntityId: entityTempIdMap.get(edge.src_temp_id) || '',
-        dstEntityId: entityTempIdMap.get(edge.dst_temp_id) || '',
-        relation: edge.relation,
-        confidence: edge.confidence,
-        evidenceText: edge.evidence,
-      }))
-      .filter(edge => edge.srcEntityId && edge.dstEntityId);
+    return extractedEdges.map(edge => ({
+      srcEntityId: entityTempIdMap.get(edge.src_temp_id) || '',
+      dstEntityId: entityTempIdMap.get(edge.dst_temp_id) || '',
+      relation: edge.relation,
+      confidence: edge.confidence,
+      evidenceText: edge.evidence
+    })).filter(edge => edge.srcEntityId && edge.dstEntityId);
   }
 
   private getKindDescription(kind: EntityKind): string {
@@ -479,7 +384,7 @@ ${descriptions.map(desc => `• ${desc}`).join('\n')}
       product: 'Product',
       technology: 'Technology',
       component: 'Component',
-      document: 'Document',
+      document: 'Document'
     };
     return descriptions[kind] || 'Entity';
   }
@@ -526,19 +431,16 @@ export async function extractEntitiesAndEdgesWithLLM(
   // Combine all chunks into a single text for LLM processing
   const fullContent = chunks.map(chunk => chunk.content).join('\n\n');
 
-  console.log(
-    `🚀 Processing document with ${chunks.length} chunks (${fullContent.length} characters)`
-  );
+  console.log(`🚀 Processing document with ${chunks.length} chunks (${fullContent.length} characters)`);
 
   try {
     // Extract entities and edges using LLM
-    const extractionResult =
-      await unifiedLLMEntityExtractor.extractEntitiesAndEdges(
-        fullContent,
-        existingEntities,
-        metadata,
-        config
-      );
+    const extractionResult = await unifiedLLMEntityExtractor.extractEntitiesAndEdges(
+      fullContent,
+      existingEntities,
+      metadata,
+      config
+    );
 
     // Convert entities to internal format
     const entities = unifiedLLMEntityExtractor.convertToInternalFormat(
@@ -552,12 +454,8 @@ export async function extractEntitiesAndEdgesWithLLM(
 
     const processingTime = Date.now() - startTime;
 
-    console.log(
-      `✅ LLM entity+edge extraction completed in ${processingTime}ms`
-    );
-    console.log(
-      `📊 Results: ${entities.length} entities, ${extractionResult.edges.length} edges extracted`
-    );
+    console.log(`✅ LLM entity+edge extraction completed in ${processingTime}ms`);
+    console.log(`📊 Results: ${entities.length} entities, ${extractionResult.edges.length} edges extracted`);
 
     return {
       entities,
@@ -567,13 +465,14 @@ export async function extractEntitiesAndEdgesWithLLM(
         llmCalls: 1,
         processingTime,
         entitiesExtracted: entities.length,
-        edgesExtracted: extractionResult.edges.length,
+        edgesExtracted: extractionResult.edges.length
       },
       // Include the validated edges with temp_ids for processing after entity persistence
       rawLLMEdges: extractionResult.edges,
       // Include the original extracted entities with temp_ids for mapping
-      originalEntitiesWithTempIds: extractionResult.entities,
+      originalEntitiesWithTempIds: extractionResult.entities
     };
+
   } catch (error) {
     console.error('❌ LLM entity+edge extraction failed:', error);
     throw error;
@@ -610,8 +509,8 @@ export async function extractEntitiesWithLLM(
     extractionMetadata: {
       totalProcessed: result.extractionMetadata.totalProcessed,
       llmCalls: result.extractionMetadata.llmCalls,
-      processingTime: result.extractionMetadata.processingTime,
-    },
+      processingTime: result.extractionMetadata.processingTime
+    }
   };
 }
 
@@ -634,17 +533,13 @@ export async function extractEntitiesWithPersona(
     isEnhanced: boolean;
   };
 }> {
-  console.log(
-    `🎭 Starting persona-aware entity extraction with persona: ${persona}`
-  );
+  console.log(`🎭 Starting persona-aware entity extraction with persona: ${persona}`);
 
   // Generate persona-specific configuration
   const config = UnifiedLLMEntityExtractor.generatePersonaConfig(persona);
   const isEnhanced = personaManager.isEnhanced(persona);
 
-  console.log(
-    `🔧 Generated ${isEnhanced ? 'enhanced' : 'basic'} extraction config for ${persona}`
-  );
+  console.log(`🔧 Generated ${isEnhanced ? 'enhanced' : 'basic'} extraction config for ${persona}`);
   console.log(`🎯 Focus domains: ${config.focusDomains.join(', ')}`);
 
   const result = await extractEntitiesAndEdgesWithLLM(
@@ -662,7 +557,7 @@ export async function extractEntitiesWithPersona(
       llmCalls: result.extractionMetadata.llmCalls,
       processingTime: result.extractionMetadata.processingTime,
       personaUsed: persona,
-      isEnhanced,
-    },
+      isEnhanced
+    }
   };
 }

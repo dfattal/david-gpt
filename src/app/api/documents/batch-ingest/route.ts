@@ -1,46 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { AppError, handleApiError } from '@/lib/utils';
-import {
-  unifiedIngestionService,
-  type BatchIngestionRequest,
-} from '@/lib/rag/ingestion-service';
+import { unifiedIngestionService, type BatchIngestionRequest } from '@/lib/rag/ingestion-service';
 
 export async function POST(req: NextRequest) {
   try {
     // DEPRECATION WARNING: This endpoint is deprecated
-    console.warn(
-      '⚠️  DEPRECATED: /api/documents/batch-ingest is deprecated. Use /api/documents/folder-ingest for folder-based batch processing.'
-    );
+    console.warn('⚠️  DEPRECATED: /api/documents/batch-ingest is deprecated. Use /api/documents/folder-ingest for folder-based batch processing.');
 
     // Check for service role bypass (for testing only)
     const authHeader = req.headers.get('Authorization');
-    const isServiceRoleRequest = authHeader?.includes(
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
+    const isServiceRoleRequest = authHeader?.includes(process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    
     let supabase;
     let user;
-
+    
     if (isServiceRoleRequest) {
       // Use admin client for service role requests
-      const { createOptimizedAdminClient } = await import(
-        '@/lib/supabase/server'
-      );
+      const { createOptimizedAdminClient } = await import('@/lib/supabase/server');
       supabase = createOptimizedAdminClient();
-      user = {
-        id: 'b349bd11-bd69-4582-9713-3ada0ba58fcf',
-        email: 'dfattal@gmail.com',
-      };
+      user = { id: 'b349bd11-bd69-4582-9713-3ada0ba58fcf', email: 'dfattal@gmail.com' };
       console.log('🔑 Using service role authentication for batch testing');
     } else {
       // Standard authentication
       supabase = await createClient();
-      const {
-        data: { user: authUser },
-        error: userError,
-      } = await supabase.auth.getUser();
-
+      const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
+      
       if (userError || !authUser) {
         throw new AppError('Authentication required', 401);
       }
@@ -54,14 +39,14 @@ export async function POST(req: NextRequest) {
     if (contentType.includes('multipart/form-data')) {
       // Handle FormData (file uploads)
       const formData = await req.formData();
-
+      
       // Extract JSON body
       const bodyData = formData.get('body') as string;
       if (!bodyData) {
         throw new AppError('Request body is required', 400);
       }
       body = JSON.parse(bodyData);
-
+      
       // Extract files and build fileMap
       for (const [key, value] of formData.entries()) {
         if (key.startsWith('file_') && value instanceof File) {
@@ -73,7 +58,7 @@ export async function POST(req: NextRequest) {
       // Handle JSON request
       body = await req.json();
     }
-
+    
     const { documents, batchDescription } = body;
 
     // Validation
@@ -93,13 +78,7 @@ export async function POST(req: NextRequest) {
       const hasPatentUrl = doc.metadata?.patentUrl;
       const hasDoi = doc.metadata?.doi;
 
-      if (
-        !hasContent &&
-        !hasFileContent &&
-        !hasUrl &&
-        !hasPatentUrl &&
-        !hasDoi
-      ) {
+      if (!hasContent && !hasFileContent && !hasUrl && !hasPatentUrl && !hasDoi) {
         throw new AppError(
           `Document "${doc.title || 'Untitled'}" must have content, file content, file upload, URL, patent URL, or DOI`,
           400
@@ -108,17 +87,14 @@ export async function POST(req: NextRequest) {
 
       // Validate fileKey references exist in fileMap
       if (doc.fileKey && !fileMap.has(doc.fileKey)) {
-        throw new AppError(
-          `File reference '${doc.fileKey}' not found in uploaded files`,
-          400
-        );
+        throw new AppError(`File reference '${doc.fileKey}' not found in uploaded files`, 400);
       }
     }
 
     console.log(`📚 Processing batch ingestion:`, {
       totalDocuments: documents.length,
       batchDescription,
-      hasFileUploads: fileMap.size > 0,
+      hasFileUploads: fileMap.size > 0
     });
 
     // Create batch ingestion request
@@ -128,16 +104,10 @@ export async function POST(req: NextRequest) {
       batchDescription,
       userId: user.id,
       metadata: {
-        fileMap:
-          fileMap.size > 0
-            ? Object.fromEntries(
-                Array.from(fileMap.entries()).map(([key, { fileName }]) => [
-                  key,
-                  { fileName },
-                ])
-              )
-            : undefined,
-      },
+        fileMap: fileMap.size > 0 ? Object.fromEntries(
+          Array.from(fileMap.entries()).map(([key, { fileName }]) => [key, { fileName }])
+        ) : undefined
+      }
     };
 
     // Process through unified ingestion service
@@ -150,26 +120,21 @@ export async function POST(req: NextRequest) {
       throw new AppError(result.error || 'Batch ingestion failed', 500);
     }
 
-    return NextResponse.json(
-      {
-        batchId: result.batchId,
-        batchJobId: result.batchJobId,
-        totalDocuments: result.totalDocuments,
-        message: result.message,
-        warning:
-          'DEPRECATED: This endpoint is deprecated. Use /api/documents/folder-ingest for folder-based batch processing.',
-      },
-      {
-        status: 201,
-        headers: {
-          'X-Deprecated': 'true',
-          'X-Deprecated-Message':
-            'Use /api/documents/folder-ingest for folder-based batch processing.',
-          'X-Migration-Guide':
-            'See DOCS/Ingestion-Strategies.md for migration guidance',
-        },
+    return NextResponse.json({
+      batchId: result.batchId,
+      batchJobId: result.batchJobId,
+      totalDocuments: result.totalDocuments,
+      message: result.message,
+      warning: 'DEPRECATED: This endpoint is deprecated. Use /api/documents/folder-ingest for folder-based batch processing.'
+    }, {
+      status: 201,
+      headers: {
+        'X-Deprecated': 'true',
+        'X-Deprecated-Message': 'Use /api/documents/folder-ingest for folder-based batch processing.',
+        'X-Migration-Guide': 'See DOCS/Ingestion-Strategies.md for migration guidance'
       }
-    );
+    });
+
   } catch (error) {
     return handleApiError(error);
   }

@@ -1,6 +1,6 @@
 /**
  * Admin API Routes for Individual Entity Management
- *
+ * 
  * Provides CRUD operations for specific entities
  */
 
@@ -11,16 +11,7 @@ import { z } from 'zod';
 // Validation schemas
 const UpdateEntitySchema = z.object({
   name: z.string().min(1).optional(),
-  kind: z
-    .enum([
-      'person',
-      'organization',
-      'product',
-      'technology',
-      'component',
-      'document',
-    ])
-    .optional(),
+  kind: z.enum(['person', 'organization', 'product', 'technology', 'component', 'document']).optional(),
   description: z.string().optional(),
   authorityScore: z.number().min(0).max(1).optional(),
 });
@@ -46,18 +37,14 @@ export async function GET(
   // Check admin permissions
   const authCheck = await checkAdminPermissions(request);
   if (authCheck.error) {
-    return NextResponse.json(
-      { error: authCheck.error },
-      { status: authCheck.status }
-    );
+    return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
   }
 
   try {
     // Get entity details
     const { data: entity, error: entityError } = await supabaseAdmin
       .from('entities')
-      .select(
-        `
+      .select(`
         id,
         name,
         kind,
@@ -66,8 +53,7 @@ export async function GET(
         mention_count,
         created_at,
         updated_at
-      `
-      )
+      `)
       .eq('id', id)
       .single();
 
@@ -84,8 +70,7 @@ export async function GET(
     // Get outgoing relationships
     const { data: outgoingRels } = await supabaseAdmin
       .from('edges')
-      .select(
-        `
+      .select(`
         id,
         rel,
         weight,
@@ -94,16 +79,14 @@ export async function GET(
         dst_type,
         created_at,
         dst_entity:entities!edges_dst_id_fkey(name, kind)
-      `
-      )
+      `)
       .eq('src_id', id)
       .eq('src_type', 'entity');
 
     // Get incoming relationships
     const { data: incomingRels } = await supabaseAdmin
       .from('edges')
-      .select(
-        `
+      .select(`
         id,
         rel,
         weight,
@@ -112,8 +95,7 @@ export async function GET(
         src_type,
         created_at,
         src_entity:entities!edges_src_id_fkey(name, kind)
-      `
-      )
+      `)
       .eq('dst_id', id)
       .eq('dst_type', 'entity');
 
@@ -122,15 +104,13 @@ export async function GET(
       aliases: aliases || [],
       relationships: {
         outgoing: outgoingRels || [],
-        incoming: incomingRels || [],
-      },
+        incoming: incomingRels || []
+      }
     });
+
   } catch (error) {
     console.error('Error in GET /api/admin/entities/[id]:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -146,10 +126,7 @@ export async function PUT(
   // Check admin permissions
   const authCheck = await checkAdminPermissions(request);
   if (authCheck.error) {
-    return NextResponse.json(
-      { error: authCheck.error },
-      { status: authCheck.status }
-    );
+    return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
   }
 
   try {
@@ -192,10 +169,8 @@ export async function PUT(
 
     if (validatedData.name) updateData.name = validatedData.name;
     if (validatedData.kind) updateData.kind = validatedData.kind;
-    if (validatedData.description !== undefined)
-      updateData.description = validatedData.description;
-    if (validatedData.authorityScore !== undefined)
-      updateData.authority_score = validatedData.authorityScore;
+    if (validatedData.description !== undefined) updateData.description = validatedData.description;
+    if (validatedData.authorityScore !== undefined) updateData.authority_score = validatedData.authorityScore;
 
     const { data: entity, error } = await supabaseAdmin
       .from('entities')
@@ -206,25 +181,17 @@ export async function PUT(
 
     if (error) {
       console.error('Failed to update entity:', error);
-      return NextResponse.json(
-        { error: 'Failed to update entity' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to update entity' }, { status: 500 });
     }
 
     return NextResponse.json({ entity });
+
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid input', details: error.errors },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid input', details: error.errors }, { status: 400 });
     }
     console.error('Error in PUT /api/admin/entities/[id]:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -240,10 +207,7 @@ export async function DELETE(
   // Check admin permissions
   const authCheck = await checkAdminPermissions(request);
   if (authCheck.error) {
-    return NextResponse.json(
-      { error: authCheck.error },
-      { status: authCheck.status }
-    );
+    return NextResponse.json({ error: authCheck.error }, { status: authCheck.status });
   }
 
   try {
@@ -259,9 +223,12 @@ export async function DELETE(
     }
 
     // Delete in transaction-like order (manually since Supabase doesn't support transactions)
-
+    
     // 1. Delete aliases
-    await supabaseAdmin.from('aliases').delete().eq('entity_id', id);
+    await supabaseAdmin
+      .from('aliases')
+      .delete()
+      .eq('entity_id', id);
 
     // 2. Delete relationships (both incoming and outgoing)
     await supabaseAdmin
@@ -270,7 +237,10 @@ export async function DELETE(
       .or(`src_id.eq.${id},dst_id.eq.${id}`);
 
     // 3. Delete events
-    await supabaseAdmin.from('events').delete().eq('entity_id', id);
+    await supabaseAdmin
+      .from('events')
+      .delete()
+      .eq('entity_id', id);
 
     // 4. Finally delete the entity
     const { error: deleteError } = await supabaseAdmin
@@ -280,21 +250,16 @@ export async function DELETE(
 
     if (deleteError) {
       console.error('Failed to delete entity:', deleteError);
-      return NextResponse.json(
-        { error: 'Failed to delete entity' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to delete entity' }, { status: 500 });
     }
 
-    return NextResponse.json({
+    return NextResponse.json({ 
       message: 'Entity deleted successfully',
-      deletedEntity: existing,
+      deletedEntity: existing
     });
+
   } catch (error) {
     console.error('Error in DELETE /api/admin/entities/[id]:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

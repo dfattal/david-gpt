@@ -17,7 +17,7 @@ import type {
   ValidationResult,
   ValidationError,
   ValidationWarning,
-  FieldValidation,
+  FieldValidation
 } from './types';
 
 // Global registry instance
@@ -36,23 +36,12 @@ class DocumentTypeRegistry implements TypeRegistry {
     // David persona (original system)
     this.registerPersona('david', {
       name: "David's Technical Expertise",
-      description: '3D display technology, patents, and research papers',
-      documentTypes: [
-        'patent',
-        'paper',
-        'press-article',
-        'book',
-        'url',
-        'note',
-      ],
+      description: "3D display technology, patents, and research papers",
+      documentTypes: ['patent', 'paper', 'press-article', 'book', 'url', 'note'],
       defaultType: 'url',
       requiredFields: {
         title: { type: 'string', required: true },
-        docType: {
-          type: 'enum',
-          values: ['patent', 'paper', 'press-article', 'book', 'url', 'note'],
-          required: true,
-        },
+        docType: { type: 'enum', values: ['patent', 'paper', 'press-article', 'book', 'url', 'note'], required: true }
       },
       optionalFields: {
         url: { type: 'string' },
@@ -64,127 +53,76 @@ class DocumentTypeRegistry implements TypeRegistry {
         authorsAffiliations: { type: 'array' },
         oem: { type: 'string' },
         model: { type: 'string' },
-        leiaFeature: { type: 'array' },
+        leiaFeature: { type: 'array' }
       },
       searchBoosts: {
         patentNo: 1.5,
         inventors: 1.2,
         oem: 1.3,
-        leiaFeature: 1.4,
+        leiaFeature: 1.4
       },
       citationFormat: 'technical',
-      metadataTemplates: ['patent', 'paper', 'press-article', 'book', 'url'],
+      metadataTemplates: ['patent', 'paper', 'press-article', 'book', 'url']
     });
 
     // Legal persona
     this.registerPersona('legal', {
-      name: 'Legal Expert',
-      description: 'Legal documents, case law, and statutes',
-      documentTypes: [
-        'legal-doc',
-        'case-law',
-        'statute',
-        'legal-brief',
-        'paper',
-        'book',
-      ],
+      name: "Legal Expert",
+      description: "Legal documents, case law, and statutes",
+      documentTypes: ['legal-doc', 'case-law', 'statute', 'legal-brief', 'paper', 'book'],
       defaultType: 'legal-doc',
       requiredFields: {
         title: { type: 'string', required: true },
-        docType: {
-          type: 'enum',
-          values: [
-            'legal-doc',
-            'case-law',
-            'statute',
-            'legal-brief',
-            'paper',
-            'book',
-          ],
-          required: true,
-        },
+        docType: { type: 'enum', values: ['legal-doc', 'case-law', 'statute', 'legal-brief', 'paper', 'book'], required: true }
       },
       optionalFields: {
         caseNumber: { type: 'string' },
-        courtLevel: {
-          type: 'enum',
-          values: ['Supreme Court', 'Appeals', 'District', 'State', 'Federal'],
-        },
+        courtLevel: { type: 'enum', values: ['Supreme Court', 'Appeals', 'District', 'State', 'Federal'] },
         jurisdiction: { type: 'string' },
         legalCitation: { type: 'string' },
         caseParties: { type: 'array' },
         legalTopics: { type: 'array' },
         precedential: { type: 'boolean' },
-        outcome: {
-          type: 'enum',
-          values: ['Granted', 'Denied', 'Dismissed', 'Settled'],
-        },
+        outcome: { type: 'enum', values: ['Granted', 'Denied', 'Dismissed', 'Settled'] }
       },
       searchBoosts: {
         precedential: 1.8,
         courtLevel: 1.5,
         legalCitation: 1.3,
-        caseNumber: 1.4,
+        caseNumber: 1.4
       },
       citationFormat: 'legal',
-      metadataTemplates: ['legal', 'case-law', 'statute'],
+      metadataTemplates: ['legal', 'case-law', 'statute']
     });
 
     // Medical persona
     this.registerPersona('medical', {
-      name: 'Medical Expert',
-      description: 'Medical research, clinical trials, and guidelines',
-      documentTypes: [
-        'medical-paper',
-        'clinical-trial',
-        'medical-guideline',
-        'case-report',
-        'paper',
-        'book',
-      ],
+      name: "Medical Expert",
+      description: "Medical research, clinical trials, and guidelines",
+      documentTypes: ['medical-paper', 'clinical-trial', 'medical-guideline', 'case-report', 'paper', 'book'],
       defaultType: 'medical-paper',
       requiredFields: {
         title: { type: 'string', required: true },
-        docType: {
-          type: 'enum',
-          values: [
-            'medical-paper',
-            'clinical-trial',
-            'medical-guideline',
-            'case-report',
-            'paper',
-            'book',
-          ],
-          required: true,
-        },
+        docType: { type: 'enum', values: ['medical-paper', 'clinical-trial', 'medical-guideline', 'case-report', 'paper', 'book'], required: true }
       },
       optionalFields: {
         clinicalTrialId: { type: 'string', pattern: /^NCT\d+$/ },
         pubmedId: { type: 'string', pattern: /^PMID\d+$/ },
         meshTerms: { type: 'array' },
-        studyType: {
-          type: 'enum',
-          values: ['RCT', 'Observational', 'Meta-Analysis', 'Case Series'],
-        },
-        studyPhase: {
-          type: 'enum',
-          values: ['Phase I', 'Phase II', 'Phase III', 'Phase IV'],
-        },
+        studyType: { type: 'enum', values: ['RCT', 'Observational', 'Meta-Analysis', 'Case Series'] },
+        studyPhase: { type: 'enum', values: ['Phase I', 'Phase II', 'Phase III', 'Phase IV'] },
         sampleSize: { type: 'number' },
         medicalSpecialty: { type: 'array' },
-        fdaApproval: {
-          type: 'enum',
-          values: ['Approved', 'Pending', 'Denied'],
-        },
+        fdaApproval: { type: 'enum', values: ['Approved', 'Pending', 'Denied'] }
       },
       searchBoosts: {
         clinicalTrialId: 1.6,
         studyType: 1.4,
         fdaApproval: 1.5,
-        meshTerms: 1.3,
+        meshTerms: 1.3
       },
       citationFormat: 'medical',
-      metadataTemplates: ['medical', 'clinical-trial', 'medical-guideline'],
+      metadataTemplates: ['medical', 'clinical-trial', 'medical-guideline']
     });
   }
 
@@ -208,31 +146,22 @@ class DocumentTypeRegistry implements TypeRegistry {
     this.detectionRules.set(docType, existing);
   }
 
-  registerPersona(
-    persona: Persona,
-    config: PersonaConfig | EnhancedPersonaConfig
-  ): void {
+  registerPersona(persona: Persona, config: PersonaConfig | EnhancedPersonaConfig): void {
     this.personas.set(persona, config);
   }
 
   // Validation functions
-  validateDocument(
-    docType: string,
-    metadata: any,
-    persona?: Persona
-  ): ValidationResult {
+  validateDocument(docType: string, metadata: any, persona?: Persona): ValidationResult {
     const errors: ValidationError[] = [];
     const warnings: ValidationWarning[] = [];
 
     // Get persona config
-    const personaConfig = persona
-      ? this.personas.get(persona)
-      : this.getPersonaForDocType(docType);
+    const personaConfig = persona ? this.personas.get(persona) : this.getPersonaForDocType(docType);
     if (!personaConfig) {
       errors.push({
         field: 'persona',
         message: `Unknown persona: ${persona}`,
-        code: 'INVALID_PERSONA',
+        code: 'INVALID_PERSONA'
       });
       return { isValid: false, errors, warnings };
     }
@@ -242,40 +171,28 @@ class DocumentTypeRegistry implements TypeRegistry {
       errors.push({
         field: 'docType',
         message: `Document type '${docType}' not supported by persona '${persona}'`,
-        code: 'UNSUPPORTED_DOCTYPE',
+        code: 'UNSUPPORTED_DOCTYPE'
       });
     }
 
     // Validate required fields
-    for (const [fieldName, validation] of Object.entries(
-      personaConfig.requiredFields
-    )) {
+    for (const [fieldName, validation] of Object.entries(personaConfig.requiredFields)) {
       if (validation.required && !metadata[fieldName]) {
         errors.push({
           field: fieldName,
           message: `Required field '${fieldName}' is missing`,
-          code: 'MISSING_REQUIRED_FIELD',
+          code: 'MISSING_REQUIRED_FIELD'
         });
       } else if (metadata[fieldName]) {
-        const fieldErrors = this.validateField(
-          fieldName,
-          metadata[fieldName],
-          validation
-        );
+        const fieldErrors = this.validateField(fieldName, metadata[fieldName], validation);
         errors.push(...fieldErrors);
       }
     }
 
     // Validate optional fields
-    for (const [fieldName, validation] of Object.entries(
-      personaConfig.optionalFields
-    )) {
+    for (const [fieldName, validation] of Object.entries(personaConfig.optionalFields)) {
       if (metadata[fieldName]) {
-        const fieldErrors = this.validateField(
-          fieldName,
-          metadata[fieldName],
-          validation
-        );
+        const fieldErrors = this.validateField(fieldName, metadata[fieldName], validation);
         errors.push(...fieldErrors);
       }
     }
@@ -284,12 +201,7 @@ class DocumentTypeRegistry implements TypeRegistry {
     const knownFields = new Set([
       ...Object.keys(personaConfig.requiredFields),
       ...Object.keys(personaConfig.optionalFields),
-      'id',
-      'createdAt',
-      'updatedAt',
-      'scraped_at',
-      'word_count',
-      'extraction_quality', // Core fields
+      'id', 'createdAt', 'updatedAt', 'scraped_at', 'word_count', 'extraction_quality' // Core fields
     ]);
 
     for (const fieldName of Object.keys(metadata)) {
@@ -297,7 +209,7 @@ class DocumentTypeRegistry implements TypeRegistry {
         warnings.push({
           field: fieldName,
           message: `Unknown field '${fieldName}' for persona '${persona}'`,
-          suggestion: `Consider adding this field to the persona configuration or use customFields`,
+          suggestion: `Consider adding this field to the persona configuration or use customFields`
         });
       }
     }
@@ -305,15 +217,11 @@ class DocumentTypeRegistry implements TypeRegistry {
     return {
       isValid: errors.length === 0,
       errors,
-      warnings,
+      warnings
     };
   }
 
-  private validateField(
-    fieldName: string,
-    value: any,
-    validation: FieldValidation
-  ): ValidationError[] {
+  private validateField(fieldName: string, value: any, validation: FieldValidation): ValidationError[] {
     const errors: ValidationError[] = [];
 
     // Type validation
@@ -323,7 +231,7 @@ class DocumentTypeRegistry implements TypeRegistry {
           errors.push({
             field: fieldName,
             message: `Field '${fieldName}' must be a string`,
-            code: 'INVALID_TYPE',
+            code: 'INVALID_TYPE'
           });
         }
         break;
@@ -332,7 +240,7 @@ class DocumentTypeRegistry implements TypeRegistry {
           errors.push({
             field: fieldName,
             message: `Field '${fieldName}' must be a number`,
-            code: 'INVALID_TYPE',
+            code: 'INVALID_TYPE'
           });
         }
         break;
@@ -341,7 +249,7 @@ class DocumentTypeRegistry implements TypeRegistry {
           errors.push({
             field: fieldName,
             message: `Field '${fieldName}' must be a boolean`,
-            code: 'INVALID_TYPE',
+            code: 'INVALID_TYPE'
           });
         }
         break;
@@ -350,7 +258,7 @@ class DocumentTypeRegistry implements TypeRegistry {
           errors.push({
             field: fieldName,
             message: `Field '${fieldName}' must be an array`,
-            code: 'INVALID_TYPE',
+            code: 'INVALID_TYPE'
           });
         }
         break;
@@ -359,22 +267,18 @@ class DocumentTypeRegistry implements TypeRegistry {
           errors.push({
             field: fieldName,
             message: `Field '${fieldName}' must be one of: ${validation.values.join(', ')}`,
-            code: 'INVALID_ENUM_VALUE',
+            code: 'INVALID_ENUM_VALUE'
           });
         }
         break;
     }
 
     // Pattern validation
-    if (
-      validation.pattern &&
-      typeof value === 'string' &&
-      !validation.pattern.test(value)
-    ) {
+    if (validation.pattern && typeof value === 'string' && !validation.pattern.test(value)) {
       errors.push({
         field: fieldName,
         message: `Field '${fieldName}' does not match required pattern`,
-        code: 'INVALID_PATTERN',
+        code: 'INVALID_PATTERN'
       });
     }
 
@@ -416,9 +320,7 @@ class DocumentTypeRegistry implements TypeRegistry {
   isValidDocumentType(docType: string, persona?: Persona): boolean {
     if (persona) {
       const config = this.personas.get(persona);
-      return config
-        ? config.documentTypes.includes(docType as DocumentType)
-        : false;
+      return config ? config.documentTypes.includes(docType as DocumentType) : false;
     }
 
     // Check if it's valid for any persona
@@ -447,31 +349,19 @@ export const {
   getMetadataTemplate,
   getAllPersonas,
   getPersonaConfig,
-  isValidDocumentType,
+  isValidDocumentType
 } = {
-  registerDocumentType: (reg: DocumentTypeRegistration) =>
-    typeRegistry.registerDocumentType(reg),
-  registerMetadataTemplate: (template: MetadataTemplate) =>
-    typeRegistry.registerMetadataTemplate(template),
-  registerDetectionRule: (docType: string, rule: DetectionRule) =>
-    typeRegistry.registerDetectionRule(docType, rule),
-  registerPersona: (
-    persona: Persona,
-    config: PersonaConfig | EnhancedPersonaConfig
-  ) => typeRegistry.registerPersona(persona, config),
-  validateDocument: (docType: string, metadata: any, persona?: Persona) =>
-    typeRegistry.validateDocument(docType, metadata, persona),
-  getSupportedDocTypes: (persona: Persona) =>
-    typeRegistry.getSupportedDocTypes(persona),
-  getDetectionRules: (docType: string) =>
-    typeRegistry.getDetectionRules(docType),
-  getMetadataTemplate: (templateName: string) =>
-    typeRegistry.getMetadataTemplate(templateName),
+  registerDocumentType: (reg: DocumentTypeRegistration) => typeRegistry.registerDocumentType(reg),
+  registerMetadataTemplate: (template: MetadataTemplate) => typeRegistry.registerMetadataTemplate(template),
+  registerDetectionRule: (docType: string, rule: DetectionRule) => typeRegistry.registerDetectionRule(docType, rule),
+  registerPersona: (persona: Persona, config: PersonaConfig | EnhancedPersonaConfig) => typeRegistry.registerPersona(persona, config),
+  validateDocument: (docType: string, metadata: any, persona?: Persona) => typeRegistry.validateDocument(docType, metadata, persona),
+  getSupportedDocTypes: (persona: Persona) => typeRegistry.getSupportedDocTypes(persona),
+  getDetectionRules: (docType: string) => typeRegistry.getDetectionRules(docType),
+  getMetadataTemplate: (templateName: string) => typeRegistry.getMetadataTemplate(templateName),
   getAllPersonas: () => typeRegistry.getAllPersonas(),
-  getPersonaConfig: (persona: Persona) =>
-    typeRegistry.getPersonaConfig(persona),
-  isValidDocumentType: (docType: string, persona?: Persona) =>
-    typeRegistry.isValidDocumentType(docType, persona),
+  getPersonaConfig: (persona: Persona) => typeRegistry.getPersonaConfig(persona),
+  isValidDocumentType: (docType: string, persona?: Persona) => typeRegistry.isValidDocumentType(docType, persona)
 };
 
 // Export default persona for backward compatibility

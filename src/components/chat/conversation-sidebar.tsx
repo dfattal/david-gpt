@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import * as React from 'react';
+import * as React from "react";
 import {
   useState,
   useEffect,
@@ -8,25 +8,25 @@ import {
   forwardRef,
   useImperativeHandle,
   useRef,
-} from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+} from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
-import { cn, formatDate } from '@/lib/utils';
-import { useAuth } from '@/components/auth/auth-provider';
-import { useSSE } from './sse-hook';
-import { useToast } from '@/components/ui/toast';
-import { Spinner } from '@/components/ui/spinner';
+} from "@/components/ui/dropdown-menu";
+import { cn, formatDate } from "@/lib/utils";
+import { useAuth } from "@/components/auth/auth-provider";
+import { useSSE } from "./sse-hook";
+import { useToast } from "@/components/ui/toast";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Plus,
   MessageSquare,
@@ -39,8 +39,8 @@ import {
   ChevronUp,
   Check,
   X,
-} from 'lucide-react';
-import type { Conversation } from '@/lib/types';
+} from "lucide-react";
+import type { Conversation } from "@/lib/types";
 
 interface ConversationSidebarProps {
   currentConversation?: Conversation;
@@ -68,7 +68,7 @@ export const ConversationSidebar = forwardRef<
     new Set()
   );
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingTitle, setEditingTitle] = useState('');
+  const [editingTitle, setEditingTitle] = useState("");
   const [renamingIds, setRenamingIds] = useState<Set<string>>(new Set());
   const { addToast } = useToast();
   const editInputRef = useRef<HTMLInputElement>(null);
@@ -80,14 +80,14 @@ export const ConversationSidebar = forwardRef<
 
     setLoading(true);
     try {
-      const response = await fetch('/api/conversations');
+      const response = await fetch("/api/conversations");
       if (response.ok) {
         const { conversations } = await response.json();
         setConversations(conversations);
       } else {
         // Check if it's an authentication error
         if (response.status === 401 || response.status === 403) {
-          console.log('Authentication not ready, skipping conversation fetch');
+          console.log("Authentication not ready, skipping conversation fetch");
           return;
         }
         throw new Error(`Failed to fetch conversations: ${response.status}`);
@@ -96,11 +96,11 @@ export const ConversationSidebar = forwardRef<
       // Only show error toast if it's not an auth-related error during page load
       if (
         error instanceof Error &&
-        !error.message.includes('401') &&
-        !error.message.includes('403')
+        !error.message.includes("401") &&
+        !error.message.includes("403")
       ) {
-        console.error('Failed to fetch conversations:', error);
-        addToast('Failed to load conversations', 'error');
+        console.error("Failed to fetch conversations:", error);
+        addToast("Failed to load conversations", "error");
       }
     } finally {
       setLoading(false);
@@ -115,7 +115,7 @@ export const ConversationSidebar = forwardRef<
         fetchConversations();
       },
       setTitleGenerating: (conversationId: string, isGenerating: boolean) => {
-        setGeneratingTitles(prev => {
+        setGeneratingTitles((prev) => {
           const newSet = new Set(prev);
           if (isGenerating) {
             newSet.add(conversationId);
@@ -144,14 +144,14 @@ export const ConversationSidebar = forwardRef<
   const handleTitleUpdate = useCallback(
     (conversationId: string, title: string) => {
       // Remove from generating titles set
-      setGeneratingTitles(prev => {
+      setGeneratingTitles((prev) => {
         const newSet = new Set(prev);
         newSet.delete(conversationId);
         return newSet;
       });
 
-      setConversations(prev => {
-        const updated = prev.map(conv =>
+      setConversations((prev) => {
+        const updated = prev.map((conv) =>
           conv.id === conversationId ? { ...conv, title: title } : conv
         );
         console.log(
@@ -161,7 +161,7 @@ export const ConversationSidebar = forwardRef<
       });
 
       // Show success notification for title generation
-      addToast(`Title updated: "${title}"`, 'success', 3000);
+      addToast(`Title updated: "${title}"`, "success", 3000);
     },
     [addToast]
   );
@@ -173,6 +173,7 @@ export const ConversationSidebar = forwardRef<
     fetchConversations,
   });
 
+
   const handleDeleteConversation = async (
     conversation: Conversation,
     e: React.MouseEvent
@@ -181,32 +182,34 @@ export const ConversationSidebar = forwardRef<
 
     try {
       const response = await fetch(`/api/conversations/${conversation.id}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
 
       if (response.ok) {
         // Remove from local state
-        setConversations(prev => prev.filter(c => c.id !== conversation.id));
+        setConversations((prev) =>
+          prev.filter((c) => c.id !== conversation.id)
+        );
 
         // If this was the current conversation, start a new chat
         if (currentConversation?.id === conversation.id) {
           onNewConversation();
         }
 
-        addToast('Conversation deleted', 'success', 2000);
+        addToast("Conversation deleted", "success", 2000);
       } else {
-        throw new Error('Failed to delete conversation');
+        throw new Error("Failed to delete conversation");
       }
     } catch (error) {
-      console.error('Failed to delete conversation:', error);
-      addToast('Failed to delete conversation', 'error');
+      console.error("Failed to delete conversation:", error);
+      addToast("Failed to delete conversation", "error");
     }
   };
 
   const startRename = (conversation: Conversation, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingId(conversation.id);
-    setEditingTitle(conversation.title || 'New Chat');
+    setEditingTitle(conversation.title || "New Chat");
     // Focus the input field after a brief delay to ensure it's rendered
     setTimeout(() => {
       editInputRef.current?.focus();
@@ -216,19 +219,19 @@ export const ConversationSidebar = forwardRef<
 
   const cancelRename = () => {
     setEditingId(null);
-    setEditingTitle('');
+    setEditingTitle("");
   };
 
   const saveRename = async (conversationId: string) => {
     const trimmedTitle = editingTitle.trim();
 
     if (!trimmedTitle) {
-      addToast('Title cannot be empty', 'error');
+      addToast("Title cannot be empty", "error");
       return;
     }
 
     if (
-      trimmedTitle === conversations.find(c => c.id === conversationId)?.title
+      trimmedTitle === conversations.find((c) => c.id === conversationId)?.title
     ) {
       // No change, just cancel
       cancelRename();
@@ -236,13 +239,13 @@ export const ConversationSidebar = forwardRef<
     }
 
     // Add to renaming set
-    setRenamingIds(prev => new Set(prev).add(conversationId));
+    setRenamingIds((prev) => new Set(prev).add(conversationId));
 
     try {
       const response = await fetch(`/api/conversations/${conversationId}`, {
-        method: 'PUT',
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ title: trimmedTitle }),
       });
@@ -251,25 +254,25 @@ export const ConversationSidebar = forwardRef<
         const { conversation: updatedConversation } = await response.json();
 
         // Update local state
-        setConversations(prev =>
-          prev.map(c =>
+        setConversations((prev) =>
+          prev.map((c) =>
             c.id === conversationId
               ? { ...c, title: updatedConversation.title }
               : c
           )
         );
 
-        addToast('Conversation renamed', 'success', 2000);
+        addToast("Conversation renamed", "success", 2000);
         cancelRename();
       } else {
-        throw new Error('Failed to rename conversation');
+        throw new Error("Failed to rename conversation");
       }
     } catch (error) {
-      console.error('Failed to rename conversation:', error);
-      addToast('Failed to rename conversation', 'error');
+      console.error("Failed to rename conversation:", error);
+      addToast("Failed to rename conversation", "error");
     } finally {
       // Remove from renaming set
-      setRenamingIds(prev => {
+      setRenamingIds((prev) => {
         const newSet = new Set(prev);
         newSet.delete(conversationId);
         return newSet;
@@ -281,10 +284,10 @@ export const ConversationSidebar = forwardRef<
     e: React.KeyboardEvent,
     conversationId: string
   ) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
       saveRename(conversationId);
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       e.preventDefault();
       cancelRename();
     }
@@ -306,7 +309,7 @@ export const ConversationSidebar = forwardRef<
         <Button
           onClick={onNewConversation}
           className="w-full justify-start space-x-2"
-          variant={!currentConversation ? 'default' : 'outline'}
+          variant={!currentConversation ? "default" : "outline"}
           size="sm"
         >
           <Plus className="w-4 h-4" />
@@ -353,13 +356,13 @@ export const ConversationSidebar = forwardRef<
           </Card>
         ) : (
           <div className="space-y-0.5 py-2">
-            {conversations.map(conversation => (
+            {conversations.map((conversation) => (
               <div
                 key={conversation.id}
                 className={cn(
-                  'group cursor-pointer transition-all duration-200 hover:bg-muted/50 rounded-lg mx-1 py-2 relative',
+                  "group cursor-pointer transition-all duration-200 hover:bg-muted/50 rounded-lg mx-1 py-2 relative",
                   currentConversation?.id === conversation.id &&
-                    'bg-primary/10 text-primary'
+                    "bg-primary/10 text-primary"
                 )}
                 onClick={() => onConversationSelect(conversation)}
               >
@@ -371,8 +374,8 @@ export const ConversationSidebar = forwardRef<
                           <Input
                             ref={editInputRef}
                             value={editingTitle}
-                            onChange={e => setEditingTitle(e.target.value)}
-                            onKeyDown={e =>
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            onKeyDown={(e) =>
                               handleRenameKeyDown(e, conversation.id)
                             }
                             className="text-sm h-6 px-2 py-0.5 min-w-0 flex-1"
@@ -383,7 +386,7 @@ export const ConversationSidebar = forwardRef<
                             variant="ghost"
                             size="icon"
                             className="w-5 h-5 p-0 text-green-600 hover:text-green-700"
-                            onClick={e => {
+                            onClick={(e) => {
                               e.stopPropagation();
                               saveRename(conversation.id);
                             }}
@@ -399,7 +402,7 @@ export const ConversationSidebar = forwardRef<
                             variant="ghost"
                             size="icon"
                             className="w-5 h-5 p-0 text-red-600 hover:text-red-700"
-                            onClick={e => {
+                            onClick={(e) => {
                               e.stopPropagation();
                               cancelRename();
                             }}
@@ -410,7 +413,7 @@ export const ConversationSidebar = forwardRef<
                       ) : (
                         <>
                           <div className="text-sm font-medium truncate min-w-0 flex-1 overflow-hidden">
-                            {conversation.title || 'New Chat'}
+                            {conversation.title || "New Chat"}
                           </div>
                           {generatingTitles.has(conversation.id) && (
                             <Spinner size="sm" className="flex-shrink-0" />
@@ -431,7 +434,7 @@ export const ConversationSidebar = forwardRef<
                         variant="ghost"
                         size="icon"
                         className="absolute top-2 right-3 w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted"
-                        onClick={e => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <MoreVertical className="w-3 h-3" />
                         <span className="sr-only">More options</span>
@@ -440,14 +443,14 @@ export const ConversationSidebar = forwardRef<
                     <DropdownMenuContent align="end" className="w-48">
                       <DropdownMenuItem
                         className="text-sm"
-                        onClick={e => startRename(conversation, e)}
+                        onClick={(e) => startRename(conversation, e)}
                       >
                         <Edit className="w-3 h-3 mr-2" />
                         Rename
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-sm text-destructive focus:text-destructive"
-                        onClick={e => {
+                        onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteConversation(conversation, e);
                         }}
@@ -478,7 +481,7 @@ export const ConversationSidebar = forwardRef<
                         {(() => {
                           // Try to get avatar from user_metadata first, then from Google identity
                           const googleIdentity = user.identities?.find(
-                            identity => identity.provider === 'google'
+                            (identity) => identity.provider === "google"
                           );
                           const avatarUrl =
                             user.user_metadata?.avatar_url ||
@@ -493,26 +496,26 @@ export const ConversationSidebar = forwardRef<
                                 user.user_metadata?.name ||
                                 googleIdentity?.identity_data?.name ||
                                 user.email ||
-                                'User'
+                                "User"
                               }
                               className="w-full h-full object-cover"
                               crossOrigin="anonymous"
                               referrerPolicy="no-referrer"
-                              onError={e => {
+                              onError={(e) => {
                                 // Try without CORS attributes on fallback
                                 const img = e.currentTarget;
                                 if (!img.dataset.retried) {
-                                  img.dataset.retried = 'true';
-                                  img.crossOrigin = '';
-                                  img.referrerPolicy = '';
+                                  img.dataset.retried = "true";
+                                  img.crossOrigin = "";
+                                  img.referrerPolicy = "";
                                   img.src = avatarUrl;
                                   return;
                                 }
                                 // Hide image and show fallback initials
-                                img.style.display = 'none';
+                                img.style.display = "none";
                                 const fallback =
                                   img.nextElementSibling as HTMLElement;
-                                if (fallback) fallback.style.display = 'block';
+                                if (fallback) fallback.style.display = "block";
                               }}
                             />
                           ) : null;
@@ -522,19 +525,19 @@ export const ConversationSidebar = forwardRef<
                           style={{
                             display: (() => {
                               const googleIdentity = user.identities?.find(
-                                identity => identity.provider === 'google'
+                                (identity) => identity.provider === "google"
                               );
                               const hasAvatar =
                                 user.user_metadata?.avatar_url ||
                                 user.user_metadata?.picture ||
                                 googleIdentity?.identity_data?.picture;
-                              return hasAvatar ? 'none' : 'block';
+                              return hasAvatar ? "none" : "block";
                             })(),
                           }}
                         >
                           {(() => {
                             const googleIdentity = user.identities?.find(
-                              identity => identity.provider === 'google'
+                              (identity) => identity.provider === "google"
                             );
                             const fullName =
                               user.user_metadata?.full_name ||
@@ -543,11 +546,11 @@ export const ConversationSidebar = forwardRef<
 
                             return fullName
                               ? fullName
-                                  .split(' ')
+                                  .split(" ")
                                   .map((n: string) => n[0])
-                                  .join('')
+                                  .join("")
                                   .toUpperCase()
-                              : user.email?.charAt(0).toUpperCase() || 'U';
+                              : user.email?.charAt(0).toUpperCase() || "U";
                           })()}
                         </span>
                       </div>
@@ -555,14 +558,14 @@ export const ConversationSidebar = forwardRef<
                         <div className="text-sm font-medium truncate">
                           {(() => {
                             const googleIdentity = user.identities?.find(
-                              identity => identity.provider === 'google'
+                              (identity) => identity.provider === "google"
                             );
                             return (
                               user.user_metadata?.full_name ||
                               user.user_metadata?.name ||
                               googleIdentity?.identity_data?.name ||
-                              user.email?.split('@')[0] ||
-                              'User'
+                              user.email?.split("@")[0] ||
+                              "User"
                             );
                           })()}
                         </div>
@@ -583,7 +586,7 @@ export const ConversationSidebar = forwardRef<
                 <div className="px-3 py-2 border-b">
                   {(() => {
                     const googleIdentity = user.identities?.find(
-                      identity => identity.provider === 'google'
+                      (identity) => identity.provider === "google"
                     );
                     const fullName =
                       user.user_metadata?.full_name ||
@@ -597,13 +600,13 @@ export const ConversationSidebar = forwardRef<
                   <p
                     className={`text-sm text-muted-foreground truncate ${(() => {
                       const googleIdentity = user.identities?.find(
-                        identity => identity.provider === 'google'
+                        (identity) => identity.provider === "google"
                       );
                       const hasFullName =
                         user.user_metadata?.full_name ||
                         user.user_metadata?.name ||
                         googleIdentity?.identity_data?.name;
-                      return hasFullName ? 'mt-1' : '';
+                      return hasFullName ? "mt-1" : "";
                     })()}`}
                   >
                     {user.email}
@@ -611,7 +614,7 @@ export const ConversationSidebar = forwardRef<
                 </div>
 
                 {/* Menu Items */}
-                <DropdownMenuItem
+                <DropdownMenuItem 
                   className="flex items-center space-x-3 py-3 cursor-pointer"
                   onClick={handleAdminDashboard}
                 >

@@ -300,7 +300,7 @@ async function runIngestion(options: IngestOptions): Promise<void> {
           content: content,
           docType: frontmatter.docType as any, // DocumentType import would cause early API client loading
           userId: user.id,
-          persona: { persona_id: personaUuid } as any,
+          persona: { persona_id: personaUuid },
           metadata: {
             sourceType: 'cli-ingestion',
             originalFilename: filename,
@@ -314,9 +314,9 @@ async function runIngestion(options: IngestOptions): Promise<void> {
 
         if (ingestionResult.success) {
           console.log(`   ✅ Success: ${ingestionResult.documentId} (${processingTime}ms)`);
-          if (options.verbose && (ingestionResult as any).chunks_created) {
-            console.log(`      📝 Chunks: ${(ingestionResult as any).chunks_created}`);
-            console.log(`      🏷️  Entities: ${(ingestionResult as any).entities_extracted || 0}`);
+          if (options.verbose && ingestionResult.chunks_created) {
+            console.log(`      📝 Chunks: ${ingestionResult.chunks_created}`);
+            console.log(`      🏷️  Entities: ${ingestionResult.entities_extracted || 0}`);
           }
 
           results.push({
@@ -325,8 +325,8 @@ async function runIngestion(options: IngestOptions): Promise<void> {
             status: 'ingested',
             documentId: ingestionResult.documentId,
             processingTime,
-            chunks: (ingestionResult as any).chunks_created,
-            entities: (ingestionResult as any).entities_extracted
+            chunks: ingestionResult.chunks_created,
+            entities: ingestionResult.entities_extracted
           });
           summary.ingested++;
         } else {

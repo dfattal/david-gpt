@@ -23,7 +23,7 @@ export interface ExtensibleDocumentMetadata {
   originalAssignee?: string;
   filedDate?: string;
   grantedDate?: string;
-  authorsAffiliations?: Array<{ name: string; affiliation?: string }>;
+  authorsAffiliations?: Array<{name: string, affiliation?: string}>;
   venue?: string;
   publicationYear?: number;
   doi?: string;
@@ -85,8 +85,8 @@ export interface ExtensibleDocumentMetadata {
   customFields?: Record<string, any>;
 }
 
-// Legacy type for backward compatibility
-export type SimpleDocumentMetadata = ExtensibleDocumentMetadata;
+// Legacy interface for backward compatibility
+export interface SimpleDocumentMetadata extends ExtensibleDocumentMetadata {}
 
 // Template registry for dynamic registration
 class MetadataTemplateRegistry {
@@ -102,50 +102,40 @@ class MetadataTemplateRegistry {
       name: 'patent',
       persona: 'david',
       documentTypes: ['patent'],
-      generateFooter: (metadata: ExtensibleDocumentMetadata) =>
-        generatePatentMetadata(metadata),
-      estimateTokens: (metadata: ExtensibleDocumentMetadata) =>
-        estimateTokensWithMetadata(0, metadata),
+      generateFooter: (metadata: ExtensibleDocumentMetadata) => generatePatentMetadata(metadata),
+      estimateTokens: (metadata: ExtensibleDocumentMetadata) => estimateTokensWithMetadata(0, metadata)
     });
 
     this.registerTemplate({
       name: 'paper',
       persona: 'david',
       documentTypes: ['paper'],
-      generateFooter: (metadata: ExtensibleDocumentMetadata) =>
-        generatePaperMetadata(metadata),
-      estimateTokens: (metadata: ExtensibleDocumentMetadata) =>
-        estimateTokensWithMetadata(0, metadata),
+      generateFooter: (metadata: ExtensibleDocumentMetadata) => generatePaperMetadata(metadata),
+      estimateTokens: (metadata: ExtensibleDocumentMetadata) => estimateTokensWithMetadata(0, metadata)
     });
 
     this.registerTemplate({
       name: 'press-article',
       persona: 'david',
       documentTypes: ['press-article'],
-      generateFooter: (metadata: ExtensibleDocumentMetadata) =>
-        generatePressArticleMetadata(metadata),
-      estimateTokens: (metadata: ExtensibleDocumentMetadata) =>
-        estimateTokensWithMetadata(0, metadata),
+      generateFooter: (metadata: ExtensibleDocumentMetadata) => generatePressArticleMetadata(metadata),
+      estimateTokens: (metadata: ExtensibleDocumentMetadata) => estimateTokensWithMetadata(0, metadata)
     });
 
     this.registerTemplate({
       name: 'book',
       persona: 'david',
       documentTypes: ['book'],
-      generateFooter: (metadata: ExtensibleDocumentMetadata) =>
-        generateBookMetadata(metadata),
-      estimateTokens: (metadata: ExtensibleDocumentMetadata) =>
-        estimateTokensWithMetadata(0, metadata),
+      generateFooter: (metadata: ExtensibleDocumentMetadata) => generateBookMetadata(metadata),
+      estimateTokens: (metadata: ExtensibleDocumentMetadata) => estimateTokensWithMetadata(0, metadata)
     });
 
     this.registerTemplate({
       name: 'url',
       persona: 'david',
       documentTypes: ['url', 'note'],
-      generateFooter: (metadata: ExtensibleDocumentMetadata) =>
-        generateUrlMetadata(metadata),
-      estimateTokens: (metadata: ExtensibleDocumentMetadata) =>
-        estimateTokensWithMetadata(0, metadata),
+      generateFooter: (metadata: ExtensibleDocumentMetadata) => generateUrlMetadata(metadata),
+      estimateTokens: (metadata: ExtensibleDocumentMetadata) => estimateTokensWithMetadata(0, metadata)
     });
 
     // Register Legal persona templates
@@ -153,26 +143,17 @@ class MetadataTemplateRegistry {
       name: 'legal',
       persona: 'legal',
       documentTypes: ['legal-doc', 'case-law', 'statute', 'legal-brief'],
-      generateFooter: (metadata: ExtensibleDocumentMetadata) =>
-        generateLegalMetadata(metadata),
-      estimateTokens: (metadata: ExtensibleDocumentMetadata) =>
-        estimateTokensWithMetadata(0, metadata),
+      generateFooter: (metadata: ExtensibleDocumentMetadata) => generateLegalMetadata(metadata),
+      estimateTokens: (metadata: ExtensibleDocumentMetadata) => estimateTokensWithMetadata(0, metadata)
     });
 
     // Register Medical persona templates
     this.registerTemplate({
       name: 'medical',
       persona: 'medical',
-      documentTypes: [
-        'medical-paper',
-        'clinical-trial',
-        'medical-guideline',
-        'case-report',
-      ],
-      generateFooter: (metadata: ExtensibleDocumentMetadata) =>
-        generateMedicalMetadata(metadata),
-      estimateTokens: (metadata: ExtensibleDocumentMetadata) =>
-        estimateTokensWithMetadata(0, metadata),
+      documentTypes: ['medical-paper', 'clinical-trial', 'medical-guideline', 'case-report'],
+      generateFooter: (metadata: ExtensibleDocumentMetadata) => generateMedicalMetadata(metadata),
+      estimateTokens: (metadata: ExtensibleDocumentMetadata) => estimateTokensWithMetadata(0, metadata)
     });
   }
 
@@ -186,16 +167,11 @@ class MetadataTemplateRegistry {
     return this.templates.get(templateName);
   }
 
-  getTemplateForDocType(
-    docType: string,
-    persona?: Persona
-  ): MetadataTemplate | undefined {
+  getTemplateForDocType(docType: string, persona?: Persona): MetadataTemplate | undefined {
     // Find template that supports this document type and persona
     for (const template of this.templates.values()) {
-      if (
-        template.documentTypes.includes(docType as any) &&
-        (!persona || template.persona === persona)
-      ) {
+      if (template.documentTypes.includes(docType as any) &&
+          (!persona || template.persona === persona)) {
         return template;
       }
     }
@@ -213,9 +189,7 @@ export const templateRegistry = new MetadataTemplateRegistry();
 /**
  * Generate metadata footer for legal documents
  */
-export function generateLegalMetadata(
-  metadata: ExtensibleDocumentMetadata
-): string {
+export function generateLegalMetadata(metadata: ExtensibleDocumentMetadata): string {
   const parts: string[] = [];
 
   if (metadata.caseNumber) {
@@ -225,12 +199,8 @@ export function generateLegalMetadata(
   if (metadata.caseParties) {
     const { plaintiff, defendant } = metadata.caseParties;
     if (plaintiff && defendant) {
-      const plaintiffStr = Array.isArray(plaintiff)
-        ? plaintiff.join(', ')
-        : plaintiff;
-      const defendantStr = Array.isArray(defendant)
-        ? defendant.join(', ')
-        : defendant;
+      const plaintiffStr = Array.isArray(plaintiff) ? plaintiff.join(', ') : plaintiff;
+      const defendantStr = Array.isArray(defendant) ? defendant.join(', ') : defendant;
       parts.push(`${plaintiffStr} v. ${defendantStr}`);
     }
   }
@@ -269,9 +239,7 @@ export function generateLegalMetadata(
 /**
  * Generate metadata footer for medical documents
  */
-export function generateMedicalMetadata(
-  metadata: ExtensibleDocumentMetadata
-): string {
+export function generateMedicalMetadata(metadata: ExtensibleDocumentMetadata): string {
   const parts: string[] = [];
 
   if (metadata.clinicalTrialId) {
@@ -320,31 +288,28 @@ export function generateMedicalMetadata(
 /**
  * Generate metadata footer for patent documents
  */
-export function generatePatentMetadata(
-  metadata: ExtensibleDocumentMetadata
-): string {
+export function generatePatentMetadata(metadata: ExtensibleDocumentMetadata): string {
   const parts: string[] = [];
-
+  
   if (metadata.patentNo) {
     parts.push(`Patent ${metadata.patentNo}`);
   }
-
+  
   // Handle inventors with normalization
   if (metadata.inventors && Array.isArray(metadata.inventors)) {
     const inventors = metadata.inventors as string[];
     if (inventors.length > 0) {
       // Normalize inventor names for better searchability
       const normalizedInventors = normalizeInventorNames(inventors);
-      const inventorList =
-        normalizedInventors.length === 1
-          ? normalizedInventors[0]
-          : normalizedInventors.length === 2
-            ? `${normalizedInventors[0]}, ${normalizedInventors[1]}`
-            : `${normalizedInventors.slice(0, -1).join(', ')}, ${normalizedInventors[normalizedInventors.length - 1]}`;
+      const inventorList = normalizedInventors.length === 1 
+        ? normalizedInventors[0]
+        : normalizedInventors.length === 2
+        ? `${normalizedInventors[0]}, ${normalizedInventors[1]}`
+        : `${normalizedInventors.slice(0, -1).join(', ')}, ${normalizedInventors[normalizedInventors.length - 1]}`;
       parts.push(`Inventors: ${inventorList}`);
     }
   }
-
+  
   // Handle assignees
   if (metadata.assignees && Array.isArray(metadata.assignees)) {
     const assignees = metadata.assignees as string[];
@@ -352,57 +317,45 @@ export function generatePatentMetadata(
       parts.push(`Assignee: ${assignees.join(', ')}`);
     }
   }
-
+  
   // Handle original assignee if different
-  if (
-    metadata.originalAssignee &&
-    (!metadata.assignees ||
-      !metadata.assignees.includes(metadata.originalAssignee))
-  ) {
+  if (metadata.originalAssignee && 
+      (!metadata.assignees || !metadata.assignees.includes(metadata.originalAssignee))) {
     parts.push(`Originally: ${metadata.originalAssignee}`);
   }
-
+  
   // Handle dates
   if (metadata.filedDate) {
     parts.push(`Filed: ${new Date(metadata.filedDate).getFullYear()}`);
   }
-
+  
   if (metadata.grantedDate) {
     parts.push(`Granted: ${new Date(metadata.grantedDate).getFullYear()}`);
   }
-
+  
   return parts.length > 0 ? parts.join(' - ') : '';
 }
 
 /**
  * Generate metadata footer for academic papers
  */
-export function generatePaperMetadata(
-  metadata: SimpleDocumentMetadata
-): string {
+export function generatePaperMetadata(metadata: SimpleDocumentMetadata): string {
   const parts: string[] = [];
-
+  
   // Handle authors
-  if (
-    metadata.authorsAffiliations &&
-    Array.isArray(metadata.authorsAffiliations)
-  ) {
-    const authors = metadata.authorsAffiliations as Array<{
-      name: string;
-      affiliation?: string;
-    }>;
+  if (metadata.authorsAffiliations && Array.isArray(metadata.authorsAffiliations)) {
+    const authors = metadata.authorsAffiliations as Array<{name: string, affiliation?: string}>;
     if (authors.length > 0) {
       const authorNames = authors.map(a => a.name);
-      const authorList =
-        authorNames.length === 1
-          ? authorNames[0]
-          : authorNames.length === 2
-            ? `${authorNames[0]}, ${authorNames[1]}`
-            : `${authorNames.slice(0, -1).join(', ')}, ${authorNames[authorNames.length - 1]}`;
+      const authorList = authorNames.length === 1
+        ? authorNames[0]
+        : authorNames.length === 2
+        ? `${authorNames[0]}, ${authorNames[1]}`
+        : `${authorNames.slice(0, -1).join(', ')}, ${authorNames[authorNames.length - 1]}`;
       parts.push(`Authors: ${authorList}`);
     }
   }
-
+  
   // Handle venue and year
   if (metadata.venue) {
     let venueInfo = metadata.venue;
@@ -413,22 +366,22 @@ export function generatePaperMetadata(
   } else if (metadata.publicationYear) {
     parts.push(`Published: ${metadata.publicationYear}`);
   }
-
+  
   // Handle DOI
   if (metadata.doi) {
     parts.push(`DOI: ${metadata.doi}`);
   }
-
+  
   // Handle arXiv
   if (metadata.arxivId) {
     parts.push(`arXiv: ${metadata.arxivId}`);
   }
-
+  
   // Handle citations
   if (metadata.citationCount && metadata.citationCount > 0) {
     parts.push(`Citations: ${metadata.citationCount}`);
   }
-
+  
   return parts.length > 0 ? parts.join(' - ') : '';
 }
 
@@ -437,36 +390,29 @@ export function generatePaperMetadata(
  */
 export function generateBookMetadata(metadata: SimpleDocumentMetadata): string {
   const parts: string[] = [];
-
+  
   // Handle authors (assuming stored in authorsAffiliations for books too)
-  if (
-    metadata.authorsAffiliations &&
-    Array.isArray(metadata.authorsAffiliations)
-  ) {
-    const authors = metadata.authorsAffiliations as Array<{
-      name: string;
-      affiliation?: string;
-    }>;
+  if (metadata.authorsAffiliations && Array.isArray(metadata.authorsAffiliations)) {
+    const authors = metadata.authorsAffiliations as Array<{name: string, affiliation?: string}>;
     if (authors.length > 0) {
       const authorNames = authors.map(a => a.name);
-      const authorList =
-        authorNames.length === 1
-          ? authorNames[0]
-          : `${authorNames.slice(0, -1).join(', ')}, ${authorNames[authorNames.length - 1]}`;
+      const authorList = authorNames.length === 1
+        ? authorNames[0]
+        : `${authorNames.slice(0, -1).join(', ')}, ${authorNames[authorNames.length - 1]}`;
       parts.push(`Authors: ${authorList}`);
     }
   }
-
+  
   // Handle publication year
   if (metadata.publicationYear) {
     parts.push(`Published: ${metadata.publicationYear}`);
   }
-
+  
   // Handle venue (publisher for books)
   if (metadata.venue) {
     parts.push(`Publisher: ${metadata.venue}`);
   }
-
+  
   return parts.length > 0 ? `Book - ${parts.join(' - ')}` : 'Book';
 }
 
@@ -475,7 +421,7 @@ export function generateBookMetadata(metadata: SimpleDocumentMetadata): string {
  */
 export function generateUrlMetadata(metadata: SimpleDocumentMetadata): string {
   const parts: string[] = [];
-
+  
   if (metadata.url) {
     try {
       const url = new URL(metadata.url);
@@ -484,22 +430,20 @@ export function generateUrlMetadata(metadata: SimpleDocumentMetadata): string {
       parts.push(`Source: ${metadata.url}`);
     }
   }
-
+  
   if (metadata.date) {
     parts.push(`Created: ${new Date(metadata.date).getFullYear()}`);
   }
-
+  
   return parts.length > 0 ? parts.join(' - ') : '';
 }
 
 /**
  * Generate metadata footer for press articles
  */
-export function generatePressArticleMetadata(
-  metadata: SimpleDocumentMetadata
-): string {
+export function generatePressArticleMetadata(metadata: SimpleDocumentMetadata): string {
   const parts: string[] = [];
-
+  
   // OEM and product info
   if (metadata.oem) {
     let productInfo = metadata.oem;
@@ -508,7 +452,7 @@ export function generatePressArticleMetadata(
     }
     parts.push(productInfo);
   }
-
+  
   // Display specifications
   const displaySpecs: string[] = [];
   if (metadata.displaySize) {
@@ -523,17 +467,17 @@ export function generatePressArticleMetadata(
   if (displaySpecs.length > 0) {
     parts.push(`Display: ${displaySpecs.join(' ')}`);
   }
-
+  
   // Leia features
   if (metadata.leiaFeature && metadata.leiaFeature.length > 0) {
     parts.push(`Leia Features: ${metadata.leiaFeature.join(', ')}`);
   }
-
+  
   // Product category
   if (metadata.productCategory) {
     parts.push(`Category: ${metadata.productCategory}`);
   }
-
+  
   // Publication info
   if (metadata.outlet) {
     let pubInfo = metadata.outlet;
@@ -544,39 +488,33 @@ export function generatePressArticleMetadata(
   } else if (metadata.launchYear) {
     parts.push(`Published: ${metadata.launchYear}`);
   }
-
+  
   // Journalist
   if (metadata.journalist && metadata.journalist.length > 0) {
-    const journalistList =
-      metadata.journalist.length === 1
-        ? metadata.journalist[0]
-        : metadata.journalist.join(', ');
+    const journalistList = metadata.journalist.length === 1
+      ? metadata.journalist[0]
+      : metadata.journalist.join(', ');
     parts.push(`Reporter: ${journalistList}`);
   }
-
+  
   // Market info
   if (metadata.marketRegion && metadata.marketRegion.length > 0) {
     parts.push(`Markets: ${metadata.marketRegion.join(', ')}`);
   }
-
+  
   if (metadata.priceRange) {
     parts.push(`Price: ${metadata.priceRange}`);
   }
-
+  
   return parts.length > 0 ? parts.join(' - ') : '';
 }
 
 /**
  * Main function to generate appropriate metadata for any document type using extensible templates
  */
-export function generateMetadataFooter(
-  metadata: ExtensibleDocumentMetadata
-): string {
+export function generateMetadataFooter(metadata: ExtensibleDocumentMetadata): string {
   // Try to find a specific template for this document type and persona
-  const template = templateRegistry.getTemplateForDocType(
-    metadata.docType,
-    metadata.persona
-  );
+  const template = templateRegistry.getTemplateForDocType(metadata.docType, metadata.persona);
   if (template) {
     return template.generateFooter(metadata);
   }
@@ -619,9 +557,9 @@ export function generateMetadataFooter(
       }
     default:
       // Try to find any template that supports this document type
-      const anyTemplate = templateRegistry
-        .getAllTemplates()
-        .find(t => t.documentTypes.includes(metadata.docType as any));
+      const anyTemplate = templateRegistry.getAllTemplates().find(t =>
+        t.documentTypes.includes(metadata.docType as any)
+      );
       if (anyTemplate) {
         return anyTemplate.generateFooter(metadata);
       }
@@ -632,10 +570,7 @@ export function generateMetadataFooter(
 /**
  * Inject metadata into abstract content using extensible templates
  */
-export function injectMetadataIntoContent(
-  content: string,
-  metadata: ExtensibleDocumentMetadata
-): string {
+export function injectMetadataIntoContent(content: string, metadata: ExtensibleDocumentMetadata): string {
   const metadataFooter = generateMetadataFooter(metadata);
 
   if (!metadataFooter) {
@@ -649,15 +584,9 @@ export function injectMetadataIntoContent(
 /**
  * Calculate token estimate for content with metadata using extensible templates
  */
-export function estimateTokensWithMetadata(
-  baseTokens: number,
-  metadata: ExtensibleDocumentMetadata
-): number {
+export function estimateTokensWithMetadata(baseTokens: number, metadata: ExtensibleDocumentMetadata): number {
   // Try to use template-specific estimation if available
-  const template = templateRegistry.getTemplateForDocType(
-    metadata.docType,
-    metadata.persona
-  );
+  const template = templateRegistry.getTemplateForDocType(metadata.docType, metadata.persona);
   if (template && template.estimateTokens) {
     return template.estimateTokens(metadata) + baseTokens;
   }
@@ -674,28 +603,19 @@ export const {
   registerTemplate,
   getTemplate,
   getTemplateForDocType,
-  getAllTemplates,
+  getAllTemplates
 } = {
-  registerTemplate: (template: MetadataTemplate) =>
-    templateRegistry.registerTemplate(template),
-  getTemplate: (templateName: string) =>
-    templateRegistry.getTemplate(templateName),
-  getTemplateForDocType: (docType: string, persona?: Persona) =>
-    templateRegistry.getTemplateForDocType(docType, persona),
-  getAllTemplates: () => templateRegistry.getAllTemplates(),
+  registerTemplate: (template: MetadataTemplate) => templateRegistry.registerTemplate(template),
+  getTemplate: (templateName: string) => templateRegistry.getTemplate(templateName),
+  getTemplateForDocType: (docType: string, persona?: Persona) => templateRegistry.getTemplateForDocType(docType, persona),
+  getAllTemplates: () => templateRegistry.getAllTemplates()
 };
 
 // Legacy function exports for backward compatibility
-export function injectMetadataIntoContentLegacy(
-  content: string,
-  metadata: SimpleDocumentMetadata
-): string {
+export function injectMetadataIntoContentLegacy(content: string, metadata: SimpleDocumentMetadata): string {
   return injectMetadataIntoContent(content, metadata);
 }
 
-export function estimateTokensWithMetadataLegacy(
-  baseTokens: number,
-  metadata: SimpleDocumentMetadata
-): number {
+export function estimateTokensWithMetadataLegacy(baseTokens: number, metadata: SimpleDocumentMetadata): number {
   return estimateTokensWithMetadata(baseTokens, metadata);
 }

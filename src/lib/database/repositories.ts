@@ -1,6 +1,6 @@
 /**
  * Database Repository Pattern
- *
+ * 
  * Provides a centralized abstraction layer for database operations,
  * eliminating repetitive Supabase query patterns across the codebase.
  */
@@ -31,18 +31,13 @@ export class BaseRepository<T = any> {
 
     if (error) {
       if (error.code === 'PGRST116') return null; // Not found
-      throw new Error(
-        `Failed to find ${this.tableName} by id: ${error.message}`
-      );
+      throw new Error(`Failed to find ${this.tableName} by id: ${error.message}`);
     }
 
     return data;
   }
 
-  async findMany(
-    filters: Record<string, any> = {},
-    limit?: number
-  ): Promise<T[]> {
+  async findMany(filters: Record<string, any> = {}, limit?: number): Promise<T[]> {
     let query = this.supabase.from(this.tableName).select('*');
 
     // Apply filters
@@ -206,27 +201,24 @@ export class ProcessingJobRepository extends BaseRepository<ProcessingJob> {
   }
 
   async updateProgress(
-    id: string,
-    progress: number,
+    id: string, 
+    progress: number, 
     message?: string,
     status?: string
   ): Promise<ProcessingJob> {
     const updateData: any = { progress };
     if (message) updateData.progress_message = message;
     if (status) updateData.status = status;
-
+    
     return this.update(id, updateData);
   }
 
-  async markCompleted(
-    id: string,
-    results?: Record<string, any>
-  ): Promise<ProcessingJob> {
+  async markCompleted(id: string, results?: Record<string, any>): Promise<ProcessingJob> {
     return this.update(id, {
       status: 'completed',
       progress: 1.0,
       completed_at: new Date().toISOString(),
-      results,
+      results
     });
   }
 
@@ -234,7 +226,7 @@ export class ProcessingJobRepository extends BaseRepository<ProcessingJob> {
     return this.update(id, {
       status: 'failed',
       error_message: error,
-      completed_at: new Date().toISOString(),
+      completed_at: new Date().toISOString()
     });
   }
 }
@@ -308,10 +300,7 @@ export class MessageRepository extends BaseRepository<Message> {
     super('messages', supabase);
   }
 
-  async findByConversation(
-    conversationId: string,
-    limit = 100
-  ): Promise<Message[]> {
+  async findByConversation(conversationId: string, limit = 100): Promise<Message[]> {
     const { data, error } = await this.supabase
       .from('messages')
       .select('*')
@@ -326,25 +315,19 @@ export class MessageRepository extends BaseRepository<Message> {
     return data || [];
   }
 
-  async createUserMessage(
-    conversationId: string,
-    content: string
-  ): Promise<Message> {
+  async createUserMessage(conversationId: string, content: string): Promise<Message> {
     return this.create({
       conversation_id: conversationId,
       role: 'user',
-      content,
+      content
     });
   }
 
-  async createAssistantMessage(
-    conversationId: string,
-    content: string
-  ): Promise<Message> {
+  async createAssistantMessage(conversationId: string, content: string): Promise<Message> {
     return this.create({
       conversation_id: conversationId,
       role: 'assistant',
-      content,
+      content
     });
   }
 }
@@ -396,11 +379,13 @@ export class ChunkRepository extends BaseRepository<Chunk> {
   }
 
   async search(
-    query: string,
-    embedding?: number[],
+    query: string, 
+    embedding?: number[], 
     limit = 10
   ): Promise<Chunk[]> {
-    let queryBuilder = this.supabase.from('chunks').select(`
+    let queryBuilder = this.supabase
+      .from('chunks')
+      .select(`
         *,
         documents (
           id,
@@ -412,14 +397,17 @@ export class ChunkRepository extends BaseRepository<Chunk> {
 
     if (embedding) {
       // Use vector similarity search if embedding provided
-      queryBuilder = queryBuilder.rpc('search_chunks', {
-        query_embedding: embedding,
-        match_threshold: 0.5,
-        match_count: limit,
-      });
+      queryBuilder = queryBuilder
+        .rpc('search_chunks', {
+          query_embedding: embedding,
+          match_threshold: 0.5,
+          match_count: limit
+        });
     } else {
       // Full-text search fallback
-      queryBuilder = queryBuilder.textSearch('content', query).limit(limit);
+      queryBuilder = queryBuilder
+        .textSearch('content', query)
+        .limit(limit);
     }
 
     const { data, error } = await queryBuilder;

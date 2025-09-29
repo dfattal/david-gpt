@@ -14,35 +14,31 @@ export async function GET(
     const { personaId } = await context.params;
     const personaPath = join(process.cwd(), 'personas', personaId);
 
-    const parseResult =
-      await ConstraintsParser.parseFromPersonaFolder(personaPath);
+    const parseResult = await ConstraintsParser.parseFromPersonaFolder(personaPath);
 
     if (!parseResult.success) {
       return NextResponse.json(
         {
           error: 'Failed to parse constraints',
           parse_errors: parseResult.errors,
-          warnings: parseResult.warnings,
+          warnings: parseResult.warnings
         },
         { status: 400 }
       );
     }
 
-    const summary = parseResult.constraints
-      ? ConstraintsParser.generateConstraintsSummary(parseResult.constraints)
-      : '';
+    const summary = parseResult.constraints ?
+      ConstraintsParser.generateConstraintsSummary(parseResult.constraints) : '';
 
     return NextResponse.json({
       persona_id: personaId,
       constraints: parseResult.constraints,
       summary,
-      warnings: parseResult.warnings,
+      warnings: parseResult.warnings
     });
+
   } catch (error) {
-    console.error(
-      `Failed to get constraints for persona ${(await context.params).personaId}:`,
-      error
-    );
+    console.error(`Failed to get constraints for persona ${(await context.params).personaId}:`, error);
     return NextResponse.json(
       { error: 'Failed to get persona constraints' },
       { status: 500 }
@@ -61,30 +57,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const parseResult = ConstraintsParser.parseFromContent(
-      body.constraints_yaml
-    );
+    const parseResult = ConstraintsParser.parseFromContent(body.constraints_yaml);
 
     if (!parseResult.success) {
       return NextResponse.json(
         {
           error: 'Failed to parse constraints',
           parse_errors: parseResult.errors,
-          warnings: parseResult.warnings,
+          warnings: parseResult.warnings
         },
         { status: 400 }
       );
     }
 
-    const summary = parseResult.constraints
-      ? ConstraintsParser.generateConstraintsSummary(parseResult.constraints)
-      : '';
+    const summary = parseResult.constraints ?
+      ConstraintsParser.generateConstraintsSummary(parseResult.constraints) : '';
 
     return NextResponse.json({
       constraints: parseResult.constraints,
       summary,
-      warnings: parseResult.warnings,
+      warnings: parseResult.warnings
     });
+
   } catch (error) {
     console.error('Failed to parse constraints content:', error);
     return NextResponse.json(

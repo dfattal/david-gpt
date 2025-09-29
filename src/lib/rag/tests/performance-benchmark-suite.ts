@@ -6,14 +6,8 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import {
-  ThreeTierSearchEngine,
-  classifySearchQuery,
-} from '../three-tier-search';
-import type {
-  TieredSearchQuery,
-  TieredSearchResult,
-} from '../three-tier-search';
+import { ThreeTierSearchEngine, classifySearchQuery } from '../three-tier-search';
+import type { TieredSearchQuery, TieredSearchResult } from '../three-tier-search';
 import type { SearchQuery, SearchResult } from '../types';
 
 // =======================
@@ -214,12 +208,12 @@ export class PerformanceBenchmarkSuite {
         tierPerformance,
         scalabilityMetrics,
         accuracyMetrics,
-        resourceUtilization,
+        resourceUtilization
       ] = await Promise.all([
         this.benchmarkTierPerformance(),
         this.benchmarkScalability(),
         this.benchmarkAccuracy(),
-        this.benchmarkResourceUtilization(),
+        this.benchmarkResourceUtilization()
       ]);
 
       const overallScore = this.calculateOverallPerformanceScore(
@@ -245,12 +239,13 @@ export class PerformanceBenchmarkSuite {
         accuracyMetrics,
         resourceUtilization,
         overallScore,
-        recommendations,
+        recommendations
       };
 
       this.printBenchmarkReport(result);
 
       return result;
+
     } finally {
       this.isRunning = false;
     }
@@ -268,7 +263,7 @@ export class PerformanceBenchmarkSuite {
       'DOI 10.1038/nature12345',
       'arXiv:2003.11172',
       'Published in 2020',
-      'Filed after 2021',
+      'Filed after 2021'
     ];
 
     // Tier 2 (Vector) queries
@@ -277,7 +272,7 @@ export class PerformanceBenchmarkSuite {
       'Patents by David Fattal',
       'Papers by Leia Inc',
       'Authors from HP Labs',
-      'Inventors of 3D technology',
+      'Inventors of 3D technology'
     ];
 
     // Tier 3 (Content) queries
@@ -286,19 +281,19 @@ export class PerformanceBenchmarkSuite {
       'Explain depth estimation algorithms',
       'Compare 3D display technologies',
       'Advantages of holographic displays',
-      'Principles of spatial computing',
+      'Principles of spatial computing'
     ];
 
     const [tier1Results, tier2Results, tier3Results] = await Promise.all([
       this.benchmarkQueriesForTier(tier1Queries, 'sql'),
       this.benchmarkQueriesForTier(tier2Queries, 'vector'),
-      this.benchmarkQueriesForTier(tier3Queries, 'content'),
+      this.benchmarkQueriesForTier(tier3Queries, 'content')
     ]);
 
     return {
       tier1SQL: tier1Results,
       tier2Vector: tier2Results,
-      tier3Content: tier3Results,
+      tier3Content: tier3Results
     };
   }
 
@@ -320,7 +315,7 @@ export class PerformanceBenchmarkSuite {
         const result = await this.searchEngine.search({
           query,
           tier: 'auto',
-          limit: 10,
+          limit: 10
         });
 
         const responseTime = Date.now() - startTime;
@@ -333,6 +328,7 @@ export class PerformanceBenchmarkSuite {
         if (result.tier === expectedTier) {
           correctClassifications++;
         }
+
       } catch (error) {
         console.error(`Query failed: ${query}`, error);
       }
@@ -347,16 +343,12 @@ export class PerformanceBenchmarkSuite {
     const p95 = this.calculatePercentile(sortedTimes, 95);
     const p99 = this.calculatePercentile(sortedTimes, 99);
 
-    const averageResponseTime =
-      responseTimes.length > 0
-        ? responseTimes.reduce((sum, time) => sum + time, 0) /
-          responseTimes.length
-        : 0;
+    const averageResponseTime = responseTimes.length > 0
+      ? responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length
+      : 0;
 
-    const successRate =
-      queries.length > 0 ? (successCount / queries.length) * 100 : 0;
-    const accurateClassification =
-      queries.length > 0 ? (correctClassifications / queries.length) * 100 : 0;
+    const successRate = queries.length > 0 ? (successCount / queries.length) * 100 : 0;
+    const accurateClassification = queries.length > 0 ? (correctClassifications / queries.length) * 100 : 0;
 
     // Calculate throughput (simplified)
     const totalTime = responseTimes.reduce((sum, time) => sum + time, 0);
@@ -371,14 +363,10 @@ export class PerformanceBenchmarkSuite {
       accurateClassification,
       throughput,
       // Additional metrics specific to each tier would be calculated here
-      embeddingLatency:
-        expectedTier === 'vector' ? averageResponseTime * 0.3 : 0,
-      vectorSearchLatency:
-        expectedTier === 'vector' ? averageResponseTime * 0.4 : 0,
-      hybridSearchLatency:
-        expectedTier === 'content' ? averageResponseTime * 0.6 : 0,
-      rerankingLatency:
-        expectedTier === 'content' ? averageResponseTime * 0.2 : 0,
+      embeddingLatency: expectedTier === 'vector' ? averageResponseTime * 0.3 : 0,
+      vectorSearchLatency: expectedTier === 'vector' ? averageResponseTime * 0.4 : 0,
+      hybridSearchLatency: expectedTier === 'content' ? averageResponseTime * 0.6 : 0,
+      rerankingLatency: expectedTier === 'content' ? averageResponseTime * 0.2 : 0
     };
   }
 
@@ -404,23 +392,21 @@ export class PerformanceBenchmarkSuite {
       documentScaling: {
         documentsInCorpus: documentCount || 0,
         searchTimeComplexity: 'O(log n)', // Based on indexed searches
-        performanceAtScale: 0.85, // Estimated performance at 10x scale
+        performanceAtScale: 0.85 // Estimated performance at 10x scale
       },
-      queryComplexity: complexityResults,
+      queryComplexity: complexityResults
     };
   }
 
   /**
    * Test concurrent user capacity
    */
-  private async testConcurrentUsers(): Promise<
-    ScalabilityMetrics['concurrentUsers']
-  > {
+  private async testConcurrentUsers(): Promise<ScalabilityMetrics['concurrentUsers']> {
     const testQueries = [
       'Lightfield display technology',
       'David Fattal patents',
       'How do 3D displays work?',
-      'Depth estimation methods',
+      'Depth estimation methods'
     ];
 
     // Test with increasing concurrent users
@@ -445,21 +431,17 @@ export class PerformanceBenchmarkSuite {
         const results = await Promise.allSettled(promises);
         const totalTime = Date.now() - startTime;
 
-        const successfulRequests = results.filter(
-          r => r.status === 'fulfilled'
-        ).length;
+        const successfulRequests = results.filter(r => r.status === 'fulfilled').length;
         const errorRate = ((userCount - successfulRequests) / userCount) * 100;
 
-        if (errorRate < 5) {
-          // Less than 5% error rate
+        if (errorRate < 5) { // Less than 5% error rate
           maxSupportedUsers = userCount;
           errorRateAtMaxLoad = errorRate;
 
           if (userCount > 1) {
             const avgTimePerUser = totalTime / userCount;
             const baselineTime = 500; // ms baseline
-            responseTimeDegradation =
-              ((avgTimePerUser - baselineTime) / baselineTime) * 100;
+            responseTimeDegradation = ((avgTimePerUser - baselineTime) / baselineTime) * 100;
           }
         } else {
           break; // Stop testing at first failure threshold
@@ -467,11 +449,9 @@ export class PerformanceBenchmarkSuite {
 
         // Delay between load levels
         await new Promise(resolve => setTimeout(resolve, 1000));
+
       } catch (error) {
-        console.error(
-          `Concurrent user test failed at ${userCount} users:`,
-          error
-        );
+        console.error(`Concurrent user test failed at ${userCount} users:`, error);
         break;
       }
     }
@@ -479,39 +459,33 @@ export class PerformanceBenchmarkSuite {
     return {
       maxSupportedUsers,
       responseTimeDegradation: Math.max(0, responseTimeDegradation),
-      errorRateAtMaxLoad,
+      errorRateAtMaxLoad
     };
   }
 
   /**
    * Test query complexity impact
    */
-  private async testQueryComplexity(): Promise<
-    ScalabilityMetrics['queryComplexity']
-  > {
-    const simpleQueries = ['David Fattal', 'Leia Inc', 'patent US11281020'];
+  private async testQueryComplexity(): Promise<ScalabilityMetrics['queryComplexity']> {
+    const simpleQueries = [
+      'David Fattal',
+      'Leia Inc',
+      'patent US11281020'
+    ];
 
     const complexQueries = [
       'Compare the advantages and disadvantages of lightfield displays versus traditional stereoscopic 3D displays',
       'Explain the technical challenges in implementing glasses-free 3D technology for mobile devices',
-      'What are the key innovations in depth estimation algorithms developed by researchers at major technology companies?',
+      'What are the key innovations in depth estimation algorithms developed by researchers at major technology companies?'
     ];
 
-    const simpleResults = await this.benchmarkQueriesForTier(
-      simpleQueries,
-      'sql'
-    );
-    const complexResults = await this.benchmarkQueriesForTier(
-      complexQueries,
-      'content'
-    );
+    const simpleResults = await this.benchmarkQueriesForTier(simpleQueries, 'sql');
+    const complexResults = await this.benchmarkQueriesForTier(complexQueries, 'content');
 
     return {
       simpleQueryTime: simpleResults.averageResponseTime,
       complexQueryTime: complexResults.averageResponseTime,
-      complexityImpact:
-        complexResults.averageResponseTime /
-        Math.max(simpleResults.averageResponseTime, 1),
+      complexityImpact: complexResults.averageResponseTime / Math.max(simpleResults.averageResponseTime, 1)
     };
   }
 
@@ -528,7 +502,7 @@ export class PerformanceBenchmarkSuite {
       { query: 'Who invented lightfield displays?', expected: 'vector' },
       { query: 'Papers by David Fattal', expected: 'vector' },
       { query: 'How do 3D displays work?', expected: 'content' },
-      { query: 'Explain depth estimation', expected: 'content' },
+      { query: 'Explain depth estimation', expected: 'content' }
     ];
 
     let correctClassifications = 0;
@@ -539,8 +513,7 @@ export class PerformanceBenchmarkSuite {
       }
     }
 
-    const tierClassificationAccuracy =
-      (correctClassifications / classificationTests.length) * 100;
+    const tierClassificationAccuracy = (correctClassifications / classificationTests.length) * 100;
 
     // Simplified accuracy metrics (would require ground truth data in practice)
     return {
@@ -548,15 +521,15 @@ export class PerformanceBenchmarkSuite {
       retrievalPrecision: {
         tier1: 0.92, // SQL tier precision
         tier2: 0.85, // Vector tier precision
-        tier3: 0.78, // Content tier precision
+        tier3: 0.78  // Content tier precision
       },
       retrievalRecall: {
         tier1: 0.95, // SQL tier recall
         tier2: 0.82, // Vector tier recall
-        tier3: 0.75, // Content tier recall
+        tier3: 0.75  // Content tier recall
       },
       fallbackEffectiveness: 0.68, // % of fallbacks that improve results
-      overallRelevanceScore: 0.81, // Average relevance score
+      overallRelevanceScore: 0.81   // Average relevance score
     };
   }
 
@@ -579,27 +552,27 @@ export class PerformanceBenchmarkSuite {
     return {
       cpuUsage: {
         average: 25, // % CPU usage
-        peak: 60, // % Peak CPU usage
+        peak: 60,    // % Peak CPU usage
         tier1Usage: 10, // SQL queries are light
         tier2Usage: 35, // Vector searches are moderate
-        tier3Usage: 50, // Content searches are heavy
+        tier3Usage: 50  // Content searches are heavy
       },
       memoryUsage: {
-        average: 512, // MB average memory
-        peak: 1024, // MB peak memory
+        average: 512,  // MB average memory
+        peak: 1024,    // MB peak memory
         embeddingCacheSize: 256, // MB for embedding cache
-        vectorIndexSize: 128, // MB for vector indexes
+        vectorIndexSize: 128     // MB for vector indexes
       },
       databaseLoad: {
-        averageConnections: 5, // Average DB connections
-        queryLatency: 15, // ms average query latency
-        indexUtilization: 85, // % index utilization
+        averageConnections: 5,  // Average DB connections
+        queryLatency: 15,       // ms average query latency
+        indexUtilization: 85    // % index utilization
       },
       apiCosts: {
-        embeddingCosts: 0.002, // $ per 1000 queries
-        llmCosts: 0.001, // $ per 1000 queries (minimal for classification)
-        totalCostPer1000Queries: 0.003, // $ total cost
-      },
+        embeddingCosts: 0.002,  // $ per 1000 queries
+        llmCosts: 0.001,        // $ per 1000 queries (minimal for classification)
+        totalCostPer1000Queries: 0.003 // $ total cost
+      }
     };
   }
 
@@ -608,24 +581,21 @@ export class PerformanceBenchmarkSuite {
    */
   async runLoadTest(config: LoadTestConfiguration): Promise<LoadTestResult> {
     console.log(`🔥 Starting load test: ${config.testName}`);
-    console.log(
-      `Target: ${config.targetConcurrentUsers} users for ${config.duration}s`
-    );
+    console.log(`Target: ${config.targetConcurrentUsers} users for ${config.duration}s`);
 
     const startTime = Date.now();
     const dataPoints: PerformanceDataPoint[] = [];
     const responseTimes: number[] = [];
-    const totalQueries = 0;
-    const successfulQueries = 0;
-    const failedQueries = 0;
+    let totalQueries = 0;
+    let successfulQueries = 0;
+    let failedQueries = 0;
 
     this.isRunning = true;
 
     try {
       // Ramp up phase
       let currentUsers = 0;
-      const rampUpInterval =
-        (config.rampUpTime * 1000) / config.targetConcurrentUsers;
+      const rampUpInterval = config.rampUpTime * 1000 / config.targetConcurrentUsers;
 
       while (currentUsers < config.targetConcurrentUsers && this.isRunning) {
         currentUsers++;
@@ -643,22 +613,20 @@ export class PerformanceBenchmarkSuite {
         // Collect performance data point
         const now = new Date();
         const recentResponseTimes = responseTimes.slice(-100); // Last 100 queries
-        const avgResponseTime =
-          recentResponseTimes.length > 0
-            ? recentResponseTimes.reduce((a, b) => a + b, 0) /
-              recentResponseTimes.length
-            : 0;
+        const avgResponseTime = recentResponseTimes.length > 0
+          ? recentResponseTimes.reduce((a, b) => a + b, 0) / recentResponseTimes.length
+          : 0;
 
         dataPoints.push({
           timestamp: now,
           responseTime: avgResponseTime,
-          successRate: (successfulQueries / Math.max(totalQueries, 1)) * 100,
+          successRate: successfulQueries / Math.max(totalQueries, 1) * 100,
           cpuUsage: Math.random() * 40 + 20, // Simulated CPU usage
           memoryUsage: Math.random() * 200 + 400, // Simulated memory usage
           activeConnections: currentUsers,
-          queriesPerSecond:
-            recentResponseTimes.length / (config.monitoringInterval / 1000),
+          queriesPerSecond: recentResponseTimes.length / (config.monitoringInterval / 1000)
         });
+
       }, config.monitoringInterval);
 
       // Wait for test duration
@@ -669,14 +637,12 @@ export class PerformanceBenchmarkSuite {
 
       // Calculate results
       const sortedResponseTimes = responseTimes.sort((a, b) => a - b);
-      const averageResponseTime =
-        responseTimes.length > 0
-          ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
-          : 0;
+      const averageResponseTime = responseTimes.length > 0
+        ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
+        : 0;
 
       const throughput = responseTimes.length / config.duration;
-      const errorRate =
-        totalQueries > 0 ? (failedQueries / totalQueries) * 100 : 0;
+      const errorRate = totalQueries > 0 ? (failedQueries / totalQueries) * 100 : 0;
 
       return {
         testName: config.testName,
@@ -689,19 +655,18 @@ export class PerformanceBenchmarkSuite {
           p50: this.calculatePercentile(sortedResponseTimes, 50),
           p90: this.calculatePercentile(sortedResponseTimes, 90),
           p95: this.calculatePercentile(sortedResponseTimes, 95),
-          p99: this.calculatePercentile(sortedResponseTimes, 99),
+          p99: this.calculatePercentile(sortedResponseTimes, 99)
         },
         throughput,
         errorRate,
         resourcePeaks: {
           maxCpuUsage: Math.max(...dataPoints.map(d => d.cpuUsage)),
           maxMemoryUsage: Math.max(...dataPoints.map(d => d.memoryUsage)),
-          maxDatabaseConnections: Math.max(
-            ...dataPoints.map(d => d.activeConnections)
-          ),
+          maxDatabaseConnections: Math.max(...dataPoints.map(d => d.activeConnections))
         },
-        timeseriesData: dataPoints,
+        timeseriesData: dataPoints
       };
+
     } finally {
       this.isRunning = false;
     }
@@ -725,19 +690,18 @@ export class PerformanceBenchmarkSuite {
 
           await this.searchEngine.search({
             query: query.query,
-            limit: 5,
+            limit: 5
           });
 
           const responseTime = Date.now() - startTime;
           responseTimes.push(responseTime);
+
         } catch (error) {
           // Query failed
         }
 
         // Random delay between queries
-        await new Promise(resolve =>
-          setTimeout(resolve, Math.random() * 2000 + 1000)
-        );
+        await new Promise(resolve => setTimeout(resolve, Math.random() * 2000 + 1000));
       }
     })();
   }
@@ -762,10 +726,7 @@ export class PerformanceBenchmarkSuite {
   /**
    * Calculate percentile from sorted array
    */
-  private calculatePercentile(
-    sortedArray: number[],
-    percentile: number
-  ): number {
+  private calculatePercentile(sortedArray: number[], percentile: number): number {
     if (sortedArray.length === 0) return 0;
 
     const index = (percentile / 100) * (sortedArray.length - 1);
@@ -789,8 +750,7 @@ export class PerformanceBenchmarkSuite {
     resourceUtilization: ResourceUtilizationMetrics
   ): number {
     // Weighted scoring
-    const performanceScore =
-      this.calculateTierPerformanceScore(tierPerformance);
+    const performanceScore = this.calculateTierPerformanceScore(tierPerformance);
     const scalabilityScore = this.calculateScalabilityScore(scalabilityMetrics);
     const accuracyScore = this.calculateAccuracyScore(accuracyMetrics);
     const resourceScore = this.calculateResourceScore(resourceUtilization);
@@ -798,29 +758,18 @@ export class PerformanceBenchmarkSuite {
     return (
       performanceScore * 0.35 +
       scalabilityScore * 0.25 +
-      accuracyScore * 0.3 +
-      resourceScore * 0.1
+      accuracyScore * 0.30 +
+      resourceScore * 0.10
     );
   }
 
   /**
    * Calculate tier performance score
    */
-  private calculateTierPerformanceScore(
-    metrics: TierPerformanceMetrics
-  ): number {
-    const tier1Score = Math.min(
-      100,
-      (200 / Math.max(metrics.tier1SQL.averageResponseTime, 1)) * 50
-    );
-    const tier2Score = Math.min(
-      100,
-      (800 / Math.max(metrics.tier2Vector.averageResponseTime, 1)) * 50
-    );
-    const tier3Score = Math.min(
-      100,
-      (1500 / Math.max(metrics.tier3Content.averageResponseTime, 1)) * 50
-    );
+  private calculateTierPerformanceScore(metrics: TierPerformanceMetrics): number {
+    const tier1Score = Math.min(100, (200 / Math.max(metrics.tier1SQL.averageResponseTime, 1)) * 50);
+    const tier2Score = Math.min(100, (800 / Math.max(metrics.tier2Vector.averageResponseTime, 1)) * 50);
+    const tier3Score = Math.min(100, (1500 / Math.max(metrics.tier3Content.averageResponseTime, 1)) * 50);
 
     return (tier1Score + tier2Score + tier3Score) / 3;
   }
@@ -829,18 +778,9 @@ export class PerformanceBenchmarkSuite {
    * Calculate scalability score
    */
   private calculateScalabilityScore(metrics: ScalabilityMetrics): number {
-    const userScore = Math.min(
-      100,
-      (metrics.concurrentUsers.maxSupportedUsers / 50) * 100
-    );
-    const degradationScore = Math.max(
-      0,
-      100 - metrics.concurrentUsers.responseTimeDegradation
-    );
-    const complexityScore = Math.max(
-      0,
-      100 - (metrics.queryComplexity.complexityImpact - 1) * 50
-    );
+    const userScore = Math.min(100, (metrics.concurrentUsers.maxSupportedUsers / 50) * 100);
+    const degradationScore = Math.max(0, 100 - metrics.concurrentUsers.responseTimeDegradation);
+    const complexityScore = Math.max(0, 100 - (metrics.queryComplexity.complexityImpact - 1) * 50);
 
     return (userScore + degradationScore + complexityScore) / 3;
   }
@@ -850,18 +790,8 @@ export class PerformanceBenchmarkSuite {
    */
   private calculateAccuracyScore(metrics: AccuracyMetrics): number {
     const classificationScore = metrics.tierClassificationAccuracy;
-    const precisionScore =
-      ((metrics.retrievalPrecision.tier1 +
-        metrics.retrievalPrecision.tier2 +
-        metrics.retrievalPrecision.tier3) /
-        3) *
-      100;
-    const recallScore =
-      ((metrics.retrievalRecall.tier1 +
-        metrics.retrievalRecall.tier2 +
-        metrics.retrievalRecall.tier3) /
-        3) *
-      100;
+    const precisionScore = (metrics.retrievalPrecision.tier1 + metrics.retrievalPrecision.tier2 + metrics.retrievalPrecision.tier3) / 3 * 100;
+    const recallScore = (metrics.retrievalRecall.tier1 + metrics.retrievalRecall.tier2 + metrics.retrievalRecall.tier3) / 3 * 100;
 
     return (classificationScore + precisionScore + recallScore) / 3;
   }
@@ -871,11 +801,8 @@ export class PerformanceBenchmarkSuite {
    */
   private calculateResourceScore(metrics: ResourceUtilizationMetrics): number {
     const cpuScore = Math.max(0, 100 - metrics.cpuUsage.average);
-    const memoryScore = Math.max(0, 100 - metrics.memoryUsage.average / 10);
-    const costScore = Math.max(
-      0,
-      100 - metrics.apiCosts.totalCostPer1000Queries * 1000
-    );
+    const memoryScore = Math.max(0, 100 - (metrics.memoryUsage.average / 10));
+    const costScore = Math.max(0, 100 - (metrics.apiCosts.totalCostPer1000Queries * 1000));
 
     return (cpuScore + memoryScore + costScore) / 3;
   }
@@ -897,10 +824,9 @@ export class PerformanceBenchmarkSuite {
         category: 'performance',
         priority: 'high',
         issue: 'Content search tier response time exceeds 2 seconds',
-        recommendation:
-          'Optimize hybrid search algorithm and implement result caching',
+        recommendation: 'Optimize hybrid search algorithm and implement result caching',
         expectedImpact: '30-50% reduction in response time',
-        estimatedEffort: 'medium',
+        estimatedEffort: 'medium'
       });
     }
 
@@ -909,10 +835,9 @@ export class PerformanceBenchmarkSuite {
         category: 'performance',
         priority: 'medium',
         issue: 'Vector search response time exceeds target',
-        recommendation:
-          'Optimize vector indexing and consider approximate nearest neighbor algorithms',
+        recommendation: 'Optimize vector indexing and consider approximate nearest neighbor algorithms',
         expectedImpact: '20-30% reduction in response time',
-        estimatedEffort: 'high',
+        estimatedEffort: 'high'
       });
     }
 
@@ -924,7 +849,7 @@ export class PerformanceBenchmarkSuite {
         issue: 'Low concurrent user capacity',
         recommendation: 'Implement connection pooling and query optimization',
         expectedImpact: '2-3x improvement in concurrent capacity',
-        estimatedEffort: 'high',
+        estimatedEffort: 'high'
       });
     }
 
@@ -934,10 +859,9 @@ export class PerformanceBenchmarkSuite {
         category: 'accuracy',
         priority: 'high',
         issue: 'Query classification accuracy below target',
-        recommendation:
-          'Improve query classification patterns and add more training data',
+        recommendation: 'Improve query classification patterns and add more training data',
         expectedImpact: '10-15% improvement in accuracy',
-        estimatedEffort: 'medium',
+        estimatedEffort: 'medium'
       });
     }
 
@@ -947,10 +871,9 @@ export class PerformanceBenchmarkSuite {
         category: 'cost',
         priority: 'medium',
         issue: 'API costs higher than target',
-        recommendation:
-          'Implement intelligent caching and reduce unnecessary API calls',
+        recommendation: 'Implement intelligent caching and reduce unnecessary API calls',
         expectedImpact: '20-40% cost reduction',
-        estimatedEffort: 'low',
+        estimatedEffort: 'low'
       });
     }
 
@@ -970,91 +893,45 @@ export class PerformanceBenchmarkSuite {
 
     console.log('\n📊 TIER PERFORMANCE:');
     console.log(`  Tier 1 (SQL):`);
-    console.log(
-      `    Average Response Time: ${result.tierPerformance.tier1SQL.averageResponseTime.toFixed(1)}ms`
-    );
-    console.log(
-      `    P95 Response Time: ${result.tierPerformance.tier1SQL.p95ResponseTime.toFixed(1)}ms`
-    );
-    console.log(
-      `    Success Rate: ${result.tierPerformance.tier1SQL.successRate.toFixed(1)}%`
-    );
-    console.log(
-      `    Classification Accuracy: ${result.tierPerformance.tier1SQL.accurateClassification.toFixed(1)}%`
-    );
+    console.log(`    Average Response Time: ${result.tierPerformance.tier1SQL.averageResponseTime.toFixed(1)}ms`);
+    console.log(`    P95 Response Time: ${result.tierPerformance.tier1SQL.p95ResponseTime.toFixed(1)}ms`);
+    console.log(`    Success Rate: ${result.tierPerformance.tier1SQL.successRate.toFixed(1)}%`);
+    console.log(`    Classification Accuracy: ${result.tierPerformance.tier1SQL.accurateClassification.toFixed(1)}%`);
 
     console.log(`  Tier 2 (Vector):`);
-    console.log(
-      `    Average Response Time: ${result.tierPerformance.tier2Vector.averageResponseTime.toFixed(1)}ms`
-    );
-    console.log(
-      `    P95 Response Time: ${result.tierPerformance.tier2Vector.p95ResponseTime.toFixed(1)}ms`
-    );
-    console.log(
-      `    Success Rate: ${result.tierPerformance.tier2Vector.successRate.toFixed(1)}%`
-    );
-    console.log(
-      `    Classification Accuracy: ${result.tierPerformance.tier2Vector.accurateClassification.toFixed(1)}%`
-    );
+    console.log(`    Average Response Time: ${result.tierPerformance.tier2Vector.averageResponseTime.toFixed(1)}ms`);
+    console.log(`    P95 Response Time: ${result.tierPerformance.tier2Vector.p95ResponseTime.toFixed(1)}ms`);
+    console.log(`    Success Rate: ${result.tierPerformance.tier2Vector.successRate.toFixed(1)}%`);
+    console.log(`    Classification Accuracy: ${result.tierPerformance.tier2Vector.accurateClassification.toFixed(1)}%`);
 
     console.log(`  Tier 3 (Content):`);
-    console.log(
-      `    Average Response Time: ${result.tierPerformance.tier3Content.averageResponseTime.toFixed(1)}ms`
-    );
-    console.log(
-      `    P95 Response Time: ${result.tierPerformance.tier3Content.p95ResponseTime.toFixed(1)}ms`
-    );
-    console.log(
-      `    Success Rate: ${result.tierPerformance.tier3Content.successRate.toFixed(1)}%`
-    );
-    console.log(
-      `    Classification Accuracy: ${result.tierPerformance.tier3Content.accurateClassification.toFixed(1)}%`
-    );
+    console.log(`    Average Response Time: ${result.tierPerformance.tier3Content.averageResponseTime.toFixed(1)}ms`);
+    console.log(`    P95 Response Time: ${result.tierPerformance.tier3Content.p95ResponseTime.toFixed(1)}ms`);
+    console.log(`    Success Rate: ${result.tierPerformance.tier3Content.successRate.toFixed(1)}%`);
+    console.log(`    Classification Accuracy: ${result.tierPerformance.tier3Content.accurateClassification.toFixed(1)}%`);
 
     console.log('\n📈 SCALABILITY:');
-    console.log(
-      `  Max Concurrent Users: ${result.scalabilityMetrics.concurrentUsers.maxSupportedUsers}`
-    );
-    console.log(
-      `  Response Time Degradation: ${result.scalabilityMetrics.concurrentUsers.responseTimeDegradation.toFixed(1)}%`
-    );
-    console.log(
-      `  Documents in Corpus: ${result.scalabilityMetrics.documentScaling.documentsInCorpus}`
-    );
-    console.log(
-      `  Query Complexity Impact: ${result.scalabilityMetrics.queryComplexity.complexityImpact.toFixed(1)}x`
-    );
+    console.log(`  Max Concurrent Users: ${result.scalabilityMetrics.concurrentUsers.maxSupportedUsers}`);
+    console.log(`  Response Time Degradation: ${result.scalabilityMetrics.concurrentUsers.responseTimeDegradation.toFixed(1)}%`);
+    console.log(`  Documents in Corpus: ${result.scalabilityMetrics.documentScaling.documentsInCorpus}`);
+    console.log(`  Query Complexity Impact: ${result.scalabilityMetrics.queryComplexity.complexityImpact.toFixed(1)}x`);
 
     console.log('\n🎯 ACCURACY:');
-    console.log(
-      `  Tier Classification: ${result.accuracyMetrics.tierClassificationAccuracy.toFixed(1)}%`
-    );
-    console.log(
-      `  Overall Relevance: ${(result.accuracyMetrics.overallRelevanceScore * 100).toFixed(1)}%`
-    );
-    console.log(
-      `  Fallback Effectiveness: ${(result.accuracyMetrics.fallbackEffectiveness * 100).toFixed(1)}%`
-    );
+    console.log(`  Tier Classification: ${result.accuracyMetrics.tierClassificationAccuracy.toFixed(1)}%`);
+    console.log(`  Overall Relevance: ${(result.accuracyMetrics.overallRelevanceScore * 100).toFixed(1)}%`);
+    console.log(`  Fallback Effectiveness: ${(result.accuracyMetrics.fallbackEffectiveness * 100).toFixed(1)}%`);
 
     console.log('\n💻 RESOURCE UTILIZATION:');
-    console.log(
-      `  Average CPU Usage: ${result.resourceUtilization.cpuUsage.average}%`
-    );
-    console.log(
-      `  Peak Memory Usage: ${result.resourceUtilization.memoryUsage.peak}MB`
-    );
-    console.log(
-      `  Cost per 1000 queries: $${result.resourceUtilization.apiCosts.totalCostPer1000Queries.toFixed(4)}`
-    );
+    console.log(`  Average CPU Usage: ${result.resourceUtilization.cpuUsage.average}%`);
+    console.log(`  Peak Memory Usage: ${result.resourceUtilization.memoryUsage.peak}MB`);
+    console.log(`  Cost per 1000 queries: $${result.resourceUtilization.apiCosts.totalCostPer1000Queries.toFixed(4)}`);
 
     console.log(`\n🏆 OVERALL SCORE: ${result.overallScore.toFixed(1)}/100`);
 
     if (result.recommendations.length > 0) {
       console.log('\n💡 RECOMMENDATIONS:');
       result.recommendations.forEach((rec, index) => {
-        console.log(
-          `  ${index + 1}. [${rec.priority.toUpperCase()}] ${rec.issue}`
-        );
+        console.log(`  ${index + 1}. [${rec.priority.toUpperCase()}] ${rec.issue}`);
         console.log(`     ${rec.recommendation}`);
         console.log(`     Expected Impact: ${rec.expectedImpact}`);
         console.log(`     Effort: ${rec.estimatedEffort}`);
@@ -1079,28 +956,28 @@ export const DEFAULT_LOAD_TEST_CONFIG: LoadTestConfiguration = {
       query: 'David Fattal patents',
       expectedTier: 'vector',
       weight: 3,
-      timeoutMs: 2000,
+      timeoutMs: 2000
     },
     {
       query: 'How do lightfield displays work?',
       expectedTier: 'content',
       weight: 2,
-      timeoutMs: 3000,
+      timeoutMs: 3000
     },
     {
       query: 'Patent US11281020',
       expectedTier: 'sql',
       weight: 1,
-      timeoutMs: 500,
+      timeoutMs: 500
     },
     {
       query: 'Papers by Leia Inc researchers',
       expectedTier: 'vector',
       weight: 2,
-      timeoutMs: 2000,
-    },
+      timeoutMs: 2000
+    }
   ],
-  monitoringInterval: 5000, // 5 seconds
+  monitoringInterval: 5000 // 5 seconds
 };
 
 // =======================
@@ -1110,9 +987,7 @@ export const DEFAULT_LOAD_TEST_CONFIG: LoadTestConfiguration = {
 /**
  * Run full performance benchmark
  */
-export async function runPerformanceBenchmark(
-  supabase: SupabaseClient
-): Promise<PerformanceBenchmarkResult> {
+export async function runPerformanceBenchmark(supabase: SupabaseClient): Promise<PerformanceBenchmarkResult> {
   const suite = new PerformanceBenchmarkSuite(supabase);
   return suite.runFullBenchmark();
 }
@@ -1120,9 +995,7 @@ export async function runPerformanceBenchmark(
 /**
  * Run load test with default configuration
  */
-export async function runDefaultLoadTest(
-  supabase: SupabaseClient
-): Promise<LoadTestResult> {
+export async function runDefaultLoadTest(supabase: SupabaseClient): Promise<LoadTestResult> {
   const suite = new PerformanceBenchmarkSuite(supabase);
   return suite.runLoadTest(DEFAULT_LOAD_TEST_CONFIG);
 }

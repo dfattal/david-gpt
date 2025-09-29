@@ -5,16 +5,12 @@
  * to provide hybrid search, fact lookup, and timeline queries.
  */
 
-import { z } from 'zod';
-import { tool } from 'ai';
-import { createClient } from '@/lib/supabase/server';
-import { hybridSearchEngine } from './hybrid-search';
-import {
-  detectMetadataQuery,
-  executeMetadataSearch,
-  searchDavidFattalDocuments,
-} from './metadata-search';
-import type { SearchQuery, SearchFilters } from './types';
+import { z } from "zod";
+import { tool } from "ai";
+import { createClient } from "@/lib/supabase/server";
+import { hybridSearchEngine } from "./hybrid-search";
+import { detectMetadataQuery, executeMetadataSearch, searchDavidFattalDocuments } from "./metadata-search";
+import type { SearchQuery, SearchFilters } from "./types";
 
 interface SearchResult {
   title: string;
@@ -32,72 +28,65 @@ interface SearchResult {
  */
 export const searchCorpusTool = tool({
   description:
-    'Search through the document corpus using hybrid semantic and keyword search. Use this to find relevant information from papers, patents, and notes.',
+    "Search through the document corpus using hybrid semantic and keyword search. Use this to find relevant information from papers, patents, and notes.",
   inputSchema: z.object({
     query: z
       .string()
-      .describe('The search query - what you want to find information about'),
+      .describe("The search query - what you want to find information about"),
     limit: z
       .number()
       .default(10)
-      .describe('Maximum number of results to return (default: 10)'),
+      .describe("Maximum number of results to return (default: 10)"),
     documentTypes: z
-      .array(z.enum(['pdf', 'paper', 'patent', 'note', 'url', 'book']))
+      .array(z.enum(["pdf", "paper", "patent", "note", "url", "book"]))
       .optional()
-      .describe('Filter by document types'),
+      .describe("Filter by document types"),
     dateRange: z
       .object({
         start: z
           .string()
           .optional()
-          .describe('Start date in ISO format (YYYY-MM-DD)'),
+          .describe("Start date in ISO format (YYYY-MM-DD)"),
         end: z
           .string()
           .optional()
-          .describe('End date in ISO format (YYYY-MM-DD)'),
+          .describe("End date in ISO format (YYYY-MM-DD)"),
       })
       .optional()
-      .describe('Filter by date range'),
+      .describe("Filter by date range"),
     responseMode: z
-      .enum(['FACT', 'EXPLAIN', 'CONFLICTS'])
-      .default('EXPLAIN')
+      .enum(["FACT", "EXPLAIN", "CONFLICTS"])
+      .default("EXPLAIN")
       .describe(
-        'How to structure the response - FACT for quick facts, EXPLAIN for detailed context, CONFLICTS for comparing sources'
+        "How to structure the response - FACT for quick facts, EXPLAIN for detailed context, CONFLICTS for comparing sources"
       ),
     documentIds: z
       .array(z.string())
       .optional()
-      .describe(
-        'Optional list of specific document IDs to search within (for context-aware searches)'
-      ),
+      .describe("Optional list of specific document IDs to search within (for context-aware searches)"),
   }),
   execute: async ({
     query,
     limit = 10,
     documentTypes,
     dateRange,
-    responseMode = 'EXPLAIN',
+    responseMode = "EXPLAIN",
     documentIds,
   }) => {
     try {
       console.log(`🔍 RAG search_corpus called with query: "${query}"`);
       if (documentIds && documentIds.length > 0) {
-        console.log(
-          `🎯 Context-aware search: filtering to ${documentIds.length} specific document(s)`
-        );
+        console.log(`🎯 Context-aware search: filtering to ${documentIds.length} specific document(s)`);
       }
-
+      
       // Apply query transformation for better search performance
       const { transformQuery } = await import('./query-transformation');
       const transformedQuery = await transformQuery(query);
-      console.log(
-        `🔄 Query transformed: ${transformedQuery.intent.type} intent, ${transformedQuery.optimizedSearchQueries.length} search strategies`
-      );
-
+      console.log(`🔄 Query transformed: ${transformedQuery.intent.type} intent, ${transformedQuery.optimizedSearchQueries.length} search strategies`);
+      
       // Use the best transformed query for search
-      const searchQuery =
-        transformedQuery.optimizedSearchQueries[0]?.query || query;
-
+      const searchQuery = transformedQuery.optimizedSearchQueries[0]?.query || query;
+      
       // Get authenticated user
       const supabaseClient = await createClient();
       const {
@@ -107,7 +96,7 @@ export const searchCorpusTool = tool({
       if (authError || !user) {
         return {
           success: false,
-          message: 'Authentication required for corpus search',
+          message: "Authentication required for corpus search",
           results: [],
           totalCount: 0,
         };
@@ -123,30 +112,20 @@ export const searchCorpusTool = tool({
         limit,
         filters: {
           documentTypes,
-          dateRange: dateRange
-            ? {
-                start: dateRange.start ? new Date(dateRange.start) : undefined,
-                end: dateRange.end ? new Date(dateRange.end) : undefined,
-              }
-            : undefined,
+          dateRange: dateRange ? {
+            start: dateRange.start ? new Date(dateRange.start) : undefined,
+            end: dateRange.end ? new Date(dateRange.end) : undefined,
+          } : undefined,
           documentIds, // Context-aware filtering
         },
-        tier: 'auto', // Let the system choose the best tier
+        tier: 'auto' // Let the system choose the best tier
       });
-
-      console.log(
-        `✅ Three-tier search completed: ${searchResult.results.length} results in ${searchResult.executionTime}ms`
-      );
-      console.log(
-        `🎯 Search tier: ${searchResult.tier.toUpperCase()} (${searchResult.executionStrategy})`
-      );
-      console.log(
-        `📊 Query classification: ${searchResult.queryClassification.intent} (confidence: ${searchResult.queryClassification.confidence.toFixed(2)})`
-      );
+      
+      console.log(`✅ Three-tier search completed: ${searchResult.results.length} results in ${searchResult.executionTime}ms`);
+      console.log(`🎯 Search tier: ${searchResult.tier.toUpperCase()} (${searchResult.executionStrategy})`);
+      console.log(`📊 Query classification: ${searchResult.queryClassification.intent} (confidence: ${searchResult.queryClassification.confidence.toFixed(2)})`);
       if (searchResult.fallbackTier) {
-        console.log(
-          `🔄 Used fallback from ${searchResult.fallbackTier.toUpperCase()} to ${searchResult.tier.toUpperCase()}`
-        );
+        console.log(`🔄 Used fallback from ${searchResult.fallbackTier.toUpperCase()} to ${searchResult.tier.toUpperCase()}`);
       }
 
       // Log analytics for performance tracking
@@ -160,40 +139,32 @@ export const searchCorpusTool = tool({
         {
           confidence: searchResult.queryClassification.confidence,
           explanation: searchResult.queryClassification.intent,
-          matchType: searchResult.queryClassification.type || 'general',
+          matchType: searchResult.queryClassification.type || 'general'
         },
         {
           fallbackUsed: !!searchResult.fallbackTier,
           executionStrategy: searchResult.executionStrategy,
           userId: user.id,
-          sessionId: `session_${Date.now()}`, // Simple session tracking
+          sessionId: `session_${Date.now()}` // Simple session tracking
         }
       );
-
+      
       // Apply context post-processing for better response generation
       let processedContext = null;
       if (searchResult.results.length > 0) {
-        const { processSearchContext } = await import(
-          './context-post-processing'
-        );
+        const { processSearchContext } = await import('./context-post-processing');
         processedContext = await processSearchContext(
-          searchQuery,
-          searchResult.results,
+          searchQuery, 
+          searchResult.results, 
           transformedQuery.intent,
           4000 // 4K token limit for context
         );
-
-        console.log(
-          `🔄 Context processed: ${searchResult.results.length} → ${processedContext.sourceCount} sources`
-        );
-        console.log(
-          `   Token optimization: ${processedContext.debugInfo?.originalTokenCount} → ${processedContext.tokenCount} tokens`
-        );
-        console.log(
-          `   Quality score: ${processedContext.qualityMetrics.overallQuality.toFixed(3)}`
-        );
+        
+        console.log(`🔄 Context processed: ${searchResult.results.length} → ${processedContext.sourceCount} sources`);
+        console.log(`   Token optimization: ${processedContext.debugInfo?.originalTokenCount} → ${processedContext.tokenCount} tokens`);
+        console.log(`   Quality score: ${processedContext.qualityMetrics.overallQuality.toFixed(3)}`);
       }
-
+      
       if (searchResult.results.length === 0) {
         return {
           success: true,
@@ -201,10 +172,10 @@ export const searchCorpusTool = tool({
           results: [],
           totalCount: 0,
           suggestions: [
-            'Try broader search terms',
-            'Check spelling and terminology',
-            'Remove date or document type filters',
-            'Ask about general topics in the corpus',
+            "Try broader search terms",
+            "Check spelling and terminology", 
+            "Remove date or document type filters",
+            "Ask about general topics in the corpus",
           ],
         };
       }
@@ -231,7 +202,7 @@ export const searchCorpusTool = tool({
         citations: results.map((result, index) => ({
           marker: `C${index + 1}`,
           title: result.title,
-          factSummary: result.content.substring(0, 100) + '...',
+          factSummary: result.content.substring(0, 100) + "...",
           documentType: result.docType,
         })),
         // Include three-tier search metadata
@@ -241,38 +212,36 @@ export const searchCorpusTool = tool({
           queryClassification: searchResult.queryClassification,
           fallbackTier: searchResult.fallbackTier,
           semanticResults: searchResult.semanticResults?.length || 0,
-          keywordResults: searchResult.keywordResults?.length || 0,
+          keywordResults: searchResult.keywordResults?.length || 0
         },
         // Include context processing results
-        processedContext: processedContext
-          ? {
-              content: processedContext.content,
-              tokenCount: processedContext.tokenCount,
-              compressionRatio: processedContext.compressionRatio,
-              sourceCount: processedContext.sourceCount,
-              qualityMetrics: processedContext.qualityMetrics,
-              citations: processedContext.citations,
-            }
-          : undefined,
+        processedContext: processedContext ? {
+          content: processedContext.content,
+          tokenCount: processedContext.tokenCount,
+          compressionRatio: processedContext.compressionRatio,
+          sourceCount: processedContext.sourceCount,
+          qualityMetrics: processedContext.qualityMetrics,
+          citations: processedContext.citations
+        } : undefined,
         // Include query transformation details
         queryTransformation: {
           originalQuery: query,
           transformedQuery: searchQuery,
           intent: transformedQuery.intent,
           expansions: transformedQuery.expansion.expandedQueries.slice(0, 3),
-          strategiesUsed: transformedQuery.optimizedSearchQueries.length,
-        },
+          strategiesUsed: transformedQuery.optimizedSearchQueries.length
+        }
       };
     } catch (error) {
-      console.error('Three-tier search corpus error:', error);
+      console.error("Three-tier search corpus error:", error);
       return {
         success: false,
         message: `Three-tier search failed: ${
-          error instanceof Error ? error.message : 'Unknown error'
+          error instanceof Error ? error.message : "Unknown error"
         }`,
         results: [],
         totalCount: 0,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   },
@@ -283,29 +252,29 @@ export const searchCorpusTool = tool({
  */
 export const lookupFactsTool = tool({
   description:
-    'Look up specific facts about people, organizations, products, algorithms, materials, or concepts mentioned in the corpus. Use this for factual questions about specific entities.',
+    "Look up specific facts about people, organizations, products, algorithms, materials, or concepts mentioned in the corpus. Use this for factual questions about specific entities.",
   inputSchema: z.object({
     entityName: z
       .string()
       .describe(
-        'The name of the person, organization, product, algorithm, material, or concept to look up'
+        "The name of the person, organization, product, algorithm, material, or concept to look up"
       ),
     entityType: z
       .enum([
-        'person',
-        'organization',
-        'product',
-        'technology',
-        'component',
-        'document',
+        "person",
+        "organization",
+        "product",
+        "technology",
+        "component",
+        "document",
       ])
-      .describe('The type of entity being looked up'),
+      .describe("The type of entity being looked up"),
     factType: z
-      .enum(['basic_info', 'relationships', 'timeline', 'technical_details'])
-      .default('basic_info')
-      .describe('What kind of facts to retrieve'),
+      .enum(["basic_info", "relationships", "timeline", "technical_details"])
+      .default("basic_info")
+      .describe("What kind of facts to retrieve"),
   }),
-  execute: async ({ entityName, entityType, factType = 'basic_info' }) => {
+  execute: async ({ entityName, entityType, factType = "basic_info" }) => {
     try {
       const supabaseClient = await createClient();
 
@@ -317,7 +286,7 @@ export const lookupFactsTool = tool({
       if (authError || !user) {
         return {
           success: false,
-          message: 'Authentication required for fact lookup',
+          message: "Authentication required for fact lookup",
           facts: [],
           totalCount: 0,
         };
@@ -325,7 +294,7 @@ export const lookupFactsTool = tool({
 
       // Search for entity mentions in document chunks
       const { data: chunks, error: searchError } = await supabaseClient
-        .from('document_chunks')
+        .from("document_chunks")
         .select(
           `
           id,
@@ -341,9 +310,9 @@ export const lookupFactsTool = tool({
           )
         `
         )
-        .textSearch('tsvector_content', entityName, {
-          config: 'english',
-          type: 'plain',
+        .textSearch("tsvector_content", entityName, {
+          config: "english",
+          type: "plain",
         })
         .limit(10);
 
@@ -361,7 +330,7 @@ export const lookupFactsTool = tool({
       }
 
       // Format the facts found
-      const facts = chunks.slice(0, 5).map((chunk: any, index: any) => ({
+      const facts = chunks.slice(0, 5).map((chunk, index) => ({
         content: chunk.content,
         source: chunk.documents.title,
         docType: chunk.documents.doc_type,
@@ -373,7 +342,7 @@ export const lookupFactsTool = tool({
       return {
         success: true,
         message: `Found ${facts.length} fact${
-          facts.length === 1 ? '' : 's'
+          facts.length === 1 ? "" : "s"
         } about ${entityName}`,
         entityInfo: {
           name: entityName,
@@ -389,15 +358,15 @@ export const lookupFactsTool = tool({
         totalCount: facts.length,
       };
     } catch (error) {
-      console.error('Lookup facts error:', error);
+      console.error("Lookup facts error:", error);
       return {
         success: false,
         message: `Fact lookup failed: ${
-          error instanceof Error ? error.message : 'Unknown error'
+          error instanceof Error ? error.message : "Unknown error"
         }`,
         facts: [],
         totalCount: 0,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   },
@@ -414,41 +383,41 @@ export const getTimelineTool = tool({
       .string()
       .optional()
       .describe(
-        'Name of the entity to get timeline for (person, org, product, etc.)'
+        "Name of the entity to get timeline for (person, org, product, etc.)"
       ),
     topic: z
       .string()
       .optional()
       .describe(
-        'Topic or subject area to get timeline for if no specific entity'
+        "Topic or subject area to get timeline for if no specific entity"
       ),
     dateRange: z
       .object({
         start: z
           .string()
           .optional()
-          .describe('Start date in ISO format (YYYY-MM-DD)'),
+          .describe("Start date in ISO format (YYYY-MM-DD)"),
         end: z
           .string()
           .optional()
-          .describe('End date in ISO format (YYYY-MM-DD)'),
+          .describe("End date in ISO format (YYYY-MM-DD)"),
       })
       .optional()
-      .describe('Filter events by date range'),
+      .describe("Filter events by date range"),
     eventTypes: z
       .array(
         z.enum([
-          'filed',
-          'published',
-          'granted',
-          'expires',
-          'product_launch',
-          'acquired',
-          'founded',
+          "filed",
+          "published",
+          "granted",
+          "expires",
+          "product_launch",
+          "acquired",
+          "founded",
         ])
       )
       .optional()
-      .describe('Filter by specific event types'),
+      .describe("Filter by specific event types"),
   }),
   execute: async ({ entityName, topic, dateRange, eventTypes }) => {
     try {
@@ -462,17 +431,17 @@ export const getTimelineTool = tool({
       if (authError || !user) {
         return {
           success: false,
-          message: 'Authentication required for timeline access',
+          message: "Authentication required for timeline access",
           events: [],
           totalCount: 0,
         };
       }
 
       // Search for timeline-relevant content in documents
-      const searchTerm = entityName || topic || 'timeline';
+      const searchTerm = entityName || topic || "timeline";
 
       const { data: documents, error: searchError } = await supabaseClient
-        .from('documents')
+        .from("documents")
         .select(
           `
           id,
@@ -484,11 +453,11 @@ export const getTimelineTool = tool({
           patent_no
         `
         )
-        .textSearch('title', searchTerm, {
-          config: 'english',
-          type: 'plain',
+        .textSearch("title", searchTerm, {
+          config: "english",
+          type: "plain",
         })
-        .order('published_date', { ascending: true })
+        .order("published_date", { ascending: true })
         .limit(20);
 
       if (searchError) {
@@ -496,7 +465,7 @@ export const getTimelineTool = tool({
       }
 
       if (!documents || documents.length === 0) {
-        const searchTermDisplay = entityName || topic || 'requested criteria';
+        const searchTermDisplay = entityName || topic || "requested criteria";
         return {
           success: true,
           message: `No timeline events found for ${searchTermDisplay}`,
@@ -507,13 +476,13 @@ export const getTimelineTool = tool({
 
       // Create timeline events from documents
       const timelineEvents = documents
-        .filter((doc: any) => doc.published_date || doc.created_at)
-        .map((doc: any, index: any) => ({
+        .filter((doc) => doc.published_date || doc.created_at)
+        .map((doc, index) => ({
           date: doc.published_date || doc.created_at,
-          type: doc.doc_type === 'patent' ? 'published' : 'created',
+          type: doc.doc_type === "patent" ? "published" : "created",
           description: `${doc.title}`,
-          entity: entityName || 'David Fattal',
-          entityType: 'person',
+          entity: entityName || "David Fattal",
+          entityType: "person",
           document: doc.title,
           documentType: doc.doc_type,
           authority: 0.8,
@@ -523,7 +492,7 @@ export const getTimelineTool = tool({
       // Apply date range filters
       let filteredEvents = timelineEvents;
       if (dateRange) {
-        filteredEvents = timelineEvents.filter((event: any) => {
+        filteredEvents = timelineEvents.filter((event) => {
           const eventDate = new Date(event.date);
           const startOk =
             !dateRange.start || eventDate >= new Date(dateRange.start);
@@ -534,21 +503,18 @@ export const getTimelineTool = tool({
 
       // Apply event type filters
       if (eventTypes && eventTypes.length > 0) {
-        filteredEvents = filteredEvents.filter((event: any) =>
+        filteredEvents = filteredEvents.filter((event) =>
           eventTypes.includes(event.type as any)
         );
       }
 
       // Group events by year for better presentation
-      const eventsByYear = filteredEvents.reduce(
-        (acc: any, event: any) => {
-          const year = new Date(event.date).getFullYear();
-          if (!acc[year]) acc[year] = [];
-          acc[year].push(event);
-          return acc;
-        },
-        {} as Record<number, any[]>
-      );
+      const eventsByYear = filteredEvents.reduce((acc, event) => {
+        const year = new Date(event.date).getFullYear();
+        if (!acc[year]) acc[year] = [];
+        acc[year].push(event);
+        return acc;
+      }, {} as Record<number, any[]>);
 
       return {
         success: true,
@@ -562,15 +528,15 @@ export const getTimelineTool = tool({
         },
       };
     } catch (error) {
-      console.error('Timeline lookup error:', error);
+      console.error("Timeline lookup error:", error);
       return {
         success: false,
         message: `Timeline lookup failed: ${
-          error instanceof Error ? error.message : 'Unknown error'
+          error instanceof Error ? error.message : "Unknown error"
         }`,
         events: [],
         totalCount: 0,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   },
@@ -633,36 +599,36 @@ export function classifyQueryIntent(query: string): {
   ];
 
   // Check for timeline patterns
-  const timelineMatches = timelinePatterns.filter(pattern =>
+  const timelineMatches = timelinePatterns.filter((pattern) =>
     pattern.test(normalizedQuery)
   ).length;
   if (timelineMatches >= 2) {
     return {
-      primaryTool: 'get_timeline',
+      primaryTool: "get_timeline",
       confidence: 0.8,
       reasoning:
-        'Query contains multiple temporal indicators suggesting timeline lookup',
+        "Query contains multiple temporal indicators suggesting timeline lookup",
     };
   }
 
   // Check for fact lookup patterns
-  const factMatches = factPatterns.filter(pattern =>
+  const factMatches = factPatterns.filter((pattern) =>
     pattern.test(normalizedQuery)
   ).length;
   if (factMatches >= 1) {
     return {
-      primaryTool: 'lookup_facts',
+      primaryTool: "lookup_facts",
       confidence: 0.7,
       reasoning:
-        'Query appears to be asking for specific facts about an entity',
+        "Query appears to be asking for specific facts about an entity",
     };
   }
 
   // Default to general corpus search
   return {
-    primaryTool: 'search_corpus',
+    primaryTool: "search_corpus",
     confidence: 0.6,
-    reasoning: 'General information query - using hybrid search across corpus',
+    reasoning: "General information query - using hybrid search across corpus",
   };
 }
 
@@ -675,9 +641,9 @@ export function generateFollowUpSuggestions(
 ): string[] {
   if (results.length === 0) {
     return [
-      'Try using broader search terms',
-      'Check if the topic is covered in the corpus',
-      'Ask about related concepts or entities',
+      "Try using broader search terms",
+      "Check if the topic is covered in the corpus",
+      "Ask about related concepts or entities",
     ];
   }
 
@@ -687,7 +653,7 @@ export function generateFollowUpSuggestions(
   const commonTerms = extractCommonTerms(results);
 
   // Generate entity-based suggestions
-  commonTerms.entities.slice(0, 2).forEach(entity => {
+  commonTerms.entities.slice(0, 2).forEach((entity) => {
     suggestions.push(`Tell me more about ${entity}`);
   });
 
@@ -715,13 +681,13 @@ function extractCommonTerms(results: SearchResult[]): {
   // This is a simplified implementation
   // In a real system, you'd use NLP techniques
 
-  const allText = results.map(r => r.content + ' ' + r.title).join(' ');
+  const allText = results.map((r) => r.content + " " + r.title).join(" ");
 
   // Extract capitalized words as potential entities
   const capitalizedWords =
     allText.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/g) || [];
   const entities = [...new Set(capitalizedWords)]
-    .filter(word => word.length > 2)
+    .filter((word) => word.length > 2)
     .slice(0, 5);
 
   // Extract years as dates
@@ -732,7 +698,7 @@ function extractCommonTerms(results: SearchResult[]): {
   const technicalWords =
     allText.match(/\b[a-z]+(?:ing|tion|ment|ness|ity)\b/g) || [];
   const concepts = [...new Set(technicalWords)]
-    .filter(word => word.length > 4)
+    .filter((word) => word.length > 4)
     .slice(0, 3);
 
   return { entities, dates, concepts };

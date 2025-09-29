@@ -13,30 +13,10 @@ export interface TitleQualityScore {
 export class TitleQualityValidator {
   private static readonly MINIMUM_SCORE = 60;
   private static readonly PLATFORM_NAMES = new Set([
-    'forbes',
-    'wired',
-    'techcrunch',
-    'reuters',
-    'bloomberg',
-    'cnn',
-    'bbc',
-    'nature',
-    'science',
-    'medium',
-    'linkedin',
-    'twitter',
-    'facebook',
-    'youtube',
-    'google',
-    'microsoft',
-    'apple',
-    'amazon',
-    'netflix',
-    'github',
-    'stackoverflow',
-    'reddit',
-    'wikipedia',
-    'arxiv',
+    'forbes', 'wired', 'techcrunch', 'reuters', 'bloomberg', 'cnn', 'bbc',
+    'nature', 'science', 'medium', 'linkedin', 'twitter', 'facebook',
+    'youtube', 'google', 'microsoft', 'apple', 'amazon', 'netflix',
+    'github', 'stackoverflow', 'reddit', 'wikipedia', 'arxiv'
   ]);
 
   private static readonly JUNK_PATTERNS = [
@@ -46,7 +26,7 @@ export class TitleQualityValidator {
     /^(the|a|an|and|or|but|in|on|at|to|for|of|with|by)$/i, // Common words only
     /^(home|page|index|main|default|untitled)$/i, // Generic page names
     /^[a-z]{1,3}$/i, // Very short abbreviations
-    /^error|404|not found|page not found$/i, // Error messages
+    /^error|404|not found|page not found$/i // Error messages
   ];
 
   static validateTitle(title: string): TitleQualityScore {
@@ -55,7 +35,7 @@ export class TitleQualityValidator {
         score: 0,
         isAcceptable: false,
         issues: ['Title is missing or invalid'],
-        suggestions: ['Provide a valid title string'],
+        suggestions: ['Provide a valid title string']
       };
     }
 
@@ -108,21 +88,9 @@ export class TitleQualityValidator {
     }
 
     // Check for meaningful content
-    const meaningfulWords = words.filter(
-      word =>
-        word.length > 3 &&
-        ![
-          'the',
-          'and',
-          'for',
-          'with',
-          'from',
-          'that',
-          'this',
-          'they',
-          'have',
-          'been',
-        ].includes(word.toLowerCase())
+    const meaningfulWords = words.filter(word =>
+      word.length > 3 &&
+      !['the', 'and', 'for', 'with', 'from', 'that', 'this', 'they', 'have', 'been'].includes(word.toLowerCase())
     );
 
     if (meaningfulWords.length === 0) {
@@ -135,8 +103,7 @@ export class TitleQualityValidator {
     }
 
     // Special characters and formatting
-    const specialCharCount = (cleanTitle.match(/[^a-zA-Z0-9\s\-.,():]/g) || [])
-      .length;
+    const specialCharCount = (cleanTitle.match(/[^a-zA-Z0-9\s\-.,():]/g) || []).length;
     if (specialCharCount > cleanTitle.length * 0.2) {
       score -= 20;
       issues.push('Title contains excessive special characters');
@@ -144,11 +111,7 @@ export class TitleQualityValidator {
     }
 
     // XML/HTML remnants
-    if (
-      cleanTitle.includes('<') ||
-      cleanTitle.includes('>') ||
-      cleanTitle.includes('&')
-    ) {
+    if (cleanTitle.includes('<') || cleanTitle.includes('>') || cleanTitle.includes('&')) {
       score -= 30;
       issues.push('Title contains HTML/XML remnants');
       suggestions.push('Clean title of markup tags');
@@ -159,10 +122,7 @@ export class TitleQualityValidator {
       score -= 10;
       issues.push('Title is entirely uppercase');
       suggestions.push('Use proper title case');
-    } else if (
-      cleanTitle === cleanTitle.toLowerCase() &&
-      cleanTitle.length > 10
-    ) {
+    } else if (cleanTitle === cleanTitle.toLowerCase() && cleanTitle.length > 10) {
       score -= 5;
       issues.push('Title is entirely lowercase');
       suggestions.push('Capitalize appropriately');
@@ -183,7 +143,7 @@ export class TitleQualityValidator {
       score,
       isAcceptable: score >= this.MINIMUM_SCORE,
       issues,
-      suggestions: suggestions.length > 0 ? suggestions : undefined,
+      suggestions: suggestions.length > 0 ? suggestions : undefined
     };
   }
 
@@ -226,8 +186,7 @@ export class TitleQualityValidator {
 
     const acceptable = results.filter(r => r.isAcceptable).length;
     const unacceptable = results.length - acceptable;
-    const averageScore =
-      results.reduce((sum, r) => sum + r.score, 0) / results.length;
+    const averageScore = results.reduce((sum, r) => sum + r.score, 0) / results.length;
 
     const commonIssues = new Map<string, number>();
     results.forEach(result => {
@@ -240,22 +199,19 @@ export class TitleQualityValidator {
       acceptable,
       unacceptable,
       averageScore,
-      commonIssues,
+      commonIssues
     };
   }
 
   /**
    * Suggests improved title based on quality issues
    */
-  static suggestImprovedTitle(
-    title: string,
-    metadata?: {
-      url?: string;
-      content?: string;
-      doi?: string;
-      authors?: string[];
-    }
-  ): string | null {
+  static suggestImprovedTitle(title: string, metadata?: {
+    url?: string;
+    content?: string;
+    doi?: string;
+    authors?: string[];
+  }): string | null {
     const quality = this.validateTitle(title);
 
     if (quality.isAcceptable) {
@@ -272,10 +228,7 @@ export class TitleQualityValidator {
 
     if (metadata?.content) {
       const contentTitle = this.extractTitleFromContent(metadata.content);
-      if (
-        contentTitle &&
-        this.validateTitle(contentTitle).score > quality.score
-      ) {
+      if (contentTitle && this.validateTitle(contentTitle).score > quality.score) {
         return contentTitle;
       }
     }
@@ -300,15 +253,12 @@ export class TitleQualityValidator {
   private static extractTitleFromUrl(url: string): string | null {
     try {
       const urlObj = new URL(url);
-      const pathSegments = urlObj.pathname
-        .split('/')
-        .filter(
-          seg =>
-            seg &&
-            seg.length > 5 &&
-            !seg.match(/^[0-9]+$/) &&
-            !seg.match(/^(index|home|page|main)$/i)
-        );
+      const pathSegments = urlObj.pathname.split('/').filter(seg =>
+        seg &&
+        seg.length > 5 &&
+        !seg.match(/^[0-9]+$/) &&
+        !seg.match(/^(index|home|page|main)$/i)
+      );
 
       if (pathSegments.length > 0) {
         const segment = pathSegments[pathSegments.length - 1];

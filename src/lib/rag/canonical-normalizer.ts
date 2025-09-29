@@ -6,9 +6,9 @@
  */
 
 export interface CanonicalEntity {
-  canonicalName: string; // Normalized for matching
-  displayName: string; // Original for display
-  aliases: string[]; // All variations seen
+  canonicalName: string;  // Normalized for matching
+  displayName: string;    // Original for display
+  aliases: string[];      // All variations seen
 }
 
 export interface NormalizationResult {
@@ -23,22 +23,20 @@ export interface NormalizationResult {
 export function normalizeCanonical(text: string): string {
   if (!text) return '';
 
-  return (
-    text
-      // Unicode normalization (NFKC - compatibility decomposition + canonical composition)
-      .normalize('NFKC')
-      // Convert to lowercase
-      .toLowerCase()
-      // Remove common punctuation but preserve essential characters
-      .replace(/["""''`]/g, '') // Remove curly quotes
-      .replace(/[–—]/g, '-') // Normalize dashes
-      .replace(/[\.]/g, '') // Remove periods
-      .replace(/[,;:]/g, '') // Remove common punctuation
-      // Collapse multiple spaces/whitespace
-      .replace(/\s+/g, ' ')
-      // Trim whitespace
-      .trim()
-  );
+  return text
+    // Unicode normalization (NFKC - compatibility decomposition + canonical composition)
+    .normalize('NFKC')
+    // Convert to lowercase
+    .toLowerCase()
+    // Remove common punctuation but preserve essential characters
+    .replace(/["""''`]/g, '') // Remove curly quotes
+    .replace(/[–—]/g, '-')    // Normalize dashes
+    .replace(/[\.]/g, '')     // Remove periods
+    .replace(/[,;:]/g, '')    // Remove common punctuation
+    // Collapse multiple spaces/whitespace
+    .replace(/\s+/g, ' ')
+    // Trim whitespace
+    .trim();
 }
 
 /**
@@ -50,40 +48,19 @@ export function normalizeOrganization(orgName: string): NormalizationResult {
 
   // Common organization suffixes to normalize
   const orgSuffixes = [
-    'Inc.',
-    'Inc',
-    'Incorporated',
-    'Corp.',
-    'Corp',
-    'Corporation',
-    'Ltd.',
-    'Ltd',
-    'Limited',
-    'LLC',
-    'L.L.C.',
-    'L.L.C',
-    'Co.',
-    'Co',
-    'Company',
-    'GmbH',
-    'AG',
-    'SA',
-    'S.A.',
-    'Pte.',
-    'Pte',
-    'Private Limited',
-    'Technologies',
-    'Technology',
-    'Tech',
-    'Systems',
-    'System',
-    'Solutions',
-    'Group',
-    'Holdings',
-    'Ventures',
+    'Inc.', 'Inc', 'Incorporated',
+    'Corp.', 'Corp', 'Corporation',
+    'Ltd.', 'Ltd', 'Limited',
+    'LLC', 'L.L.C.', 'L.L.C',
+    'Co.', 'Co', 'Company',
+    'GmbH', 'AG', 'SA', 'S.A.',
+    'Pte.', 'Pte', 'Private Limited',
+    'Technologies', 'Technology', 'Tech',
+    'Systems', 'System', 'Solutions',
+    'Group', 'Holdings', 'Ventures'
   ];
 
-  const normalized = original;
+  let normalized = original;
 
   // Check for and normalize organization suffixes
   for (const suffix of orgSuffixes) {
@@ -104,7 +81,7 @@ export function normalizeOrganization(orgName: string): NormalizationResult {
   return {
     canonical,
     original,
-    aliases: aliases.filter(a => a !== original), // Don't duplicate original
+    aliases: aliases.filter(a => a !== original) // Don't duplicate original
   };
 }
 
@@ -116,7 +93,7 @@ export function normalizePerson(personName: string): NormalizationResult {
   const aliases: string[] = [];
 
   // Handle common name variations
-  const normalized = original;
+  let normalized = original;
 
   // Handle titles (Dr., Prof., Mr., Ms., etc.)
   const titles = ['Dr.', 'Prof.', 'Professor', 'Mr.', 'Ms.', 'Mrs.', 'Miss'];
@@ -148,7 +125,7 @@ export function normalizePerson(personName: string): NormalizationResult {
   return {
     canonical,
     original,
-    aliases: aliases.filter(a => a !== original),
+    aliases: aliases.filter(a => a !== original)
   };
 }
 
@@ -159,7 +136,7 @@ export function normalizeTechnology(techName: string): NormalizationResult {
   const original = techName.trim();
   const aliases: string[] = [];
 
-  const normalized = original;
+  let normalized = original;
 
   // Handle version numbers and variants
   // e.g., "React 18" → aliases: ["React", "React 18"]
@@ -174,16 +151,8 @@ export function normalizeTechnology(techName: string): NormalizationResult {
 
   // Handle common technology suffixes
   const techSuffixes = [
-    'API',
-    'SDK',
-    'Framework',
-    'Library',
-    'Platform',
-    'Engine',
-    'Tool',
-    'Suite',
-    'System',
-    'Service',
+    'API', 'SDK', 'Framework', 'Library', 'Platform',
+    'Engine', 'Tool', 'Suite', 'System', 'Service'
   ];
 
   for (const suffix of techSuffixes) {
@@ -204,7 +173,7 @@ export function normalizeTechnology(techName: string): NormalizationResult {
   return {
     canonical,
     original,
-    aliases: aliases.filter(a => a !== original),
+    aliases: aliases.filter(a => a !== original)
   };
 }
 
@@ -230,7 +199,7 @@ export function normalizeEntity(
       return {
         canonical,
         original: name.trim(),
-        aliases: [],
+        aliases: []
       };
   }
 }
@@ -265,16 +234,16 @@ function calculateSimilarity(str1: string, str2: string): number {
   // Simple Levenshtein-based similarity
   const distance = levenshteinDistance(str1, str2);
   const maxLength = Math.max(str1.length, str2.length);
-  return 1 - distance / maxLength;
+  return 1 - (distance / maxLength);
 }
 
 /**
  * Levenshtein distance calculation
  */
 function levenshteinDistance(str1: string, str2: string): number {
-  const matrix = Array(str2.length + 1)
-    .fill(null)
-    .map(() => Array(str1.length + 1).fill(null));
+  const matrix = Array(str2.length + 1).fill(null).map(() =>
+    Array(str1.length + 1).fill(null)
+  );
 
   for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
   for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
@@ -283,8 +252,8 @@ function levenshteinDistance(str1: string, str2: string): number {
     for (let i = 1; i <= str1.length; i++) {
       const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
       matrix[j][i] = Math.min(
-        matrix[j][i - 1] + 1, // deletion
-        matrix[j - 1][i] + 1, // insertion
+        matrix[j][i - 1] + 1,     // deletion
+        matrix[j - 1][i] + 1,     // insertion
         matrix[j - 1][i - 1] + indicator // substitution
       );
     }
@@ -320,7 +289,7 @@ export function batchNormalizeEntities(
     const result = {
       original: entity,
       normalized,
-      duplicateOf: existingOriginal || undefined,
+      duplicateOf: existingOriginal || undefined
     };
 
     if (!existingOriginal) {

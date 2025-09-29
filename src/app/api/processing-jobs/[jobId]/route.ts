@@ -7,18 +7,12 @@ export async function GET(
 ) {
   try {
     const supabase = await createClient();
-
+    
     // Get the authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
     // Check user role - only admin can view processing jobs
@@ -29,30 +23,22 @@ export async function GET(
       .single();
 
     if (profile?.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
     const { jobId } = await params;
-
+    
     if (!jobId) {
-      return NextResponse.json(
-        { error: 'Job ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Job ID is required' }, { status: 400 });
     }
 
     // Get the processing job
     const { data: job, error: jobError } = await supabase
       .from('processing_jobs')
-      .select(
-        `
+      .select(`
         *,
         document:documents(id, title, doc_type)
-      `
-      )
+      `)
       .eq('id', jobId)
       .eq('user_id', user.id) // Ensure user can only access their own jobs
       .single();
@@ -63,6 +49,7 @@ export async function GET(
     }
 
     return NextResponse.json(job);
+
   } catch (error) {
     console.error('Error fetching processing job:', error);
     return NextResponse.json(

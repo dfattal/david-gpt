@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import {
   addSSEConnection,
   getActiveConnections,
   removeSSEConnection,
-} from '@/lib/sse-manager';
+} from "@/lib/sse-manager";
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { error: "Authentication required" },
         { status: 401 }
       );
     }
@@ -27,12 +27,12 @@ export async function GET(req: NextRequest) {
 
     // Check initial state
     const initialConnections = getActiveConnections();
-    console.log(`🧪 Initial connections: [${initialConnections.join(', ')}]`);
+    console.log(`🧪 Initial connections: [${initialConnections.join(", ")}]`);
 
     // Add a mock connection
     const mockWriter = {
-      write: (data: any) => console.log('Mock write:', data),
-      close: () => console.log('Mock close'),
+      write: (data: any) => console.log("Mock write:", data),
+      close: () => console.log("Mock close"),
     };
 
     console.log(`🧪 Adding mock connection for user: ${user.id}`);
@@ -41,20 +41,20 @@ export async function GET(req: NextRequest) {
     // Check after add
     const afterAddConnections = getActiveConnections();
     console.log(
-      `🧪 After add connections: [${afterAddConnections.join(', ')}]`
+      `🧪 After add connections: [${afterAddConnections.join(", ")}]`
     );
 
     // Wait a moment and check again
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
     const afterWaitConnections = getActiveConnections();
-    console.log(`🧪 After 100ms wait: [${afterWaitConnections.join(', ')}]`);
+    console.log(`🧪 After 100ms wait: [${afterWaitConnections.join(", ")}]`);
 
     // Clean up mock connection
     console.log(`🧪 Removing mock connection for user: ${user.id}`);
     removeSSEConnection(user.id);
 
     const finalConnections = getActiveConnections();
-    console.log(`🧪 Final connections: [${finalConnections.join(', ')}]`);
+    console.log(`🧪 Final connections: [${finalConnections.join(", ")}]`);
     console.log(`🧪 === END CONNECTION STORAGE TEST ===\n`);
 
     return NextResponse.json({
@@ -69,9 +69,9 @@ export async function GET(req: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Connection storage test error:', error);
+    console.error("Connection storage test error:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

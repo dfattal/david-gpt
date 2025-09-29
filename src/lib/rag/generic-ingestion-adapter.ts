@@ -7,11 +7,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { GenericDocumentMetadata } from './document-type-registry';
-import {
-  getDocumentType,
-  extractStructuredMetadata,
-  validateDocumentMetadata,
-} from './document-type-registry';
+import { getDocumentType, extractStructuredMetadata, validateDocumentMetadata } from './document-type-registry';
 import { generateMetadataChunk } from './rich-metadata-chunks';
 import type { DocumentMetadata, DocumentType } from './types';
 
@@ -30,27 +26,19 @@ export function convertToGenericMetadata(
   const dates: Record<string, string> = {};
 
   // Map legacy fields to generic identifiers
-  if (legacyMetadata.patentNumber)
-    identifiers.patent_no = legacyMetadata.patentNumber;
-  if (legacyMetadata.publicationNumber)
-    identifiers.publication_no = legacyMetadata.publicationNumber;
-  if (legacyMetadata.applicationNumber)
-    identifiers.application_no = legacyMetadata.applicationNumber;
+  if (legacyMetadata.patentNumber) identifiers.patent_no = legacyMetadata.patentNumber;
+  if (legacyMetadata.publicationNumber) identifiers.publication_no = legacyMetadata.publicationNumber;
+  if (legacyMetadata.applicationNumber) identifiers.application_no = legacyMetadata.applicationNumber;
   if (legacyMetadata.doi) identifiers.doi = legacyMetadata.doi;
   if (legacyMetadata.arxivId) identifiers.arxiv_id = legacyMetadata.arxivId;
   if (legacyMetadata.url) identifiers.url = legacyMetadata.url;
 
   // Map legacy dates to generic format
-  if (legacyMetadata.filedDate)
-    dates.filed = legacyMetadata.filedDate.toISOString().split('T')[0];
-  if (legacyMetadata.grantedDate)
-    dates.granted = legacyMetadata.grantedDate.toISOString().split('T')[0];
-  if (legacyMetadata.publishedDate)
-    dates.published = legacyMetadata.publishedDate.toISOString().split('T')[0];
-  if (legacyMetadata.priorityDate)
-    dates.priority = legacyMetadata.priorityDate.toISOString().split('T')[0];
-  if (legacyMetadata.expirationDate)
-    dates.expires = legacyMetadata.expirationDate.toISOString().split('T')[0];
+  if (legacyMetadata.filedDate) dates.filed = legacyMetadata.filedDate.toISOString().split('T')[0];
+  if (legacyMetadata.grantedDate) dates.granted = legacyMetadata.grantedDate.toISOString().split('T')[0];
+  if (legacyMetadata.publishedDate) dates.published = legacyMetadata.publishedDate.toISOString().split('T')[0];
+  if (legacyMetadata.priorityDate) dates.priority = legacyMetadata.priorityDate.toISOString().split('T')[0];
+  if (legacyMetadata.expirationDate) dates.expires = legacyMetadata.expirationDate.toISOString().split('T')[0];
 
   return {
     id: legacyMetadata.id || '',
@@ -78,7 +66,7 @@ export function convertToGenericMetadata(
 
     // System metadata
     createdAt: new Date(),
-    updatedAt: new Date(),
+    updatedAt: new Date()
   };
 }
 
@@ -89,28 +77,24 @@ export function buildGenericDocumentUpdate(
   metadata: GenericDocumentMetadata,
   legacyFields?: Record<string, any>
 ): Record<string, any> {
-  const { identifiers, dates, richMetadata } =
-    extractStructuredMetadata(metadata);
+  const { identifiers, dates, richMetadata } = extractStructuredMetadata(metadata);
 
   const update: Record<string, any> = {
     title: metadata.title,
     doc_type: metadata.docType,
     identifiers,
     dates,
-    updated_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
   };
 
   // Preserve rich metadata fields for backward compatibility
   // These will eventually be moved to dedicated metadata chunks
   if (metadata.inventors) update.inventors = metadata.inventors;
   if (metadata.assignees) update.assignees = metadata.assignees;
-  if (metadata.originalAssignee)
-    update.original_assignee = metadata.originalAssignee;
-  if (metadata.authorsAffiliations)
-    update.authors_affiliations = metadata.authorsAffiliations;
+  if (metadata.originalAssignee) update.original_assignee = metadata.originalAssignee;
+  if (metadata.authorsAffiliations) update.authors_affiliations = metadata.authorsAffiliations;
   if (metadata.venue) update.venue = metadata.venue;
-  if (metadata.publicationYear)
-    update.publication_year = metadata.publicationYear;
+  if (metadata.publicationYear) update.publication_year = metadata.publicationYear;
   if (metadata.keywords) update.keywords = metadata.keywords;
   if (metadata.citationCount) update.citation_count = metadata.citationCount;
   if (metadata.abstract) update.abstract = metadata.abstract;
@@ -118,8 +102,7 @@ export function buildGenericDocumentUpdate(
   if (metadata.jurisdiction) update.jurisdiction = metadata.jurisdiction;
   if (metadata.authority) update.authority = metadata.authority;
   if (metadata.claimCount) update.claim_count = metadata.claimCount;
-  if (metadata.independentClaimCount)
-    update.independent_claim_count = metadata.independentClaimCount;
+  if (metadata.independentClaimCount) update.independent_claim_count = metadata.independentClaimCount;
   if (metadata.patentStatus) update.patent_status = metadata.patentStatus;
 
   // Merge any additional legacy fields
@@ -148,13 +131,13 @@ export async function generateEnhancedChunks(
     ...chunk,
     chunk_type: 'content',
     // Remove any injected metadata from content
-    content: removeInjectedMetadata(chunk.content),
+    content: removeInjectedMetadata(chunk.content)
   }));
 
   // Generate rich metadata chunk
   const metadataChunkData = generateMetadataChunk(metadata, {
     includeContext: true,
-    includeRelationships: false, // Can be enabled later
+    includeRelationships: false // Can be enabled later
   });
 
   let metadataChunk = null;
@@ -169,15 +152,15 @@ export async function generateEnhancedChunks(
       section_title: `${getDocumentType(metadata.docType)?.name || metadata.docType} Metadata`,
       metadata: {
         section_type: metadataChunkData.sectionType,
-        ...metadataChunkData.metadata,
-      },
+        ...metadataChunkData.metadata
+      }
     };
   }
 
   return {
     contentChunks,
     metadataChunk,
-    totalChunks: contentChunks.length + (metadataChunk ? 1 : 0),
+    totalChunks: contentChunks.length + (metadataChunk ? 1 : 0)
   };
 }
 
@@ -197,7 +180,7 @@ export async function insertEnhancedChunks(
     allChunksToInsert.push({
       ...chunk,
       embedding: JSON.stringify(embeddings[index]),
-      tsvector_content: null, // Generated by database trigger
+      tsvector_content: null // Generated by database trigger
     });
   });
 
@@ -207,7 +190,7 @@ export async function insertEnhancedChunks(
     allChunksToInsert.push({
       ...metadataChunk,
       embedding: JSON.stringify(metadataEmbedding),
-      tsvector_content: null, // Generated by database trigger
+      tsvector_content: null // Generated by database trigger
     });
   }
 
@@ -242,11 +225,9 @@ export async function generateEnhancedEmbeddings(
 /**
  * Validate and prepare document for generic ingestion
  */
-export function validateGenericDocument(metadata: GenericDocumentMetadata): {
-  valid: boolean;
-  errors: string[];
-  warnings: string[];
-} {
+export function validateGenericDocument(
+  metadata: GenericDocumentMetadata
+): { valid: boolean; errors: string[]; warnings: string[] } {
   const validation = validateDocumentMetadata(metadata.docType, metadata);
   const warnings: string[] = [];
 
@@ -256,9 +237,7 @@ export function validateGenericDocument(metadata: GenericDocumentMetadata): {
   }
 
   if (Object.keys(metadata.identifiers).length === 0) {
-    warnings.push(
-      'No document identifiers provided - may affect searchability'
-    );
+    warnings.push('No document identifiers provided - may affect searchability');
   }
 
   if (Object.keys(metadata.dates).length === 0) {
@@ -273,9 +252,7 @@ export function validateGenericDocument(metadata: GenericDocumentMetadata): {
     );
 
     if (missingIdentifiers.length > 0) {
-      warnings.push(
-        `Missing recommended identifiers for ${docType.name}: ${missingIdentifiers.join(', ')}`
-      );
+      warnings.push(`Missing recommended identifiers for ${docType.name}: ${missingIdentifiers.join(', ')}`);
     }
 
     const missingDates = docType.dateFields.filter(
@@ -283,16 +260,14 @@ export function validateGenericDocument(metadata: GenericDocumentMetadata): {
     );
 
     if (missingDates.length > 0) {
-      warnings.push(
-        `Missing recommended dates for ${docType.name}: ${missingDates.join(', ')}`
-      );
+      warnings.push(`Missing recommended dates for ${docType.name}: ${missingDates.join(', ')}`);
     }
   }
 
   return {
     valid: validation.valid,
     errors: validation.errors,
-    warnings,
+    warnings
   };
 }
 
@@ -312,17 +287,11 @@ export async function migrateDocumentToGeneric(
       .single();
 
     if (fetchError || !document) {
-      return {
-        success: false,
-        errors: [`Failed to fetch document: ${fetchError?.message}`],
-      };
+      return { success: false, errors: [`Failed to fetch document: ${fetchError?.message}`] };
     }
 
     // Convert to generic format
-    const genericMetadata = convertToGenericMetadata(
-      document as any,
-      document.doc_type
-    );
+    const genericMetadata = convertToGenericMetadata(document as any, document.doc_type);
 
     // Validate conversion
     const validation = validateGenericDocument(genericMetadata);
@@ -338,10 +307,7 @@ export async function migrateDocumentToGeneric(
       .eq('id', documentId);
 
     if (updateError) {
-      return {
-        success: false,
-        errors: [`Failed to update document: ${updateError.message}`],
-      };
+      return { success: false, errors: [`Failed to update document: ${updateError.message}`] };
     }
 
     // Generate and insert metadata chunk if needed
@@ -357,15 +323,13 @@ export async function migrateDocumentToGeneric(
         section_title: `${getDocumentType(genericMetadata.docType)?.name || genericMetadata.docType} Metadata`,
         metadata: {
           section_type: metadataChunk.sectionType,
-          ...metadataChunk.metadata,
-        },
+          ...metadataChunk.metadata
+        }
       };
 
       // Generate embedding for metadata chunk
       const { embeddingService } = await import('./embeddings');
-      const embeddings = await embeddingService.generateEmbeddings([
-        metadataChunk.content,
-      ]);
+      const embeddings = await embeddingService.generateEmbeddings([metadataChunk.content]);
 
       chunkData.embedding = JSON.stringify(embeddings[0]);
 
@@ -374,10 +338,7 @@ export async function migrateDocumentToGeneric(
         .insert(chunkData);
 
       if (chunkError) {
-        console.warn(
-          `Failed to insert metadata chunk for document ${documentId}:`,
-          chunkError
-        );
+        console.warn(`Failed to insert metadata chunk for document ${documentId}:`, chunkError);
         // Don't fail the migration for chunk insertion errors
       }
     }
@@ -386,9 +347,7 @@ export async function migrateDocumentToGeneric(
   } catch (error) {
     return {
       success: false,
-      errors: [
-        `Migration failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      ],
+      errors: [`Migration failed: ${error instanceof Error ? error.message : 'Unknown error'}`]
     };
   }
 }
@@ -406,10 +365,8 @@ function removeInjectedMetadata(content: string): string {
 
     // Skip metadata-like lines
     if (trimmed.startsWith('Patent ') && trimmed.includes(' - ')) return false;
-    if (trimmed.startsWith('Authors: ') && trimmed.includes(' - '))
-      return false;
-    if (trimmed.startsWith('DOI: ') || trimmed.startsWith('arXiv: '))
-      return false;
+    if (trimmed.startsWith('Authors: ') && trimmed.includes(' - ')) return false;
+    if (trimmed.startsWith('DOI: ') || trimmed.startsWith('arXiv: ')) return false;
 
     return true;
   });
@@ -419,11 +376,7 @@ function removeInjectedMetadata(content: string): string {
 
 function generateContentHash(content: string): string {
   const crypto = require('crypto');
-  return crypto
-    .createHash('sha256')
-    .update(content)
-    .digest('hex')
-    .substring(0, 16);
+  return crypto.createHash('sha256').update(content).digest('hex').substring(0, 16);
 }
 
 /**
@@ -437,6 +390,6 @@ export function createLegacyAdapter() {
     insertChunks: insertEnhancedChunks,
     generateEmbeddings: generateEnhancedEmbeddings,
     validate: validateGenericDocument,
-    migrate: migrateDocumentToGeneric,
+    migrate: migrateDocumentToGeneric
   };
 }

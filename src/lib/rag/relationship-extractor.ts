@@ -1,17 +1,17 @@
 /**
  * Relationship Extraction System
- *
+ * 
  * Extracts relationships between entities from document content and metadata.
  * Focuses on author-document, inventor-patent, and technology relationships.
  */
 
 import { supabaseAdmin } from '@/lib/supabase';
-import type {
-  KnowledgeEdge,
-  RelationType,
+import type { 
+  KnowledgeEdge, 
+  RelationType, 
   Entity,
   DocumentMetadata,
-  DocumentChunk,
+  DocumentChunk 
 } from './types';
 
 // =======================
@@ -24,17 +24,17 @@ const RELATIONSHIP_PATTERNS = {
     /(?:authored|written|published)\s+by\s+((?:[A-Z]\.\s*)?[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/gi,
     /(?:paper|study|research)\s+by\s+((?:[A-Z]\.\s*)?[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/gi,
   ],
-
+  
   inventor_of: [
     /invented\s+by\s+((?:[A-Z]\.\s*)?[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/gi,
     /patent\s+(?:filed|granted)\s+(?:to|by)\s+((?:[A-Z]\.\s*)?[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/gi,
   ],
-
+  
   assignee_of: [
     /assigned\s+to\s+(Leia(?:\s+Inc)?|[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/gi,
     /assignee[:\s]+(Leia(?:\s+Inc)?|[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/gi,
   ],
-
+  
   implements: [
     // Specific 3D display technologies
     /(OLED|LCD|lightfield|head\s+tracking|view\s+synthesis|3D\s+reconstruction)\s+(?:algorithm|method|technique|technology)/gi,
@@ -43,7 +43,7 @@ const RELATIONSHIP_PATTERNS = {
     /utilizing\s+(OLED|LCD|lightfield|head\s+tracking|view\s+synthesis|diffusion|NeRF|Gaussian\s+splatting)/gi,
     /(Leia)\s+(?:uses|implements|utilizes)\s+([A-Z]{2,10}|lightfield|head\s+tracking)/gi,
   ],
-
+  
   used_in: [
     // Technology used in products/applications
     /(OLED|LCD|lightfield|head\s+tracking|view\s+synthesis|3D\s+reconstruction|NeRF|diffusion)\s+(?:is\s+)?used\s+in\s+(Android|Leia|displays?|applications?)/gi,
@@ -51,22 +51,22 @@ const RELATIONSHIP_PATTERNS = {
     /(Leia|Android)\s+uses\s+(OLED|LCD|lightfield|head\s+tracking|view\s+synthesis|3D\s+reconstruction)/gi,
     /application\s+of\s+(OLED|LCD|lightfield|head\s+tracking)\s+in\s+(displays?|Android|Leia)/gi,
   ],
-
+  
   cites: [
     /(?:references?|cites?)\s+([A-Z][a-zA-Z\s]{10,50})/gi,
     /(?:see|cf\.)\s+([A-Z][a-zA-Z\s]{10,50})/gi,
     /\\[\\d+\\]\s*([A-Z][a-zA-Z\s]{10,50})/gi, // Citation format
   ],
-
+  
   supersedes: [
     /(?:supersedes|replaces|improves\s+upon)\s+([A-Z][a-zA-Z\s]{8,40})/gi,
     /(?:updated|newer)\s+version\s+of\s+([A-Z][a-zA-Z\s]{8,40})/gi,
   ],
-
+  
   similar_to: [
     /similar\s+to\s+(OLED|LCD|lightfield|head\s+tracking|[A-Z][a-zA-Z\s]{5,30})/gi,
     /(?:like|analogous\s+to)\s+(OLED|LCD|lightfield|head\s+tracking|[A-Z][a-zA-Z\s]{5,30})/gi,
-  ],
+  ]
 };
 
 // =======================
@@ -85,45 +85,34 @@ export class RelationshipExtractor {
     relationships: Partial<KnowledgeEdge>[];
     entities: string[]; // Entity names found
   }> {
-    console.log(
-      `🔗 Extracting relationships from document: ${documentMetadata.title}`
-    );
-
+    console.log(`🔗 Extracting relationships from document: ${documentMetadata.title}`);
+    
     const relationships: Partial<KnowledgeEdge>[] = [];
     const entitiesFound = new Set<string>();
-
+    
     // 1. Extract metadata-based relationships
     const metadataRels = this.extractFromMetadata(documentId, documentMetadata);
     relationships.push(...metadataRels.relationships);
     metadataRels.entities.forEach(e => entitiesFound.add(e));
-
+    
     // 2. Extract content-based relationships
     const fullContent = documentChunks.map(c => c.content).join('\n\n');
-    const contentRels = this.extractFromContent(
-      documentId,
-      fullContent,
-      documentMetadata.docType
-    );
+    const contentRels = this.extractFromContent(documentId, fullContent, documentMetadata.docType);
     relationships.push(...contentRels.relationships);
     contentRels.entities.forEach(e => entitiesFound.add(e));
-
+    
     // 3. Extract citation relationships
-    const citationRels = this.extractCitationRelationships(
-      documentId,
-      fullContent
-    );
+    const citationRels = this.extractCitationRelationships(documentId, fullContent);
     relationships.push(...citationRels);
-
-    console.log(
-      `✅ Found ${relationships.length} relationships and ${entitiesFound.size} entities`
-    );
-
+    
+    console.log(`✅ Found ${relationships.length} relationships and ${entitiesFound.size} entities`);
+    
     return {
       relationships: this.deduplicateRelationships(relationships),
-      entities: Array.from(entitiesFound),
+      entities: Array.from(entitiesFound)
     };
   }
-
+  
   /**
    * Extract relationships from document metadata
    */
@@ -133,24 +122,25 @@ export class RelationshipExtractor {
   ): { relationships: Partial<KnowledgeEdge>[]; entities: string[] } {
     const relationships: Partial<KnowledgeEdge>[] = [];
     const entities: string[] = [];
-
+    
     // For patents: inventor and assignee relationships
     if (metadata.docType === 'patent') {
       // Note: In practice, this would use parsed patent data
       // For now, we establish the framework
+      
       // Patent-inventor relationships would be extracted from patent metadata
       // This is a placeholder for when we have parsed patent data
     }
-
+    
     // For papers: author relationships from DOI metadata
     if (metadata.docType === 'paper' || metadata.docType === 'pdf') {
       // Note: This would typically come from parsed DOI metadata
       // We'll implement basic structure for now
     }
-
+    
     return { relationships, entities };
   }
-
+  
   /**
    * Extract relationships from document content using pattern matching
    */
@@ -161,35 +151,33 @@ export class RelationshipExtractor {
   ): { relationships: Partial<KnowledgeEdge>[]; entities: string[] } {
     const relationships: Partial<KnowledgeEdge>[] = [];
     const entities = new Set<string>();
-
+    
     // Extract each type of relationship
-    for (const [relationType, patterns] of Object.entries(
-      RELATIONSHIP_PATTERNS
-    )) {
+    for (const [relationType, patterns] of Object.entries(RELATIONSHIP_PATTERNS)) {
       const relationsOfType = this.extractRelationshipType(
         content,
         relationType as RelationType,
         patterns
       );
-
+      
       for (const relation of relationsOfType) {
         relationships.push({
           ...relation,
           evidenceDocId: documentId,
         });
-
+        
         // Track entities mentioned
         if (relation.srcId) entities.add(relation.srcId);
         if (relation.dstId) entities.add(relation.dstId);
       }
     }
-
+    
     return {
       relationships,
-      entities: Array.from(entities),
+      entities: Array.from(entities)
     };
   }
-
+  
   /**
    * Extract a specific type of relationship using patterns
    */
@@ -199,29 +187,25 @@ export class RelationshipExtractor {
     patterns: RegExp[]
   ): Partial<KnowledgeEdge>[] {
     const relationships: Partial<KnowledgeEdge>[] = [];
-
+    
     for (const pattern of patterns) {
       let match;
       pattern.lastIndex = 0; // Reset regex state
-
+      
       while ((match = pattern.exec(content)) !== null) {
-        const relationship = this.parseRelationshipMatch(
-          match,
-          relationType,
-          pattern
-        );
+        const relationship = this.parseRelationshipMatch(match, relationType, pattern);
         if (relationship) {
           relationships.push(relationship);
         }
-
+        
         // Prevent infinite loops with global regexes
         if (pattern.global === false) break;
       }
     }
-
+    
     return relationships;
   }
-
+  
   /**
    * Parse a regex match into a relationship
    */
@@ -233,20 +217,20 @@ export class RelationshipExtractor {
     try {
       const fullMatch = match[0];
       const groups = match.slice(1);
-
+      
       // Extract entity names from the match
       const entityNames = groups
         .filter(group => group && group.length > 2)
         .map(name => name.trim())
         .filter(name => this.isValidEntityName(name));
-
+      
       if (entityNames.length === 0) return null;
-
+      
       // Determine source and destination based on relationship type
       let srcName: string, dstName: string;
       const srcType: 'entity' | 'document' = 'entity';
       let dstType: 'entity' | 'document' = 'entity';
-
+      
       switch (relationType) {
         case 'author_of':
         case 'inventor_of':
@@ -254,13 +238,13 @@ export class RelationshipExtractor {
           dstName = 'DOCUMENT'; // Will be resolved to document
           dstType = 'document';
           break;
-
+          
         case 'assignee_of':
           srcName = entityNames[0]; // Organization
           dstName = 'DOCUMENT';
           dstType = 'document';
           break;
-
+          
         case 'implements':
         case 'used_in':
           if (entityNames.length >= 2) {
@@ -272,7 +256,7 @@ export class RelationshipExtractor {
             dstType = 'document';
           }
           break;
-
+          
         default:
           if (entityNames.length >= 2) {
             srcName = entityNames[0];
@@ -283,7 +267,7 @@ export class RelationshipExtractor {
             dstType = 'document';
           }
       }
-
+      
       return {
         srcId: srcName, // Will be resolved to actual entity ID later
         srcType,
@@ -291,38 +275,36 @@ export class RelationshipExtractor {
         dstId: dstName,
         dstType,
         weight: this.calculateRelationshipWeight(relationType, fullMatch),
-        evidenceText:
-          fullMatch.length > 200
-            ? fullMatch.substring(0, 200) + '...'
-            : fullMatch,
+        evidenceText: fullMatch.length > 200 ? fullMatch.substring(0, 200) + '...' : fullMatch,
       };
+      
     } catch (error) {
       console.warn('Error parsing relationship match:', error);
       return null;
     }
   }
-
+  
   /**
    * Check if a string is a valid entity name
    */
   private isValidEntityName(name: string): boolean {
     if (!name || name.length < 2 || name.length > 50) return false;
-
+    
     // Clean the name
     const cleanName = name.trim().replace(/[.,;:!?]$/, '');
-
+    
     // Filter out common false positives
     const invalidPatterns = [
       /^(?:the|and|or|but|in|on|at|to|for|of|with|by|from|up|about|into|through|during|before|after|above|below|up|down|out|off|over|under|again|further|then|once)$/i,
       /^(?:this|that|these|those|here|there|where|when|what|which|who|how|why)$/i,
       /^(?:can|could|should|would|will|shall|may|might|must|do|does|did|have|has|had|is|are|was|were|be|been|being)$/i,
       /^(?:such|also|more|most|very|much|many|some|any|all|each|every|both|either|neither)$/i,
-      /^\d+$/, // Pure numbers
+      /^\d+$/,  // Pure numbers
       /^[^a-zA-Z]*$/, // No letters
       /\s{3,}/, // Multiple consecutive spaces
       /^[a-z]\s/, // Single lowercase letter + space
     ];
-
+    
     // Require proper entity structure - domain-specific patterns
     const validPatterns = [
       /^[A-Z]{2,10}$/, // Acronyms like "OLED", "API", "SDK", "NeRF"
@@ -333,22 +315,17 @@ export class RelationshipExtractor {
       /^(head\s+tracking|view\s+synthesis|Gaussian\s+splatting)$/i, // Multi-word technical terms
       /^(refractive\s+index|neural\s+network|machine\s+learning)$/i, // More technical terms
     ];
-
-    return (
-      !invalidPatterns.some(pattern => pattern.test(cleanName)) &&
-      validPatterns.some(pattern => pattern.test(cleanName))
-    );
+    
+    return !invalidPatterns.some(pattern => pattern.test(cleanName)) &&
+           validPatterns.some(pattern => pattern.test(cleanName));
   }
-
+  
   /**
    * Calculate relationship weight based on type and context
    */
-  private calculateRelationshipWeight(
-    relationType: RelationType,
-    evidenceText: string
-  ): number {
+  private calculateRelationshipWeight(relationType: RelationType, evidenceText: string): number {
     let baseWeight = 0.5;
-
+    
     // Adjust weight based on relationship type
     switch (relationType) {
       case 'author_of':
@@ -370,26 +347,23 @@ export class RelationshipExtractor {
         baseWeight = 0.4; // Lower confidence for similarity
         break;
     }
-
+    
     // Boost weight for certain contextual indicators
     const confidenceBoosts = [
-      {
-        pattern: /\b(?:clearly|definitely|specifically|explicitly)\b/i,
-        boost: 0.1,
-      },
+      { pattern: /\b(?:clearly|definitely|specifically|explicitly)\b/i, boost: 0.1 },
       { pattern: /\b(?:patent|paper|study|research)\b/i, boost: 0.1 },
       { pattern: /\b(?:developed|created|invented|designed)\b/i, boost: 0.1 },
     ];
-
+    
     for (const { pattern, boost } of confidenceBoosts) {
       if (pattern.test(evidenceText)) {
         baseWeight = Math.min(1.0, baseWeight + boost);
       }
     }
-
+    
     return baseWeight;
   }
-
+  
   /**
    * Extract citation relationships from reference lists
    */
@@ -398,14 +372,14 @@ export class RelationshipExtractor {
     content: string
   ): Partial<KnowledgeEdge>[] {
     const relationships: Partial<KnowledgeEdge>[] = [];
-
+    
     // Look for reference sections
     const referenceSection = this.extractReferenceSection(content);
     if (!referenceSection) return relationships;
-
+    
     // Extract individual references
     const references = this.parseReferences(referenceSection);
-
+    
     for (const reference of references) {
       if (reference.title) {
         relationships.push({
@@ -419,10 +393,10 @@ export class RelationshipExtractor {
         });
       }
     }
-
+    
     return relationships;
   }
-
+  
   /**
    * Extract reference section from content
    */
@@ -431,17 +405,17 @@ export class RelationshipExtractor {
       /(?:references?|bibliography|citations?)\s*:?\s*\n((?:.|\n)*?)(?:\n\n|\n(?:appendix|acknowledgments))/i,
       /(?:references?|bibliography)\s*\n((?:.|\n)*?)$/i,
     ];
-
+    
     for (const pattern of referencePatterns) {
       const match = content.match(pattern);
       if (match && match[1] && match[1].length > 100) {
         return match[1];
       }
     }
-
+    
     return null;
   }
-
+  
   /**
    * Parse individual references from reference section
    */
@@ -452,23 +426,22 @@ export class RelationshipExtractor {
     fullText: string;
   }> {
     const references: Array<any> = [];
-
+    
     // Split into individual references (common patterns)
     const referenceLines = referenceSection
       .split(/\n(?=\d+\.|\[\d+\])/g)
       .filter(line => line.trim().length > 20);
-
-    for (const line of referenceLines.slice(0, 50)) {
-      // Limit to avoid processing huge reference lists
+    
+    for (const line of referenceLines.slice(0, 50)) { // Limit to avoid processing huge reference lists
       const reference = this.parseReference(line);
       if (reference.title) {
         references.push(reference);
       }
     }
-
+    
     return references;
   }
-
+  
   /**
    * Parse a single reference line
    */
@@ -479,14 +452,14 @@ export class RelationshipExtractor {
     fullText: string;
   } {
     const reference = { fullText: line.trim() };
-
+    
     // Extract title (usually in quotes or between punctuation)
     const titlePatterns = [
-      /"([^"]{10,200})"/, // Quoted titles
-      /\. ([A-Z][^.]{10,200})\. /, // Sentence-like titles
+      /"([^"]{10,200})"/,  // Quoted titles
+      /\. ([A-Z][^.]{10,200})\. /,  // Sentence-like titles
       /\. ([A-Z][^.]{10,200})(?:,|$)/, // End with comma or end of line
     ];
-
+    
     for (const pattern of titlePatterns) {
       const match = line.match(pattern);
       if (match) {
@@ -494,19 +467,19 @@ export class RelationshipExtractor {
         break;
       }
     }
-
+    
     // Extract year
     const yearMatch = line.match(/\b(19|20)\d{2}\b/);
     if (yearMatch) {
       (reference as any).year = yearMatch[0];
     }
-
+    
     // Extract authors (simplified - first author patterns)
     const authorPatterns = [
       /^(?:\d+\.?\s*)?([A-Z][a-z]+,?\s+[A-Z](?:\.[A-Z])?\.?)/,
       /([A-Z][a-z]+\s+et\s+al\.?)/,
     ];
-
+    
     for (const pattern of authorPatterns) {
       const match = line.match(pattern);
       if (match) {
@@ -514,16 +487,14 @@ export class RelationshipExtractor {
         break;
       }
     }
-
+    
     return reference;
   }
-
+  
   /**
    * Remove duplicate relationships
    */
-  private deduplicateRelationships(
-    relationships: Partial<KnowledgeEdge>[]
-  ): Partial<KnowledgeEdge>[] {
+  private deduplicateRelationships(relationships: Partial<KnowledgeEdge>[]): Partial<KnowledgeEdge>[] {
     const seen = new Set<string>();
     return relationships.filter(rel => {
       const key = `${rel.srcId}_${rel.rel}_${rel.dstId}`;
@@ -534,38 +505,36 @@ export class RelationshipExtractor {
       return true;
     });
   }
-
+  
   /**
    * Save relationships to database
    */
-  async saveRelationships(
-    relationships: Partial<KnowledgeEdge>[]
-  ): Promise<void> {
-    console.log(
-      `💾 Saving ${relationships.length} relationships to database...`
-    );
-
+  async saveRelationships(relationships: Partial<KnowledgeEdge>[]): Promise<void> {
+    console.log(`💾 Saving ${relationships.length} relationships to database...`);
+    
     for (const rel of relationships) {
       try {
         // Resolve entity names to entity IDs
         const resolvedRel = await this.resolveRelationshipEntities(rel);
-
+        
         if (resolvedRel.srcId && resolvedRel.dstId) {
           // Use UPSERT to handle unique constraint gracefully
-          await supabaseAdmin.from('edges').upsert(resolvedRel, {
-            onConflict: 'src_id,src_type,rel,dst_id,dst_type',
-            ignoreDuplicates: false, // Update existing relationships
-          });
+          await supabaseAdmin
+            .from('edges')
+            .upsert(resolvedRel, {
+              onConflict: 'src_id,src_type,rel,dst_id,dst_type',
+              ignoreDuplicates: false  // Update existing relationships
+            });
         }
       } catch (error) {
         console.warn(`Failed to save relationship:`, rel, error);
         // Continue with other relationships
       }
     }
-
+    
     console.log('✅ Relationships saved successfully');
   }
-
+  
   /**
    * Resolve entity names in relationships to entity IDs
    */
@@ -573,7 +542,7 @@ export class RelationshipExtractor {
     rel: Partial<KnowledgeEdge>
   ): Promise<Partial<KnowledgeEdge>> {
     const resolved = { ...rel };
-
+    
     // Resolve source entity
     if (rel.srcId && rel.srcId !== 'DOCUMENT') {
       const entity = await this.findEntityByName(rel.srcId);
@@ -581,7 +550,7 @@ export class RelationshipExtractor {
         resolved.srcId = entity.id;
       }
     }
-
+    
     // Resolve destination entity
     if (rel.dstId && rel.dstId !== 'DOCUMENT') {
       const entity = await this.findEntityByName(rel.dstId);
@@ -589,10 +558,10 @@ export class RelationshipExtractor {
         resolved.dstId = entity.id;
       }
     }
-
+    
     return resolved;
   }
-
+  
   /**
    * Find entity by name (with fuzzy matching)
    */
@@ -603,18 +572,18 @@ export class RelationshipExtractor {
       .select('*')
       .eq('name', name)
       .single();
-
+    
     if (exactMatch) return exactMatch;
-
+    
     // Try alias match
     const { data: aliasMatch } = await supabaseAdmin
       .from('aliases')
       .select('entities(*)')
       .eq('alias', name)
       .single();
-
+    
     if (aliasMatch?.entities) return aliasMatch.entities as Entity;
-
+    
     return null;
   }
 }
@@ -634,14 +603,14 @@ export async function extractDocumentRelationships(
   documentChunks: DocumentChunk[]
 ): Promise<void> {
   try {
-    const { relationships } =
-      await relationshipExtractor.extractRelationshipsFromDocument(
-        documentId,
-        documentMetadata,
-        documentChunks
-      );
-
+    const { relationships } = await relationshipExtractor.extractRelationshipsFromDocument(
+      documentId,
+      documentMetadata,
+      documentChunks
+    );
+    
     await relationshipExtractor.saveRelationships(relationships);
+    
   } catch (error) {
     console.error('Error extracting document relationships:', error);
     throw error;
@@ -653,26 +622,22 @@ export async function extractDocumentRelationships(
  */
 export async function batchProcessRelationships(limit = 10): Promise<void> {
   try {
-    console.log(
-      `🔄 Starting batch relationship processing (limit: ${limit})...`
-    );
-
+    console.log(`🔄 Starting batch relationship processing (limit: ${limit})...`);
+    
     const { data: documents } = await supabaseAdmin
       .from('documents')
-      .select(
-        `
+      .select(`
         *,
         document_chunks (*)
-      `
-      )
+      `)
       .eq('processing_status', 'completed')
       .limit(limit);
-
+    
     if (!documents || documents.length === 0) {
       console.log('No documents found for relationship processing');
       return;
     }
-
+    
     for (const doc of documents) {
       try {
         if (doc.document_chunks && doc.document_chunks.length > 0) {
@@ -683,15 +648,13 @@ export async function batchProcessRelationships(limit = 10): Promise<void> {
           );
         }
       } catch (error) {
-        console.error(
-          `Failed to process relationships for document ${doc.title}:`,
-          error
-        );
+        console.error(`Failed to process relationships for document ${doc.title}:`, error);
         // Continue with other documents
       }
     }
-
+    
     console.log('✅ Batch relationship processing completed');
+    
   } catch (error) {
     console.error('Error in batchProcessRelationships:', error);
     throw error;

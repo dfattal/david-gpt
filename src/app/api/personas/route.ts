@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     // Validate persona content
     const contentValidation = PersonaValidator.validateFromContent({
       personaMd: persona_md,
-      constraintsYaml: constraints_yaml,
+      constraintsYaml: constraints_yaml
     });
 
     if (!contentValidation.isValid) {
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
         {
           error: 'Persona validation failed',
           validation_errors: contentValidation.errors,
-          validation_warnings: contentValidation.warnings,
+          validation_warnings: contentValidation.warnings
         },
         { status: 400 }
       );
@@ -52,18 +52,16 @@ export async function POST(request: NextRequest) {
     const persona = await PersonaManager.createPersona({
       metadata,
       constraints_yaml,
-      persona_md,
+      persona_md
     });
 
-    return NextResponse.json(
-      {
-        persona,
-        validation_report: {
-          warnings: contentValidation.warnings,
-        },
-      },
-      { status: 201 }
-    );
+    return NextResponse.json({
+      persona,
+      validation_report: {
+        warnings: contentValidation.warnings
+      }
+    }, { status: 201 });
+
   } catch (error) {
     console.error('Failed to create persona:', error);
     return NextResponse.json(

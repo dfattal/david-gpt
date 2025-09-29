@@ -96,19 +96,9 @@ export const QualityGatesSchema = z.object({
 
 export const PersonaMetadataSchema = z.object({
   title: z.string().min(3).max(100),
-  version: z
-    .string()
-    .regex(
-      /^\d+\.\d+(\.\d+)?$/,
-      'Version must follow semantic versioning (e.g., 1.0.0)'
-    ),
+  version: z.string().regex(/^\d+\.\d+(\.\d+)?$/, 'Version must follow semantic versioning (e.g., 1.0.0)'),
   last_updated: z.string(),
-  persona_id: z
-    .string()
-    .regex(
-      /^[a-z0-9-]+$/,
-      'persona_id must contain only lowercase letters, numbers, and hyphens'
-    ),
+  persona_id: z.string().regex(/^[a-z0-9-]+$/, 'persona_id must contain only lowercase letters, numbers, and hyphens'),
   description: z.string().optional(),
   author: z.string().optional(),
   tags: z.array(z.string()).optional(),
@@ -203,27 +193,25 @@ export interface DocTypeOverride {
 }
 
 // Zod Schemas
-export const DocTypeOverrideSchema = z
-  .object({
-    require_full_claims: z.boolean().optional(),
-    require_priority_date: z.boolean().optional(),
-    require_assignee: z.boolean().optional(),
-    require_inventors: z.boolean().optional(),
-    require_doi: z.boolean().optional(),
-    require_published_at: z.boolean().optional(),
-    require_authors: z.boolean().optional(),
-    require_abstract: z.boolean().optional(),
-    require_oem: z.boolean().optional(),
-    require_product_info: z.boolean().optional(),
-    require_updated_at: z.boolean().optional(),
-    min_word_count: z.number().optional(),
-    focus_technologies: z.array(z.string()).optional(),
-    focus_areas: z.array(z.string()).optional(),
-    focus_topics: z.array(z.string()).optional(),
-    default_processor: z.string().optional(),
-    fallback_processors: z.array(z.string()).optional(),
-  })
-  .optional();
+export const DocTypeOverrideSchema = z.object({
+  require_full_claims: z.boolean().optional(),
+  require_priority_date: z.boolean().optional(),
+  require_assignee: z.boolean().optional(),
+  require_inventors: z.boolean().optional(),
+  require_doi: z.boolean().optional(),
+  require_published_at: z.boolean().optional(),
+  require_authors: z.boolean().optional(),
+  require_abstract: z.boolean().optional(),
+  require_oem: z.boolean().optional(),
+  require_product_info: z.boolean().optional(),
+  require_updated_at: z.boolean().optional(),
+  min_word_count: z.number().optional(),
+  focus_technologies: z.array(z.string()).optional(),
+  focus_areas: z.array(z.string()).optional(),
+  focus_topics: z.array(z.string()).optional(),
+  default_processor: z.string().optional(),
+  fallback_processors: z.array(z.string()).optional(),
+}).optional();
 
 // Canonical Entity Schemas
 export const CanonicalEntityDefinitionSchema = z.object({
@@ -264,9 +252,7 @@ export const PersonaConstraintsSchema = z.object({
   quality_gates: QualityGatesSchema,
   doctype_overrides: z.record(DocTypeOverrideSchema).optional(),
   canonical_entities: CanonicalEntitiesConfigSchema.optional(),
-  canonical_relationships: z
-    .array(CanonicalRelationshipDefinitionSchema)
-    .optional(),
+  canonical_relationships: z.array(CanonicalRelationshipDefinitionSchema).optional(),
 });
 
 // =======================

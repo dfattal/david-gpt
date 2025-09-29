@@ -12,7 +12,7 @@ import {
   normalizeEntity,
   normalizeCanonical,
   findSimilarCanonical,
-  type NormalizationResult,
+  type NormalizationResult
 } from './canonical-normalizer';
 
 // =======================
@@ -42,147 +42,138 @@ export interface SemanticRelationship {
 
 export const CANONICAL_TECHNOLOGIES: CanonicalEntity[] = [
   {
-    canonicalName: 'Switchable 2D/3D Display Technology',
-    kind: 'technology',
-    description:
-      'Display technology that can switch between 2D and 3D modes, enabling both high-resolution 2D viewing and autostereoscopic 3D viewing',
+    canonicalName: "Switchable 2D/3D Display Technology",
+    kind: "technology",
+    description: "Display technology that can switch between 2D and 3D modes, enabling both high-resolution 2D viewing and autostereoscopic 3D viewing",
     aliases: [
-      'switchable autostereoscopic display',
-      'switchable lightfield display',
-      'switchable 3D display',
-      'switchable 2D3D display',
-      'switchable multi-view display',
-      'autostereoscopic display',
-      'lenticular display',
-      'multi-view display',
+      "switchable autostereoscopic display",
+      "switchable lightfield display", 
+      "switchable 3D display",
+      "switchable 2D3D display",
+      "switchable multi-view display",
+      "autostereoscopic display",
+      "lenticular display",
+      "multi-view display"
     ],
     priority: 10,
-    domain: 'spatial_computing',
+    domain: "spatial_computing"
   },
   {
-    canonicalName: 'Eye-Tracked Stereoscopic Display Technology',
-    kind: 'technology',
-    description:
-      'Advanced display technology combining eye-tracking with pixel mapping to project precise stereoscopic views to viewer eyes',
+    canonicalName: "Eye-Tracked Stereoscopic Display Technology", 
+    kind: "technology",
+    description: "Advanced display technology combining eye-tracking with pixel mapping to project precise stereoscopic views to viewer eyes",
     aliases: [
-      'eye-tracked stereoscopic display',
-      'eye-tracked 3D display',
-      'gaze-tracked display',
-      'pixel mapping display',
-      'viewer-tracked display',
+      "eye-tracked stereoscopic display",
+      "eye-tracked 3D display", 
+      "gaze-tracked display",
+      "pixel mapping display",
+      "viewer-tracked display"
     ],
     priority: 9,
-    domain: 'spatial_computing',
+    domain: "spatial_computing"
   },
   {
-    canonicalName: 'Diffractive Lightfield Backlight Technology',
-    kind: 'technology',
-    description:
-      "Leia's original lightfield display approach using diffractive optical elements in the backlight (2013-2020)",
+    canonicalName: "Diffractive Lightfield Backlight Technology",
+    kind: "technology", 
+    description: "Leia's original lightfield display approach using diffractive optical elements in the backlight (2013-2020)",
     aliases: [
-      'diffractive lightfield backlight',
-      'DLB technology',
-      'diffractive backlight technology',
-      'lightfield backlight',
+      "diffractive lightfield backlight",
+      "DLB technology",
+      "diffractive backlight technology",
+      "lightfield backlight"
     ],
     priority: 8,
-    domain: 'spatial_computing',
+    domain: "spatial_computing"
   },
   {
-    canonicalName: 'Parallax Barrier Technology',
-    kind: 'technology',
-    description:
-      '3D display technology using a physical barrier with precisely positioned slits to direct different images to left and right eyes',
+    canonicalName: "Parallax Barrier Technology",
+    kind: "technology",
+    description: "3D display technology using a physical barrier with precisely positioned slits to direct different images to left and right eyes",
     aliases: [
-      'parallax barrier',
-      'barrier strip technology',
-      'slit barrier display',
+      "parallax barrier",
+      "barrier strip technology", 
+      "slit barrier display"
     ],
     priority: 7,
-    domain: 'spatial_computing',
-  },
+    domain: "spatial_computing"
+  }
 ];
 
 export const CANONICAL_COMPONENTS: CanonicalEntity[] = [
   {
-    canonicalName: 'Switchable LC Component',
-    kind: 'component',
-    description:
-      'Liquid crystal component that can be electrically switched to enable or disable lenticular focusing',
+    canonicalName: "Switchable LC Component",
+    kind: "component",
+    description: "Liquid crystal component that can be electrically switched to enable or disable lenticular focusing",
     aliases: [
-      'switchable lenticular',
-      'LC lens',
-      'electro-optic material',
-      'switchable 3D cell',
-      'birefringent electro-optic material',
-      'switchable liquid crystal',
-      'LC cell',
-      'liquid crystal cell',
-      'switchable lenticular element',
+      "switchable lenticular",
+      "LC lens", 
+      "electro-optic material",
+      "switchable 3D cell",
+      "birefringent electro-optic material",
+      "switchable liquid crystal",
+      "LC cell",
+      "liquid crystal cell",
+      "switchable lenticular element"
     ],
     priority: 10,
-    domain: 'spatial_computing',
+    domain: "spatial_computing"
   },
   {
-    canonicalName: 'Diffractive Backlight Component',
-    kind: 'component',
-    description:
-      'Diffractive optical element integrated into the backlight to create directional light fields',
+    canonicalName: "Diffractive Backlight Component",
+    kind: "component", 
+    description: "Diffractive optical element integrated into the backlight to create directional light fields",
     aliases: [
-      'diffractive backlight',
-      'DLB',
-      'diffractive optical element',
-      'DOE backlight',
-      'lightfield backlight unit',
+      "diffractive backlight",
+      "DLB",
+      "diffractive optical element",
+      "DOE backlight",
+      "lightfield backlight unit"
     ],
     priority: 9,
-    domain: 'spatial_computing',
+    domain: "spatial_computing"
   },
   {
-    canonicalName: 'Parallax Barrier Component',
-    kind: 'component',
-    description:
-      'Physical barrier with precise apertures that enables autostereoscopic viewing',
+    canonicalName: "Parallax Barrier Component",
+    kind: "component",
+    description: "Physical barrier with precise apertures that enables autostereoscopic viewing",
     aliases: [
-      'parallax barrier',
-      'barrier strip',
-      'slit barrier',
-      'aperture barrier',
+      "parallax barrier",
+      "barrier strip",
+      "slit barrier",
+      "aperture barrier"
     ],
     priority: 8,
-    domain: 'spatial_computing',
+    domain: "spatial_computing"
   },
   {
-    canonicalName: 'Lenticular Lens Array',
-    kind: 'component',
-    description:
-      'Array of cylindrical lenses that direct light to create multiple viewing zones',
+    canonicalName: "Lenticular Lens Array",
+    kind: "component",
+    description: "Array of cylindrical lenses that direct light to create multiple viewing zones",
     aliases: [
-      'lenticular array',
-      'lenticular sheet',
-      'lenticular lens',
-      'lenticular element',
-      'lens array',
-      'cylindrical lens array',
+      "lenticular array",
+      "lenticular sheet", 
+      "lenticular lens",
+      "lenticular element",
+      "lens array",
+      "cylindrical lens array"
     ],
     priority: 8,
-    domain: 'spatial_computing',
+    domain: "spatial_computing"
   },
   {
-    canonicalName: 'Eye Tracking Sensor',
-    kind: 'component',
-    description:
-      'Sensor system that tracks viewer eye position for gaze-aware displays',
+    canonicalName: "Eye Tracking Sensor",
+    kind: "component",
+    description: "Sensor system that tracks viewer eye position for gaze-aware displays",
     aliases: [
-      'eye tracker',
-      'gaze tracker',
-      'eye tracking camera',
-      'pupil tracker',
-      'viewer position sensor',
+      "eye tracker",
+      "gaze tracker", 
+      "eye tracking camera",
+      "pupil tracker",
+      "viewer position sensor"
     ],
     priority: 7,
-    domain: 'spatial_computing',
-  },
+    domain: "spatial_computing"
+  }
 ];
 
 // =======================
@@ -192,60 +183,60 @@ export const CANONICAL_COMPONENTS: CanonicalEntity[] = [
 export const CANONICAL_RELATIONSHIPS: SemanticRelationship[] = [
   // Alternative implementation relationships
   {
-    fromCanonical: 'Switchable 2D/3D Display Technology',
-    relation: 'can_use',
-    toCanonical: 'Switchable LC Component',
+    fromCanonical: "Switchable 2D/3D Display Technology",
+    relation: "can_use",
+    toCanonical: "Switchable LC Component", 
     confidence: 0.95,
-    context: 'Modern implementation (2024+)',
+    context: "Modern implementation (2024+)"
   },
   {
-    fromCanonical: 'Switchable 2D/3D Display Technology',
-    relation: 'can_use',
-    toCanonical: 'Diffractive Backlight Component',
+    fromCanonical: "Switchable 2D/3D Display Technology",
+    relation: "can_use", 
+    toCanonical: "Diffractive Backlight Component",
     confidence: 0.9,
-    context: "Leia's original approach (2013-2023)",
+    context: "Leia's original approach (2013-2023)"
   },
   {
-    fromCanonical: 'Switchable 2D/3D Display Technology',
-    relation: 'can_use',
-    toCanonical: 'Parallax Barrier Component',
+    fromCanonical: "Switchable 2D/3D Display Technology",
+    relation: "can_use",
+    toCanonical: "Parallax Barrier Component",
     confidence: 0.8,
-    context: 'Alternative implementation',
+    context: "Alternative implementation"
   },
-
+  
   // Enhancement relationships
   {
-    fromCanonical: 'Eye-Tracked Stereoscopic Display Technology',
-    relation: 'enhances',
-    toCanonical: 'Switchable 2D/3D Display Technology',
+    fromCanonical: "Eye-Tracked Stereoscopic Display Technology",
+    relation: "enhances",
+    toCanonical: "Switchable 2D/3D Display Technology",
     confidence: 0.95,
-    context: 'Adds precise view positioning',
+    context: "Adds precise view positioning"
   },
-
+  
   // Evolution relationships
   {
-    fromCanonical: 'Diffractive Lightfield Backlight Technology',
-    relation: 'evolved_to',
-    toCanonical: 'Eye-Tracked Stereoscopic Display Technology',
+    fromCanonical: "Diffractive Lightfield Backlight Technology", 
+    relation: "evolved_to",
+    toCanonical: "Eye-Tracked Stereoscopic Display Technology",
     confidence: 0.9,
-    context: "Leia's technology evolution 2020-2023",
+    context: "Leia's technology evolution 2020-2023"
   },
-
+  
   // Alternative relationships
   {
-    fromCanonical: 'Switchable LC Component',
-    relation: 'alternative_to',
-    toCanonical: 'Diffractive Backlight Component',
+    fromCanonical: "Switchable LC Component",
+    relation: "alternative_to", 
+    toCanonical: "Diffractive Backlight Component",
     confidence: 0.85,
-    context: 'Different approaches to switchable 3D',
+    context: "Different approaches to switchable 3D"
   },
   {
-    fromCanonical: 'Parallax Barrier Component',
-    relation: 'alternative_to',
-    toCanonical: 'Diffractive Backlight Component',
+    fromCanonical: "Parallax Barrier Component",
+    relation: "alternative_to",
+    toCanonical: "Diffractive Backlight Component", 
     confidence: 0.8,
-    context: 'Different approaches to autostereoscopic display',
-  },
+    context: "Different approaches to autostereoscopic display"
+  }
 ];
 
 // =======================
@@ -255,20 +246,13 @@ export const CANONICAL_RELATIONSHIPS: SemanticRelationship[] = [
 /**
  * Find canonical entity for a given name with robust normalization
  */
-export function findCanonicalEntity(
-  entityName: string,
-  entityKind: EntityKind
-): CanonicalEntity | null {
+export function findCanonicalEntity(entityName: string, entityKind: EntityKind): CanonicalEntity | null {
   // Use robust canonical normalization
   const normalizedInput = normalizeCanonical(entityName);
 
   // Search in appropriate canonical entity list
-  const entities =
-    entityKind === 'technology'
-      ? CANONICAL_TECHNOLOGIES
-      : entityKind === 'component'
-        ? CANONICAL_COMPONENTS
-        : [];
+  const entities = entityKind === 'technology' ? CANONICAL_TECHNOLOGIES :
+                  entityKind === 'component' ? CANONICAL_COMPONENTS : [];
 
   for (const canonical of entities.sort((a, b) => b.priority - a.priority)) {
     // Check canonical name with robust normalization
@@ -293,20 +277,14 @@ export function findCanonicalEntity(
 
   // Fuzzy matching as fallback for similar entities
   const canonicalNames = entities.map(e => normalizeCanonical(e.canonicalName));
-  const similarCanonical = findSimilarCanonical(
-    entityName,
-    canonicalNames,
-    0.85
-  );
+  const similarCanonical = findSimilarCanonical(entityName, canonicalNames, 0.85);
 
   if (similarCanonical) {
-    const matchedEntity = entities.find(
-      e => normalizeCanonical(e.canonicalName) === similarCanonical
+    const matchedEntity = entities.find(e =>
+      normalizeCanonical(e.canonicalName) === similarCanonical
     );
     if (matchedEntity) {
-      console.log(
-        `🔄 Fuzzy match: "${entityName}" → "${matchedEntity.canonicalName}"`
-      );
+      console.log(`🔄 Fuzzy match: "${entityName}" → "${matchedEntity.canonicalName}"`);
       return matchedEntity;
     }
   }
@@ -317,75 +295,51 @@ export function findCanonicalEntity(
 /**
  * Check if entity name partially matches canonical entity (uses normalized input)
  */
-function isPartialMatch(
-  normalizedEntityName: string,
-  canonical: CanonicalEntity
-): boolean {
+function isPartialMatch(normalizedEntityName: string, canonical: CanonicalEntity): boolean {
   const entityWords = normalizedEntityName.split(/\s+/);
-  const canonicalWords = normalizeCanonical(canonical.canonicalName).split(
-    /\s+/
-  );
-
+  const canonicalWords = normalizeCanonical(canonical.canonicalName).split(/\s+/);
+  
   // For complex technical terms, require substantial overlap
   if (entityWords.length >= 2 && canonicalWords.length >= 2) {
-    const commonWords = entityWords.filter(word =>
-      canonicalWords.some(
-        canonWord => canonWord.includes(word) || word.includes(canonWord)
+    const commonWords = entityWords.filter(word => 
+      canonicalWords.some(canonWord => 
+        canonWord.includes(word) || word.includes(canonWord)
       )
     );
-
+    
     // Require at least 50% word overlap for technologies
-    if (
-      canonical.kind === 'technology' &&
-      commonWords.length >= Math.min(2, entityWords.length * 0.5)
-    ) {
+    if (canonical.kind === 'technology' && commonWords.length >= Math.min(2, entityWords.length * 0.5)) {
       return true;
     }
-
+    
     // More lenient for components
     if (canonical.kind === 'component' && commonWords.length >= 1) {
       // Check for key component indicators
-      const componentKeywords = [
-        'cell',
-        'lens',
-        'element',
-        'component',
-        'material',
-        'layer',
-        'barrier',
-      ];
-      const hasComponentKeyword = entityWords.some(word =>
-        componentKeywords.includes(word)
-      );
-
+      const componentKeywords = ['cell', 'lens', 'element', 'component', 'material', 'layer', 'barrier'];
+      const hasComponentKeyword = entityWords.some(word => componentKeywords.includes(word));
+      
       if (hasComponentKeyword) {
         return true;
       }
     }
   }
-
+  
   return false;
 }
 
 /**
  * Get all canonical relationships involving an entity
  */
-export function getCanonicalRelationships(
-  canonicalName: string
-): SemanticRelationship[] {
-  return CANONICAL_RELATIONSHIPS.filter(
-    rel =>
-      rel.fromCanonical === canonicalName || rel.toCanonical === canonicalName
+export function getCanonicalRelationships(canonicalName: string): SemanticRelationship[] {
+  return CANONICAL_RELATIONSHIPS.filter(rel => 
+    rel.fromCanonical === canonicalName || rel.toCanonical === canonicalName
   );
 }
 
 /**
  * Consolidate extracted entity name to canonical form with enhanced normalization
  */
-export function consolidateEntityName(
-  entityName: string,
-  entityKind: EntityKind
-): {
+export function consolidateEntityName(entityName: string, entityKind: EntityKind): {
   canonicalName: string;
   wasConsolidated: boolean;
   matchedCanonical?: CanonicalEntity;
@@ -398,7 +352,7 @@ export function consolidateEntityName(
     return {
       canonicalName: canonical.canonicalName,
       wasConsolidated: true,
-      matchedCanonical: canonical,
+      matchedCanonical: canonical
     };
   }
 
@@ -409,7 +363,7 @@ export function consolidateEntityName(
   return {
     canonicalName: normalizationResult.original, // Keep original for display
     wasConsolidated: false,
-    normalizationResult,
+    normalizationResult
   };
 }
 
@@ -435,7 +389,7 @@ export function consolidateEntityWithDuplicateDetection(
     return {
       ...consolidationResult,
       isDuplicate: false,
-      generatedAliases: [],
+      generatedAliases: []
     };
   }
 
@@ -444,30 +398,22 @@ export function consolidateEntityWithDuplicateDetection(
   const candidateCanonical = normResult.canonical;
 
   // Find potential duplicates
-  const existingCanonicals = existingEntityNames.map(name =>
-    normalizeCanonical(name)
-  );
-  const duplicateCanonical = findSimilarCanonical(
-    entityName,
-    existingCanonicals,
-    0.9
-  );
+  const existingCanonicals = existingEntityNames.map(name => normalizeCanonical(name));
+  const duplicateCanonical = findSimilarCanonical(entityName, existingCanonicals, 0.9);
 
   if (duplicateCanonical) {
     // Find the original name that corresponds to this canonical
     const duplicateIndex = existingCanonicals.indexOf(duplicateCanonical);
     const duplicateOriginalName = existingEntityNames[duplicateIndex];
 
-    console.log(
-      `🔄 Duplicate detected: "${entityName}" → "${duplicateOriginalName}"`
-    );
+    console.log(`🔄 Duplicate detected: "${entityName}" → "${duplicateOriginalName}"`);
 
     return {
       canonicalName: duplicateOriginalName,
       wasConsolidated: true,
       isDuplicate: true,
       duplicateOf: duplicateOriginalName,
-      generatedAliases: [entityName, ...normResult.aliases],
+      generatedAliases: [entityName, ...normResult.aliases]
     };
   }
 
@@ -476,6 +422,6 @@ export function consolidateEntityWithDuplicateDetection(
     canonicalName: normResult.original,
     wasConsolidated: false,
     isDuplicate: false,
-    generatedAliases: normResult.aliases,
+    generatedAliases: normResult.aliases
   };
 }

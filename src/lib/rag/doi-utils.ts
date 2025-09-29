@@ -74,8 +74,7 @@ export function extractDOI(text: string): string | null {
   }
 
   // Pattern to match DOI with optional URL prefix
-  const doiPattern =
-    /(?:(?:https?:\/\/)?(?:dx\.)?doi\.org\/)?10\.\d{4,}\/[^\s<>]+/i;
+  const doiPattern = /(?:(?:https?:\/\/)?(?:dx\.)?doi\.org\/)?10\.\d{4,}\/[^\s<>]+/i;
   const match = text.match(doiPattern);
 
   if (!match) {
@@ -130,7 +129,7 @@ export function extractDOIFromURL(url: string): string | null {
     // PubMed/PMC: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1234567/
     /ncbi\.nlm\.nih\.gov\/pmc\/articles\/PMC(\d+)/i,
     // Generic /doi/ paths in URLs
-    /\/doi\/(?:full\/|abs\/|pdf\/)?(10\.\d{4,}\/[^\s\/\?#]+)/i,
+    /\/doi\/(?:full\/|abs\/|pdf\/)?(10\.\d{4,}\/[^\s\/\?#]+)/i
   ];
 
   for (const pattern of doiUrlPatterns) {
@@ -140,25 +139,16 @@ export function extractDOIFromURL(url: string): string | null {
       let doiCandidate = match[1] || match[0];
 
       // Clean up the candidate
-      doiCandidate = doiCandidate.replace(
-        /^.*\/doi\/(?:full\/|abs\/|pdf\/)?/,
-        ''
-      );
+      doiCandidate = doiCandidate.replace(/^.*\/doi\/(?:full\/|abs\/|pdf\/)?/, '');
       doiCandidate = doiCandidate.replace(/^\w+\.com\/\w+\//, '');
 
       // Special handling for different patterns
-      if (
-        pattern.source.includes('sciencedirect') &&
-        !doiCandidate.startsWith('10.')
-      ) {
+      if (pattern.source.includes('sciencedirect') && !doiCandidate.startsWith('10.')) {
         // ScienceDirect PII - try to resolve via Crossref later
         continue;
       }
 
-      if (
-        pattern.source.includes('nature') &&
-        !doiCandidate.startsWith('10.')
-      ) {
+      if (pattern.source.includes('nature') && !doiCandidate.startsWith('10.')) {
         // Nature article ID - construct DOI
         doiCandidate = `10.1038/${doiCandidate}`;
       }
@@ -225,7 +215,7 @@ export function isAcademicPublisherURL(url: string): boolean {
     'rsc.org',
     'tandfonline.com',
     'sagepub.com',
-    'journals.sagepub.com',
+    'journals.sagepub.com'
   ];
 
   const urlLower = url.toLowerCase();
@@ -238,18 +228,12 @@ export function isAcademicPublisherURL(url: string): boolean {
 export const DOI_TEST_CASES = [
   // Normal cases
   { input: '10.1038/nature11972', expected: '10.1038/nature11972' },
-  {
-    input: 'https://doi.org/10.1038/nature11972',
-    expected: '10.1038/nature11972',
-  },
+  { input: 'https://doi.org/10.1038/nature11972', expected: '10.1038/nature11972' },
   { input: 'dx.doi.org/10.1038/nature11972', expected: '10.1038/nature11972' },
 
   // XML contamination cases (the main bug we're fixing)
   { input: '10.1038/nature11972</rdf:li>', expected: '10.1038/nature11972' },
-  {
-    input: '<rdf:li>10.1038/nature11972</rdf:li>',
-    expected: '10.1038/nature11972',
-  },
+  { input: '<rdf:li>10.1038/nature11972</rdf:li>', expected: '10.1038/nature11972' },
   { input: '10.1038/nature11972<br/>', expected: '10.1038/nature11972' },
 
   // Invalid cases
@@ -274,9 +258,7 @@ export function runDOITests(): boolean {
       console.log(`✅ PASS: "${testCase.input}" → "${result}"`);
       passed++;
     } else {
-      console.log(
-        `❌ FAIL: "${testCase.input}" → "${result}" (expected: "${testCase.expected}")`
-      );
+      console.log(`❌ FAIL: "${testCase.input}" → "${result}" (expected: "${testCase.expected}")`);
       failed++;
     }
   }

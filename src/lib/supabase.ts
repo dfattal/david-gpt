@@ -1,6 +1,6 @@
 /**
  * Supabase Client Configuration
- *
+ * 
  * Provides configured Supabase clients for different environments
  * with proper typing and error handling.
  */

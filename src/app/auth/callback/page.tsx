@@ -1,32 +1,33 @@
-'use client';
+'use client'
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase/client';
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase/client'
 
 export default function AuthCallback() {
-  const router = useRouter();
+  const router = useRouter()
 
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        const { error } = await supabase.auth.getSession();
+        const { error } = await supabase.auth.getSession()
         if (error) {
-          console.error('Auth callback error:', error);
-          router.push('/auth/auth-code-error');
-          return;
+          console.error('Auth callback error:', error)
+          router.push('/auth/auth-code-error')
+          return
         }
-
+        
         // Redirect to home page after successful auth
-        router.push('/');
+        router.push('/')
+        
       } catch (error) {
-        console.error('Auth callback error:', error);
-        router.push('/auth/auth-code-error');
+        console.error('Auth callback error:', error)
+        router.push('/auth/auth-code-error')
       }
-    };
+    }
 
-    handleAuthCallback();
-  }, [router]);
+    handleAuthCallback()
+  }, [router])
 
   return (
     <div className="min-h-screen flex items-center justify-center">
@@ -35,5 +36,5 @@ export default function AuthCallback() {
         <p className="mt-4 text-gray-600">Signing you in...</p>
       </div>
     </div>
-  );
+  )
 }
