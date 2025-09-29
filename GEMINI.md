@@ -76,6 +76,21 @@ pnpm start
 
 ## Development Conventions
 
+### API and Library Documentation
+
+When you need up-to-date documentation for APIs, libraries, or frameworks, use the `context7 mcp` tool. This should be your primary source for resolving questions about library usage, function signatures, and best practices.
+
+- **Workflow:**
+- 1.  Use `resolve-library-id` to find the correct Context7-compatible library ID.
+- 2.  Use `get-library-docs` with the obtained ID and a specific topic to retrieve relevant documentation.
+
+**Examples:**
+
+*   **Vercel AI SDK:** To understand text streaming, you would first resolve `Vercel AI SDK` and then get docs for the topic "text streaming".
+*   **Supabase:** To learn about authentication, resolve `Supabase` and then get docs for "authentication".
+*   **Next.js:** To find information on the App Router, resolve `Next.js` and then get docs for "App Router".
+*   **Cohere AI:** To check the parameters for the embed API, resolve `Cohere` and then get docs for "embed".
+
 ### Testing
 
 Use Playwright MCP to perform tests directly in browser. 

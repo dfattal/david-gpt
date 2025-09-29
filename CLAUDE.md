@@ -109,6 +109,21 @@ The PRD specifies using Vercel AI SDK 5 with:
 ## Documentation Reference
 - **`DOCS/RAG-PRD.md`** - Product requirements and architectural decisions
 
+## API and Library Documentation
+
+When you need up-to-date documentation for APIs, libraries, or frameworks, use the Gemini CLI.
+
+- **Primary Method**: Use the Gemini CLI to get up-to-date documentation.
+- **Workflow**:
+  1. Construct a prompt for the Gemini CLI that clearly states the library and the topic you need information on.
+  2. **Crucially, instruct Gemini within the prompt to use its `context7 mcp` tool to find the answer.** This ensures you get structured, accurate documentation.
+  3. Execute the command in non-interactive mode: `gemini -y '[Your prompt here]'`
+- **Example Prompt**: `gemini -y 'Use context7 mcp to get documentation on text streaming in the Vercel AI SDK.'`
+- **Primary use cases**:
+  - Vercel AI SDK 5 documentation and examples
+  - Next.js App Router patterns
+  - Supabase client library usage
+
 ## MCP Server Integration
 
 This project integrates with several MCP (Model Context Protocol) servers to enhance development workflows:
@@ -117,14 +132,6 @@ This project integrates with several MCP (Model Context Protocol) servers to enh
 - **Primary database operations**: Use Supabase MCP tools for applying migrations and inspecting the database
 - **Available tools**: `apply_migration`, `execute_sql`, `list_tables`, `get_logs`, etc.
 - **Configuration**: Configured in `.cursor/mcp.json` with project reference `mnjrwjtzfjfixdjrerke`
-
-### Context7 MCP
-- **Documentation retrieval**: Use Context7 MCP to pull up-to-date documentation for APIs and libraries
-- **Primary use cases**:
-  - Vercel AI SDK 5 documentation and examples
-  - Next.js App Router patterns
-  - Supabase client library usage
-- **Workflow**: Always call `resolve-library-id` first, then `get-library-docs` for implementation guidance
 
 ### Playwright MCP
 - **E2E testing**: Use Playwright MCP for browser automation and end-to-end testing
