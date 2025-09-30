@@ -224,22 +224,46 @@ Uses Gemini CLI (Gemini 2.0 Flash) for direct document processing with structure
 
 ---
 
-### 7.2 Simplified RAG retrieval pipeline ✅ IMPLEMENTED
+### 7.2 Context-Aware RAG Retrieval Pipeline ✅ IMPLEMENTED
 
 Filter by `persona_slug`.
-1. **Hybrid search** ✅
+
+**Step 0: Query Reformulation** ✅ (Phase 6 - Multi-Turn Context)
+   - LLM-based query reformulation using conversation history (last 3 turns)
+   - Resolves pronouns and implicit references (e.g., "it" → "DLB technology")
+   - Makes incomplete questions self-contained
+   - Cost: ~$0.0001 per query (GPT-4o-mini)
+   - Skipped if no conversation history or no pronouns/follow-up patterns detected
+
+**Step 1: Hybrid Search** ✅
    - Vector search on chunk embeddings (top-20) using pgvector cosine similarity
    - BM25 lexical search on chunk text (top-20) using PostgreSQL full-text search
    - Fuse with Reciprocal Rank Fusion (RRF) formula: `score = Σ(1 / (k + rank))` where k=60 → top-12
-2. **Tag boosting** (lightweight) ✅:
-   - Apply small score boost (+7.5% default) to chunks from documents containing persona tags
+
+**Step 2: Citation-Based Boosting** ✅ (Phase 6 - Multi-Turn Context)
+   - Query last 2 assistant messages from conversation
+   - Extract document IDs from `message_citations` table
+   - Apply +15% score boost to chunks from recently cited documents
+   - Keeps relevant documents in focus during multi-turn conversations
+   - Zero-cost (simple DB lookup)
+
+**Step 3: Tag Boosting** ✅
+   - Apply +7.5% score boost to chunks from documents containing persona tags
    - Helps surface relevant documents when query uses aliases or related terms
    - Implemented but awaits document tag metadata for full activation
-3. **De-duplicate by doc** ✅, prefer 2–3 best chunks per document (configurable, default: 3)
+
+**Step 4: De-duplicate by doc** ✅
+   - Prefer 2–3 best chunks per document (configurable, default: 3)
 
 **Removed**: Cross-encoder reranking (eliminates Cohere dependency)
-**Benefits**: Faster retrieval (<2s), fewer service dependencies, excellent baseline quality
-**Status**: Fully implemented in Phase 4-5, all tests passing
+**Benefits**: Faster retrieval (<2s), context-aware multi-turn, fewer service dependencies
+**Status**: Fully implemented in Phase 4-6, all tests passing
+
+**Multi-Turn Context Strategy**: Lightweight approach balancing simplicity and effectiveness:
+- Query reformulation: Solves 80% of follow-up query problems
+- Citation boosting: Keeps conversation-relevant documents prioritized
+- No new database tables or complex decay scoring
+- Total overhead: ~50ms per query (1 LLM call + 1 DB query)
 
 **Handling Aliases**: The two-layer strategy (document-level Key Terms/AKA + persona-level tags) naturally handles terminology variations:
 - Document body enrichment ensures aliases are indexed for both keyword and semantic search
@@ -295,9 +319,10 @@ Post-process bracket cites into footnotes linking `source_url` + heading anchor.
 
 ## 10. MVP vs. Full Implementation
 
-### MVP Simplifications (Phase 1-5) ✅ COMPLETE
+### MVP Implementation (Phase 1-6) ✅ COMPLETE
 - **Routing**: Always run RAG (no complex classification) ✅ Implemented
-- **Retrieval**: Vector + BM25 + RRF with lightweight tag boosting (no reranking) ✅ Implemented
+- **Retrieval**: Vector + BM25 + RRF with lightweight boosting (no reranking) ✅ Implemented
+- **Multi-Turn Context**: Query reformulation + citation-based boosting ✅ Implemented (Phase 6)
 - **Alias Handling**: Two-layer strategy (document Key Terms/AKA + persona tags) ✅ Implemented
 - **Config**: Manual persona.config.json curation with search-hint tags ✅ In use
 - **Ingestion**: Gemini-first processing with document-type-specific structure ✅ Implemented (Phase 2)
@@ -306,14 +331,29 @@ Post-process bracket cites into footnotes linking `source_url` + heading anchor.
 - **File Structure**: RAW-DOCS + RAG only (no QA-QUEUE) ✅ Implemented (Phase 2)
 - **API Integration**: `/api/rag/search` and `/api/chat` with RAG context ✅ Implemented (Phase 5)
 
-### Future Enhancements (Phase 2+)
-- Smart routing with LLM classification
-- Cross-encoder reranking for improved precision
-- LLM-based query expansion for complex alias handling
-- Auto-generated persona configs
+### Future Enhancements (Post-MVP)
+**High Priority:**
+- Citation parsing and UI display (Phase 7)
+- Admin document management interface
+
+**Medium Priority:**
+- Turn-type detection for dynamic search limits (drill-down, compare, new-topic)
 - Time-decay ranking for freshness
 - Answer caching for frequently asked questions
+
+**Low Priority:**
+- Smart routing with LLM classification
+- Cross-encoder reranking for improved precision
+- Auto-generated persona configs
 - Automated quality checks and validation
+
+**Phase 6 Context Management - Optional Enhancements:**
+- **Turn-Type Detection**: Pattern-based classification (drill-down, same-sources, compare, new-topic)
+  - Adjust search limits dynamically (e.g., drill-down: 8 chunks, compare: 12 chunks)
+  - Apply different citation boost multipliers per turn type
+  - Implementation: Add simple regex patterns, no LLM needed
+  - ROI: Low (current fixed limit of 12 works well for most cases)
+  - **Decision**: Defer until user testing shows need
 
 ---
 

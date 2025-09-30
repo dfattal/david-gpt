@@ -24,11 +24,14 @@ export interface FusedSearchResult {
 export interface FusionOptions {
   k?: number; // RRF constant (default: 60)
   tagBoostMultiplier?: number; // Tag boost percentage (default: 1.075 = 7.5% boost)
+  citationBoostMultiplier?: number; // Citation boost percentage (default: 1.15 = 15% boost)
   maxChunksPerDoc?: number; // Max chunks from same doc (default: 3)
+  conversationId?: string; // Conversation ID for citation-based boosting
 }
 
 const DEFAULT_K = 60;
 const DEFAULT_TAG_BOOST = 1.075; // 7.5% boost
+const DEFAULT_CITATION_BOOST = 1.15; // 15% boost
 const DEFAULT_MAX_CHUNKS_PER_DOC = 3;
 
 /**
@@ -90,6 +93,85 @@ export function rrfFusion(
   });
 
   return fusedResults;
+}
+
+/**
+ * Get recently cited document IDs from conversation
+ * Returns document IDs from citations in last 2 assistant messages
+ */
+export async function getRecentlyCitedDocs(
+  conversationId: string,
+  supabase: ReturnType<typeof createClient>
+): Promise<string[]> {
+  try {
+    // Get last 2 assistant messages
+    const { data: messages, error: messagesError } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('conversation_id', conversationId)
+      .eq('role', 'assistant')
+      .order('created_at', { ascending: false })
+      .limit(2);
+
+    if (messagesError || !messages || messages.length === 0) {
+      return [];
+    }
+
+    // Get citations from these messages
+    const messageIds = messages.map(m => m.id);
+    const { data: citations, error: citationsError } = await supabase
+      .from('message_citations')
+      .select('document_id')
+      .in('message_id', messageIds);
+
+    if (citationsError || !citations) {
+      return [];
+    }
+
+    // Return unique document IDs
+    const uniqueDocIds = [...new Set(citations.map(c => c.document_id).filter(Boolean))];
+    console.log(`📚 Found ${uniqueDocIds.length} recently cited documents from conversation`);
+    return uniqueDocIds;
+  } catch (error) {
+    console.warn('Error fetching recently cited docs:', error);
+    return [];
+  }
+}
+
+/**
+ * Apply citation-based boosting to fused results
+ * Boosts chunks from documents that were recently cited in the conversation
+ */
+export async function applyCitationBoost(
+  fusedResults: Map<string, FusedSearchResult>,
+  conversationId: string,
+  supabase: ReturnType<typeof createClient>,
+  boostMultiplier: number = DEFAULT_CITATION_BOOST
+): Promise<void> {
+  try {
+    // Get recently cited document IDs
+    const citedDocIds = await getRecentlyCitedDocs(conversationId, supabase);
+
+    if (citedDocIds.length === 0) {
+      console.log('No recently cited documents found for boosting');
+      return;
+    }
+
+    const citedDocSet = new Set(citedDocIds);
+
+    // Apply boost to chunks from cited documents
+    let boostedCount = 0;
+    fusedResults.forEach((result) => {
+      if (citedDocSet.has(result.docId)) {
+        result.score *= boostMultiplier;
+        boostedCount++;
+      }
+    });
+
+    console.log(`📈 Citation boost: Applied ${((boostMultiplier - 1) * 100).toFixed(1)}% boost to ${boostedCount} chunks from ${citedDocIds.length} documents`);
+  } catch (error) {
+    console.warn('Error applying citation boost:', error);
+  }
 }
 
 /**
@@ -214,7 +296,7 @@ export function deduplicateByDoc(
 }
 
 /**
- * Complete hybrid search with RRF fusion and tag boosting
+ * Complete hybrid search with RRF fusion, citation boosting, and tag boosting
  */
 export async function hybridSearch(
   vectorResults: VectorSearchResult[],
@@ -227,7 +309,9 @@ export async function hybridSearch(
   const {
     k = DEFAULT_K,
     tagBoostMultiplier = DEFAULT_TAG_BOOST,
+    citationBoostMultiplier = DEFAULT_CITATION_BOOST,
     maxChunksPerDoc = DEFAULT_MAX_CHUNKS_PER_DOC,
+    conversationId,
   } = options;
 
   console.log('\n=== Hybrid Search (RRF Fusion) ===');
@@ -238,10 +322,15 @@ export async function hybridSearch(
   const fusedResults = rrfFusion(vectorResults, bm25Results, { k });
   console.log(`Fused results: ${fusedResults.size} unique chunks`);
 
-  // Step 2: Apply tag boosting
+  // Step 2: Apply citation-based boosting (if conversation ID provided)
+  if (conversationId) {
+    await applyCitationBoost(fusedResults, conversationId, supabase, citationBoostMultiplier);
+  }
+
+  // Step 3: Apply tag boosting
   await applyTagBoost(fusedResults, query, personaSlug, supabase, tagBoostMultiplier);
 
-  // Step 3: Deduplicate by document
+  // Step 4: Deduplicate by document
   const finalResults = deduplicateByDoc(fusedResults, maxChunksPerDoc);
   console.log(`Final results: ${finalResults.length} chunks (max ${maxChunksPerDoc} per doc)`);
   console.log('=====================================\n');

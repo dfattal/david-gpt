@@ -16,7 +16,9 @@ export interface SearchOptions {
   vectorThreshold?: number; // Minimum similarity (default: from persona config)
   bm25MinScore?: number; // Minimum BM25 score (default: from persona config)
   tagBoostMultiplier?: number; // Tag boost percentage (default: 1.075)
+  citationBoostMultiplier?: number; // Citation boost percentage (default: 1.15)
   maxChunksPerDoc?: number; // Max chunks per document (default: 3)
+  conversationId?: string; // Conversation ID for citation-based boosting
 }
 
 export interface SearchResult {
@@ -47,7 +49,9 @@ export async function performSearch(
     vectorLimit = 20,
     bm25Limit = 20,
     tagBoostMultiplier = 1.075,
+    citationBoostMultiplier = 1.15,
     maxChunksPerDoc = 3,
+    conversationId,
   } = options;
 
   console.log(`\n=== RAG Search for: "${query}" (persona: ${personaSlug}) ===`);
@@ -75,8 +79,8 @@ export async function performSearch(
       minScore: bm25MinScore,
     }, supabase);
 
-    // Step 3: Fuse results with RRF and tag boosting
-    console.log('[3/3] Hybrid fusion (RRF + tag boosting)...');
+    // Step 3: Fuse results with RRF, citation boosting, and tag boosting
+    console.log('[3/3] Hybrid fusion (RRF + citation boost + tag boost)...');
     const fusedResults = await hybridSearch(
       vectorResults,
       bm25Results,
@@ -85,7 +89,9 @@ export async function performSearch(
       supabase,
       {
         tagBoostMultiplier,
+        citationBoostMultiplier,
         maxChunksPerDoc,
+        conversationId,
       }
     );
 

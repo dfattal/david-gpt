@@ -4,6 +4,7 @@ import { streamText, CoreMessage } from "ai";
 import { createClient } from "@/lib/supabase/server";
 import { ChatMessage } from "@/lib/types";
 import { performSearch } from "@/lib/rag/search";
+import { reformulateQuery } from "@/lib/rag/queryReformulation";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -128,7 +129,7 @@ ${result.text}
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { messages, persona = 'david', useRag = true } = body;
+    const { messages, conversationId, persona = 'david', useRag = true } = body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json(
@@ -161,14 +162,40 @@ export async function POST(req: NextRequest) {
           .find((msg: ChatMessage) => msg.role === 'user');
 
         if (lastUserMessage) {
-          console.log(`\n🔍 RAG search triggered for query: "${lastUserMessage.content}"`);
+          // Step 1a: Query reformulation with conversation context
+          let searchQuery = lastUserMessage.content;
 
-          // Perform hybrid search
+          // Get recent conversation history (last 3 messages, excluding current)
+          const conversationHistory = messages
+            .slice(0, -1) // Exclude current user message
+            .slice(-6)    // Last 6 messages (3 turns)
+            .map(msg => ({
+              role: msg.role as 'user' | 'assistant',
+              content: msg.content,
+            }));
+
+          // Reformulate query if conversation history exists
+          if (conversationHistory.length > 0) {
+            const reformulationResult = await reformulateQuery(
+              lastUserMessage.content,
+              conversationHistory
+            );
+
+            if (reformulationResult.needsReformulation) {
+              searchQuery = reformulationResult.reformulatedQuery;
+              console.log(`📝 Query reformulated for context awareness`);
+            }
+          }
+
+          console.log(`\n🔍 RAG search triggered for query: "${searchQuery}"`);
+
+          // Perform hybrid search with reformulated query and citation boosting
           const searchResults = await performSearch(
-            lastUserMessage.content,
+            searchQuery,
             {
               personaSlug: persona,
               limit: 12,
+              conversationId, // Enable citation-based boosting
             },
             supabase
           );
