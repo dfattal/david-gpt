@@ -35,17 +35,58 @@ export function ChatInterface({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [citationMetadata, setCitationMetadata] = useState<Map<string, { sourceUrl?: string; docTitle?: string }>>(new Map());
+  const pendingConversationIdRef = useRef<string | null>(null);
 
   // AI SDK pattern: manage input state manually, use append
   const [input, setInput] = useState("");
   const chatHook = useChat({
     api: "/api/chat",
-    streamProtocol: "text", // Match backend toTextStreamResponse()
+    streamProtocol: "text", // Using text stream
     body: {
       conversationId: conversation?.id,
       personaId: selectedPersona?.persona_id,
     },
-    onFinish: async () => {
+    onResponse: async (response) => {
+      // Extract citation metadata from response headers
+      const metadataHeader = response.headers.get('X-Citation-Metadata');
+      if (metadataHeader) {
+        try {
+          const metadata = JSON.parse(metadataHeader);
+          const metadataMap = new Map(
+            metadata.map((item: any) => [
+              item.docRef,
+              { sourceUrl: item.sourceUrl, docTitle: item.docTitle }
+            ])
+          );
+          setCitationMetadata(metadataMap);
+          console.log('📚 Citation metadata loaded:', metadata.length, 'documents');
+        } catch (error) {
+          console.error('Failed to parse citation metadata:', error);
+        }
+      }
+    },
+    onFinish: async (message) => {
+      // Save the assistant's response to the database
+      // Use pendingConversationIdRef for new conversations, or conversation.id for existing ones
+      const conversationId = conversation?.id || pendingConversationIdRef.current;
+
+      if (conversationId && message?.content) {
+        try {
+          await fetch('/api/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              conversationId,
+              role: 'assistant',
+              content: message.content,
+            }),
+          });
+        } catch (error) {
+          console.error("Failed to save assistant message:", error);
+        }
+      }
+
       // After a successful response, update conversation if needed
       if (conversation && onConversationUpdate) {
         try {
@@ -170,6 +211,10 @@ export function ChatInterface({
         .then(async (response) => {
           if (response.ok) {
             const { conversation: newConversation } = await response.json();
+
+            // Store conversation ID for onFinish callback
+            pendingConversationIdRef.current = newConversation.id;
+
             onConversationUpdate?.(newConversation);
 
             // Note: Title generation is happening in the background
@@ -178,11 +223,25 @@ export function ChatInterface({
               `✅ Created conversation: ${newConversation.id} with title: "${newConversation.title}"`
             );
             console.log(`🔄 Triggering immediate sidebar refresh`);
+            // Note: First user message is already saved by /api/conversations endpoint
           }
         })
         .catch((error) => {
           console.error("Failed to create conversation:", error);
         });
+    } else if (conversation?.id) {
+      // Save user message for existing conversation
+      fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId: conversation.id,
+          role: 'user',
+          content: messageContent,
+        }),
+      }).catch((error) => {
+        console.error("Failed to save user message:", error);
+      });
     }
   };
 
@@ -359,6 +418,7 @@ export function ChatInterface({
                       created_at: message.createdAt?.toISOString(),
                     }}
                     user={user}
+                    citationMetadata={message.role === "assistant" ? citationMetadata : undefined}
                   />
                 ))}
 

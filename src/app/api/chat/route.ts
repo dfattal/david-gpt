@@ -33,9 +33,35 @@ async function getPersonaSystemPrompt(
     basePrompt = `You are a helpful AI assistant representing the ${personaId} persona.`;
   }
 
+  // Formatting instructions for all responses
+  const formattingInstructions = `
+
+## Formatting Requirements
+
+Format all responses using proper Markdown syntax for better readability:
+
+**Mathematical Notation:**
+- Use $...$ for inline math (e.g., $E = mc^2$)
+- Use $$...$$ for display equations on their own line
+- Never use parentheses ( ) or brackets [ ] around LaTeX
+
+**Code Formatting:**
+- Use \`code\` for inline technical terms, variables, or short snippets
+- Use \`\`\`language\`\`\` for multi-line code blocks (e.g., \`\`\`json, \`\`\`typescript, \`\`\`python)
+
+**Structure:**
+- Use ## for main section headings
+- Use ### for subsection headings
+- Use **bold** for important terms
+- Use bullet points (-) for lists of items
+- Use numbered lists (1.) for sequential steps
+- Use > for important quotes or callouts
+- Use tables when comparing multiple items`;
+
   // If RAG context is provided, enhance the system prompt with citation instructions
   if (ragContext) {
     return `${basePrompt}
+${formattingInstructions}
 
 ## RAG Context Usage Instructions
 
@@ -54,20 +80,34 @@ ${ragContext}
 **Remember**: Always cite your sources using the [^doc_id:section] format for any factual claims based on the context above.`;
   }
 
-  return basePrompt;
+  return basePrompt + formattingInstructions;
+}
+
+interface RagContextData {
+  context: string;
+  metadata: Map<string, { sourceUrl?: string; docTitle?: string; docId: string }>;
 }
 
 /**
- * Format RAG search results as context for LLM
+ * Format RAG search results as context for LLM and return metadata for citation mapping
  */
-function formatRagContext(results: Awaited<ReturnType<typeof performSearch>>): string {
+function formatRagContext(results: Awaited<ReturnType<typeof performSearch>>): RagContextData {
   if (results.length === 0) {
-    return '';
+    return { context: '', metadata: new Map() };
   }
+
+  const metadata = new Map<string, { sourceUrl?: string; docTitle?: string; docId: string }>();
 
   const contextBlocks = results.map((result, index) => {
     const docRef = `doc_${index + 1}`;
     const section = result.sectionPath || 'main';
+
+    // Store metadata for citation mapping
+    metadata.set(docRef, {
+      sourceUrl: result.sourceUrl || undefined,
+      docTitle: result.docTitle || result.docId,
+      docId: result.docId,
+    });
 
     return `[${docRef} §${section}]
 Document: ${result.docTitle || result.docId}
@@ -79,7 +119,10 @@ ${result.text}
 ---`;
   });
 
-  return contextBlocks.join('\n\n');
+  return {
+    context: contextBlocks.join('\n\n'),
+    metadata,
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -108,6 +151,7 @@ export async function POST(req: NextRequest) {
 
     // Step 1: Perform RAG search if enabled
     let ragContext = '';
+    let citationMetadata: RagContextData['metadata'] | null = null;
     if (useRag) {
       try {
         // Get the last user message as the query
@@ -130,7 +174,9 @@ export async function POST(req: NextRequest) {
           );
 
           if (searchResults.length > 0) {
-            ragContext = formatRagContext(searchResults);
+            const ragData = formatRagContext(searchResults);
+            ragContext = ragData.context;
+            citationMetadata = ragData.metadata;
             console.log(`✓ RAG context generated: ${searchResults.length} chunks`);
           } else {
             console.log('ℹ No RAG results found, proceeding without context');
@@ -162,7 +208,21 @@ export async function POST(req: NextRequest) {
       maxTokens: 2000,
     });
 
-    return result.toTextStreamResponse();
+    // Return text stream response
+    // Note: Citation metadata will be available in the frontend via a separate mechanism
+    // For now, we'll include it in a custom header on the text stream response
+    const response = result.toTextStreamResponse();
+
+    // Add citation metadata as a custom header (JSON stringified)
+    if (citationMetadata && citationMetadata.size > 0) {
+      const metadataArray = Array.from(citationMetadata.entries()).map(([docRef, meta]) => ({
+        docRef,
+        ...meta,
+      }));
+      response.headers.set('X-Citation-Metadata', JSON.stringify(metadataArray));
+    }
+
+    return response;
   } catch (error) {
     console.error("Chat API error:", error);
     return NextResponse.json(

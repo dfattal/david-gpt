@@ -5,9 +5,12 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
+import rehypeRaw from "rehype-raw";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import type { User } from "@supabase/supabase-js";
+import { parseCitations } from "@/lib/rag/citations/parser";
+import { CitationsList } from "./citations-list";
 
 // Import KaTeX CSS
 import "katex/dist/katex.min.css";
@@ -21,6 +24,7 @@ interface MessageBubbleProps {
   };
   user?: User | null;
   isStreaming?: boolean;
+  citationMetadata?: Map<string, { sourceUrl?: string; docTitle?: string }>;
 }
 
 export const MessageBubble = React.memo(
@@ -28,9 +32,20 @@ export const MessageBubble = React.memo(
     message,
     user,
     isStreaming = false,
+    citationMetadata,
   }: MessageBubbleProps) {
     const isUser = message.role === "user";
-    const textContent = message.content;
+
+    // Parse citations for assistant messages
+    const parsedContent = React.useMemo(() => {
+      if (isUser || !message.content) {
+        return { content: message.content, citations: [] };
+      }
+
+      return parseCitations(message.content, citationMetadata);
+    }, [message.content, isUser, citationMetadata]);
+
+    const textContent = parsedContent.content;
 
     if (isUser) {
       // Get user profile information for avatar
@@ -140,7 +155,7 @@ export const MessageBubble = React.memo(
             >
               <ReactMarkdown
                 remarkPlugins={[remarkGfm, remarkMath]}
-                rehypePlugins={[rehypeKatex]}
+                rehypePlugins={[rehypeKatex, rehypeRaw]}
                 onError={(error) => console.error('ReactMarkdown error:', error)}
                 components={{
                   // Custom components for better styling
@@ -200,10 +215,10 @@ export const MessageBubble = React.memo(
                   code({ inline, className, children, ...props }: any) {
                     const match = /language-(\w+)/.exec(className || "");
                     return !inline && match ? (
-                      <Card className="my-3 border bg-muted/30">
-                        <CardContent className="p-4">
-                          <pre className="overflow-x-auto">
-                            <code className={className} {...props}>
+                      <Card className="my-4 overflow-hidden border border-border bg-zinc-950 dark:bg-zinc-900">
+                        <CardContent className="p-0">
+                          <pre className="overflow-x-auto p-4 text-sm leading-relaxed">
+                            <code className={`${className} font-mono text-zinc-100`} {...props}>
                               {children}
                             </code>
                           </pre>
@@ -281,18 +296,24 @@ export const MessageBubble = React.memo(
                 <span className="inline-block w-0.5 h-4 ml-1 bg-current animate-pulse" />
               )}
             </div>
+
+            {/* Citations list for assistant messages with citations */}
+            {!isStreaming && parsedContent.citations.length > 0 && (
+              <CitationsList citations={parsedContent.citations} />
+            )}
           </div>
         </div>
       </div>
     );
   },
   (prevProps, nextProps) => {
-    // Only re-render if message content, streaming state, or user changes
+    // Only re-render if message content, streaming state, citation metadata, or user changes
     return (
       prevProps.message.id === nextProps.message.id &&
       prevProps.message.content === nextProps.message.content &&
       prevProps.isStreaming === nextProps.isStreaming &&
-      prevProps.user?.id === nextProps.user?.id
+      prevProps.user?.id === nextProps.user?.id &&
+      prevProps.citationMetadata === nextProps.citationMetadata
     );
   }
 );
