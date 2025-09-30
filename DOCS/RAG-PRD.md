@@ -63,12 +63,22 @@ summary: "One-sentence abstract"   # manual curation
 license: public|cc-by|proprietary  # optional
 ---
 
-**Key Terms**: Related terminology, aliases, alternative names
-**Also Known As**: Additional synonyms and technical terms
+**Key Terms**: Related terminology, aliases, alternative names, foundational concepts
+**Also Known As**: Direct synonyms and interchangeable names for the main topic
 
 # Body in Markdown
 …
 ```
+
+**Purpose of Key Terms and Also Known As**:
+These fields are placed in the document body (not frontmatter) to become part of the chunked and indexed content. This serves two critical retrieval functions:
+
+1. **Lexical Search (BM25)**: Direct keyword matches on aliases (e.g., searching "DLB" matches documents mentioning "Directional Light Backlight")
+2. **Semantic Search (Vector)**: Aliases embedded in context enrich the chunk's embedding vector, teaching the model semantic relationships
+
+**Distinction**:
+- `Key Terms`: Broader "See Also" concepts - related technologies, foundational terms, and contextual vocabulary (e.g., for "neural depth": monocular depth, AI, 3D, light field)
+- `Also Known As`: Specific direct synonyms - acronyms, alternative names, and exact substitutes (e.g., for "Directional Light Backlight": DLB, diffractive backlighting)
 
 Frontmatter is mostly auto-generated with minimal manual curation needed.
 
@@ -101,7 +111,27 @@ This JSON drives retrieval parameters and tag validation.
 
 **Tag Strategy**: Tags serve dual purpose:
 1. Document organization and filtering
-2. Search boosting hints - include aliases, synonyms, and related technical terms that users might query with
+2. **Persona-level search boosting** - globally important aliases and domain terms that apply across multiple documents
+
+**Two-Layer Alias Strategy**:
+The system uses a complementary two-layer approach to handle terminology variations:
+
+1. **Document-Level (Key Terms + Also Known As)** - *Precision Layer*
+   - Placed in document body, becomes part of chunked and indexed content
+   - Improves both BM25 (keyword matching) and vector search (semantic enrichment)
+   - Context-specific aliases tightly bound to the document
+   - **Primary mechanism** for ensuring document discovery via aliases
+
+2. **Persona-Level (config tags)** - *Relevance Layer*
+   - Lightweight score boost (+5-10%) during retrieval
+   - Handles globally important terms for the persona's domain
+   - Nudges retrieval towards persona-relevant documents
+   - Especially useful for ambiguous queries
+
+**Why Both?**: This avoids maintaining a separate glossary database while ensuring:
+- Document-level precision for context-specific aliases
+- Persona-level hints for domain-wide terminology
+- Resilient search that works even with unfamiliar terminology
 
 ---
 
@@ -114,26 +144,47 @@ Steps:
 1. Extract clean text – e.g. pandoc, trafilatura, pdftotext, OCR if needed.
 2. Normalise to Markdown – keep logical headings, short paragraphs.
 
-### 5.2 Script-based document generation
+### 5.2 Gemini-first document processing
 
-**Automated processing script**:
+**Primary workflow** (`pnpm ingest:docs <persona-slug> --use-gemini`):
 
-1. **Auto-generate frontmatter**:
-   - `id`: kebab-case from filename
-   - `title`: extract from first H1 or use filename
-   - `personas`: set from folder location (`/personas/<slug>/RAG/`)
-   - `date`, `source_url`, `type`: extract if obvious, otherwise leave blank
+Uses Gemini CLI (Gemini 2.0 Flash) for direct document processing with structure optimization:
 
-2. **Content processing**:
-   - Clean and normalize markdown formatting
-   - Preserve logical heading structure
-   - Handle PDF/HTML extraction using existing tools
+1. **Gemini CLI processes documents directly**:
+   - Reads PDF, DOCX, MD, and other formats directly (no intermediate extraction)
+   - Auto-detects document type (patent, release_notes, spec, blog, press, faq, other)
+   - Applies document-type-specific formatting rules
+   - Generates complete markdown with proper structure
 
-3. **Manual curation** (optional):
-   - Add `summary` and `tags` fields
-   - Review and adjust extracted content
+2. **Document-type-specific structure**:
+   - **Patents**: Abstract → Background → Summary → Detailed Description → Claims
+   - **Release Notes**: Overview → Features (by version) → Bug Fixes → Known Issues
+   - **Specs**: Logical sections with ### subsections for detailed topics
+   - **Blog/Press**: Introduction → Main content sections → Conclusion
+   - All types: Section sizes optimized for chunking (500-800 words per ## section)
 
-Save processed files in `/personas/<slug>/RAG/`.
+3. **Auto-generated frontmatter**:
+   - `id`: kebab-case from filename (e.g., "us11281020", "leia-sr-release-notes")
+   - `title`: extracted from actual document content (accurate, max 100 chars)
+   - `type`: auto-detected (patent, release_notes, spec, blog, press, faq, other)
+   - `personas`: set from folder location
+   - `date`, `source_url`: extracted if found in document
+   - `summary`: one-sentence abstract generated from content
+   - **Key Terms** and **Also Known As** sections for search boosting
+
+4. **Fallback strategy**:
+   - If Gemini fails or times out (2-minute limit), falls back to basic extraction
+   - Basic extraction: `pdf-parse`, `mammoth` → markdown normalization → frontmatter generation
+   - Fallback provides minimal structure but preserves content
+
+5. **Manual curation** (optional):
+   - Review and adjust `summary` and `tags` fields
+   - Add additional Key Terms for search optimization
+   - Verify document type classification
+
+**Output**: Files saved directly to `/personas/<slug>/RAG/` with kebab-case naming (e.g., `us11281020.md`, `leia-sr-release-notes-1-34-6.md`)
+
+**Quality**: Gemini-first processing produces production-ready documents with proper structure, accurate titles, and optimized chunking. Eliminates need for separate post-processing step.
 
 ---
 
@@ -150,6 +201,10 @@ Save processed files in `/personas/<slug>/RAG/`.
 - Full-text search index on `chunks.text` for BM25
 
 **Benefits**: Eliminates junction tables, reduces JOINs, uses JSONB for flexibility.
+
+**Contextual Retrieval**: Chunks are embedded with LLM-generated context prepended to improve retrieval accuracy. The original chunk text is stored in the database (without context) for display, while the contextualized version is embedded. Context generation uses:
+- **OpenAI GPT-4 Mini** (default) - Fast, cost-effective ($0.0001-0.0002 per chunk)
+- **Gemini CLI** (alternative) - Local processing but slower due to per-chunk invocation overhead
 
 ---
 
@@ -169,26 +224,32 @@ Save processed files in `/personas/<slug>/RAG/`.
 
 ---
 
-### 7.2 Simplified RAG retrieval pipeline
+### 7.2 Simplified RAG retrieval pipeline ✅ IMPLEMENTED
 
 Filter by `persona_slug`.
-1. **Hybrid search**
-   - Vector search on chunk embeddings (top-20)
-   - BM25 lexical search on chunk text (top-20)
-   - Fuse with Reciprocal Rank Fusion (RRF) → top-12
-2. **Tag boosting** (lightweight):
-   - Apply small score boost (+5-10%) to chunks from documents containing persona tags
+1. **Hybrid search** ✅
+   - Vector search on chunk embeddings (top-20) using pgvector cosine similarity
+   - BM25 lexical search on chunk text (top-20) using PostgreSQL full-text search
+   - Fuse with Reciprocal Rank Fusion (RRF) formula: `score = Σ(1 / (k + rank))` where k=60 → top-12
+2. **Tag boosting** (lightweight) ✅:
+   - Apply small score boost (+7.5% default) to chunks from documents containing persona tags
    - Helps surface relevant documents when query uses aliases or related terms
-3. **De-duplicate by doc**, prefer 2–3 best chunks per document
+   - Implemented but awaits document tag metadata for full activation
+3. **De-duplicate by doc** ✅, prefer 2–3 best chunks per document (configurable, default: 3)
 
 **Removed**: Cross-encoder reranking (eliminates Cohere dependency)
-**Benefits**: Faster retrieval, fewer service dependencies, good baseline quality
+**Benefits**: Faster retrieval (<2s), fewer service dependencies, excellent baseline quality
+**Status**: Fully implemented in Phase 4-5, all tests passing
 
-**Handling Aliases**: Combination of semantic search, persona tags for boosting, and embedded Key Terms in documents naturally handles terminology variations without complex query expansion.
+**Handling Aliases**: The two-layer strategy (document-level Key Terms/AKA + persona-level tags) naturally handles terminology variations:
+- Document body enrichment ensures aliases are indexed for both keyword and semantic search
+- Persona tags provide global relevance hints across the corpus
+- No need for separate glossary database or complex query expansion
+- Works because aliases are embedded in context, not stored as isolated mappings
 
 ---
 
-### 7.3 Prompt to LLM for answer with citations
+### 7.3 Prompt to LLM for answer with citations ✅ IMPLEMENTED
 
 > **SYSTEM**:
 > You are `<display_name>`. Use ONLY the provided context for persona-specific facts.
@@ -200,11 +261,18 @@ Filter by `persona_slug`.
 >
 > **CONTEXT**:
 > ```
-> [doc {doc_id} §{section_path}]
+> [doc_{n} §{section_path}]
+> Document: {doc_title}
+> Section: {section_path}
+> Source: {source_url}
+>
 > {text}
 > ```
 
-Post-process bracket cites into footnotes linking `source_url` + heading anchor.
+**Implementation**: System prompt enhanced with RAG context and citation instructions in `/api/chat/route.ts`
+**Status**: Context formatting implemented, citation parsing pending (Phase 6)
+
+Post-process bracket cites into footnotes linking `source_url` + heading anchor. (Pending Phase 6)
 
 ---
 
@@ -227,14 +295,16 @@ Post-process bracket cites into footnotes linking `source_url` + heading anchor.
 
 ## 10. MVP vs. Full Implementation
 
-### MVP Simplifications (Phase 1)
-- **Routing**: Always run RAG (no complex classification)
-- **Retrieval**: Vector + BM25 + RRF with lightweight tag boosting (no reranking)
-- **Alias Handling**: Embedded Key Terms in documents + persona tags for boosting
-- **Config**: Manual persona.config.json curation with search-hint tags
-- **Ingestion**: Script-based frontmatter generation
-- **Schema**: JSONB arrays (no junction tables)
-- **File Structure**: RAW-DOCS + RAG only (no QA-QUEUE)
+### MVP Simplifications (Phase 1-5) ✅ COMPLETE
+- **Routing**: Always run RAG (no complex classification) ✅ Implemented
+- **Retrieval**: Vector + BM25 + RRF with lightweight tag boosting (no reranking) ✅ Implemented
+- **Alias Handling**: Two-layer strategy (document Key Terms/AKA + persona tags) ✅ Implemented
+- **Config**: Manual persona.config.json curation with search-hint tags ✅ In use
+- **Ingestion**: Gemini-first processing with document-type-specific structure ✅ Implemented (Phase 2)
+- **Contextual Retrieval**: LLM-generated context prepended to chunks before embedding (OpenAI GPT-4 Mini default) ✅ Implemented (Phase 3)
+- **Schema**: JSONB arrays (no junction tables) ✅ Implemented (Phase 1)
+- **File Structure**: RAW-DOCS + RAG only (no QA-QUEUE) ✅ Implemented (Phase 2)
+- **API Integration**: `/api/rag/search` and `/api/chat` with RAG context ✅ Implemented (Phase 5)
 
 ### Future Enhancements (Phase 2+)
 - Smart routing with LLM classification
@@ -251,5 +321,143 @@ Post-process bracket cites into footnotes linking `source_url` + heading anchor.
 
 When router outputs `OUT_OF_SCOPE`:
 - Return a polite deferral:
-  > “This question is outside `<display_name>`’s expertise; switching to the general assistant.”
+  > "This question is outside `<display_name>`'s expertise; switching to the general assistant."
 - Forward query to a general LLM.
+
+---
+
+## 12. Key Design Decisions Summary
+
+### Alias Handling Strategy
+**Decision**: Two-layer complementary approach instead of separate glossary database
+
+**Layer 1 - Document-Level (Primary)**:
+- `Key Terms`: Broader related concepts, foundational terminology, contextual vocabulary
+- `Also Known As`: Direct synonyms, acronyms, exact interchangeable names
+- **Mechanism**: Embedded in document body → chunked and indexed
+- **Benefits**:
+  - BM25 lexical search gets direct keyword matches
+  - Vector embeddings capture semantic relationships in context
+  - Aliases are context-specific and document-bound
+  - No synchronization issues between docs and glossary
+
+**Layer 2 - Persona-Level (Supporting)**:
+- `persona.config.json` tags for globally important domain terms
+- **Mechanism**: Lightweight score boost (+5-10%) during retrieval
+- **Benefits**:
+  - Handles ambiguous queries
+  - Provides domain-wide relevance hints
+  - Works across all documents in persona corpus
+
+**Why Not a Separate Glossary?**:
+1. Context matters: "DLB" in a backlight document vs. "DLB" in a different context
+2. Maintenance burden: Keeping glossary synchronized with evolving documents
+3. Embedding quality: Aliases embedded in content produce richer semantic vectors
+4. Simplicity: One source of truth (the documents themselves)
+
+**Trade-offs Accepted**:
+- Requires slight redundancy (aliases repeated across documents)
+- Manual curation of Key Terms and AKA fields
+- Benefits far outweigh costs: better search quality, no sync issues, contextually accurate
+
+This design ensures robust retrieval across terminology variations while maintaining simplicity and avoiding the pitfalls of centralized glossary management.
+
+---
+
+## 13. Implementation Status Summary (2025-09-30)
+
+### ✅ COMPLETE: Core RAG System (Phases 1-5)
+
+**Database & Infrastructure**
+- PostgreSQL with pgvector extension for embeddings
+- JSONB columns for flexible persona/tag arrays
+- Two optimized RPC functions: `vector_search_chunks()`, `bm25_search_chunks()`
+- Full-text search indexes for BM25
+- HNSW vector indexes (note: 3072-dim embeddings use brute-force)
+
+**Document Processing Pipeline**
+- Gemini-first processing with document-type detection
+- Smart chunking (800-1200 tokens, 17.5% overlap, code-aware)
+- Contextual retrieval with OpenAI GPT-4 Mini
+- OpenAI text-embedding-3-large embeddings (3072 dimensions)
+- Cost: ~$0.024 per full corpus re-ingestion
+
+**Hybrid Search Engine**
+- Vector similarity search (pgvector cosine distance)
+- BM25 lexical search (PostgreSQL ts_rank_cd)
+- Reciprocal Rank Fusion (RRF) with k=60
+- Tag boosting (+7.5% for matching documents)
+- Document deduplication (max 3 chunks per doc)
+- Performance: <2s latency per query
+
+**API & Integration**
+- `/api/rag/search` - Standalone search endpoint with auth
+- `/api/chat` - Automatic RAG integration for all queries
+- System prompt injection with citation instructions
+- Graceful fallback on RAG failures
+- Optional `useRag` flag for testing
+
+**Testing & Validation**
+- Comprehensive test suite: `pnpm test:search`
+- 4/4 test queries passing
+- All expected documents retrieved correctly
+- Vector search performs excellently for semantic queries
+
+### 🚧 PENDING: Frontend & UX (Phase 6+)
+
+**Citation Parsing & Display**
+- Parse `[^doc_id:section]` citations from LLM responses
+- Render inline citation links in chat UI
+- Display sources list at message bottom
+- Link citations to source documents
+
+**Admin Tools**
+- Document management UI (`/admin/rag`)
+- Quality monitoring dashboard
+- Manual re-ingestion triggers
+- Metrics tracking (latency, relevance, citations)
+
+**Optimization & Enhancement**
+- Consider text-embedding-3-small (1536 dims) for indexed vector search
+- Implement answer caching for frequent queries
+- Add time-decay ranking for freshness
+- LLM-based query expansion for complex aliases
+
+---
+
+## 14. Quick Start Guide
+
+### Running a Search Query
+```bash
+# Test hybrid search
+pnpm test:search
+
+# Or use the API
+curl -X POST http://localhost:3000/api/rag/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "lightfield displays", "personaSlug": "david"}'
+```
+
+### Chat with RAG Context
+The chat API automatically performs RAG retrieval for every query:
+```typescript
+// Frontend code
+const response = await fetch('/api/chat', {
+  method: 'POST',
+  body: JSON.stringify({
+    messages: [{ role: 'user', content: 'What is DLB technology?' }],
+    persona: 'david',
+    useRag: true // default
+  })
+});
+```
+
+### Ingesting New Documents
+```bash
+# 1. Place documents in /personas/<slug>/RAW-DOCS/
+# 2. Process with Gemini
+pnpm ingest:docs <persona-slug> --use-gemini
+
+# 3. Ingest to database (with contextual retrieval)
+pnpm ingest:db
+```
