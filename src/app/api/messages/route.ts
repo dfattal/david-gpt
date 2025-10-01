@@ -1,30 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { AppError, handleApiError } from '@/lib/utils'
+import { saveCitations, CitationMetadata } from '@/lib/rag/citations/saveCitations'
 
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient()
-    
+
     // Get the authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
+
     if (authError || !user) {
       throw new AppError('Authentication required', 401)
     }
 
-    const { 
+    const {
       conversationId,
       role,
       content,
       turnType,
-      responseMode 
-    }: { 
+      responseMode,
+      citationMetadata
+    }: {
       conversationId: string
       role: 'user' | 'assistant'
       content: string
       turnType?: 'new-topic' | 'drill-down' | 'compare' | 'same-sources'
       responseMode?: 'FACT' | 'EXPLAIN' | 'CONFLICTS'
+      citationMetadata?: CitationMetadata[]
     } = await req.json()
 
     if (!conversationId || !role || !content?.trim()) {
@@ -64,11 +67,19 @@ export async function POST(req: NextRequest) {
     // Update conversation's last message time
     await supabase
       .from('conversations')
-      .update({ 
+      .update({
         last_message_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
       .eq('id', conversationId)
+
+    // Save citations if this is an assistant message with citation metadata
+    if (role === 'assistant' && citationMetadata && citationMetadata.length > 0) {
+      console.log(`💾 Saving citations for message ${message.id}, metadata count: ${citationMetadata.length}`);
+      await saveCitations(message.id, content, citationMetadata, supabase);
+    } else if (role === 'assistant') {
+      console.log(`ℹ️ No citation metadata for assistant message ${message.id}`);
+    }
 
     return NextResponse.json({ message }, { status: 201 })
   } catch (error) {

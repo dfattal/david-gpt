@@ -188,12 +188,15 @@ Uses Gemini CLI (Gemini 2.0 Flash) for direct document processing with structure
 
 ---
 
-## 6. Database Schema (simplified)
+## 6. Database Schema & Storage Architecture
+
+### 6.1 Database Tables
 
 **Core tables**:
 - `personas(slug, display_name, config_json)`
-- `docs(id, title, date, source_url, type, summary, license, personas jsonb, tags jsonb)`
-- `chunks(id, doc_id, section_path, text, token_count, embeddings vector)`
+- `docs(id, title, date, source_url, type, summary, license, personas jsonb, tags jsonb, created_at, updated_at)`
+- `chunks(id, doc_id, section_path, text, token_count, embeddings vector, created_at)`
+- `document_files(id, doc_id, persona_slug, storage_path, file_size, content_hash, uploaded_at, uploaded_by)` - **Phase 8**
 
 **Indexes**:
 - Vector index on `chunks.embeddings` (HNSW)
@@ -205,6 +208,48 @@ Uses Gemini CLI (Gemini 2.0 Flash) for direct document processing with structure
 **Contextual Retrieval**: Chunks are embedded with LLM-generated context prepended to improve retrieval accuracy. The original chunk text is stored in the database (without context) for display, while the contextualized version is embedded. Context generation uses:
 - **OpenAI GPT-4 Mini** (default) - Fast, cost-effective ($0.0001-0.0002 per chunk)
 - **Gemini CLI** (alternative) - Local processing but slower due to per-chunk invocation overhead
+
+### 6.2 Document Storage Strategy (Phase 8+)
+
+**MVP Approach** (Phase 8):
+```
+Local Filesystem:                          Supabase:
+/personas/<slug>/RAW-DOCS/       →        (Not stored - local only)
+       ↓ (local CLI: pnpm ingest:docs)
+/personas/<slug>/RAG/*.md        →        Storage: formatted-documents/<slug>/*.md
+       ↓ (Admin UI upload)                         ↓
+                                           Database: docs + chunks tables
+```
+
+**Storage Layers**:
+1. **Local RAW documents** (`/personas/<slug>/RAW-DOCS/`): PDFs, DOCX, etc. - **Not uploaded to cloud**
+2. **Local Formatted documents** (`/personas/<slug>/RAG/`): Processed markdown - **Uploaded to Supabase Storage**
+3. **Database records** (`docs` + `chunks`): Metadata + search index
+
+**Supabase Storage Buckets** (Phase 8):
+- `formatted-documents/` - Stores processed markdown files
+  - Path structure: `<persona-slug>/<doc-id>.md`
+  - RLS policies: Admin (full), Members (read-only)
+  - Enables: web-based editing, version control, backup/restore
+
+**Why formatted docs only in MVP?**
+- ✅ Simpler architecture (one storage layer vs two)
+- ✅ Keep Gemini processing local (no server-side timeout issues)
+- ✅ Faster implementation (no RAW file handling, no queue system)
+- ✅ Sufficient for metadata editing use case
+- ⏸️ Defer RAW storage to Phase 10 (post-MVP)
+
+**Post-MVP Enhancement** (Phase 10):
+Add `raw-documents/` bucket for end-to-end cloud workflow:
+```
+Upload RAW via Admin UI → Supabase Storage (raw-documents/)
+       ↓
+Server-side Gemini processing (queue-based)
+       ↓
+Store formatted markdown → Supabase Storage (formatted-documents/)
+       ↓
+Ingest to database → docs + chunks tables
+```
 
 ---
 
@@ -319,7 +364,7 @@ Post-process bracket cites into footnotes linking `source_url` + heading anchor.
 
 ## 10. MVP vs. Full Implementation
 
-### MVP Implementation (Phase 1-6) ✅ COMPLETE
+### MVP Implementation (Phase 1-7) ✅ COMPLETE
 - **Routing**: Always run RAG (no complex classification) ✅ Implemented
 - **Retrieval**: Vector + BM25 + RRF with lightweight boosting (no reranking) ✅ Implemented
 - **Multi-Turn Context**: Query reformulation + citation-based boosting ✅ Implemented (Phase 6)
@@ -330,30 +375,56 @@ Post-process bracket cites into footnotes linking `source_url` + heading anchor.
 - **Schema**: JSONB arrays (no junction tables) ✅ Implemented (Phase 1)
 - **File Structure**: RAW-DOCS + RAG only (no QA-QUEUE) ✅ Implemented (Phase 2)
 - **API Integration**: `/api/rag/search` and `/api/chat` with RAG context ✅ Implemented (Phase 5)
+- **Citations**: Parsing, UI display, database persistence ✅ Implemented (Phase 7)
+
+### Phase 8: Admin Tools (IN PROGRESS)
+**Goal**: Web-based document management and quality monitoring
+
+**Architecture Decisions**:
+- **Document Storage**: Formatted markdown only in Supabase Storage (`formatted-documents/<persona-slug>/`)
+  - Upload source: Admin UI uploads from local `/personas/<slug>/RAG/` directory
+  - No RAW document storage in MVP (deferred to Phase 10)
+- **Metadata Editing**: Frontmatter + Key Terms + Also Known As only
+  - Full markdown body editing deferred to post-MVP
+- **Ingestion Workflow**:
+  - RAW → Formatted conversion: Local CLI (`pnpm ingest:docs <slug> --use-gemini`)
+  - Formatted → Database: Admin UI upload + ingestion
+
+**Milestone 8.1: Document Management**
+- Storage infrastructure (Supabase Storage bucket + `document_files` table)
+- API routes for CRUD operations (upload, list, get, update metadata, re-ingest, delete, download)
+- UI components (document list, upload, metadata editor, actions)
+- **Editable fields**: `title`, `type`, `date`, `source_url`, `tags`, `summary`, `license`, Key Terms, Also Known As
+
+**Milestone 8.2: Quality Monitoring**
+- `search_logs` table for query performance tracking
+- Metrics API routes (search, citations, system health)
+- Dashboard UI with charts (Recharts)
+- Metrics: query volume, latency, citation frequency, system stats
 
 ### Future Enhancements (Post-MVP)
-**High Priority:**
-- Citation parsing and UI display (Phase 7)
-- Admin document management interface
 
-**Medium Priority:**
-- Turn-type detection for dynamic search limits (drill-down, compare, new-topic)
-- Time-decay ranking for freshness
-- Answer caching for frequently asked questions
+**Phase 9: Testing & Optimization**
+- E2E test suite (ingestion, search, citations, multi-persona)
+- Performance benchmarks (search latency <500ms target)
+- Query caching for frequent questions
+- Vector index optimization
+
+**Phase 10: Advanced Document Processing** (Post-MVP)
+- RAW document storage in Supabase Storage (`raw-documents/<persona-slug>/`)
+- Web-based RAW file upload (PDFs, DOCX, etc.)
+- Server-side Gemini processing via API routes
+- Queue-based async processing (BullMQ or similar)
+- RAW → Formatted conversion history and versioning
+- Full markdown body editing in Admin UI
 
 **Low Priority:**
+- Turn-type detection for dynamic search limits (drill-down, compare, new-topic)
+- Time-decay ranking for freshness
 - Smart routing with LLM classification
 - Cross-encoder reranking for improved precision
 - Auto-generated persona configs
 - Automated quality checks and validation
-
-**Phase 6 Context Management - Optional Enhancements:**
-- **Turn-Type Detection**: Pattern-based classification (drill-down, same-sources, compare, new-topic)
-  - Adjust search limits dynamically (e.g., drill-down: 8 chunks, compare: 12 chunks)
-  - Apply different citation boost multipliers per turn type
-  - Implementation: Add simple regex patterns, no LLM needed
-  - ROI: Low (current fixed limit of 12 works well for most cases)
-  - **Decision**: Defer until user testing shows need
 
 ---
 

@@ -36,6 +36,7 @@ export function ChatInterface({
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [citationMetadata, setCitationMetadata] = useState<Map<string, { sourceUrl?: string; docTitle?: string }>>(new Map());
+  const [citationMetadataArray, setCitationMetadataArray] = useState<any[]>([]);
   const pendingConversationIdRef = useRef<string | null>(null);
 
   // AI SDK pattern: manage input state manually, use append
@@ -60,6 +61,7 @@ export function ChatInterface({
             ])
           );
           setCitationMetadata(metadataMap);
+          setCitationMetadataArray(metadata); // Store array for saving citations
           console.log('📚 Citation metadata loaded:', metadata.length, 'documents');
         } catch (error) {
           console.error('Failed to parse citation metadata:', error);
@@ -80,6 +82,7 @@ export function ChatInterface({
               conversationId,
               role: 'assistant',
               content: message.content,
+              citationMetadata: citationMetadataArray.length > 0 ? citationMetadataArray : undefined,
             }),
           });
         } catch (error) {

@@ -329,47 +329,154 @@
 
 ---
 
-### Phase 7: Citations & UI (FRONTEND)
+### Phase 7: Citations & UI (FRONTEND) ✅ COMPLETE
 **Goal**: Display inline citations with source links
 
-#### Milestone 7.1: Citation Parsing
-- [ ] Create `src/lib/rag/citations/parser.ts`
-- [ ] Parse bracket citations `[^doc_id:section]` from LLM output
-- [ ] Map to source URLs and section anchors
-- [ ] Generate footnote-style citations list
+#### Milestone 7.1: Citation Parsing ✅
+- [x] Create `src/lib/rag/citations/parser.ts`
+- [x] Parse bracket citations `[^doc_id:section]` from LLM output
+- [x] Map to source URLs and section anchors
+- [x] Generate footnote-style citations list
 
-**Test**: Parse sample response → verify citation extraction
+**Test Result**: ✅ Citation parser working correctly with regex pattern and metadata mapping
 
-#### Milestone 7.2: Chat UI Updates
-- [ ] Update chat component to render citations
-- [ ] Show inline bracket links
-- [ ] Display sources list at bottom of message
-- [ ] Make citations clickable (open source doc)
+#### Milestone 7.2: Chat UI Updates ✅
+- [x] Update chat component to render citations
+- [x] Show inline bracket links (superscript with anchor links)
+- [x] Display sources list at bottom of message (CitationsList component)
+- [x] Make citations clickable (scroll to source in list)
 
-**Test**: View chat message with citations → verify formatting and links
+**Test Result**: ✅ Chat UI displays citations as clickable superscript numbers with sources list
+
+#### Milestone 7.3: Citation Database Persistence ✅
+- [x] Create `message_citations` table with proper schema
+- [x] Implement `saveCitations()` utility function
+- [x] Integrate citation saving into `/api/messages` endpoint
+- [x] Pass citation metadata from chat interface to API
+- [x] Enable citation-based document boosting (Phase 6 integration)
+
+**Test Result**: ✅ Citations successfully saved to database and used for multi-turn boosting
 
 ---
 
 ### Phase 8: Admin Tools (MANAGEMENT)
 **Goal**: UI for managing documents and monitoring RAG quality
 
-#### Milestone 8.1: Document Management UI
-- [ ] Create `/admin/rag` page
-- [ ] List all docs by persona
-- [ ] Show ingestion status
-- [ ] Manual re-ingestion trigger
-- [ ] Delete documents
+**Architecture Decision**:
+- **Storage**: Formatted docs only in Supabase Storage (`formatted-documents/<persona-slug>/`)
+- **Upload Source**: Admin UI uploads from local `/personas/<slug>/RAG/` directory
+- **Scope**: Frontmatter + Key Terms + Also Known As editing only
+- **Post-MVP**: RAW document storage and web-based RAW→Formatted processing (see Phase 10)
 
-**Test**: Navigate admin page → verify doc list and actions work
+#### Milestone 8.1a: Storage Infrastructure
+- [ ] Create Supabase Storage bucket: `formatted-documents`
+- [ ] Set up RLS policies (admin: full access, members: read-only)
+- [ ] Create `document_files` table
+  - `id` (uuid, primary key)
+  - `doc_id` (text, foreign key → docs.id)
+  - `persona_slug` (text)
+  - `storage_path` (text - path in Supabase Storage)
+  - `file_size` (bigint)
+  - `content_hash` (text - for change detection)
+  - `uploaded_at` (timestamptz)
+  - `uploaded_by` (uuid, foreign key → auth.users)
+- [ ] Migration script to upload existing `/personas/*/RAG/*.md` to Storage
+- [ ] Migration script to create `document_files` records
 
-#### Milestone 8.2: Quality Monitoring
-- [ ] Add search quality metrics
-  - Average retrieval time
-  - Chunk relevance scores
-  - Citation usage frequency
-- [ ] Create `/admin/rag/metrics` dashboard
+**Test**: Verify files uploaded to Storage, database records created
 
-**Test**: View metrics after multiple searches
+#### Milestone 8.1b: Document Management API Routes
+- [ ] `GET /api/admin/documents` - List all documents with filters
+  - Query params: `personaSlug`, `type`, `tags`, `search`
+  - Response: Array of documents with metadata + ingestion stats
+- [ ] `GET /api/admin/documents/[id]` - Get document details
+  - Returns: Full metadata, formatted markdown content, chunk count
+- [ ] `POST /api/admin/documents/upload` - Upload formatted markdown
+  - Accepts: File upload from local `/personas/<slug>/RAG/`
+  - Stores in Supabase Storage
+  - Creates `document_files` record
+  - Triggers ingestion (chunking + embedding)
+- [ ] `PATCH /api/admin/documents/[id]/metadata` - Update metadata
+  - Editable: frontmatter fields, Key Terms, Also Known As
+  - Updates formatted markdown in Storage
+  - Re-chunks and re-embeds if content changed
+- [ ] `POST /api/admin/documents/[id]/reingest` - Manual re-ingestion
+  - Deletes existing chunks
+  - Re-runs chunking + contextual retrieval + embedding
+- [ ] `DELETE /api/admin/documents/[id]` - Delete document
+  - Deletes from Storage, `docs` table, `chunks` table, `document_files` table
+  - Cascade delete with confirmation
+- [ ] `GET /api/admin/documents/[id]/download` - Download formatted markdown
+  - Returns file for local backup/editing
+
+**Test**: All CRUD operations working, re-ingestion triggers correctly
+
+#### Milestone 8.1c: Document Management UI Components
+- [ ] Create `/admin/rag/page.tsx` - Main document management page
+  - Document list table with columns: title, persona, type, chunks, last updated
+  - Filters: persona dropdown, type dropdown, tag search, text search
+  - Actions: upload, edit metadata, re-ingest, delete, download
+- [ ] `src/components/admin/DocumentList.tsx` - Table component
+  - Sortable columns
+  - Bulk selection (future: bulk delete, bulk re-ingest)
+  - Per-row actions dropdown
+- [ ] `src/components/admin/DocumentUpload.tsx` - File upload component
+  - Drag-drop zone for `.md` files
+  - File validation (checks frontmatter)
+  - Progress indicator during upload + ingestion
+- [ ] `src/components/admin/DocumentMetadataEditor.tsx` - Split-pane editor
+  - **Left pane**: Form for frontmatter fields
+    - `title` (text input, required)
+    - `type` (dropdown: blog, press, spec, tech_memo, faq, slide, email, patent, release_notes, other)
+    - `date` (date picker, optional)
+    - `source_url` (text input, optional)
+    - `tags` (multi-select with autocomplete from `persona.config.json` topics)
+    - `summary` (textarea, required)
+    - `license` (dropdown: public, cc-by, proprietary, optional)
+  - **Body sections** (below frontmatter):
+    - `Key Terms` (textarea, comma-separated)
+    - `Also Known As` (textarea, comma-separated)
+  - **Right pane**: Live markdown preview with syntax highlighting
+  - "Save" button (updates Storage + triggers re-ingestion)
+  - "Cancel" button (discard changes)
+- [ ] `src/components/admin/DocumentActions.tsx` - Action button group
+  - Edit metadata (opens modal with DocumentMetadataEditor)
+  - Re-ingest (confirmation dialog)
+  - Delete (confirmation dialog with cascade warning)
+  - Download (triggers file download)
+
+**Test**: Upload document → edit metadata → verify changes persist → re-ingest → delete
+
+#### Milestone 8.2: Quality Monitoring Dashboard
+- [ ] Create `search_logs` table
+  - `id` (uuid, primary key)
+  - `query` (text)
+  - `persona_slug` (text)
+  - `conversation_id` (uuid, nullable)
+  - `results_count` (integer)
+  - `latency_ms` (integer)
+  - `vector_score_avg` (double precision, nullable)
+  - `bm25_score_avg` (double precision, nullable)
+  - `created_at` (timestamptz)
+- [ ] Integrate logging into `/api/rag/search` route
+- [ ] `GET /api/admin/metrics/search` - Search performance metrics
+  - Aggregations: avg latency (24h, 7d, 30d), query volume, failed searches
+- [ ] `GET /api/admin/metrics/citations` - Citation analytics
+  - Top cited documents, citation frequency, documents never cited
+- [ ] `GET /api/admin/metrics/system` - System health
+  - Total docs, total chunks, storage usage, embedding costs
+- [ ] Create `/admin/rag/metrics/page.tsx` - Metrics dashboard
+- [ ] `src/components/admin/SearchMetrics.tsx` - Charts (use Recharts)
+  - Line chart: Query volume over time
+  - Bar chart: Average latency by persona
+  - Table: Top 10 queries with avg latency
+- [ ] `src/components/admin/CitationMetrics.tsx` - Citation analytics
+  - Bar chart: Most cited documents
+  - Table: Documents with 0 citations (candidates for removal)
+- [ ] `src/components/admin/SystemHealth.tsx` - System stats
+  - Cards: Total docs, total chunks, storage size, embedding costs
+
+**Test**: Run searches → verify metrics logged → view dashboard
 
 ---
 
@@ -394,9 +501,40 @@
 
 ---
 
+### Phase 10: Advanced Document Processing (POST-MVP)
+**Goal**: Web-based RAW document processing and management
+
+**Deferred Features**:
+- [ ] RAW document storage in Supabase Storage (`raw-documents/<persona-slug>/`)
+- [ ] Web-based file upload for RAW documents (PDFs, DOCX, etc.)
+- [ ] Server-side Gemini processing via API routes
+  - Refactor `src/lib/rag/ingestion/geminiProcessor.ts` for server execution
+  - Use `child_process.exec()` to call `gemini` CLI from API route
+  - Handle temp file management for uploads
+- [ ] Queue-based processing for large documents (BullMQ or similar)
+  - Async job queue for Gemini processing (long-running tasks)
+  - Progress tracking and status updates
+  - Retry logic for failed processing
+- [ ] RAW → Formatted conversion history
+  - Track processing versions
+  - Re-process RAW files when Gemini prompts improve
+  - Diff view between versions
+
+**Current Workflow (MVP)**:
+- RAW → Formatted conversion remains local CLI (`pnpm ingest:docs <slug> --use-gemini`)
+- Admin UI uploads pre-formatted markdown from `/personas/<slug>/RAG/`
+
+**Future Workflow (Post-MVP)**:
+- Upload RAW documents via Admin UI
+- Trigger Gemini processing server-side
+- Review/edit formatted output
+- Approve for ingestion
+
+---
+
 ## Current Status
 
-**Phase**: Phase 6 Complete - Ready for Phase 7 (Citations & UI)
+**Phase**: Phase 7 Complete ✅ - Ready for Phase 8 (Admin Tools)
 **Completed**:
 - ✅ Database schema with pgvector (Phase 1)
 - ✅ **Gemini-first document processing pipeline** (Phase 2)
@@ -421,11 +559,17 @@
   - Automatic RAG integration in `/api/chat` route
   - Context formatting with citation instructions
   - Graceful fallback on failures
-- ✅ **Multi-Turn Context Management** (Phase 6) 🎉 NEW
+- ✅ **Multi-Turn Context Management** (Phase 6)
   - Query reformulation with conversation history
   - Citation-based document boosting
-  - Lightweight implementation (no new DB tables)
+  - Lightweight implementation (uses `message_citations` table)
   - 50ms overhead, $0.0001 per query
+- ✅ **Citations & UI** (Phase 7) 🎉 NEW
+  - Citation parsing from LLM responses (`[^doc_id:section]`)
+  - Inline superscript citation numbers
+  - Sources list at message bottom
+  - Citation persistence to database
+  - Citation-based boosting integration (Phase 6)
 
 **Ingestion Pipeline Summary**:
 - **Documents**: 4 documents (evolution-leia-inc, leiasr-release-notes, lif, us11281020)
@@ -443,20 +587,21 @@
 - **Test Results**: 4/4 queries passed, all expected documents retrieved
 - **Latency**: <2s per search (including reformulation + embedding generation)
 
-**Multi-Turn Context Features** (2025-09-30):
-- ✅ Query reformulation using GPT-4o-mini (~$0.0001 per query)
-- ✅ Citation-based boosting from `message_citations` table
-- ✅ Heuristic-based skip (no reformulation if no pronouns/follow-ups)
-- ✅ Graceful fallback on reformulation failure
-- ✅ Conversation-aware search (uses conversationId parameter)
-- ✅ No new database schema or tables required
+**Citations & UI Features** (2025-10-01):
+- ✅ Citation parser with regex pattern `/\[\^([^:\]]+):([^\]]+)\]/g`
+- ✅ Inline superscript citation rendering with anchor links
+- ✅ CitationsList component for sources display
+- ✅ `message_citations` table for persistence
+- ✅ `saveCitations()` utility for database storage
+- ✅ Citation metadata passed via HTTP headers (`X-Citation-Metadata`)
+- ✅ E2E test: Citations display correctly and saved to database
 
 **Next Steps**:
-1. Test multi-turn conversations with query reformulation and citation boosting
-2. Implement citation parsing from LLM responses (`[^doc_id:section]`)
-3. Update chat UI to render citations as clickable links
-4. Display sources list at bottom of messages
-5. Create admin UI for document management
+1. ✅ Phase 7 Complete - Citations working end-to-end
+2. Phase 8: Create admin UI for document management (`/admin/rag`)
+3. Phase 8: Add quality monitoring dashboard (`/admin/rag/metrics`)
+4. Phase 9: Comprehensive E2E testing suite
+5. Phase 9: Performance optimization and caching
 
 ---
 
