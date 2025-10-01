@@ -84,7 +84,7 @@ Context:`;
     // Use Gemini CLI in non-interactive mode
     const result = execSync(`gemini -y '${prompt.replace(/'/g, "'\\''")}'`, {
       encoding: 'utf-8',
-      timeout: 30000, // 30 second timeout per chunk
+      timeout: 60000, // 60 second timeout per chunk
       maxBuffer: 1024 * 1024, // 1MB buffer
     });
 

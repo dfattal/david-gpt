@@ -144,47 +144,76 @@ Steps:
 1. Extract clean text – e.g. pandoc, trafilatura, pdftotext, OCR if needed.
 2. Normalise to Markdown – keep logical headings, short paragraphs.
 
-### 5.2 Gemini-first document processing
+### 5.2 Gemini-first document processing (Two-Stage Deterministic)
 
 **Primary workflow** (`pnpm ingest:docs <persona-slug> --use-gemini`):
 
-Uses Gemini CLI (Gemini 2.0 Flash) for direct document processing with structure optimization:
+Uses a **two-stage deterministic approach** to avoid circular dependencies and ensure reliable extraction:
 
-1. **Gemini CLI processes documents directly**:
-   - Reads PDF, DOCX, MD, and other formats directly (no intermediate extraction)
-   - Auto-detects document type (patent, release_notes, spec, blog, press, faq, other)
+**Stage 1: Deterministic Text Extraction** (Fast, Reliable)
+- **PDFs**: Use `pdftotext` command-line tool for raw text extraction (30s timeout)
+- **DOCX**: Use `mammoth` library for content extraction
+- **Other formats**: Gemini CLI handles directly (MD, HTML, etc.)
+- **Benefits**: Fast, no LLM overhead, avoids circular dependency issues
+
+**Stage 2: LLM-Based Structuring** (Gemini 2.0 Flash)
+- Takes pre-extracted text and structures it with document-type-specific formatting
+- Longer timeout (5 minutes) since only formatting, not extracting
+- Generates complete markdown with proper structure
+
+**Key Implementation Details**:
+
+1. **Document type detection and formatting**:
+   - Auto-detects document type (patent, release_notes, spec, blog, press, faq, arxiv, technical_note, other)
    - Applies document-type-specific formatting rules
-   - Generates complete markdown with proper structure
+   - Text extraction → Gemini structuring pipeline
 
-2. **Document-type-specific structure**:
+2. **Web metadata enrichment** (for patents and arxiv papers):
+   - **Patents**: Fetches from Google Patents (patent numbers, filing/granted/expiration dates, inventors, assignees including reassignments)
+   - **Arxiv Papers**: Fetches from arxiv.org (arxiv ID, DOI, submission/publication dates, authors)
+   - Enriched metadata incorporated into frontmatter during processing
+   - Falls back gracefully if web fetch times out (uses document content only)
+
+3. **Document-type-specific structure**:
    - **Patents**: Abstract → Background → Summary → Detailed Description → Claims
+   - **Arxiv Papers**: Abstract → Introduction → Methodology → Results → Discussion → Conclusion
+   - **Technical Notes** (e.g., LIF/LVF specs): Overview → Technical Specifications → Format Details → Implementation Guidelines
    - **Release Notes**: Overview → Features (by version) → Bug Fixes → Known Issues
    - **Specs**: Logical sections with ### subsections for detailed topics
    - **Blog/Press**: Introduction → Main content sections → Conclusion
    - All types: Section sizes optimized for chunking (500-800 words per ## section)
 
-3. **Auto-generated frontmatter**:
+4. **Auto-generated frontmatter**:
    - `id`: kebab-case from filename (e.g., "us11281020", "leia-sr-release-notes")
    - `title`: extracted from actual document content (accurate, max 100 chars)
-   - `type`: auto-detected (patent, release_notes, spec, blog, press, faq, other)
+   - `type`: auto-detected (patent, release_notes, spec, blog, press, faq, arxiv, technical_note, other)
    - `personas`: set from folder location
    - `date`, `source_url`: extracted if found in document
    - `summary`: one-sentence abstract generated from content
-   - **Key Terms** and **Also Known As** sections for search boosting
+   - `identifiers`: structured document IDs (patent_number, doi, arxiv_id, etc.) - **web-enriched for patents/arxiv**
+   - `dates`: structured typed dates (filing, publication, expiration, etc.) - **web-enriched for patents/arxiv**
+   - `actors`: people/organizations with roles (inventors, authors, assignees) - **web-enriched for patents/arxiv**
+   - **Key Terms** and **Also Known As** sections in body for search boosting
 
-4. **Fallback strategy**:
-   - If Gemini fails or times out (2-minute limit), falls back to basic extraction
-   - Basic extraction: `pdf-parse`, `mammoth` → markdown normalization → frontmatter generation
-   - Fallback provides minimal structure but preserves content
+5. **Timeout strategy**:
+   - Text extraction: 30s (deterministic, fast)
+   - Gemini formatting: 5 minutes (handles large multi-version documents like release notes)
+   - Web metadata: 90s per source (non-blocking, falls back gracefully)
 
-5. **Manual curation** (optional):
+6. **Fallback strategy**:
+   - If Gemini formatting times out, falls back to basic markdown with minimal structure
+   - Preserves all content but loses document-type-specific optimization
+   - Web metadata failures are non-blocking (document processed with content-only metadata)
+
+7. **Manual curation** (optional):
    - Review and adjust `summary` and `tags` fields
    - Add additional Key Terms for search optimization
    - Verify document type classification
+   - Verify web-enriched metadata accuracy (especially for patents with reassignments)
 
-**Output**: Files saved directly to `/personas/<slug>/RAG/` with kebab-case naming (e.g., `us11281020.md`, `leia-sr-release-notes-1-34-6.md`)
+**Output**: Files saved directly to `/personas/<slug>/RAG/` with kebab-case naming (e.g., `us11281020.md`, `leiasr-release-notes-1-34-6.md`)
 
-**Quality**: Gemini-first processing produces production-ready documents with proper structure, accurate titles, and optimized chunking. Eliminates need for separate post-processing step.
+**Quality**: Two-stage approach produces production-ready documents with proper structure, accurate titles, and optimized chunking. More reliable than single-pass Gemini processing.
 
 ---
 
@@ -194,9 +223,16 @@ Uses Gemini CLI (Gemini 2.0 Flash) for direct document processing with structure
 
 **Core tables**:
 - `personas(slug, display_name, config_json)`
-- `docs(id, title, date, source_url, type, summary, license, personas jsonb, tags jsonb, created_at, updated_at)`
+- `docs(id, title, date, source_url, type, summary, license, personas jsonb, tags jsonb, identifiers jsonb, dates_structured jsonb, actors jsonb, created_at, updated_at)`
 - `chunks(id, doc_id, section_path, text, token_count, embeddings vector, created_at)`
 - `document_files(id, doc_id, persona_slug, storage_path, file_size, content_hash, uploaded_at, uploaded_by)` - **Phase 8**
+
+**Enhanced Metadata Fields** (added for rich document context):
+- `identifiers` (JSONB): Document identifiers as key-value pairs (e.g., `patent_number`, `application_number`, `doi`, `arxiv_id`)
+- `dates_structured` (JSONB): Typed dates (e.g., `filing`, `publication`, `priority`, `expiration`, `submitted`, `accepted`)
+- `actors` (JSONB): Array of people/organizations with roles (e.g., `[{name: "John Doe", role: "inventor"}]`)
+  - Common roles: `inventor`, `author`, `assignee`, `current_assignee`, `publisher`
+- `tags` (JSONB): Merged array containing manual frontmatter tags + auto-extracted Key Terms + auto-extracted Also Known As terms
 
 **Indexes**:
 - Vector index on `chunks.embeddings` (HNSW)
@@ -204,6 +240,18 @@ Uses Gemini CLI (Gemini 2.0 Flash) for direct document processing with structure
 - Full-text search index on `chunks.text` for BM25
 
 **Benefits**: Eliminates junction tables, reduces JOINs, uses JSONB for flexibility.
+
+**Chunking Strategy**:
+- **Smart Chunking**: 800-1200 tokens per chunk with 17.5% overlap, respecting section boundaries
+- **Metadata Chunk**: First chunk of every document contains comprehensive metadata for discovery:
+  - Document ID, title, type, date, summary
+  - Identifiers (patent_number, doi, arxiv_id, etc.)
+  - Structured dates (filing, publication, expiration, etc.)
+  - Actors (inventors, authors, assignees with roles)
+  - Key Terms and Also Known As (from body)
+  - Tags (merged from frontmatter and auto-extracted)
+- **Purpose**: Metadata chunk ensures documents are discoverable via semantic search on metadata alone
+- **Example**: Query "patents by Leia Inc" retrieves metadata chunks mentioning "Leia Inc" as assignee
 
 **Contextual Retrieval**: Chunks are embedded with LLM-generated context prepended to improve retrieval accuracy. The original chunk text is stored in the database (without context) for display, while the contextualized version is embedded. Context generation uses:
 - **OpenAI GPT-4 Mini** (default) - Fast, cost-effective ($0.0001-0.0002 per chunk)
@@ -410,13 +458,34 @@ Post-process bracket cites into footnotes linking `source_url` + heading anchor.
 - Query caching for frequent questions
 - Vector index optimization
 
-**Phase 10: Advanced Document Processing** (Post-MVP)
-- RAW document storage in Supabase Storage (`raw-documents/<persona-slug>/`)
-- Web-based RAW file upload (PDFs, DOCX, etc.)
-- Server-side Gemini processing via API routes
-- Queue-based async processing (BullMQ or similar)
-- RAW → Formatted conversion history and versioning
-- Full markdown body editing in Admin UI
+**Phase 10: Advanced RAW Document Processing** (Post-MVP)
+
+**Goal**: Enable end-to-end RAW document processing via Admin UI
+
+**Current State (MVP)**:
+- **EXTRACTION**: Local CLI (`pnpm ingest:docs <slug> --use-gemini`) - Two-stage: pdftotext → Gemini formatting
+- **INGESTION**: Admin UI upload ✅ (Phase 8) - Formatted markdown → chunks + embeddings → database
+- Workflow: RAW (local) → Formatted (CLI) → Upload to Admin UI → Auto-ingest to DB
+
+**Important Distinction**:
+- **EXTRACTION** (RAW → Formatted markdown): Currently CLI only → Phase 10 adds web UI
+- **INGESTION** (Formatted markdown → Database): Already in Admin UI ✅ (Phase 8 complete)
+
+**Phase 10 Roadmap** (EXTRACTION Pipeline only):
+1. **RAW Document Storage**: Supabase Storage bucket (`raw-documents/`) with RLS policies
+2. **Upload API**: `POST /api/admin/documents/upload-raw` for PDFs, DOCX, MD, HTML
+3. **Server-Side EXTRACTION**: Two-stage pipeline (pdftotext → Gemini CLI)
+4. **Queue System**: BullMQ for async EXTRACTION processing with progress tracking
+5. **Processing History**: Track RAW → Formatted conversions with versioning
+6. **Admin UI**: Drag-drop RAW upload, EXTRACTION status, formatted output review, batch support
+
+Note: INGESTION (formatted markdown → chunks + embeddings → database) is already functional via Admin UI upload
+
+**Infrastructure Requirements**:
+- Server-side `poppler-utils` (for pdftotext)
+- Gemini CLI in server environment
+- Redis for job queue
+- Webhook endpoints for status updates
 
 **Low Priority:**
 - Turn-type detection for dynamic search limits (drill-down, compare, new-topic)

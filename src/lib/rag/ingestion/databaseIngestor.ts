@@ -5,7 +5,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import matter from 'gray-matter';
-import { chunkDocument, type Chunk } from '../chunking/smartChunker';
+import { chunkDocument, type Chunk, type DocumentMetadata } from '../chunking/smartChunker';
 import { createEmbeddingGenerator } from '../embeddings/embeddingGenerator';
 import { stripFrontmatter } from './markdownProcessor';
 import { generateContextualChunks } from '../embeddings/contextualRetrieval';
@@ -49,12 +49,42 @@ export class DatabaseIngestor {
   private supabase: ReturnType<typeof createClient>;
   private embeddingGenerator: ReturnType<typeof createEmbeddingGenerator>;
 
-  constructor(supabaseUrl: string, supabaseKey: string, openaiApiKey?: string) {
-    this.supabase = createClient(supabaseUrl, supabaseKey);
+  /**
+   * Constructor overload for CLI usage (with URL and key)
+   * @param supabaseUrl - Supabase project URL
+   * @param supabaseKey - Supabase service role key
+   * @param openaiApiKey - OpenAI API key (optional)
+   */
+  constructor(supabaseUrl: string, supabaseKey: string, openaiApiKey?: string);
 
-    // Use provided API key or fall back to environment variable
-    const apiKey = openaiApiKey || process.env.OPENAI_API_KEY;
-    if (!apiKey) {
+  /**
+   * Constructor overload for API route usage (with client instance)
+   * @param supabaseClient - Authenticated Supabase client
+   * @param openaiApiKey - OpenAI API key (optional)
+   */
+  constructor(supabaseClient: ReturnType<typeof createClient>, openaiApiKey?: string);
+
+  /**
+   * Implementation
+   */
+  constructor(
+    supabaseUrlOrClient: string | ReturnType<typeof createClient>,
+    supabaseKeyOrOpenaiKey?: string,
+    openaiApiKey?: string
+  ) {
+    // Detect which overload was used
+    if (typeof supabaseUrlOrClient === 'string') {
+      // CLI usage: (url, key, openaiKey?)
+      this.supabase = createClient(supabaseUrlOrClient, supabaseKeyOrOpenaiKey!);
+      openaiApiKey = openaiApiKey || process.env.OPENAI_API_KEY;
+    } else {
+      // API route usage: (client, openaiKey?)
+      this.supabase = supabaseUrlOrClient;
+      openaiApiKey = supabaseKeyOrOpenaiKey || process.env.OPENAI_API_KEY;
+    }
+
+    // Validate OpenAI API key
+    if (!openaiApiKey) {
       throw new Error('OpenAI API key required for embedding generation');
     }
 
@@ -80,6 +110,35 @@ export class DatabaseIngestor {
       const personas = Array.isArray(metadata.personas)
         ? metadata.personas
         : [metadata.personas];
+
+      // Auto-extract tags from "Also Known As" and "Key Terms" if not already in tags
+      const autoTags: string[] = [];
+
+      // Extract from "Also Known As" in body
+      const akaMatch = doc.content.match(/\*\*Also Known As\*\*:\s*(.+?)(?:\n\n|\n\*\*|$)/s);
+      if (akaMatch) {
+        const akaTerms = akaMatch[1]
+          .split(',')
+          .map((t) => t.trim())
+          .filter((t) => t.length > 0);
+        autoTags.push(...akaTerms);
+      }
+
+      // Extract from "Key Terms" in body
+      const keyTermsMatch = doc.content.match(/\*\*Key Terms\*\*:\s*(.+?)(?:\n\n|\n\*\*|$)/s);
+      if (keyTermsMatch) {
+        const keyTerms = keyTermsMatch[1]
+          .split(',')
+          .map((t) => t.trim())
+          .filter((t) => t.length > 0);
+        autoTags.push(...keyTerms);
+      }
+
+      // Merge with existing tags, removing duplicates
+      const existingTags = Array.isArray(metadata.tags) ? metadata.tags : [];
+      const allTags = [...new Set([...existingTags, ...autoTags])];
+
+      console.log(`  Auto-extracted ${autoTags.length} tags from content`);
 
       // Check if document already exists (unless overwrite is true)
       if (!overwrite) {
@@ -119,7 +178,10 @@ export class DatabaseIngestor {
             summary: metadata.summary || null,
             license: metadata.license || 'unknown',
             personas: personas, // Pass array directly for JSONB column
-            tags: metadata.tags || [], // Pass array directly for JSONB column
+            tags: allTags, // Use merged tags (manual + auto-extracted)
+            identifiers: metadata.identifiers || {}, // Structured identifiers
+            dates_structured: metadata.dates || {}, // Structured dates
+            actors: metadata.actors || [], // Actors array
             raw_content: doc.content,
             updated_at: new Date().toISOString(),
           },
@@ -145,9 +207,32 @@ export class DatabaseIngestor {
 
       // Strip frontmatter and chunk the content
       const cleanContent = stripFrontmatter(bodyContent);
-      const chunks = chunkDocument(cleanContent);
 
-      console.log(`  Generated ${chunks.length} chunks`);
+      // Extract "Key Terms" and "Also Known As" from body content for metadata chunk
+      const keyTermsMatchForChunk = bodyContent.match(/\*\*Key Terms\*\*:\s*(.+?)(?:\n\n|\n\*\*|$)/s);
+      const keyTerms = keyTermsMatchForChunk ? keyTermsMatchForChunk[1].trim() : undefined;
+
+      const akaMatchForChunk = bodyContent.match(/\*\*Also Known As\*\*:\s*(.+?)(?:\n\n|\n\*\*|$)/s);
+      const alsoKnownAs = akaMatchForChunk ? akaMatchForChunk[1].trim() : undefined;
+
+      // Prepare metadata for metadata chunk generation
+      const chunkMetadata: DocumentMetadata = {
+        id: metadata.id,
+        title: metadata.title,
+        type: metadata.type,
+        date: metadata.date,
+        summary: metadata.summary,
+        tags: allTags, // Use merged tags for metadata chunk
+        keyTerms,
+        alsoKnownAs,
+        identifiers: metadata.identifiers,
+        dates: metadata.dates,
+        actors: metadata.actors,
+      };
+
+      const chunks = chunkDocument(cleanContent, {}, chunkMetadata);
+
+      console.log(`  Generated ${chunks.length} chunks (including metadata chunk)`);
 
       if (chunks.length === 0) {
         return {
@@ -167,7 +252,7 @@ export class DatabaseIngestor {
       if (overwrite !== false) {
         // Default to contextual retrieval unless explicitly disabled
         const useContextual = process.env.DISABLE_CONTEXTUAL_RETRIEVAL !== 'true';
-        const contextMethod = (process.env.CONTEXT_METHOD as 'openai' | 'gemini') || 'gemini';
+        const contextMethod = (process.env.CONTEXT_METHOD as 'openai' | 'gemini') || 'openai';
 
         if (useContextual) {
           console.log(`  Generating contextual chunks using ${contextMethod.toUpperCase()}...`);

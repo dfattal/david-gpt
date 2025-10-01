@@ -15,6 +15,20 @@ export interface Chunk {
   endLine: number;
 }
 
+export interface DocumentMetadata {
+  id: string;
+  title: string;
+  type?: string;
+  date?: string;
+  summary?: string;
+  tags?: string[];
+  keyTerms?: string;
+  alsoKnownAs?: string;
+  identifiers?: Record<string, string>; // patent_number, doi, arxiv_id, etc.
+  dates?: Record<string, string>; // filing, publication, priority, expiration, etc.
+  actors?: Array<{ name: string; role: string }>; // inventors, authors, assignees, etc.
+}
+
 export interface ChunkConfig {
   targetMinTokens: number; // 800
   targetMaxTokens: number; // 1200
@@ -298,21 +312,153 @@ function chunkSection(
 }
 
 /**
+ * Generate a metadata chunk from document metadata
+ * This chunk helps with document identification and keyword matching
+ */
+function generateMetadataChunk(
+  metadata: DocumentMetadata,
+  counter: TokenCounter
+): Chunk {
+  const parts: string[] = ['**Document Metadata**\n'];
+
+  // Add document identifiers
+  parts.push(`- **ID**: ${metadata.id}`);
+  parts.push(`- **Title**: ${metadata.title}`);
+
+  if (metadata.type) {
+    parts.push(`- **Type**: ${metadata.type}`);
+  }
+
+  if (metadata.date) {
+    parts.push(`- **Date**: ${metadata.date}`);
+  }
+
+  // Add structured identifiers (patent numbers, DOIs, etc.)
+  if (metadata.identifiers && Object.keys(metadata.identifiers).length > 0) {
+    const identifiersList = Object.entries(metadata.identifiers)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(', ');
+    parts.push(`- **Identifiers**: ${identifiersList}`);
+  }
+
+  // Add structured dates
+  if (metadata.dates && Object.keys(metadata.dates).length > 0) {
+    const datesList = Object.entries(metadata.dates)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(', ');
+    parts.push(`- **Dates**: ${datesList}`);
+  }
+
+  // Add actors (inventors, authors, etc.)
+  if (metadata.actors && metadata.actors.length > 0) {
+    const actorsList = metadata.actors
+      .map((actor) => `${actor.name} (${actor.role})`)
+      .join(', ');
+    parts.push(`- **Actors**: ${actorsList}`);
+  }
+
+  // Add searchable aliases
+  if (metadata.alsoKnownAs) {
+    parts.push(`- **Also Known As**: ${metadata.alsoKnownAs}`);
+  }
+
+  // Add key terms for keyword matching
+  if (metadata.keyTerms) {
+    parts.push(`- **Key Terms**: ${metadata.keyTerms}`);
+  }
+
+  // Add tags if available
+  if (metadata.tags && metadata.tags.length > 0) {
+    parts.push(`- **Tags**: ${metadata.tags.join(', ')}`);
+  }
+
+  // Add summary for context
+  if (metadata.summary) {
+    parts.push(`\n${metadata.summary}`);
+  }
+
+  const text = parts.join('\n');
+
+  return {
+    text,
+    sectionPath: 'Metadata',
+    tokenCount: counter.count(text),
+    startLine: 0,
+    endLine: 0,
+  };
+}
+
+/**
+ * Merge small adjacent sections to reach minimum token count
+ * This prevents creating too many tiny chunks from documents with many short sections
+ */
+function mergeSections(
+  sections: MarkdownSection[],
+  minTokens: number,
+  counter: TokenCounter
+): MarkdownSection[] {
+  if (sections.length === 0) return [];
+
+  const merged: MarkdownSection[] = [];
+  let currentMerge: MarkdownSection | null = null;
+
+  for (let i = 0; i < sections.length; i++) {
+    const section = sections[i];
+    const sectionTokens = counter.count(section.content);
+
+    if (!currentMerge) {
+      // Start a new merge group
+      currentMerge = { ...section };
+    } else if (counter.count(currentMerge.content) + sectionTokens < minTokens) {
+      // Merge this section into the current group if both are small
+      currentMerge.content += '\n\n' + section.content;
+      currentMerge.endLine = section.endLine;
+      // Keep the highest level heading (smaller depth number)
+      if (section.depth < currentMerge.depth) {
+        currentMerge.heading = section.heading;
+        currentMerge.depth = section.depth;
+      }
+    } else {
+      // Current merge is large enough, save it and start new merge
+      merged.push(currentMerge);
+      currentMerge = { ...section };
+    }
+  }
+
+  // Don't forget the last merge group
+  if (currentMerge) {
+    merged.push(currentMerge);
+  }
+
+  return merged;
+}
+
+/**
  * Main chunking function - processes entire document
  */
 export function chunkDocument(
   content: string,
-  config: Partial<ChunkConfig> = {}
+  config: Partial<ChunkConfig> = {},
+  metadata?: DocumentMetadata
 ): Chunk[] {
   const finalConfig: ChunkConfig = { ...DEFAULT_CONFIG, ...config };
   const counter = new TokenCounter(finalConfig.model);
   const sections = extractSections(content);
   const allChunks: Chunk[] = [];
 
+  // Generate metadata chunk if metadata provided
+  if (metadata) {
+    const metadataChunk = generateMetadataChunk(metadata, counter);
+    allChunks.push(metadataChunk);
+  }
+
+  // Merge small adjacent sections to avoid creating too many tiny chunks
+  const mergedSections = mergeSections(sections, finalConfig.targetMinTokens, counter);
+
   let previousChunkText: string | undefined;
 
-  sections.forEach((section, index) => {
-    const sectionPath = buildSectionPath(sections, index);
+  mergedSections.forEach((section, index) => {
+    const sectionPath = buildSectionPath(mergedSections, index);
     const sectionChunks = chunkSection(
       section,
       sectionPath,
