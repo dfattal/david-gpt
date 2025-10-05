@@ -35,6 +35,13 @@
                 "mcp-remote",
                 "https://mcp.exa.ai/mcp?exaApiKey=4cee82ba-f0e2-4d53-bb16-f6920696c862"
             ]
+        },
+        "axiomatic-documents": {
+            "command": "uvx --from axiomatic-mcp axiomatic-documents",
+            "env": {
+                "AXIOMATIC_API_KEY": "36016c1a-8328-4dba-b7a8-3a49f4130cbb"
+            },
+            "args": []
         }
     }
 }
