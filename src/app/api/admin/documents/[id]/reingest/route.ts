@@ -1,25 +1,24 @@
 /**
- * API route for re-ingesting documents
+ * API route for re-ingesting documents (ASYNC)
  * POST /api/admin/documents/[id]/reingest
+ * Returns jobId immediately, processing happens in background
  */
 
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { DatabaseIngestor } from '@/lib/rag/ingestion/databaseIngestor';
+import { createExtractionJob } from '@/lib/queue/jobQueue';
+import type { ReingestJobData } from '@/lib/queue/types';
 
 interface ReingestResponse {
   success: boolean;
-  result?: {
-    id: string;
-    title: string;
-    chunks_created: number;
-  };
+  jobId?: string;
+  message?: string;
   error?: string;
 }
 
 /**
  * POST /api/admin/documents/[id]/reingest
- * Delete existing chunks and re-ingest document
+ * Delete existing chunks and re-ingest document (async)
  * Useful after metadata updates or chunking strategy changes
  */
 export async function POST(
@@ -50,10 +49,10 @@ export async function POST(
   }
 
   try {
-    // Fetch document
+    // Fetch document to validate it exists and get persona
     const { data: doc, error: fetchError } = await supabase
       .from('docs')
-      .select('id, title, raw_content, personas')
+      .select('id, title, personas')
       .eq('id', id)
       .single();
 
@@ -73,58 +72,29 @@ export async function POST(
       );
     }
 
-    // Delete existing chunks
-    const { error: deleteError } = await supabase
-      .from('chunks')
-      .delete()
-      .eq('doc_id', id);
+    // Create job data
+    const jobData: ReingestJobData = {
+      docId: id,
+      personaSlug,
+      userId: user.id,
+    };
 
-    if (deleteError) {
-      console.error('Error deleting chunks:', deleteError);
-      return NextResponse.json(
-        { success: false, error: `Failed to delete existing chunks: ${deleteError.message}` },
-        { status: 500 }
-      );
-    }
-
-    // Re-ingest document
-    const ingestor = new DatabaseIngestor(supabase, process.env.OPENAI_API_KEY);
-    const result = await ingestor.ingestDocument(
-      {
-        filePath: id,
-        content: doc.raw_content,
-      },
-      true // overwrite
-    );
-
-    if (result.error) {
-      throw new Error(result.error);
-    }
-
-    // Count new chunks
-    const { count, error: countError } = await supabase
-      .from('chunks')
-      .select('id', { count: 'exact', head: true })
-      .eq('doc_id', id);
-
-    if (countError) {
-      console.error('Error counting chunks:', countError);
-    }
-
-    console.log(`✅ Re-ingested document ${id}: ${count || 0} chunks created`);
+    // Create async job
+    const jobId = await createExtractionJob({
+      jobType: 'reingest',
+      inputData: jobData,
+      userId: user.id,
+    });
 
     return NextResponse.json({
       success: true,
-      result: {
-        id,
-        title: doc.title,
-        chunks_created: count || 0,
-      },
+      jobId,
+      message: 'Ingestion job queued. Use /api/admin/jobs/[id] to check status.',
     });
   } catch (error) {
     console.error('Error in POST /api/admin/documents/[id]/reingest:', error);
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { success: false, error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
     );
   }

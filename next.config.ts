@@ -18,6 +18,29 @@ const nextConfig: NextConfig = {
   turbopack: {
     resolveExtensions: ['.tsx', '.ts', '.jsx', '.js', '.mjs', '.json'],
   },
+
+  // Configure webpack for WASM support (fallback for production builds)
+  webpack: (config, { isServer }) => {
+    // Add rule for WASM files
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
+      layers: true,
+    };
+
+    config.module.rules.push({
+      test: /\.wasm$/,
+      type: 'webassembly/async',
+    });
+
+    // Ignore tiktoken WASM files from being processed by webpack loaders
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'tiktoken': require.resolve('tiktoken'),
+    };
+
+    return config;
+  },
   
   // Enable compression for better performance
   compress: true,

@@ -19,10 +19,10 @@ interface MetadataUpdate {
   author?: string;
   publisher?: string;
   keyTerms?: string[];
-  alsoKnownAs?: Record<string, string[]>;
+  alsoKnownAs?: string[]; // Simple list of document aliases
   identifiers?: Record<string, string>; // Structured identifiers
   dates?: Record<string, string>; // Structured dates
-  actors?: Array<{ name: string; role: string }>; // Actors
+  actors?: Array<{ name: string; role: string; affiliation?: string }>; // Actors with optional affiliation
 }
 
 interface UpdateResponse {
@@ -121,45 +121,38 @@ export async function PATCH(
     let updatedBody = bodyContent;
 
     if (updates.keyTerms) {
-      // Replace or add Key Terms section
-      const keyTermsSection = `## Key Terms\n\n${updates.keyTerms.map(term => `- ${term}`).join('\n')}`;
+      // Update the inline **Key Terms**: format at the start of content
+      const keyTermsLine = `**Key Terms**: ${updates.keyTerms.join(', ')}`;
 
-      if (updatedBody.includes('## Key Terms')) {
+      if (updatedBody.match(/^\*\*Key Terms\*\*:/m)) {
         updatedBody = updatedBody.replace(
-          /## Key Terms\n\n[\s\S]*?(?=\n## |\n---|\Z)/,
-          keyTermsSection + '\n\n'
+          /^\*\*Key Terms\*\*:.*$/m,
+          keyTermsLine
         );
       } else {
-        // Add before Also Known As or at the beginning
-        if (updatedBody.includes('## Also Known As')) {
-          updatedBody = keyTermsSection + '\n\n' + updatedBody;
-        } else {
-          updatedBody = keyTermsSection + '\n\n' + updatedBody;
-        }
+        // Add at the beginning before Also Known As or any content
+        updatedBody = keyTermsLine + '\n' + updatedBody;
       }
     }
 
     if (updates.alsoKnownAs) {
-      // Replace or add Also Known As section
-      const akaLines = Object.entries(updates.alsoKnownAs).map(
-        ([term, aliases]) => `- **${term}**: ${aliases.join(', ')}`
-      );
-      const akaSection = `## Also Known As (AKA)\n\n${akaLines.join('\n')}`;
+      // Update the inline **Also Known As**: format - simple comma-separated list
+      const akaLine = `**Also Known As**: ${updates.alsoKnownAs.length > 0 ? updates.alsoKnownAs.join(', ') : ''}`;
 
-      if (updatedBody.includes('## Also Known As')) {
+      if (updatedBody.match(/^\*\*Also Known As\*\*:/m)) {
         updatedBody = updatedBody.replace(
-          /## Also Known As.*?\n\n[\s\S]*?(?=\n## |\n---|\Z)/,
-          akaSection + '\n\n'
+          /^\*\*Also Known As\*\*:.*$/m,
+          akaLine
         );
       } else {
-        // Add after Key Terms or at the beginning
-        if (updatedBody.includes('## Key Terms')) {
+        // Add after Key Terms if it exists, otherwise at the beginning
+        if (updatedBody.match(/^\*\*Key Terms\*\*:/m)) {
           updatedBody = updatedBody.replace(
-            /(## Key Terms\n\n[\s\S]*?(?=\n## |\n---|\Z))/,
-            `$1${akaSection}\n\n`
+            /(^\*\*Key Terms\*\*:.*$)/m,
+            `$1\n${akaLine}`
           );
         } else {
-          updatedBody = akaSection + '\n\n' + updatedBody;
+          updatedBody = akaLine + '\n' + updatedBody;
         }
       }
     }

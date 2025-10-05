@@ -18,6 +18,8 @@ export interface DocumentDetails {
   license: string | null;
   personas: string[];
   raw_content: string;
+  ingestion_status: 'extracted' | 'ingested' | 'failed';
+  extraction_metadata?: any;
   chunk_count: number;
   file_size: number | null;
   storage_path: string | null;
@@ -95,6 +97,8 @@ export async function GET(
       license: doc.license,
       personas: doc.personas || [],
       raw_content: doc.raw_content,
+      ingestion_status: doc.ingestion_status || 'extracted',
+      extraction_metadata: doc.extraction_metadata || {},
       chunk_count: doc.chunks?.[0]?.count || 0,
       file_size: fileInfo?.file_size || null,
       storage_path: fileInfo?.storage_path || null,

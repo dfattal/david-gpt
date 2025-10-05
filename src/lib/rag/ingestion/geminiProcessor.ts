@@ -6,7 +6,7 @@
 import { execSync } from 'child_process';
 import path from 'path';
 
-export type DocumentType = 'patent' | 'release_notes' | 'spec' | 'blog' | 'press' | 'faq' | 'arxiv' | 'technical_note' | 'other';
+export type DocumentType = 'patent' | 'release_notes' | 'spec' | 'blog' | 'press' | 'faq' | 'arxiv' | 'technical_note' | 'article' | 'other';
 
 interface WebMetadata {
   identifiers?: Record<string, string>;

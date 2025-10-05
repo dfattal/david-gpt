@@ -4,7 +4,7 @@
  * Splits on heading boundaries when possible and tracks section hierarchy
  */
 
-import { Tiktoken, encoding_for_model } from 'tiktoken';
+import { encode } from 'gpt-tokenizer';
 import { extractSections, buildSectionPath, type MarkdownSection } from '../ingestion/markdownProcessor';
 
 export interface Chunk {
@@ -33,7 +33,7 @@ export interface ChunkConfig {
   targetMinTokens: number; // 800
   targetMaxTokens: number; // 1200
   overlapPercent: number;  // 0.15-0.20
-  model: 'gpt-4' | 'gpt-3.5-turbo'; // For tiktoken encoding
+  model: 'gpt-4' | 'gpt-3.5-turbo'; // Model name (not used with gpt-tokenizer)
 }
 
 const DEFAULT_CONFIG: ChunkConfig = {
@@ -44,21 +44,20 @@ const DEFAULT_CONFIG: ChunkConfig = {
 };
 
 /**
- * Token counter using tiktoken
+ * Token counter using gpt-tokenizer (pure JS, no WASM)
  */
 export class TokenCounter {
-  private encoder: Tiktoken;
-
-  constructor(model: ChunkConfig['model'] = 'gpt-4') {
-    this.encoder = encoding_for_model(model);
+  constructor(_model: ChunkConfig['model'] = 'gpt-4') {
+    // gpt-tokenizer uses cl100k_base encoding (works for gpt-4 and gpt-3.5-turbo)
+    // No initialization needed
   }
 
   count(text: string): number {
-    return this.encoder.encode(text).length;
+    return encode(text).length;
   }
 
   cleanup(): void {
-    this.encoder.free();
+    // No cleanup needed for gpt-tokenizer
   }
 }
 

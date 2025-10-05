@@ -186,7 +186,7 @@ export function DocumentActions({
             <DialogDescription>
               This will delete all existing chunks ({document.chunk_count || 0}) and
               re-run the chunking, contextual retrieval, and embedding process for
-              "{document.title}".
+              &quot;{document.title}&quot;.
             </DialogDescription>
           </DialogHeader>
 
@@ -217,7 +217,7 @@ export function DocumentActions({
           <DialogHeader>
             <DialogTitle>Delete Document?</DialogTitle>
             <DialogDescription>
-              This will permanently delete "{document.title}" and all associated data:
+              This will permanently delete &quot;{document.title}&quot; and all associated data:
               <ul className="list-disc list-inside mt-2 space-y-1">
                 <li>{document.chunk_count || 0} chunks</li>
                 <li>Document metadata</li>

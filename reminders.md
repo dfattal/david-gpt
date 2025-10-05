@@ -1,3 +1,5 @@
 # Reminders
 
-- modify frontmatter to include identifiers, actors and dates json to better handle diverse metadata, e.g. priority or expiration date for patent, various designations WO/US/CN ..., inventors and assignees
+-  Perhaps for a next phase but worth adding to progress doc is we will need frontend UI to add / edit persona and metadata and clarify
+  which / how they are modifying / boositng the RAG response
+- Need an ingest-all function in admin, perhaps a widget to select amongst available formatted markdown files (with select/unselect all function) then ingest  

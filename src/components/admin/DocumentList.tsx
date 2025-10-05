@@ -15,6 +15,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { FileText, Search } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -39,10 +49,20 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Bulk ingestion state
+  const [showBulkIngestDialog, setShowBulkIngestDialog] = useState(false);
+  const [isBulkIngesting, setIsBulkIngesting] = useState(false);
+  const [bulkIngestError, setBulkIngestError] = useState<string | null>(null);
+  const [jobIds, setJobIds] = useState<string[]>([]);
+
   // Filters
   const [personaFilter, setPersonaFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showNotIngested, setShowNotIngested] = useState(false);
 
   // Sorting
   const [sortBy, setSortBy] = useState<'title' | 'updated_at' | 'chunk_count'>(
@@ -89,6 +109,11 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
       filtered = filtered.filter((doc) => doc.type === typeFilter);
     }
 
+    // Not ingested filter
+    if (showNotIngested) {
+      filtered = filtered.filter((doc) => doc.chunk_count === 0);
+    }
+
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -118,7 +143,7 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
     });
 
     setFilteredDocs(filtered);
-  }, [documents, personaFilter, typeFilter, searchQuery, sortBy, sortOrder]);
+  }, [documents, personaFilter, typeFilter, searchQuery, sortBy, sortOrder, showNotIngested]);
 
   const handleDocumentDeleted = (docId: string) => {
     setDocuments((prev) => prev.filter((doc) => doc.id !== docId));
@@ -127,6 +152,67 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
   const handleDocumentUpdated = () => {
     // Trigger refresh after update
     window.location.reload();
+  };
+
+  // Selection handlers
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredDocs.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredDocs.map((doc) => doc.id)));
+    }
+  };
+
+  const toggleSelectDoc = (docId: string) => {
+    const newSelection = new Set(selectedIds);
+    if (newSelection.has(docId)) {
+      newSelection.delete(docId);
+    } else {
+      newSelection.add(docId);
+    }
+    setSelectedIds(newSelection);
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkIngest = async () => {
+    try {
+      setIsBulkIngesting(true);
+      setBulkIngestError(null);
+
+      const docIds = Array.from(selectedIds);
+
+      const response = await fetch('/api/admin/documents/bulk-reingest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ docIds }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Bulk ingestion failed');
+      }
+
+      setJobIds(data.jobIds || []);
+      setShowBulkIngestDialog(false);
+      clearSelection();
+
+      // Trigger refresh after a short delay to show updated status
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (err) {
+      setBulkIngestError(
+        err instanceof Error ? err.message : 'Bulk ingestion failed'
+      );
+    } finally {
+      setIsBulkIngesting(false);
+    }
   };
 
   const toggleSort = (field: typeof sortBy) => {
@@ -205,7 +291,33 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
             ))}
           </SelectContent>
         </Select>
+
+        <Button
+          variant={showNotIngested ? 'default' : 'outline'}
+          onClick={() => setShowNotIngested(!showNotIngested)}
+        >
+          Not Ingested (0 chunks)
+        </Button>
       </div>
+
+      {/* Bulk Action Toolbar */}
+      {selectedIds.size > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-medium text-blue-900">
+              ✓ {selectedIds.size} document{selectedIds.size !== 1 ? 's' : ''} selected
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={clearSelection}>
+                Deselect All
+              </Button>
+              <Button size="sm" onClick={() => setShowBulkIngestDialog(true)}>
+                Ingest Selected ({selectedIds.size})
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Results Count */}
       <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -231,6 +343,12 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
             <table className="w-full">
               <thead className="bg-muted/50 border-b">
                 <tr>
+                  <th className="text-left p-4 font-medium w-12">
+                    <Checkbox
+                      checked={selectedIds.size === filteredDocs.length && filteredDocs.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </th>
                   <th
                     className="text-left p-4 font-medium cursor-pointer hover:bg-muted/80"
                     onClick={() => toggleSort('title')}
@@ -272,7 +390,18 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
               </thead>
               <tbody>
                 {filteredDocs.map((doc) => (
-                  <tr key={doc.id} className="border-b last:border-0 hover:bg-muted/50">
+                  <tr
+                    key={doc.id}
+                    className={`border-b last:border-0 hover:bg-muted/50 ${
+                      selectedIds.has(doc.id) ? 'bg-blue-50' : ''
+                    }`}
+                  >
+                    <td className="p-4">
+                      <Checkbox
+                        checked={selectedIds.has(doc.id)}
+                        onCheckedChange={() => toggleSelectDoc(doc.id)}
+                      />
+                    </td>
                     <td className="p-4">
                       <div>
                         <p className="font-medium">{doc.title}</p>
@@ -304,7 +433,11 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
                       </span>
                     </td>
                     <td className="p-4 text-sm">{doc.type}</td>
-                    <td className="p-4 text-sm">{doc.chunk_count}</td>
+                    <td className="p-4 text-sm">
+                      <span className={doc.chunk_count === 0 ? 'font-bold text-red-600' : ''}>
+                        {doc.chunk_count}
+                      </span>
+                    </td>
                     <td className="p-4 text-sm text-muted-foreground">
                       {doc.file_size
                         ? `${(doc.file_size / 1024).toFixed(1)} KB`
@@ -329,6 +462,55 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
           </div>
         </div>
       )}
+
+      {/* Bulk Ingest Confirmation Dialog */}
+      <Dialog open={showBulkIngestDialog} onOpenChange={setShowBulkIngestDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ingest {selectedIds.size} Document{selectedIds.size !== 1 ? 's' : ''}?</DialogTitle>
+            <DialogDescription>
+              This will create chunks and embeddings for:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                {Array.from(selectedIds)
+                  .slice(0, 3)
+                  .map((id) => {
+                    const doc = documents.find((d) => d.id === id);
+                    return doc ? (
+                      <li key={id}>
+                        {doc.title} ({doc.persona_slug})
+                      </li>
+                    ) : null;
+                  })}
+                {selectedIds.size > 3 && (
+                  <li>... and {selectedIds.size - 3} more</li>
+                )}
+              </ul>
+              <p className="mt-3 text-sm text-muted-foreground">
+                Estimated processing time: ~{Math.ceil(selectedIds.size * 0.5)}-{selectedIds.size} minutes
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+
+          {bulkIngestError && (
+            <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-600">
+              {bulkIngestError}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowBulkIngestDialog(false)}
+              disabled={isBulkIngesting}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleBulkIngest} disabled={isBulkIngesting}>
+              {isBulkIngesting ? 'Starting Ingestion...' : 'Start Ingestion'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

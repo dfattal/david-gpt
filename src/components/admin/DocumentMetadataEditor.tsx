@@ -52,10 +52,10 @@ interface FormData {
   author: string;
   publisher: string;
   keyTerms: string[];
-  alsoKnownAs: Record<string, string[]>;
+  alsoKnownAs: string[];
   identifiers: Record<string, string>;
   dates: Record<string, string>;
-  actors: Array<{ name: string; role: string }>;
+  actors: Array<{ name: string; role: string; affiliation?: string }>;
 }
 
 export function DocumentMetadataEditor({
@@ -75,7 +75,7 @@ export function DocumentMetadataEditor({
     author: '',
     publisher: '',
     keyTerms: [],
-    alsoKnownAs: {},
+    alsoKnownAs: [],
     identifiers: {},
     dates: {},
     actors: [],
@@ -83,14 +83,14 @@ export function DocumentMetadataEditor({
 
   const [tagInput, setTagInput] = useState('');
   const [keyTermInput, setKeyTermInput] = useState('');
-  const [akaTermInput, setAkaTermInput] = useState('');
-  const [akaAliasesInput, setAkaAliasesInput] = useState('');
+  const [akaInput, setAkaInput] = useState('');
   const [identifierKey, setIdentifierKey] = useState('');
   const [identifierValue, setIdentifierValue] = useState('');
   const [dateKey, setDateKey] = useState('');
   const [dateValue, setDateValue] = useState('');
   const [actorName, setActorName] = useState('');
   const [actorRole, setActorRole] = useState('');
+  const [actorAffiliation, setActorAffiliation] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -107,22 +107,13 @@ export function DocumentMetadataEditor({
         ? keyTermsMatch[1].split(',').map((t) => t.trim())
         : [];
 
-      // Extract Also Known As from content
+      // Extract Also Known As from content - simple comma-separated list
       const akaMatch = content.match(
         /\*\*Also Known As\*\*:\s*([^\n]+)/
       );
-      const aka: Record<string, string[]> = {};
-      if (akaMatch) {
-        // Parse "term: alias1, alias2" format
-        const akaStr = akaMatch[1];
-        const entries = akaStr.split(',').map((e) => e.trim());
-        entries.forEach((entry) => {
-          const [term, ...aliases] = entry.split(':').map((s) => s.trim());
-          if (term) {
-            aka[term] = aliases.length ? aliases : [];
-          }
-        });
-      }
+      const aka: string[] = akaMatch
+        ? akaMatch[1].split(',').map((a) => a.trim()).filter((a) => a)
+        : [];
 
       // Convert any Date objects to strings
       const serializeDates = (obj: any): Record<string, string> => {
@@ -196,29 +187,19 @@ export function DocumentMetadataEditor({
   };
 
   const handleAddAKA = () => {
-    if (akaTermInput.trim()) {
-      const aliases = akaAliasesInput
-        .split(',')
-        .map((a) => a.trim())
-        .filter((a) => a);
-
+    if (akaInput.trim() && !formData.alsoKnownAs.includes(akaInput.trim())) {
       setFormData({
         ...formData,
-        alsoKnownAs: {
-          ...formData.alsoKnownAs,
-          [akaTermInput.trim()]: aliases,
-        },
+        alsoKnownAs: [...formData.alsoKnownAs, akaInput.trim()],
       });
-      setAkaTermInput('');
-      setAkaAliasesInput('');
+      setAkaInput('');
     }
   };
 
-  const handleRemoveAKA = (term: string) => {
-    const { [term]: removed, ...rest } = formData.alsoKnownAs;
+  const handleRemoveAKA = (alias: string) => {
     setFormData({
       ...formData,
-      alsoKnownAs: rest,
+      alsoKnownAs: formData.alsoKnownAs.filter((a) => a !== alias),
     });
   };
 
@@ -268,15 +249,20 @@ export function DocumentMetadataEditor({
 
   const handleAddActor = () => {
     if (actorName.trim() && actorRole.trim()) {
+      const newActor: { name: string; role: string; affiliation?: string } = {
+        name: actorName.trim(),
+        role: actorRole.trim(),
+      };
+      if (actorAffiliation.trim()) {
+        newActor.affiliation = actorAffiliation.trim();
+      }
       setFormData({
         ...formData,
-        actors: [
-          ...formData.actors,
-          { name: actorName.trim(), role: actorRole.trim() },
-        ],
+        actors: [...formData.actors, newActor],
       });
       setActorName('');
       setActorRole('');
+      setActorAffiliation('');
     }
   };
 
@@ -357,15 +343,18 @@ export function DocumentMetadataEditor({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="arxiv">Paper (Academic)</SelectItem>
+                  <SelectItem value="patent">Patent</SelectItem>
+                  <SelectItem value="article">Article</SelectItem>
+                  <SelectItem value="technical_note">Technical Note</SelectItem>
+                  <SelectItem value="release_notes">Release Notes</SelectItem>
+                  <SelectItem value="spec">Specification</SelectItem>
                   <SelectItem value="blog">Blog</SelectItem>
                   <SelectItem value="press">Press Release</SelectItem>
-                  <SelectItem value="spec">Specification</SelectItem>
                   <SelectItem value="tech_memo">Tech Memo</SelectItem>
                   <SelectItem value="faq">FAQ</SelectItem>
                   <SelectItem value="slide">Slides</SelectItem>
                   <SelectItem value="email">Email</SelectItem>
-                  <SelectItem value="patent">Patent</SelectItem>
-                  <SelectItem value="release_notes">Release Notes</SelectItem>
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
@@ -519,41 +508,37 @@ export function DocumentMetadataEditor({
 
           {/* Also Known As */}
           <div>
-            <label className="text-sm font-medium block mb-2">Also Known As (AKA)</label>
+            <label className="text-sm font-medium block mb-2">
+              Also Known As (Document Aliases)
+            </label>
+            <p className="text-xs text-muted-foreground mb-2">
+              Alternative names or titles for this document
+            </p>
             <div className="flex gap-2 mb-2">
               <Input
-                value={akaTermInput}
-                onChange={(e) => setAkaTermInput(e.target.value)}
-                placeholder="Term..."
-                className="flex-1"
-              />
-              <Input
-                value={akaAliasesInput}
-                onChange={(e) => setAkaAliasesInput(e.target.value)}
-                placeholder="Aliases (comma-separated)..."
-                className="flex-1"
+                value={akaInput}
+                onChange={(e) => setAkaInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddAKA())}
+                placeholder="Add alias..."
               />
               <Button type="button" onClick={handleAddAKA} variant="outline">
                 Add
               </Button>
             </div>
-            <div className="space-y-2">
-              {Object.entries(formData.alsoKnownAs).map(([term, aliases]) => (
-                <div
-                  key={term}
-                  className="flex items-center gap-2 p-2 bg-muted rounded"
+            <div className="flex gap-2 flex-wrap">
+              {formData.alsoKnownAs.map((alias) => (
+                <span
+                  key={alias}
+                  className="px-3 py-1 bg-purple-100 text-purple-700 rounded flex items-center gap-2"
                 >
-                  <span className="font-medium">{term}:</span>
-                  <span className="text-muted-foreground">
-                    {aliases.join(', ') || '(no aliases)'}
-                  </span>
+                  {alias}
                   <button
-                    onClick={() => handleRemoveAKA(term)}
-                    className="ml-auto hover:text-red-600"
+                    onClick={() => handleRemoveAKA(alias)}
+                    className="hover:text-purple-600"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-3 w-3" />
                   </button>
-                </div>
+                </span>
               ))}
             </div>
           </div>
@@ -639,20 +624,26 @@ export function DocumentMetadataEditor({
           {/* Actors */}
           <div>
             <label className="text-sm font-medium block mb-2">Actors</label>
-            <div className="flex gap-2 mb-2">
+            <div className="grid grid-cols-12 gap-2 mb-2">
               <Input
                 value={actorName}
                 onChange={(e) => setActorName(e.target.value)}
                 placeholder="Name..."
-                className="flex-1"
+                className="col-span-4"
               />
               <Input
                 value={actorRole}
                 onChange={(e) => setActorRole(e.target.value)}
-                placeholder="Role (e.g., inventor, author)..."
-                className="flex-1"
+                placeholder="Role (inventor, author)..."
+                className="col-span-3"
               />
-              <Button type="button" onClick={handleAddActor} variant="outline">
+              <Input
+                value={actorAffiliation}
+                onChange={(e) => setActorAffiliation(e.target.value)}
+                placeholder="Affiliation (optional)..."
+                className="col-span-4"
+              />
+              <Button type="button" onClick={handleAddActor} variant="outline" className="col-span-1">
                 Add
               </Button>
             </div>
@@ -664,6 +655,9 @@ export function DocumentMetadataEditor({
                 >
                   <span className="font-medium">{actor.name}</span>
                   <span className="text-muted-foreground">({actor.role})</span>
+                  {actor.affiliation && (
+                    <span className="text-xs text-muted-foreground">- {actor.affiliation}</span>
+                  )}
                   <button
                     onClick={() => handleRemoveActor(index)}
                     className="ml-auto hover:text-red-600"

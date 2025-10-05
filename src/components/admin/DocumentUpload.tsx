@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Upload, FileText, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { usePersonas } from '@/hooks/usePersonas';
 
 interface DocumentUploadProps {
   onSuccess: () => void;
@@ -30,9 +31,18 @@ interface UploadFile {
 }
 
 export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
-  const [personaSlug, setPersonaSlug] = useState<string>('david');
+  const [personaSlug, setPersonaSlug] = useState<string>('');
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+
+  const { personas, isLoading: personasLoading } = usePersonas();
+
+  // Set default persona once loaded
+  useEffect(() => {
+    if (personas.length > 0 && !personaSlug) {
+      setPersonaSlug(personas[0].slug);
+    }
+  }, [personas, personaSlug]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const newFiles = acceptedFiles.map((file) => ({
@@ -146,13 +156,16 @@ export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
           <label className="text-sm font-medium mb-2 block">
             Target Persona
           </label>
-          <Select value={personaSlug} onValueChange={setPersonaSlug}>
+          <Select value={personaSlug} onValueChange={setPersonaSlug} disabled={isUploading || personasLoading}>
             <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Select persona" />
+              <SelectValue placeholder={personasLoading ? "Loading..." : "Select persona"} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="david">David</SelectItem>
-              <SelectItem value="leia">Leia</SelectItem>
+              {personas.map((persona) => (
+                <SelectItem key={persona.slug} value={persona.slug}>
+                  {persona.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
