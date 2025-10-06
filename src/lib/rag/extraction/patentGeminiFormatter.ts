@@ -15,7 +15,8 @@ export async function formatPatentMarkdown(
   personaSlugs: string[],
   geminiApiKey: string,
   userKeyTerms?: string[],
-  userAlsoKnownAs?: string
+  userAlsoKnownAs?: string,
+  sourceUrl?: string
 ): Promise<string> {
   console.log(`\n📝 Formatting patent markdown...`);
 
@@ -34,7 +35,7 @@ export async function formatPatentMarkdown(
   }
 
   // Build frontmatter
-  const frontmatter = generateFrontmatter(patentData, personaSlugs, summary);
+  const frontmatter = generateFrontmatter(patentData, personaSlugs, summary, sourceUrl);
 
   // Build sections
   const sections: string[] = [frontmatter];
@@ -86,7 +87,8 @@ export async function formatPatentMarkdown(
 function generateFrontmatter(
   patent: PatentExtractedData,
   personaSlugs: string[],
-  summary: string
+  summary: string,
+  sourceUrl?: string
 ): string {
   const lines: string[] = ['---'];
 
@@ -100,6 +102,11 @@ function generateFrontmatter(
   // Dates
   if (patent.metadata.dates?.publication) {
     lines.push(`date: ${patent.metadata.dates.publication}`);
+  }
+
+  // Source URL (Google Patents link)
+  if (sourceUrl) {
+    lines.push(`source_url: ${sourceUrl}`);
   }
 
   // Summary

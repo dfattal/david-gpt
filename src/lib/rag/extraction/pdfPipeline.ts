@@ -95,7 +95,7 @@ export async function processPdfDocument(
       const normalizedPatent = normalizePatentNumber(pdfPath);
       if (normalizedPatent) {
         console.log(`\n🔍 Detected patent: ${normalizedPatent}, using HTML extraction`);
-        return await processPatentFromHtml(normalizedPatent, personaSlug, geminiApiKey);
+        return await processPatentFromHtml(normalizedPatent, personaSlugs, geminiApiKey);
       }
 
       // Check if PDF filename indicates patent - try HTML extraction first
@@ -104,7 +104,7 @@ export async function processPdfDocument(
         const patentNumber = `US${pdfPatentMatch[1]}`;
         console.log(`\n🔍 Patent PDF detected, attempting HTML extraction for: ${patentNumber}`);
         try {
-          return await processPatentFromHtml(patentNumber, personaSlug, geminiApiKey);
+          return await processPatentFromHtml(patentNumber, personaSlugs, geminiApiKey);
         } catch (error) {
           console.log(`  ⚠️ HTML extraction failed, falling back to PDF: ${error}`);
           // Continue with PDF extraction below
@@ -160,7 +160,7 @@ export async function processPdfDocument(
       formatted,
       detectedType,
       filename,
-      personaSlug,
+      personaSlugs,
       webMetadata,
       extracted.metadata,
       globalSummary
@@ -244,7 +244,7 @@ function extractArxivId(filename: string): string | null {
  */
 async function processPatentFromHtml(
   patentNumber: string,
-  personaSlug: string,
+  personaSlugs: string[],
   geminiApiKey: string
 ): Promise<PipelineResult> {
   try {
@@ -255,7 +255,8 @@ async function processPatentFromHtml(
 
     // Step 2: Format to clean markdown with Gemini
     console.log('  [2/2] Formatting markdown with Gemini...');
-    const markdown = await formatPatentMarkdown(patentData, personaSlug, geminiApiKey);
+    const sourceUrl = `https://patents.google.com/patent/${patentNumber}`;
+    const markdown = await formatPatentMarkdown(patentData, personaSlugs, geminiApiKey, undefined, undefined, sourceUrl);
     console.log(`  ✓ Formatted document: ${markdown.length.toLocaleString()} chars`);
 
     console.log('✅ Gemini-based HTML extraction complete\n');

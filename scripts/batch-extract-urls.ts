@@ -78,7 +78,8 @@ async function processUrl(
       const patentData = await extractPatentWithGemini(analysis.identifier, geminiApiKey);
 
       // Format as markdown
-      markdown = await formatPatentMarkdown(patentData, personaSlug, geminiApiKey);
+      const sourceUrl = `https://patents.google.com/patent/${analysis.identifier}`;
+      markdown = await formatPatentMarkdown(patentData, [personaSlug], geminiApiKey, undefined, undefined, sourceUrl);
 
       filename = `${analysis.identifier.toLowerCase()}.md`;
 
@@ -94,7 +95,7 @@ async function processUrl(
       const paperData = await extractArxivFromHtml(analysis.identifier, geminiApiKey);
 
       // Format as markdown
-      const formatted = formatArxivAsMarkdown(paperData);
+      const formatted = formatArxivAsMarkdown(paperData, [personaSlug]);
       markdown = formatted.markdown;
 
       filename = `${analysis.identifier.replace(/\./g, '-')}.md`;

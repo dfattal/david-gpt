@@ -127,12 +127,14 @@ async function processSingleUrl(
       const patentData = await extractPatentWithGemini(analysis.identifier, geminiApiKey);
 
       // Format as markdown with metadata injection
+      const sourceUrl = `https://patents.google.com/patent/${analysis.identifier}`;
       markdown = await formatPatentMarkdown(
         patentData,
         personaSlugs,
         geminiApiKey,
         item.keyTerms,
-        item.alsoKnownAs
+        item.alsoKnownAs,
+        sourceUrl
       );
 
       filename = `${analysis.identifier.toLowerCase()}.md`;

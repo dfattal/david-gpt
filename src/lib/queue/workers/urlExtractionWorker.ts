@@ -83,7 +83,8 @@ export async function processSingleUrl(job: Job, data: UrlSingleJobData): Promis
       }
 
       const patentData = await extractPatentWithGemini(analysis.identifier, geminiApiKey);
-      markdown = await formatPatentMarkdown(patentData, personaSlugs, geminiApiKey);
+      const sourceUrl = `https://patents.google.com/patent/${analysis.identifier}`;
+      markdown = await formatPatentMarkdown(patentData, personaSlugs, geminiApiKey, undefined, undefined, sourceUrl);
       filename = `${analysis.identifier.toLowerCase()}.md`;
       stats.contentChars = markdown.length;
       stats.claims = patentData.claims.length;
@@ -291,7 +292,8 @@ export async function processBatchUrl(job: Job, data: UrlBatchJobData): Promise<
         if (finalType === 'patent') {
           if (!analysis.identifier) throw new Error('Could not extract patent number');
           const patentData = await extractPatentWithGemini(analysis.identifier, geminiApiKey);
-          markdown = await formatPatentMarkdown(patentData, personaSlugs, geminiApiKey);
+          const sourceUrl = `https://patents.google.com/patent/${analysis.identifier}`;
+          markdown = await formatPatentMarkdown(patentData, personaSlugs, geminiApiKey, undefined, undefined, sourceUrl);
           filename = `${analysis.identifier.toLowerCase()}.md`;
 
         } else if (finalType === 'arxiv') {
