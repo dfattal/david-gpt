@@ -31,6 +31,7 @@
 - **Dynamic Personas**: All dropdowns fetch from database ✅
 - **Worker Architecture**: Unified worker with job routing ✅
 - **Frontend Components**: MarkdownExtraction ✅, UrlExtraction ✅, PdfExtraction ✅
+- **Async Ingestion**: DocumentPreviewModal "Ingest Now" + reingest worker ✅
 
 **Phase 12 (NEW)**: Persona Configuration Admin UI ✅ **COMPLETE**
 - **Admin Interface**: Persona config editor in `/admin/rag` tab ✅
@@ -323,12 +324,14 @@ Replace synchronous extraction/ingestion operations with async job queue to elim
 - ✅ `UrlExtraction.tsx` - Async patterns implemented and tested
 - ✅ `PdfExtraction.tsx` - Async patterns implemented and tested
 
+**✅ Async Ingestion Complete** (2025-10-05):
+- ✅ `/api/admin/documents/[id]/reingest` - Returns jobId for async processing
+- ✅ "Ingest Now" button uses jobId polling pattern (DocumentPreviewModal)
+- ✅ Real-time progress UI with 6-step tracking
+- ✅ Worker job type: `reingest` (registered in start-worker.ts)
+- ✅ Tested successfully with us10838134 document
+
 **❌ Remaining (Production & Enhancement)**:
-- ❌ **Convert Ingestion to Async** (Phase 11 Extension):
-  - `/api/admin/documents/[id]/reingest` - Add async job queue support
-  - Update "Ingest Now" button to use jobId polling pattern
-  - Add real-time progress UI (same pattern as extraction)
-  - Worker job type: `ingestion` or `reingest`
 - ❌ Add job history view in admin UI
 - ❌ Production deployment (Redis hosting, worker deployment)
 
