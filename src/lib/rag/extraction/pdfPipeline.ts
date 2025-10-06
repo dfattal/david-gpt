@@ -82,7 +82,7 @@ export interface PipelineResult {
  */
 export async function processPdfDocument(
   pdfPath: string | Buffer,
-  personaSlug: string,
+  personaSlugs: string[],
   geminiApiKey: string,
   docType?: DocumentType,
   exaApiKey?: string

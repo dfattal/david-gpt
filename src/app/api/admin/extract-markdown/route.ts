@@ -23,7 +23,7 @@ interface ExtractionResponse {
  *
  * Expected form-data:
  * - file: RAW markdown file
- * - personaSlug: target persona
+ * - personaSlugs: JSON array of target personas (e.g., '["david","albert"]')
  *
  * Returns: { success: true, jobId: "uuid", message: "Job queued" }
  */
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Extractio
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const personaSlug = formData.get('personaSlug') as string;
+    const personaSlugsStr = formData.get('personaSlugs') as string;
 
     if (!file) {
       return NextResponse.json(
@@ -62,9 +62,23 @@ export async function POST(request: NextRequest): Promise<NextResponse<Extractio
       );
     }
 
-    if (!personaSlug) {
+    if (!personaSlugsStr) {
       return NextResponse.json(
-        { success: false, error: 'Persona slug is required' },
+        { success: false, error: 'Persona slugs are required' },
+        { status: 400 }
+      );
+    }
+
+    // Parse persona slugs array
+    let personaSlugs: string[];
+    try {
+      personaSlugs = JSON.parse(personaSlugsStr);
+      if (!Array.isArray(personaSlugs) || personaSlugs.length === 0) {
+        throw new Error('Invalid persona slugs array');
+      }
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'personaSlugs must be a JSON array with at least one slug' },
         { status: 400 }
       );
     }
@@ -84,7 +98,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Extractio
     const jobData: MarkdownSingleJobData = {
       content,
       filename: file.name,
-      personaSlug,
+      personaSlugs,
       userId: user.id,
     };
 

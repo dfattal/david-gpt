@@ -43,7 +43,7 @@ export interface BatchProcessingResult {
 }
 
 export interface BatchProcessingOptions {
-  personaSlug: string;
+  personaSlugs: string[];
   geminiApiKey: string;
   onProgress?: (progress: ProcessingProgress) => void;
   delayMs?: number; // Delay between requests (default: 2000ms)
@@ -56,7 +56,7 @@ export async function processBatchUrls(
   items: ParsedUrlItem[],
   options: BatchProcessingOptions
 ): Promise<BatchProcessingResult> {
-  const { personaSlug, geminiApiKey, onProgress, delayMs = 2000 } = options;
+  const { personaSlugs, geminiApiKey, onProgress, delayMs = 2000 } = options;
   const results: ProcessingResult[] = [];
 
   for (let i = 0; i < items.length; i++) {
@@ -71,7 +71,7 @@ export async function processBatchUrls(
     });
 
     // Process single URL
-    const result = await processSingleUrl(item, personaSlug, geminiApiKey);
+    const result = await processSingleUrl(item, personaSlugs, geminiApiKey);
     results.push(result);
 
     // Notify completion/failure
@@ -103,7 +103,7 @@ export async function processBatchUrls(
  */
 async function processSingleUrl(
   item: ParsedUrlItem,
-  personaSlug: string,
+  personaSlugs: string[],
   geminiApiKey: string
 ): Promise<ProcessingResult> {
   try {
@@ -129,7 +129,7 @@ async function processSingleUrl(
       // Format as markdown with metadata injection
       markdown = await formatPatentMarkdown(
         patentData,
-        personaSlug,
+        personaSlugs,
         geminiApiKey,
         item.keyTerms,
         item.alsoKnownAs
@@ -150,6 +150,7 @@ async function processSingleUrl(
       // Format as markdown with metadata injection
       const formatted = formatArxivAsMarkdown(
         paperData,
+        personaSlugs,
         item.keyTerms,
         item.alsoKnownAs
       );

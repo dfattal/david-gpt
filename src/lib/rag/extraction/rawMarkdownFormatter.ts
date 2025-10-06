@@ -9,7 +9,7 @@ import { generateDocumentSummary } from './summaryGenerator';
 export interface RawMarkdownInput {
   content: string;
   filename: string;
-  personaSlug: string;
+  personaSlugs: string[]; // Changed from personaSlug - supports multi-persona assignment
 }
 
 export interface FormattedMarkdownResult {
@@ -30,7 +30,7 @@ export async function formatRawMarkdown(
   input: RawMarkdownInput,
   geminiApiKey: string
 ): Promise<FormattedMarkdownResult> {
-  const { content, filename, personaSlug } = input;
+  const { content, filename, personaSlugs } = input;
 
   try {
     console.log(`\n📄 Processing RAW markdown: ${filename}`);
@@ -105,7 +105,7 @@ Return ONLY the JSON, no other text.`;
     const frontmatter = buildFrontmatter({
       id: docId,
       title,
-      personaSlug,
+      personaSlugs,
       filename,
       metadata,
     });
@@ -149,17 +149,17 @@ ${content.replace(/^---[\s\S]*?---\s*/m, '')}`.trim();
 function buildFrontmatter(params: {
   id: string;
   title: string;
-  personaSlug: string;
+  personaSlugs: string[];
   filename: string;
   metadata: any;
 }): string {
-  const { id, title, personaSlug, filename, metadata } = params;
+  const { id, title, personaSlugs, filename, metadata } = params;
 
   const lines: string[] = [
     `id: ${id}`,
     `title: "${escapeYaml(title)}"`,
     `type: ${metadata.documentType || 'other'}`,
-    `personas: [${personaSlug}]`,
+    `personas: [${personaSlugs.join(', ')}]`,
   ];
 
   // Tags (from key terms)

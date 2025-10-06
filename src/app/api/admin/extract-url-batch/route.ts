@@ -115,7 +115,7 @@ export async function POST(
     // Create job data
     const jobData: UrlBatchJobData = {
       urls,
-      personaSlug,
+      personaSlugs: [personaSlug],
       userId: user.id,
     };
 

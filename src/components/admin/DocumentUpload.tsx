@@ -5,19 +5,12 @@
 
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { PersonaMultiSelect } from '@/components/ui/persona-multi-select';
 import { Upload, FileText, X, CheckCircle, AlertCircle } from 'lucide-react';
-import { usePersonas } from '@/hooks/usePersonas';
 
 interface DocumentUploadProps {
   onSuccess: () => void;
@@ -31,18 +24,9 @@ interface UploadFile {
 }
 
 export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
-  const [personaSlug, setPersonaSlug] = useState<string>('');
+  const [personaSlugs, setPersonaSlugs] = useState<string[]>([]);
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-
-  const { personas, isLoading: personasLoading } = usePersonas();
-
-  // Set default persona once loaded
-  useEffect(() => {
-    if (personas.length > 0 && !personaSlug) {
-      setPersonaSlug(personas[0].slug);
-    }
-  }, [personas, personaSlug]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const newFiles = acceptedFiles.map((file) => ({
@@ -68,7 +52,7 @@ export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
   const uploadFile = async (uploadFile: UploadFile, index: number) => {
     const formData = new FormData();
     formData.append('file', uploadFile.file);
-    formData.append('personaSlug', personaSlug);
+    formData.append('personaSlugs', JSON.stringify(personaSlugs));
 
     try {
       setFiles((prev) =>
@@ -115,8 +99,8 @@ export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
   };
 
   const handleUpload = async () => {
-    if (!personaSlug) {
-      alert('Please select a persona');
+    if (personaSlugs.length === 0) {
+      alert('Please select at least one persona');
       return;
     }
 
@@ -153,21 +137,12 @@ export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
       <div className="space-y-6">
         {/* Persona Selection */}
         <div>
-          <label className="text-sm font-medium mb-2 block">
-            Target Persona
-          </label>
-          <Select value={personaSlug} onValueChange={setPersonaSlug} disabled={isUploading || personasLoading}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder={personasLoading ? "Loading..." : "Select persona"} />
-            </SelectTrigger>
-            <SelectContent>
-              {personas.map((persona) => (
-                <SelectItem key={persona.slug} value={persona.slug}>
-                  {persona.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <PersonaMultiSelect
+            selectedSlugs={personaSlugs}
+            onChange={setPersonaSlugs}
+            disabled={isUploading}
+            label="Target Personas"
+          />
         </div>
 
         {/* Dropzone */}

@@ -22,7 +22,7 @@ import matter from 'gray-matter';
  * Process a single URL extraction
  */
 export async function processSingleUrl(job: Job, data: UrlSingleJobData): Promise<void> {
-  const { url, personaSlug, userId, docType, tags, aka } = data;
+  const { url, personaSlugs, userId, docType, tags, aka } = data;
   const jobId = job.id!;
 
   try {
@@ -83,7 +83,7 @@ export async function processSingleUrl(job: Job, data: UrlSingleJobData): Promis
       }
 
       const patentData = await extractPatentWithGemini(analysis.identifier, geminiApiKey);
-      markdown = await formatPatentMarkdown(patentData, personaSlug, geminiApiKey);
+      markdown = await formatPatentMarkdown(patentData, personaSlugs, geminiApiKey);
       filename = `${analysis.identifier.toLowerCase()}.md`;
       stats.contentChars = markdown.length;
       stats.claims = patentData.claims.length;
@@ -94,7 +94,7 @@ export async function processSingleUrl(job: Job, data: UrlSingleJobData): Promis
       }
 
       const paperData = await extractArxivFromHtml(analysis.identifier, geminiApiKey);
-      const formatted = formatArxivAsMarkdown(paperData, personaSlug);
+      const formatted = formatArxivAsMarkdown(paperData, personaSlugs);
       markdown = formatted.markdown;
       filename = `${analysis.identifier.replace(/\./g, '-')}.md`;
       stats.contentChars = formatted.stats.contentChars;
@@ -103,7 +103,7 @@ export async function processSingleUrl(job: Job, data: UrlSingleJobData): Promis
 
     } else if (finalType === 'generic') {
       const articleData = await extractGenericArticle(analysis.extractorUrl, geminiApiKey);
-      markdown = await formatGenericArticleMarkdown(articleData, personaSlug, geminiApiKey, tags, aka);
+      markdown = await formatGenericArticleMarkdown(articleData, personaSlugs, geminiApiKey, tags, aka);
       filename = `${normalizeIdentifier(analysis)}.md`;
       stats.contentChars = markdown.length;
       stats.sections = articleData.sections?.length || 0;
@@ -120,7 +120,7 @@ export async function processSingleUrl(job: Job, data: UrlSingleJobData): Promis
       // IMPORTANT: Preserve all existing frontmatter fields
       // Ensure personas field is not lost during stringify
       if (!frontmatter.personas) {
-        frontmatter.personas = [personaSlug];
+        frontmatter.personas = personaSlugs;
       }
 
       if (tags && tags.length > 0) {
@@ -155,7 +155,7 @@ export async function processSingleUrl(job: Job, data: UrlSingleJobData): Promis
     const supabase = createServiceClient();
     const storeResult = await storeExtractedDocument(supabase, userId, {
       markdown: finalMarkdown,
-      personaSlug,
+      personaSlugs,
       filename,
       extractionMetadata: {
         documentType: finalType,
@@ -234,7 +234,7 @@ export async function processSingleUrl(job: Job, data: UrlSingleJobData): Promis
  * Process a batch URL extraction
  */
 export async function processBatchUrl(job: Job, data: UrlBatchJobData): Promise<void> {
-  const { urls, personaSlug, userId } = data;
+  const { urls, personaSlugs, userId } = data;
   const jobId = job.id!;
   const total = urls.length;
   const results: Array<{ url: string; success: boolean; docId?: string; error?: string }> = [];
@@ -291,19 +291,19 @@ export async function processBatchUrl(job: Job, data: UrlBatchJobData): Promise<
         if (finalType === 'patent') {
           if (!analysis.identifier) throw new Error('Could not extract patent number');
           const patentData = await extractPatentWithGemini(analysis.identifier, geminiApiKey);
-          markdown = await formatPatentMarkdown(patentData, personaSlug, geminiApiKey);
+          markdown = await formatPatentMarkdown(patentData, personaSlugs, geminiApiKey);
           filename = `${analysis.identifier.toLowerCase()}.md`;
 
         } else if (finalType === 'arxiv') {
           if (!analysis.identifier) throw new Error('Could not extract ArXiv ID');
           const paperData = await extractArxivFromHtml(analysis.identifier, geminiApiKey);
-          const formatted = formatArxivAsMarkdown(paperData, personaSlug);
+          const formatted = formatArxivAsMarkdown(paperData, personaSlugs);
           markdown = formatted.markdown;
           filename = `${analysis.identifier.replace(/\./g, '-')}.md`;
 
         } else if (finalType === 'generic') {
           const articleData = await extractGenericArticle(analysis.extractorUrl, geminiApiKey);
-          markdown = await formatGenericArticleMarkdown(articleData, personaSlug, geminiApiKey, tags, aka);
+          markdown = await formatGenericArticleMarkdown(articleData, personaSlugs, geminiApiKey, tags, aka);
           filename = `${normalizeIdentifier(analysis)}.md`;
 
         } else {
@@ -330,7 +330,7 @@ export async function processBatchUrl(job: Job, data: UrlBatchJobData): Promise<
         // Store document
         const storeResult = await storeExtractedDocument(supabase, userId, {
           markdown: finalMarkdown,
-          personaSlug,
+          personaSlugs,
           filename,
           extractionMetadata: { documentType: finalType, identifier: analysis.identifier },
         });

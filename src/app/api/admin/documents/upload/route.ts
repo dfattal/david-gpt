@@ -25,7 +25,7 @@ interface UploadResponse {
  *
  * Expected form-data:
  * - file: markdown file
- * - personaSlug: target persona
+ * - personaSlugs: JSON array of target personas (e.g., '["david","albert"]')
  */
 export async function POST(request: NextRequest): Promise<NextResponse<UploadResponse>> {
   const supabase = await createClient();
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const personaSlug = formData.get('personaSlug') as string;
+    const personaSlugsStr = formData.get('personaSlugs') as string;
 
     if (!file) {
       return NextResponse.json(
@@ -62,9 +62,23 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
       );
     }
 
-    if (!personaSlug) {
+    if (!personaSlugsStr) {
       return NextResponse.json(
-        { success: false, error: 'Persona slug is required' },
+        { success: false, error: 'Persona slugs are required' },
+        { status: 400 }
+      );
+    }
+
+    // Parse persona slugs array
+    let personaSlugs: string[];
+    try {
+      personaSlugs = JSON.parse(personaSlugsStr);
+      if (!Array.isArray(personaSlugs) || personaSlugs.length === 0) {
+        throw new Error('Invalid persona slugs array');
+      }
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'personaSlugs must be a JSON array with at least one slug' },
         { status: 400 }
       );
     }
@@ -98,8 +112,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
       .update(content)
       .digest('hex');
 
-    // Upload to Supabase Storage
-    const storagePath = `${personaSlug}/${file.name}`;
+    // Upload to Supabase Storage (use first persona for path)
+    const storagePath = `${personaSlugs[0]}/${file.name}`;
     const { error: uploadError } = await supabase.storage
       .from('formatted-documents')
       .upload(storagePath, content, {
@@ -121,7 +135,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
       .upsert(
         {
           doc_id: docId,
-          persona_slug: personaSlug,
+          persona_slug: personaSlugs[0], // Use first persona for compatibility
           storage_path: storagePath,
           file_size: fileSize,
           content_hash: contentHash,

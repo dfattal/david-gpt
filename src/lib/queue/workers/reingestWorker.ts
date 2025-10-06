@@ -16,7 +16,7 @@ export async function processReingest(
   job: Job,
   data: ReingestJobData
 ): Promise<void> {
-  const { docId, personaSlug, userId } = data;
+  const { docId, personaSlugs, userId } = data;
   const jobId = job.id!;
   const supabase = createServiceClient();
 

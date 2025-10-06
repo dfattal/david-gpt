@@ -20,7 +20,7 @@ export async function processSingleMarkdown(
   job: Job,
   data: MarkdownSingleJobData
 ): Promise<void> {
-  const { content, filename, personaSlug, userId } = data;
+  const { content, filename, personaSlugs, userId } = data;
   const jobId = job.id!;
 
   try {
@@ -40,7 +40,7 @@ export async function processSingleMarkdown(
 
     // Format the raw markdown
     const result = await formatRawMarkdown(
-      { content, filename, personaSlug },
+      { content, filename, personaSlugs },
       geminiApiKey
     );
 
@@ -58,7 +58,7 @@ export async function processSingleMarkdown(
     const supabase = createServiceClient();
     const storeResult = await storeExtractedDocument(supabase, userId, {
       markdown: result.markdown!,
-      personaSlug,
+      personaSlugs,
       filename,
       extractionMetadata: {
         documentType: result.stats?.documentType || 'article',
@@ -120,7 +120,7 @@ async function processBatchMarkdown(
   job: Job,
   data: MarkdownBatchJobData
 ): Promise<void> {
-  const { files, personaSlug, userId } = data;
+  const { files, personaSlugs, userId } = data;
   const jobId = job.id!;
   const total = files.length;
 
@@ -157,7 +157,7 @@ async function processBatchMarkdown(
 
         // Format markdown
         const result = await formatRawMarkdown(
-          { content: file.content, filename: file.filename, personaSlug },
+          { content: file.content, filename: file.filename, personaSlugs },
           geminiApiKey
         );
 
@@ -170,7 +170,7 @@ async function processBatchMarkdown(
         const supabase = createServiceClient();
         const storeResult = await storeExtractedDocument(supabase, userId, {
           markdown: result.markdown!,
-          personaSlug,
+          personaSlugs,
           filename: file.filename,
           extractionMetadata: {
             documentType: result.stats?.documentType || 'article',

@@ -21,14 +21,14 @@ export interface GenericArticleFormattedDocument {
  */
 export async function formatGenericArticleMarkdown(
   article: GenericArticle,
-  personaSlug: string,
+  personaSlugs: string[],
   geminiApiKey: string,
   userKeyTerms?: string[],
   userAlsoKnownAs?: string
 ): Promise<string> {
   console.log(`\n📝 Formatting article markdown...`);
 
-  const frontmatter = buildFrontmatter(article, personaSlug);
+  const frontmatter = buildFrontmatter(article, personaSlugs);
   const content = buildContent(article, userKeyTerms, userAlsoKnownAs);
 
   const markdown = `${frontmatter}\n\n${content}`;
@@ -41,7 +41,7 @@ export async function formatGenericArticleMarkdown(
 /**
  * Build YAML frontmatter
  */
-function buildFrontmatter(article: GenericArticle, personaSlug: string): string {
+function buildFrontmatter(article: GenericArticle, personaSlugs: string[]): string {
   const lines: string[] = ['---'];
 
   // Document ID (generated from URL)
@@ -52,7 +52,7 @@ function buildFrontmatter(article: GenericArticle, personaSlug: string): string 
 
   // Personas
   lines.push(`personas:`);
-  lines.push(`  - ${personaSlug}`);
+  personaSlugs.forEach(slug => lines.push(`  - ${slug}`));
 
   // Title
   if (article.title) {

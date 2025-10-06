@@ -10,13 +10,7 @@ import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { PersonaMultiSelect } from '@/components/ui/persona-multi-select';
 import {
   Link as LinkIcon,
   FileText,
@@ -27,7 +21,6 @@ import {
   Loader2,
 } from 'lucide-react';
 import { DocumentPreviewModal } from '@/components/admin/DocumentPreviewModal';
-import { usePersonas } from '@/hooks/usePersonas';
 import { useJobStatus } from '@/hooks/useJobStatus';
 
 interface UrlExtractionProps {
@@ -71,17 +64,7 @@ type ExtractionMode = 'single' | 'batch';
 
 export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
   const [mode, setMode] = useState<ExtractionMode>('single');
-  const [personaSlug, setPersonaSlug] = useState<string>('');
-
-  // Fetch personas from API
-  const { personas, isLoading: personasLoading } = usePersonas();
-
-  // Set default persona once loaded
-  useEffect(() => {
-    if (personas.length > 0 && !personaSlug) {
-      setPersonaSlug(personas[0].slug);
-    }
-  }, [personas, personaSlug]);
+  const [personaSlugs, setPersonaSlugs] = useState<string[]>([]);
 
   // Single URL mode
   const [singleUrl, setSingleUrl] = useState('');
@@ -175,6 +158,10 @@ export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
   // Handle single URL extraction (async with job polling)
   const handleSingleExtraction = async () => {
     if (!singleUrl.trim()) return;
+    if (personaSlugs.length === 0) {
+      alert('Please select at least one persona');
+      return;
+    }
 
     setIsExtracting(true);
     setSingleResult(null);
@@ -185,7 +172,7 @@ export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           url: singleUrl.trim(),
-          personaSlug,
+          personaSlugs,
         }),
       });
 
@@ -260,6 +247,10 @@ export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
   // Handle batch URL extraction (client-side orchestrated)
   const handleBatchExtraction = async () => {
     if (!urlListContent.trim()) return;
+    if (personaSlugs.length === 0) {
+      alert('Please select at least one persona');
+      return;
+    }
 
     setIsExtracting(true);
     setBatchResult(null);
@@ -294,7 +285,7 @@ export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               url: item.url,
-              personaSlug,
+              personaSlugs,
               tags: item.tags,
               aka: item.aka,
             }),
@@ -414,19 +405,12 @@ export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
 
         {/* Persona Selection */}
         <div>
-          <label className="text-sm font-medium mb-2 block">Target Persona</label>
-          <Select value={personaSlug} onValueChange={setPersonaSlug} disabled={isExtracting || personasLoading}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder={personasLoading ? "Loading..." : "Select persona"} />
-            </SelectTrigger>
-            <SelectContent>
-              {personas.map((persona) => (
-                <SelectItem key={persona.slug} value={persona.slug}>
-                  {persona.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <PersonaMultiSelect
+            selectedSlugs={personaSlugs}
+            onChange={setPersonaSlugs}
+            disabled={isExtracting}
+            label="Target Personas"
+          />
         </div>
 
         {/* Mode Tabs */}

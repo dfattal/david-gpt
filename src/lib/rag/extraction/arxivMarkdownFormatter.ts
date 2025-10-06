@@ -21,11 +21,11 @@ export interface ArxivFormattedDocument {
  */
 export function formatArxivAsMarkdown(
   paper: ArxivPaper,
-  personaSlug: string,
+  personaSlugs: string[],
   userKeyTerms?: string[],
   userAlsoKnownAs?: string
 ): ArxivFormattedDocument {
-  const frontmatter = buildFrontmatter(paper, personaSlug);
+  const frontmatter = buildFrontmatter(paper, personaSlugs);
   const content = buildContent(paper, userKeyTerms, userAlsoKnownAs);
 
   const markdown = `${frontmatter}\n\n${content}`;
@@ -46,7 +46,7 @@ export function formatArxivAsMarkdown(
 /**
  * Build YAML frontmatter (matching patent format - no key_terms here)
  */
-function buildFrontmatter(paper: ArxivPaper, personaSlug: string): string {
+function buildFrontmatter(paper: ArxivPaper, personaSlugs: string[]): string {
   const lines: string[] = ['---'];
 
   // Document ID (required for storage)
@@ -61,7 +61,7 @@ function buildFrontmatter(paper: ArxivPaper, personaSlug: string): string {
 
   // Personas (required for ingestion)
   lines.push(`personas:`);
-  lines.push(`  - ${personaSlug}`);
+  personaSlugs.forEach(slug => lines.push(`  - ${slug}`));
 
   // Authors
   if (paper.authors.length > 0) {

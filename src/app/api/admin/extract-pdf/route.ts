@@ -21,7 +21,7 @@ interface ExtractionResponse {
  *
  * Expected form-data:
  * - file: PDF file
- * - personaSlug: target persona
+ * - personaSlugs: JSON array of target personas (e.g., '["david","albert"]')
  * - docType: (optional) document type override
  */
 export async function POST(request: NextRequest): Promise<NextResponse<ExtractionResponse>> {
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Extractio
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const personaSlug = formData.get('personaSlug') as string;
+    const personaSlugsStr = formData.get('personaSlugs') as string;
     const docType = formData.get('docType') as string | null;
 
     if (!file) {
@@ -60,9 +60,23 @@ export async function POST(request: NextRequest): Promise<NextResponse<Extractio
       );
     }
 
-    if (!personaSlug) {
+    if (!personaSlugsStr) {
       return NextResponse.json(
-        { success: false, error: 'Persona slug is required' },
+        { success: false, error: 'Persona slugs are required' },
+        { status: 400 }
+      );
+    }
+
+    // Parse persona slugs array
+    let personaSlugs: string[];
+    try {
+      personaSlugs = JSON.parse(personaSlugsStr);
+      if (!Array.isArray(personaSlugs) || personaSlugs.length === 0) {
+        throw new Error('Invalid persona slugs array');
+      }
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'personaSlugs must be a JSON array with at least one slug' },
         { status: 400 }
       );
     }
@@ -78,7 +92,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Extractio
     console.log(`\n📄 PDF Extraction Job Request:`);
     console.log(`   File: ${file.name}`);
     console.log(`   Size: ${(file.size / 1024).toFixed(2)} KB`);
-    console.log(`   Persona: ${personaSlug}`);
+    console.log(`   Personas: ${personaSlugs.join(', ')}`);
     console.log(`   Doc type override: ${docType || 'auto-detect'}`);
 
     // Convert file to base64
@@ -90,7 +104,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Extractio
     const jobData: PdfJobData = {
       pdfBase64,
       filename: file.name,
-      personaSlug,
+      personaSlugs,
       userId: user.id,
       docType: docType || undefined,
     };

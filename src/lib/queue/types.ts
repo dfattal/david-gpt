@@ -26,7 +26,7 @@ export interface JobProgress {
 // Base job data interface
 export interface BaseJobData {
   userId: string;
-  personaSlug: string;
+  personaSlugs: string[]; // Changed from personaSlug - supports multi-persona assignment
 }
 
 // Single URL extraction job

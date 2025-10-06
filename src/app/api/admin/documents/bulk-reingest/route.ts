@@ -90,17 +90,17 @@ export async function POST(
     const jobIds: string[] = [];
 
     for (const doc of docs) {
-      // Get persona slug (use first persona)
-      const personaSlug = doc.personas?.[0];
-      if (!personaSlug) {
-        console.warn(`Document ${doc.id} has no associated persona, skipping`);
+      // Get persona slugs
+      const personaSlugs = doc.personas;
+      if (!personaSlugs || personaSlugs.length === 0) {
+        console.warn(`Document ${doc.id} has no associated personas, skipping`);
         continue;
       }
 
       // Create job data
       const jobData: ReingestJobData = {
         docId: doc.id,
-        personaSlug,
+        personaSlugs,
         userId: user.id,
       };
 

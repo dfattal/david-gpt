@@ -12,7 +12,7 @@ import { PatentExtractedData } from './patentGeminiExtractor';
  */
 export async function formatPatentMarkdown(
   patentData: PatentExtractedData,
-  personaSlug: string,
+  personaSlugs: string[],
   geminiApiKey: string,
   userKeyTerms?: string[],
   userAlsoKnownAs?: string
@@ -34,7 +34,7 @@ export async function formatPatentMarkdown(
   }
 
   // Build frontmatter
-  const frontmatter = generateFrontmatter(patentData, personaSlug, summary);
+  const frontmatter = generateFrontmatter(patentData, personaSlugs, summary);
 
   // Build sections
   const sections: string[] = [frontmatter];
@@ -85,7 +85,7 @@ export async function formatPatentMarkdown(
  */
 function generateFrontmatter(
   patent: PatentExtractedData,
-  personaSlug: string,
+  personaSlugs: string[],
   summary: string
 ): string {
   const lines: string[] = ['---'];
@@ -95,7 +95,7 @@ function generateFrontmatter(
   lines.push(`id: ${patentId}`);
   lines.push(`title: ${patent.title}`);
   lines.push(`type: patent`);
-  lines.push(`personas: [${personaSlug}]`);
+  lines.push(`personas: [${personaSlugs.join(', ')}]`);
 
   // Dates
   if (patent.metadata.dates?.publication) {

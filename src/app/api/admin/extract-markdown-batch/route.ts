@@ -123,7 +123,7 @@ export async function POST(
       files.map(async (file) => ({
         content: await file.text(),
         filename: file.name,
-        personaSlug,
+        personaSlugs: [personaSlug],
       }))
     );
 
@@ -146,7 +146,7 @@ export async function POST(
     const documentsToStore = successful
       .map((result, idx) => ({
         markdown: result.markdown!,
-        personaSlug,
+        personaSlugs: [personaSlug],
         filename: files[results.indexOf(result)].name,
         extractionMetadata: {
           documentType: result.stats?.documentType || 'article',

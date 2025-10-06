@@ -63,11 +63,11 @@ export async function POST(
       );
     }
 
-    // Get persona slug (use first persona)
-    const personaSlug = doc.personas?.[0];
-    if (!personaSlug) {
+    // Get persona slugs
+    const personaSlugs = doc.personas;
+    if (!personaSlugs || personaSlugs.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'Document has no associated persona' },
+        { success: false, error: 'Document has no associated personas' },
         { status: 400 }
       );
     }
@@ -75,7 +75,7 @@ export async function POST(
     // Create job data
     const jobData: ReingestJobData = {
       docId: id,
-      personaSlug,
+      personaSlugs,
       userId: user.id,
     };
 

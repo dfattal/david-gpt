@@ -9,7 +9,7 @@ import crypto from 'crypto';
 
 export interface ExtractedDocument {
   markdown: string;
-  personaSlug: string;
+  personaSlugs: string[]; // Changed from personaSlug - supports multi-persona assignment
   filename: string;
   extractionMetadata?: {
     documentType?: string;
@@ -40,7 +40,15 @@ export async function storeExtractedDocument(
   document: ExtractedDocument
 ): Promise<StoredDocumentResult> {
   try {
-    const { markdown, personaSlug, filename, extractionMetadata } = document;
+    const { markdown, personaSlugs, filename, extractionMetadata } = document;
+
+    // Validate personas array
+    if (!personaSlugs || personaSlugs.length === 0) {
+      return {
+        success: false,
+        error: 'At least one persona must be assigned',
+      };
+    }
 
     // Parse frontmatter to get metadata
     const { data: frontmatter, content: bodyContent } = matter(markdown);
@@ -60,8 +68,8 @@ export async function storeExtractedDocument(
       .digest('hex');
     const fileSize = new Blob([markdown]).size;
 
-    // Upload to Supabase Storage
-    const storagePath = `${personaSlug}/${filename}`;
+    // Upload to Supabase Storage (use first persona for path - backward compatible)
+    const storagePath = `${personaSlugs[0]}/${filename}`;
     const { error: uploadError } = await supabase.storage
       .from('formatted-documents')
       .upload(storagePath, markdown, {
@@ -83,7 +91,7 @@ export async function storeExtractedDocument(
         id: docId,
         title: frontmatter.title || docId,
         type: frontmatter.type || 'document',
-        personas: [personaSlug],
+        personas: personaSlugs, // Store all assigned personas
         date: frontmatter.date || null,
         source_url: frontmatter.source_url || null,
         tags: frontmatter.tags || [],
@@ -113,11 +121,11 @@ export async function storeExtractedDocument(
       };
     }
 
-    // Create or update document_files record
+    // Create or update document_files record (using first persona for tracking)
     const { error: filesError } = await supabase.from('document_files').upsert(
       {
         doc_id: docId,
-        persona_slug: personaSlug,
+        persona_slug: personaSlugs[0], // Primary persona for storage tracking
         storage_path: storagePath,
         file_size: fileSize,
         content_hash: contentHash,
@@ -131,7 +139,9 @@ export async function storeExtractedDocument(
       // Continue anyway - docs record is the source of truth
     }
 
-    console.log(`✅ Stored extracted document: ${docId} (status: extracted)`);
+    console.log(
+      `✅ Stored extracted document: ${docId} (personas: ${personaSlugs.join(', ')}, status: extracted)`
+    );
 
     return {
       success: true,

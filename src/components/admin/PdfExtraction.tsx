@@ -5,20 +5,13 @@
 
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { PersonaMultiSelect } from '@/components/ui/persona-multi-select';
 import { FileText, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { DocumentPreviewModal } from '@/components/admin/DocumentPreviewModal';
-import { usePersonas } from '@/hooks/usePersonas';
 import { useJobStatus } from '@/hooks/useJobStatus';
 
 interface PdfExtractionProps {
@@ -54,22 +47,13 @@ interface PdfFile {
 }
 
 export function PdfExtraction({ onSuccess }: PdfExtractionProps) {
-  const [personaSlug, setPersonaSlug] = useState<string>('');
+  const [personaSlugs, setPersonaSlugs] = useState<string[]>([]);
   const [pdfFile, setPdfFile] = useState<PdfFile | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewDocId, setPreviewDocId] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState<string>('');
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
-
-  const { personas, isLoading: personasLoading } = usePersonas();
-
-  // Set default persona once loaded
-  useEffect(() => {
-    if (personas.length > 0 && !personaSlug) {
-      setPersonaSlug(personas[0].slug);
-    }
-  }, [personas, personaSlug]);
 
   // Job status polling
   const { job: currentJob } = useJobStatus({
@@ -132,14 +116,14 @@ export function PdfExtraction({ onSuccess }: PdfExtractionProps) {
   });
 
   const handleExtract = async () => {
-    if (!pdfFile || !personaSlug) return;
+    if (!pdfFile || personaSlugs.length === 0) return;
 
     setIsExtracting(true);
     setPdfFile({ ...pdfFile, status: 'extracting' });
 
     const formData = new FormData();
     formData.append('file', pdfFile.file);
-    formData.append('personaSlug', personaSlug);
+    formData.append('personaSlugs', JSON.stringify(personaSlugs));
 
     try {
       const response = await fetch('/api/admin/extract-pdf', {
@@ -200,21 +184,12 @@ export function PdfExtraction({ onSuccess }: PdfExtractionProps) {
 
         {/* Persona Selection */}
         <div>
-          <label className="text-sm font-medium mb-2 block">
-            Target Persona
-          </label>
-          <Select value={personaSlug} onValueChange={setPersonaSlug} disabled={isExtracting || personasLoading}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder={personasLoading ? "Loading..." : "Select persona"} />
-            </SelectTrigger>
-            <SelectContent>
-              {personas.map((persona) => (
-                <SelectItem key={persona.slug} value={persona.slug}>
-                  {persona.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <PersonaMultiSelect
+            selectedSlugs={personaSlugs}
+            onChange={setPersonaSlugs}
+            disabled={isExtracting}
+            label="Target Personas"
+          />
         </div>
 
         {/* Dropzone */}
@@ -389,7 +364,7 @@ export function PdfExtraction({ onSuccess }: PdfExtractionProps) {
               {pdfFile.status === 'pending' && (
                 <Button
                   onClick={handleExtract}
-                  disabled={isExtracting || !personaSlug}
+                  disabled={isExtracting || personaSlugs.length === 0}
                 >
                   Extract PDF
                 </Button>

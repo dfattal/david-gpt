@@ -15,7 +15,7 @@ import { storeExtractedDocument } from '@/lib/rag/storage/documentStorage';
  * Process a PDF extraction job
  */
 export async function processPdfJob(job: Job, data: PdfJobData): Promise<void> {
-  const { pdfBase64, filename, personaSlug, userId, docType } = data;
+  const { pdfBase64, filename, personaSlugs, userId, docType } = data;
   const jobId = job.id!;
 
   try {
@@ -62,7 +62,7 @@ export async function processPdfJob(job: Job, data: PdfJobData): Promise<void> {
     // Process PDF through the pipeline
     const result = await processPdfDocument(
       pdfBuffer,
-      personaSlug,
+      personaSlugs,
       geminiApiKey,
       docType as any,
       exaApiKey
@@ -87,7 +87,7 @@ export async function processPdfJob(job: Job, data: PdfJobData): Promise<void> {
     const supabase = createServiceClient();
     const storeResult = await storeExtractedDocument(supabase, userId, {
       markdown: result.markdown!,
-      personaSlug,
+      personaSlugs,
       filename: filename.replace('.pdf', '.md'),
       extractionMetadata: {
         documentType: 'pdf',

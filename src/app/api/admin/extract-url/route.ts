@@ -23,7 +23,7 @@ interface ExtractionResponse {
  * Expected JSON body:
  * {
  *   "url": "https://patents.google.com/patent/US10838134B2" | "arxiv:2405.10314" | etc.,
- *   "personaSlug": "david",
+ *   "personaSlugs": ["david", "albert"],
  *   "docType": "patent" | "arxiv" (optional override),
  *   "tags": ["tag1", "tag2"] (optional),
  *   "aka": "Alternative name" (optional)
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Extractio
 
   try {
     const body = await request.json();
-    const { url, personaSlug, docType, tags, aka } = body;
+    const { url, personaSlugs, docType, tags, aka } = body;
 
     if (!url) {
       return NextResponse.json(
@@ -63,16 +63,16 @@ export async function POST(request: NextRequest): Promise<NextResponse<Extractio
       );
     }
 
-    if (!personaSlug) {
+    if (!personaSlugs || !Array.isArray(personaSlugs) || personaSlugs.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'Persona slug is required' },
+        { success: false, error: 'At least one persona slug is required' },
         { status: 400 }
       );
     }
 
     console.log(`\n📡 URL Extraction Job Request:`);
     console.log(`   URL: ${url}`);
-    console.log(`   Persona: ${personaSlug}`);
+    console.log(`   Personas: ${personaSlugs.join(', ')}`);
     console.log(`   Doc type override: ${docType || 'auto-detect'}`);
     console.log(`   Tags: ${tags ? JSON.stringify(tags) : 'none'}`);
     console.log(`   AKA: ${aka || 'none'}`);
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Extractio
     // Create job data
     const jobData: UrlSingleJobData = {
       url,
-      personaSlug,
+      personaSlugs,
       userId: user.id,
       docType,
       tags,
