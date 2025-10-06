@@ -9,7 +9,8 @@ import { NextRequest, NextResponse } from 'next/server';
 export interface DocumentListItem {
   id: string;
   title: string;
-  persona_slug: string;
+  personas: string[]; // Multi-persona support
+  persona_slug: string; // Deprecated: kept for backward compatibility (first persona)
   type: string;
   date: string | null;
   source_url: string | null;
@@ -115,15 +116,16 @@ export async function GET(request: NextRequest) {
 
     // Transform response
     const documents: DocumentListItem[] = docs.map((doc: any) => {
-      const personaSlug =
-        doc.personas && doc.personas.length > 0 ? doc.personas[0] : null;
+      const personas = doc.personas || [];
+      const personaSlug = personas.length > 0 ? personas[0] : null;
 
       const fileInfo = doc.document_files?.[0];
 
       return {
         id: doc.id,
         title: doc.title,
-        persona_slug: personaSlug,
+        personas, // Full array for multi-persona support
+        persona_slug: personaSlug, // Deprecated: kept for backward compatibility
         type: doc.type,
         date: doc.date,
         source_url: doc.source_url,

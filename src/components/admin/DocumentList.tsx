@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { DocumentActions } from '@/components/admin/DocumentActions';
+import { InlinePersonaEditor } from '@/components/admin/InlinePersonaEditor';
 import {
   Select,
   SelectContent,
@@ -31,7 +32,8 @@ import { formatDistanceToNow } from 'date-fns';
 interface Document {
   id: string;
   title: string;
-  persona_slug: string;
+  personas: string[]; // Multi-persona support
+  persona_slug: string; // Deprecated: for backward compatibility
   type: string;
   chunk_count: number;
   file_size: number | null;
@@ -99,9 +101,9 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
   useEffect(() => {
     let filtered = [...documents];
 
-    // Persona filter
+    // Persona filter (check if any of the document's personas match)
     if (personaFilter !== 'all') {
-      filtered = filtered.filter((doc) => doc.persona_slug === personaFilter);
+      filtered = filtered.filter((doc) => doc.personas.includes(personaFilter));
     }
 
     // Type filter
@@ -225,8 +227,8 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
   };
 
   const uniquePersonas = Array.from(
-    new Set(documents.map((d) => d.persona_slug))
-  );
+    new Set(documents.flatMap((d) => d.personas))
+  ).sort();
   const uniqueTypes = Array.from(new Set(documents.map((d) => d.type)));
 
   if (loading) {
@@ -428,9 +430,14 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
                       </div>
                     </td>
                     <td className="p-4">
-                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-sm rounded">
-                        {doc.persona_slug}
-                      </span>
+                      <InlinePersonaEditor
+                        docId={doc.id}
+                        currentPersonas={doc.personas}
+                        onUpdate={() => {
+                          // Trigger a refresh of the document list
+                          window.location.reload();
+                        }}
+                      />
                     </td>
                     <td className="p-4 text-sm">{doc.type}</td>
                     <td className="p-4 text-sm">
