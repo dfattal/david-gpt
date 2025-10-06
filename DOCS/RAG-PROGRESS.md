@@ -2,8 +2,8 @@
 
 **Project**: david-gpt Multi-Persona RAG System
 **Started**: 2025-09-29
-**Last Updated**: 2025-10-05
-**Status**: ✅ **Phase 12 COMPLETE** - Persona Configuration Admin UI
+**Last Updated**: 2025-10-06
+**Status**: ✅ **Phase 14 COMPLETE** - Inline Persona Reassignment
 
 ---
 
@@ -33,13 +33,26 @@
 - **Frontend Components**: MarkdownExtraction ✅, UrlExtraction ✅, PdfExtraction ✅
 - **Async Ingestion**: DocumentPreviewModal "Ingest Now" + reingest worker ✅
 
-**Phase 12 (NEW)**: Persona Configuration Admin UI ✅ **COMPLETE**
+**Phase 12**: Persona Configuration Admin UI ✅ **COMPLETE**
 - **Admin Interface**: Persona config editor in `/admin/rag` tab ✅
 - **Retrieval Settings**: Visual sliders for vector threshold ✅
 - **BM25 Keywords**: Tag input for keyword management ✅
 - **Topics & Aliases**: Nested editor for tag boosting config ✅
 - **API Routes**: GET/PATCH endpoints for persona config ✅
 - **UI Components**: Card-based layout matching existing admin patterns ✅
+
+**Phase 13**: Multi-Persona Document Sharing ✅ **COMPLETE**
+- **PersonaMultiSelect Component**: Reusable multi-select with validation ✅
+- **Backend Updates**: All API routes, workers, formatters support persona arrays ✅
+- **Frontend Updates**: All 4 admin upload components updated ✅
+- **Database Schema**: No changes needed (already JSONB array) ✅
+
+**Phase 14 (NEW)**: Inline Persona Reassignment ✅ **COMPLETE**
+- **Inline Editor**: Click persona cell to open popover with multi-select ✅
+- **API Endpoint**: `PATCH /api/admin/documents/[id]/personas` ✅
+- **Full Sync**: Updates DB (docs.personas) + frontmatter (raw_content) + storage ✅
+- **Real-time UI**: Toast notifications and instant refresh ✅
+- **No Re-ingestion**: Persona changes don't require re-chunking ✅
 
 ### 🔄 Post-MVP
 - **Phase 9**: E2E testing & performance optimization (Deferred)
@@ -1169,11 +1182,141 @@ Enable documents to be assigned to multiple personas while maintaining independe
 - Documents can serve multiple personas
 - Easy to add/remove persona assignments
 
-### **Testing Plan**
+### **Testing Status**
 
-#### Unit Tests (Pending)
+#### ✅ Manual Testing Complete
+- ✅ Multi-persona document upload (all 4 components tested)
+- ✅ Persona validation (minimum 1 required)
+- ✅ Database storage verification
+- ✅ Frontmatter generation verified
+
+#### Unit Tests (Deferred)
 - [ ] Storage layer validates persona array
 - [ ] Formatters generate correct frontmatter
+
+---
+
+## Phase 14: Inline Persona Reassignment ✅ COMPLETE
+**Date Started**: 2025-10-06
+**Date Completed**: 2025-10-06
+**Status**: ✅ **Production Ready**
+
+### **Goal**
+Allow admins to change document persona assignments directly from the admin UI without re-extraction or re-ingestion.
+
+### **Problem Solved**
+**Before**: Persona assignments were immutable after document creation
+- Required re-extraction to change personas
+- No UI for reassignment
+- Difficult to reorganize documents across personas
+
+**After**: Click-to-edit persona assignments with full synchronization
+- Inline editor in document table
+- Multi-persona selection
+- Updates DB + frontmatter + storage automatically
+- No re-ingestion required (personas are retrieval metadata only)
+
+### **Implementation Status**
+
+#### ✅ **Backend API (Complete)**
+1. **API Endpoint** (`/api/admin/documents/[id]/personas/route.ts`)
+   - `PATCH /api/admin/documents/[id]/personas`
+   - Accepts: `{ personaSlugs: string[] }`
+   - Validates: At least one persona required
+   - Admin-only access control
+
+2. **Data Synchronization** (3-layer update)
+   - ✅ **Database**: Updates `docs.personas` JSONB array
+   - ✅ **Frontmatter**: Updates `personas` field in `docs.raw_content`
+   - ✅ **Storage**: Updates file frontmatter in Supabase Storage (best-effort)
+   - ✅ **Timestamp**: Updates `docs.updated_at`
+
+#### ✅ **Frontend UI (Complete)**
+3. **InlinePersonaEditor Component** (`src/components/admin/InlinePersonaEditor.tsx`)
+   - Popover-based multi-select interface
+   - Shows current persona assignments
+   - Checkbox UI with validation
+   - Real-time change detection (Save button only enabled when changed)
+   - Toast notifications for success/error
+   - Auto-refresh on save
+
+4. **DocumentList Integration** (`src/components/admin/DocumentList.tsx`)
+   - Updated to display persona arrays (e.g., "david, legal")
+   - Persona cell becomes clickable button
+   - Hover shows edit icon
+   - Supports filtering by any assigned persona
+
+5. **API Response Updates** (`/api/admin/documents/route.ts`)
+   - Added `personas: string[]` to response (full array)
+   - Maintained `persona_slug: string` for backward compatibility (first persona)
+   - Updated filtering logic to check array membership
+
+#### ✅ **UI Components Added**
+6. **Shadcn/UI Popover** (`src/components/ui/popover.tsx`)
+   - Added via `npx shadcn@latest add popover`
+   - Used for inline editor overlay
+
+### **Key Architecture Insights**
+
+**Ingestion Independence** ✅
+- Personas are **retrieval metadata only**
+- `chunks` table has no persona reference
+- Chunks are shared across all assigned personas
+- **Benefit**: Persona changes don't require re-ingestion!
+
+**Data Flow**:
+```
+User clicks persona cell
+  → Popover opens with current assignments
+  → User toggles personas
+  → PATCH /api/admin/documents/[id]/personas
+    → Update docs.personas (DB)
+    → Update personas field in raw_content frontmatter
+    → Update storage file frontmatter
+    → Return success
+  → Toast notification
+  → Page refresh → Display updated personas
+```
+
+### **Testing Results**
+
+#### ✅ Playwright MCP Testing
+**Test Case**: Reassign document from single to multiple personas
+- ✅ Initial: Document "us10838134" assigned to `["david"]`
+- ✅ Action: Clicked persona cell, selected "Albert"
+- ✅ Result: Document now shows "david, legal"
+- ✅ Toast: "Success - Persona assignments updated: david, legal"
+- ✅ Timestamp: Updated to "less than a minute ago"
+- ✅ Persistence: Page refresh maintains changes
+
+**Verified Synchronization**:
+- ✅ Database `docs.personas`: `["david", "legal"]`
+- ✅ Frontmatter in `raw_content`: `personas: [david, legal]`
+- ✅ Storage file: Updated (best-effort)
+
+### **Benefits Achieved**
+
+✅ **Flexible Organization**
+- Reorganize documents across personas without re-extraction
+- Add/remove persona assignments on demand
+- Support knowledge sharing workflows
+
+✅ **Efficient Updates**
+- No re-ingestion required (chunks unchanged)
+- Instant UI feedback
+- Full data consistency
+
+✅ **User Experience**
+- Inline editing (no modal navigation)
+- Clear visual feedback (toast notifications)
+- Validation prevents errors (min 1 persona)
+
+### **Future Enhancements** (Deferred)
+
+- [ ] Bulk persona reassignment (select multiple docs → reassign)
+- [ ] Persona assignment history/audit log
+- [ ] Drag-and-drop persona assignment
+- [ ] Smart suggestions based on document content
 - [ ] PersonaMultiSelect component behavior
 
 #### Integration Tests (Pending)
