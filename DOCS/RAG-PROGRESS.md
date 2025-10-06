@@ -2,8 +2,8 @@
 
 **Project**: david-gpt Multi-Persona RAG System
 **Started**: 2025-09-29
-**Last Updated**: 2025-10-04
-**Status**: ✅ **Phase 11 COMPLETE** - Async Job Queue & Real-time Progress Monitoring
+**Last Updated**: 2025-10-05
+**Status**: ✅ **Phase 12 COMPLETE** - Persona Configuration Admin UI
 
 ---
 
@@ -24,13 +24,21 @@
 - **Storage Integration**: Database + Supabase Storage
 - **Admin UI**: Complete document management interface
 
-**Phase 11 (NEW)**: Async Job Queue & Progress Monitoring ✅ **COMPLETE**
+**Phase 11**: Async Job Queue & Progress Monitoring ✅ **COMPLETE**
 - **Job Queue**: BullMQ + Redis for async processing ✅
 - **Real-time Progress**: Frontend polling at 1000ms intervals ✅
 - **Auto-preview Modal**: Opens on completion with document preview ✅
 - **Dynamic Personas**: All dropdowns fetch from database ✅
 - **Worker Architecture**: Unified worker with job routing ✅
 - **Frontend Components**: MarkdownExtraction ✅, UrlExtraction ✅, PdfExtraction ✅
+
+**Phase 12 (NEW)**: Persona Configuration Admin UI ✅ **COMPLETE**
+- **Admin Interface**: Persona config editor in `/admin/rag` tab ✅
+- **Retrieval Settings**: Visual sliders for vector threshold ✅
+- **BM25 Keywords**: Tag input for keyword management ✅
+- **Topics & Aliases**: Nested editor for tag boosting config ✅
+- **API Routes**: GET/PATCH endpoints for persona config ✅
+- **UI Components**: Card-based layout matching existing admin patterns ✅
 
 ### 🔄 Post-MVP
 - **Phase 9**: E2E testing & performance optimization (Deferred)
@@ -452,6 +460,231 @@ Replace synchronous extraction/ingestion operations with async job queue to elim
 ✅ **Type Safety**: Full TypeScript support with job data interfaces
 ✅ **Batch Processing**: URL batch extraction with per-URL progress tracking
 ✅ **Service Client**: Workers bypass RLS using service-role key (no request context needed)
+
+---
+
+## Phase 12: Persona Configuration Admin UI (COMPLETE ✅)
+**Date**: 2025-10-05
+
+### **Goal**
+Provide admin UI for editing persona configuration that directly influences RAG retrieval performance, eliminating the need to manually edit JSON files or database records.
+
+### **Problem Solved**
+**Before**: Persona configuration (`persona.config.json`) could only be edited by:
+- Manually editing JSON files in `/personas/<slug>/persona.config.json`
+- Direct database updates to `personas.config_json` column
+- No validation or preview of changes
+- No understanding of which fields affect retrieval
+
+**After**: Web-based admin interface at `/admin/rag` → "Persona Config" tab:
+- Visual editors for all retrieval-affecting fields
+- Dropdown persona selector (fetched from database)
+- Validation and immediate save to database
+- Clear indication of which fields affect RAG retrieval
+
+### **Implementation**
+
+#### 1. Files Created ✅
+
+**Components**:
+- `src/components/admin/PersonaConfigEditor.tsx` - Main editor component
+- `src/components/ui/slider.tsx` - Radix UI slider for threshold control
+
+**API Routes**:
+- `src/app/api/admin/personas/route.ts` - List all personas (GET)
+- `src/app/api/admin/personas/[slug]/route.ts` - Get/update persona config (GET/PATCH)
+
+**Page Updates**:
+- `src/app/admin/rag/page.tsx` - Added "Persona Config" tab
+
+#### 2. Features Implemented ✅
+
+**Persona Selector**:
+- Dropdown fetches personas from database
+- Displays `name` field (e.g., "David (Leia/Immersity)")
+- Loads configuration on selection
+
+**Basic Info Section**:
+- Slug (read-only)
+- Display Name (editable)
+- Version (editable)
+- Last Updated (date picker)
+
+**Retrieval Configuration Section** (Critical - Affects RAG):
+- **Search Sensitivity Presets**: Radio buttons (5 preset options)
+  - Replaces technical slider for better UX
+  - **Very Strict (0.50)** - Only nearly-exact semantic matches
+  - **Strict (0.40)** - High relevance required
+  - **Balanced (0.35)** - Good mix of precision and recall (recommended) ⭐ Default
+  - **Broad (0.25)** - Include tangentially related content
+  - **Very Broad (0.15)** - Cast a wide net, may include false positives
+  - Visual feedback with border highlighting and background tint
+  - Technical values shown in parentheses for transparency
+  - Affects: Minimum cosine similarity for vector search
+- **BM25 Keywords**: Tag input with add/remove
+  - Affects: Query routing decisions
+  - Example: "Leia", "Immersity", "3D Cell", "DLB"
+- **BM25 Min Hits**: Number input
+  - Affects: Minimum keyword matches required
+  - Default: 1
+- **Min Supporting Docs**: Number input
+  - Affects: Minimum documents for valid RAG response
+  - Default: 2
+
+**Topics & Aliases Section** (Critical - Affects Tag Boosting):
+- Topic list with add/edit/delete
+- Each topic has:
+  - Topic ID (text input, e.g., "glasses-free-3d")
+  - Aliases array (tag input, e.g., "autostereoscopic", "lightfield display")
+- Nested editor for adding/removing aliases per topic
+- Affects: 7.5% tag boosting during RRF fusion
+
+#### 3. API Endpoints ✅
+
+**GET /api/admin/personas**:
+```typescript
+Response: {
+  success: true,
+  personas: [
+    { slug: "david", name: "David (Leia/Immersity)" },
+    { slug: "albert", name: "Albert Einstein" }
+  ]
+}
+```
+
+**GET /api/admin/personas/[slug]**:
+```typescript
+Response: {
+  success: true,
+  config: {
+    slug: "david",
+    display_name: "David (Leia/Immersity)",
+    version: "1.0.0",
+    last_updated: "2025-09-24",
+    topics: [...],
+    router: { ... }
+  }
+}
+```
+
+**PATCH /api/admin/personas/[slug]**:
+```typescript
+Request: { /* full config object */ }
+Response: {
+  success: true,
+  persona: { /* updated persona record */ }
+}
+```
+
+**Validation**:
+- Required fields: `slug`, `display_name`
+- Slug must match URL parameter
+- Router config must be object
+- Topics must be array
+
+#### 4. UI/UX Design ✅
+
+**Layout**: Card-based sections matching existing admin patterns
+- Similar to `DocumentMetadataEditor.tsx`
+- Consistent spacing, colors, typography
+- Error handling with inline alerts
+
+**Interaction Patterns**:
+- Tag inputs: Add on Enter key or click "Add" button
+- Sliders: Real-time value display
+- Nested editors: Expand/collapse topics
+- Save: Single "Save Configuration" button at bottom
+
+**Feedback**:
+- Loading states during data fetch
+- Error messages with red alert boxes
+- Success callback triggers parent refresh
+- Immediate database persistence
+
+### **Metadata Fields Analysis**
+
+**Fields That Affect RAG Retrieval** (editable in UI):
+1. `topics[]` - Array of topic objects
+   - Used in: `fusionSearch.ts:206-213` for tag boosting
+   - Impact: +7.5% score boost for matching documents
+2. `router.vector_threshold` - Number (0.0-1.0)
+   - Used in: `vectorSearch.ts:107`
+   - Impact: Filters vector search results
+3. `router.bm25_keywords` - Array of strings
+   - Used in: Query routing logic
+   - Impact: Determines if query uses RAG
+4. `router.bm25_keywords_min_hits` - Number
+   - Impact: Minimum keyword matches required
+5. `router.min_supporting_docs` - Number
+   - Impact: Minimum documents for valid response
+
+**Informational Fields** (not affecting retrieval):
+- `slug` - Persona identifier (used for filtering, not tuning)
+- `display_name` - UI display
+- `version`, `last_updated` - Versioning
+- `in_scope_examples`, `out_of_scope_examples` - Documentation
+
+### **User Workflow**
+
+1. Navigate to `/admin/rag`
+2. Click "Upload Documents" button
+3. Select "Persona Config" tab
+4. Choose persona from dropdown (e.g., "David")
+5. Edit configuration:
+   - Adjust vector threshold slider
+   - Add/remove BM25 keywords
+   - Modify min hits and supporting docs
+   - Add/edit/remove topics and aliases
+6. Click "Save Configuration"
+7. Changes persist to database immediately
+8. Next RAG query uses updated configuration
+
+### **Benefits Achieved**
+
+✅ **No Manual JSON Editing**: Web-based UI for all persona config changes
+✅ **Field Documentation**: Clear labels indicate which fields affect retrieval
+✅ **Visual Controls**: Sliders and tag inputs for intuitive editing
+✅ **Database Integration**: Direct read/write to `personas.config_json`
+✅ **Validation**: Type checking and required field validation
+✅ **Immediate Effect**: Changes apply on next RAG query (no server restart)
+✅ **Consistent UI**: Matches existing admin interface patterns
+
+### **Phase 12.1: UX Enhancement - Sensitivity Presets** (2025-10-05)
+
+**Problem**: Technical slider (0.0-1.0) required understanding of cosine similarity mathematics, making it difficult for non-technical users to configure vector thresholds confidently.
+
+**Solution**: Replaced slider with 5 user-friendly radio button presets with semantic labels and descriptions:
+
+**Implementation**:
+- **Component Updated**: `PersonaConfigEditor.tsx`
+- **UI Change**: Slider → Radio buttons with descriptive labels
+- **Presets**:
+  - Very Strict (0.50) - Only nearly-exact semantic matches
+  - Strict (0.40) - High relevance required
+  - Balanced (0.35) - Good mix of precision and recall (recommended)
+  - Broad (0.25) - Include tangentially related content
+  - Very Broad (0.15) - Cast a wide net, may include false positives
+
+**UX Features**:
+- Visual feedback: Border highlighting + background tint for selected preset
+- Technical transparency: Values shown in parentheses (e.g., "Balanced (0.35)")
+- Recommended badge on default preset ("Balanced")
+- Clear descriptions for each sensitivity level
+- No breaking changes: Same database storage (0.0-1.0 float)
+
+**Testing Results** (via Playwright):
+- ✅ All 5 presets display correctly
+- ✅ "Balanced (0.35)" selected by default
+- ✅ Selection state updates correctly on click
+- ✅ Visual feedback works (border + background)
+- ✅ Screenshots captured for documentation
+
+**Benefits**:
+- ✅ **User-Friendly**: Semantic labels ("Strict" vs "Broad") instead of abstract numbers
+- ✅ **Clear Guidance**: Descriptions explain impact of each preset
+- ✅ **No Learning Curve**: Users don't need to understand cosine similarity
+- ✅ **Transparency**: Technical values still visible for advanced users
+- ✅ **Backward Compatible**: No database schema changes required
 
 ---
 

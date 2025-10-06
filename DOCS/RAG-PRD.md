@@ -98,22 +98,83 @@ Free-form natural language describing the persona's expertise.
 
 ### 4.2 persona.config.json
 
-**Manually curated** configuration (LLM can suggest, human finalizes):
+**Manually curated** configuration that directly influences RAG retrieval performance:
 
 ```json
 {
-  "slug": "<slug>",
-  "display_name": "...",
-  "tags": ["LC lens", "DLB", "3D cell", "switchable display", "monocular depth", "neural depth"],
-  "retrieval": {
+  "slug": "david",
+  "display_name": "David (Leia/Immersity)",
+  "version": "1.0.0",
+  "last_updated": "2025-09-24",
+  "topics": [
+    {
+      "id": "glasses-free-3d",
+      "aliases": ["autostereoscopic", "lightfield display", "spatial display"]
+    },
+    {
+      "id": "2d3d-conversion",
+      "aliases": ["Immersity", "Neural Depth", "NeurD", "monocular depth estimation"]
+    }
+  ],
+  "router": {
     "vector_threshold": 0.35,
-    "bm25_min_score": 0.1,
-    "max_chunks": 12
+    "bm25_keywords": ["Leia", "Immersity", "3D Cell", "LC lens", "DLB"],
+    "bm25_keywords_min_hits": 1,
+    "min_supporting_docs": 2,
+    "fallback": "handoff"
   }
 }
 ```
 
-This JSON drives retrieval parameters and tag validation.
+**Configuration Fields**:
+
+**Critical (Affects Retrieval)**:
+- `topics[]` - Topic objects with `id` and `aliases[]` for tag boosting (+7.5% default)
+- `router.vector_threshold` - Minimum cosine similarity for vector search (0.0-1.0)
+- `router.bm25_keywords` - Keywords for query routing decisions
+- `router.bm25_keywords_min_hits` - Minimum keyword matches required
+- `router.min_supporting_docs` - Minimum documents for valid RAG response
+
+**Informational (Metadata)**:
+- `slug` - Persona identifier (used for filtering)
+- `display_name` - UI display name
+- `version`, `last_updated` - Versioning info
+- `in_scope_examples`, `out_of_scope_examples` - Documentation/training data
+
+### 4.3 Admin UI for Persona Configuration
+
+**Location**: `/admin/rag` → "Persona Config" tab
+
+**Features**:
+- Select persona from dropdown (fetched from database)
+- **Search Sensitivity Presets** - User-friendly radio buttons instead of technical slider
+- Manage BM25 keywords with tag input
+- Add/edit/remove topics and their aliases
+- Save changes directly to database (`personas.config_json`)
+
+**Search Sensitivity Presets** (replaces technical threshold slider):
+- **Very Strict (0.50)** - Only nearly-exact semantic matches
+- **Strict (0.40)** - High relevance required
+- **Balanced (0.35)** - Good mix of precision and recall (recommended) ⭐ Default
+- **Broad (0.25)** - Include tangentially related content
+- **Very Broad (0.15)** - Cast a wide net, may include false positives
+
+**Workflow**:
+1. Navigate to `/admin/rag`
+2. Click "Upload Documents" → Select "Persona Config" tab
+3. Choose persona from dropdown
+4. Edit configuration:
+   - Search Sensitivity (5 preset options with descriptions)
+   - BM25 Keywords (add/remove)
+   - Min Hits & Supporting Docs (number inputs)
+   - Topics & Aliases (nested editor)
+5. Click "Save Configuration"
+6. Changes take effect immediately on next RAG query
+
+**API Endpoints**:
+- `GET /api/admin/personas` - List all personas
+- `GET /api/admin/personas/[slug]` - Fetch specific persona config
+- `PATCH /api/admin/personas/[slug]` - Update persona config
 
 ---
 
@@ -276,9 +337,12 @@ Combines three methods:
 
 ### 6.2 Boosting Mechanisms
 
-- **Tag Boosting** (+7.5%): Matches query terms against persona.config.json tags
+- **Tag Boosting** (+7.5%): Matches query terms against `persona.config.json` topic aliases
+  - Configured per-persona in admin UI
+  - Applied during RRF fusion step
+  - Boosts chunks from documents with matching tags
 - **Citation Boosting** (+15%): Recently cited documents in conversation
-- **Document Deduplication**: Max 3 chunks per document
+- **Document Deduplication**: Max 3 chunks per document (configurable)
 
 ### 6.3 Multi-Turn Context
 
@@ -308,11 +372,12 @@ Example: "The system uses diffractive gratings[^us10838134:background]..."
 
 ### 8.1 Document Management (`/admin/rag`)
 
-**Extraction Modes** (4 tabs):
+**Tabs** (5 modes):
 1. **URL Extraction**: Single or batch URL extraction with metadata (patents, ArXiv)
 2. **PDF Extraction**: Upload PDF → auto-extract → preview → ingest
 3. **RAW Markdown**: Single or batch RAW markdown extraction with auto-generated frontmatter
 4. **Formatted Markdown**: Direct upload of pre-formatted .md files (ingestion)
+5. **Persona Config**: Edit persona retrieval settings and topic aliases
 
 **Document Actions**:
 - **Preview**: View/edit markdown with split preview/source view
