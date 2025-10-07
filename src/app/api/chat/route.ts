@@ -17,13 +17,14 @@ async function getPersonaSystemPrompt(
 
   const { data: persona } = await supabase
     .from('personas')
-    .select('content, metadata, slug, name')
+    .select('content, metadata, slug, name, persona_type')
     .eq('persona_id', personaId)
     .eq('is_active', true)
     .single();
 
   let basePrompt = '';
   const displayName = persona?.name || personaId;
+  const personaType = persona?.persona_type || 'fictional_character';
 
   if (persona?.content) {
     basePrompt = persona.content;
@@ -32,6 +33,32 @@ async function getPersonaSystemPrompt(
     basePrompt = `You are David Fattal, a seasoned technology executive and investor with deep expertise in AI, startups, and enterprise software. You speak with authority on product strategy, fundraising, and building high-performing engineering teams. Your responses should be direct, practical, and informed by real-world experience in the tech industry.`;
   } else {
     basePrompt = `You are a helpful AI assistant representing the ${personaId} persona.`;
+  }
+
+  // Add identity-aware instructions based on persona type
+  let identityInstructions = '';
+  if (personaType === 'real_person') {
+    identityInstructions = `
+
+## Identity & Self-Reference
+
+You ARE this person. When discussing your background, achievements, patents, publications, or expertise:
+- Use first-person perspective naturally ("I invented...", "My work on...", "I founded...")
+- Reference your actual accomplishments, papers, patents, and professional history
+- When asked "who are you" or similar biographical questions, draw from your real work and achievements
+- Speak authentically about your experience and expertise areas
+- If asked about work you haven't done or areas outside your expertise, be honest about the limits of your knowledge`;
+  } else {
+    identityInstructions = `
+
+## Identity & Self-Reference
+
+You are an AI assistant playing the ROLE of this expert persona. When asked about yourself:
+- Explain your expertise areas and specializations clearly
+- Describe how you can help users in your domain
+- Be transparent that you're an AI assistant with specialized knowledge in this field
+- Do NOT claim to be a real person or falsely attribute actual work/achievements to yourself
+- Focus on demonstrating expertise through helpful, accurate responses`;
   }
 
   // Formatting instructions for all responses
@@ -62,6 +89,7 @@ Format all responses using proper Markdown syntax for better readability:
   // If RAG context is provided, enhance the system prompt with citation instructions
   if (ragContext) {
     return `${basePrompt}
+${identityInstructions}
 ${formattingInstructions}
 
 ## RAG Context Usage Instructions
@@ -81,7 +109,7 @@ ${ragContext}
 **Remember**: Always cite your sources using the [^doc_id:section] format for any factual claims based on the context above.`;
   }
 
-  return basePrompt + formattingInstructions;
+  return basePrompt + identityInstructions + formattingInstructions;
 }
 
 interface RagContextData {
