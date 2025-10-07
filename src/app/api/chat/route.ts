@@ -90,6 +90,21 @@ interface RagContextData {
 }
 
 /**
+ * Generate Google Patents URL from patent ID
+ * Supports US patents, WO (PCT), EP, etc.
+ */
+function generatePatentUrl(docId: string): string | undefined {
+  // Match patent number patterns like us10838134, wo2024145265a1, etc.
+  const patentMatch = docId.match(/^([a-z]{2})(\d+[a-z]?\d*)$/i);
+  if (!patentMatch) return undefined;
+
+  const countryCode = patentMatch[1].toUpperCase();
+  const number = patentMatch[2].toUpperCase();
+
+  return `https://patents.google.com/patent/${countryCode}${number}`;
+}
+
+/**
  * Format RAG search results as context for LLM and return metadata for citation mapping
  */
 function formatRagContext(results: Awaited<ReturnType<typeof performSearch>>): RagContextData {
@@ -103,9 +118,12 @@ function formatRagContext(results: Awaited<ReturnType<typeof performSearch>>): R
     const docRef = `doc_${index + 1}`;
     const section = result.sectionPath || 'main';
 
+    // Generate source URL from patent ID if missing
+    const sourceUrl = result.sourceUrl || generatePatentUrl(result.docId);
+
     // Store metadata for citation mapping
     metadata.set(docRef, {
-      sourceUrl: result.sourceUrl || undefined,
+      sourceUrl,
       docTitle: result.docTitle || result.docId,
       docId: result.docId,
     });

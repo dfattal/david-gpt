@@ -235,6 +235,36 @@ export const MessageBubble = React.memo(
                   },
                   // Enhanced links with better styling
                   a({ href, children, ...props }) {
+                    // Handle citation links (scroll to source instead of navigate)
+                    if (href?.startsWith('#citation-')) {
+                      return (
+                        <a
+                          href={href}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            const targetId = href.substring(1); // Remove '#'
+                            const targetElement = document.getElementById(targetId);
+                            if (targetElement) {
+                              targetElement.scrollIntoView({
+                                behavior: 'smooth',
+                                block: 'nearest',
+                              });
+                              // Add a brief highlight effect
+                              targetElement.classList.add('bg-yellow-200', 'dark:bg-yellow-900');
+                              setTimeout(() => {
+                                targetElement.classList.remove('bg-yellow-200', 'dark:bg-yellow-900');
+                              }, 2000);
+                            }
+                          }}
+                          className="text-primary hover:text-primary/80 cursor-pointer no-underline transition-colors"
+                          {...props}
+                        >
+                          {children}
+                        </a>
+                      );
+                    }
+
+                    // Regular external links
                     return (
                       <a
                         href={href}

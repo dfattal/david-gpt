@@ -166,23 +166,39 @@ export async function PATCH(
       .update(updatedContent)
       .digest('hex');
 
+    // Check if search-critical fields changed (require re-ingestion)
+    const needsReingestion =
+      updates.keyTerms !== undefined ||
+      updates.alsoKnownAs !== undefined ||
+      updates.tags !== undefined ||
+      updates.summary !== undefined;
+
+    // Prepare update payload
+    const updatePayload: any = {
+      title: updatedMeta.title,
+      type: updatedMeta.type,
+      date: updatedMeta.date || null,
+      source_url: updatedMeta.source_url || null,
+      tags: updatedMeta.tags || [],
+      summary: updatedMeta.summary || null,
+      license: updatedMeta.license || null,
+      identifiers: updatedMeta.identifiers || {},
+      dates_structured: updatedMeta.dates || {},
+      actors: updatedMeta.actors || [],
+      raw_content: updatedContent,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Mark for re-ingestion if search-critical fields changed
+    if (needsReingestion && doc.ingestion_status === 'ingested') {
+      updatePayload.ingestion_status = 'extracted';
+      console.log(`📌 Marked document ${id} for re-ingestion due to metadata changes`);
+    }
+
     // Update document in database
     const { error: updateError } = await supabase
       .from('docs')
-      .update({
-        title: updatedMeta.title,
-        type: updatedMeta.type,
-        date: updatedMeta.date || null,
-        source_url: updatedMeta.source_url || null,
-        tags: updatedMeta.tags || [],
-        summary: updatedMeta.summary || null,
-        license: updatedMeta.license || null,
-        identifiers: updatedMeta.identifiers || {},
-        dates_structured: updatedMeta.dates || {},
-        actors: updatedMeta.actors || [],
-        raw_content: updatedContent,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq('id', id);
 
     if (updateError) {
@@ -219,7 +235,7 @@ export async function PATCH(
       success: true,
       document: {
         id,
-        title: updatedMeta.title,
+        title: updatedMeta.title || doc.title,
         updated_at: new Date().toISOString(),
       },
     });

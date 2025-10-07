@@ -1319,6 +1319,212 @@ User clicks persona cell
 - [ ] Smart suggestions based on document content
 - [ ] PersonaMultiSelect component behavior
 
+---
+
+## Phase 14.1: Storage Synchronization Fixes ✅ COMPLETE
+**Date**: 2025-10-06
+**Status**: ✅ **Production Ready**
+
+### **Goal**
+Ensure that all three storage locations (docs.raw_content, Supabase Storage, document_files) stay in perfect sync during document update operations.
+
+### **Problem Solved**
+**Before**: Document updates had three critical gaps:
+1. **Persona reassignment** updated database and storage but didn't update `content_hash` in `document_files`
+2. **Metadata edits** didn't trigger re-ingestion when search-critical fields changed
+3. **No verification** that all three storage layers remained synchronized
+
+**After**: Comprehensive synchronization across all update operations
+- Content hash automatically updated after all changes
+- Search-critical metadata edits trigger re-ingestion
+- All three storage locations verified to stay in sync
+
+### **Implementation**
+
+#### **Fix #1: Persona Reassignment Hash Sync** ✅
+**File**: `src/app/api/admin/documents/[id]/personas/route.ts`
+
+**Changes**:
+- Added crypto import for SHA-256 hashing
+- Calculate new content hash after frontmatter update
+- Update `document_files` table with new hash and file size
+
+```typescript
+// Calculate hash after storage update
+const newHash = crypto
+  .createHash('sha256')
+  .update(updatedMarkdown)
+  .digest('hex');
+
+// Update document_files to keep sync
+await supabase
+  .from('document_files')
+  .update({
+    content_hash: newHash,
+    file_size: new Blob([updatedMarkdown]).size,
+  })
+  .eq('doc_id', docId);
+```
+
+**Impact**: Prevents hash mismatches after persona changes
+
+#### **Fix #2: Metadata Edit Re-Ingestion Marking** ✅
+**File**: `src/app/api/admin/documents/[id]/metadata/route.ts`
+
+**Changes**:
+- Detect changes to search-critical fields (keyTerms, alsoKnownAs, tags, summary)
+- Automatically mark documents for re-ingestion when embeddings become stale
+- Set `ingestion_status` from `'ingested'` to `'extracted'`
+
+```typescript
+// Check if search-critical fields changed (require re-ingestion)
+const needsReingestion =
+  updates.keyTerms !== undefined ||
+  updates.alsoKnownAs !== undefined ||
+  updates.tags !== undefined ||
+  updates.summary !== undefined;
+
+// Mark for re-ingestion if search-critical fields changed
+if (needsReingestion && doc.ingestion_status === 'ingested') {
+  updatePayload.ingestion_status = 'extracted';
+  console.log(`📌 Marked document ${id} for re-ingestion due to metadata changes`);
+}
+```
+
+**Impact**: Ensures embeddings stay current when content changes
+
+#### **Fix #3: TypeScript Type Safety** ✅
+**File**: `src/app/api/admin/documents/[id]/metadata/route.ts`
+
+**Changes**:
+- Fixed potential undefined error in metadata update response
+- Added fallback: `title: updatedMeta.title || doc.title`
+
+```typescript
+return NextResponse.json({
+  success: true,
+  document: {
+    id,
+    title: updatedMeta.title || doc.title, // Fixed undefined issue
+    updated_at: new Date().toISOString(),
+  },
+});
+```
+
+**Impact**: Prevents runtime errors when title is undefined
+
+### **Testing Results**
+
+#### **Test 1: Persona Reassignment Hash Sync** ✅
+**Test Case**: Change document from `["david", "legal"]` to `["david"]`
+
+**Before**:
+- `docs.personas`: `["david", "legal"]`
+- `document_files.content_hash`: Old hash
+
+**After**:
+- `docs.personas`: `["david"]`
+- `docs.raw_content` frontmatter: `personas: - david`
+- `document_files.content_hash`: New hash (updated)
+- `document_files.file_size`: Updated
+- **Verification**: SHA-256 hash matches across all three layers
+
+**Result**: ✅ PASS - All storage locations synchronized
+
+#### **Test 2: Metadata Edit Re-Ingestion Marking** ✅
+**Test Case**: Add new tag "test-tag" to document with `ingestion_status: 'ingested'`
+
+**Before**:
+- `ingestion_status`: `"ingested"`
+- `tags`: 13 tags (no "test-tag")
+
+**After**:
+- `ingestion_status`: `"extracted"` (marked for re-ingestion)
+- `tags`: 14 tags (includes "test-tag")
+- `updated_at`: Updated timestamp
+
+**Result**: ✅ PASS - Document correctly marked for re-ingestion
+
+#### **Test 3: Three-Layer Synchronization Verification** ✅
+**Test Case**: Verify all storage locations match after update
+
+**Verification Method**:
+1. Query `docs.raw_content` and calculate SHA-256 hash
+2. Query `document_files.content_hash` from database
+3. Download file from Supabase Storage and calculate SHA-256 hash
+4. Compare all three hashes
+
+**Results**:
+```
+✅ Database hash (docs.raw_content):    19881921172c40d5e922b84cc2150edb92519218bfd9143cad23c2f89a4b4e65
+✅ Stored hash (document_files):        19881921172c40d5e922b84cc2150edb92519218bfd9143cad23c2f89a4b4e65
+✅ Storage file hash:                    19881921172c40d5e922b84cc2150edb92519218bfd9143cad23c2f89a4b4e65
+✅ Personas in storage: true (contains 'personas: - david')
+✅ Test-tag in storage: true
+```
+
+**Result**: ✅ PASS - Perfect synchronization across all three layers
+
+### **Architecture**
+
+**Three Storage Locations**:
+1. **docs.raw_content** (Primary) - Full markdown content in database
+2. **Supabase Storage** (Backup) - File in `formatted-documents/` bucket
+3. **document_files** (Metadata) - Content hash (SHA-256) + file size tracking
+
+**Update Flow**:
+```
+1. Parse current content from docs.raw_content
+2. Merge updates with existing frontmatter/content
+3. Calculate new SHA-256 hash
+4. Update docs.raw_content (primary source)
+5. Update Supabase Storage file (best-effort)
+6. Update document_files.content_hash + file_size
+7. If search-critical: Set ingestion_status = 'extracted'
+```
+
+**Search-Critical Fields** (trigger re-ingestion):
+- `keyTerms` - Inline key terms at top of document
+- `alsoKnownAs` - Document aliases for search
+- `tags` - Indexed metadata tags
+- `summary` - Document summary text
+
+### **Benefits Achieved**
+
+✅ **Data Integrity**
+- Content hash verification across all storage layers
+- Automatic sync on every update operation
+- Prevention of hash drift over time
+
+✅ **Search Accuracy**
+- Automatic re-ingestion marking when embeddings need refresh
+- Search-critical field change detection
+- Fresh embeddings for updated metadata
+
+✅ **Type Safety**
+- Fixed potential undefined errors
+- Proper fallback handling
+- Improved error prevention
+
+✅ **Operational Confidence**
+- Three-layer verification testing
+- Automated synchronization (no manual intervention)
+- Clear logging for debugging
+
+### **Commit**
+```
+fix: ensure storage synchronization across all document update operations
+
+- Fix #1: Added crypto hash update in persona reassignment
+- Fix #2: Added re-ingestion marking for search-critical metadata edits
+- Fix #3: Fixed TypeScript type safety in metadata route
+
+Testing:
+✅ Verified persona reassignment updates all three storage locations
+✅ Verified metadata edits trigger re-ingestion marking
+✅ Verified SHA-256 hashes match across all storage layers
+```
+
 #### Integration Tests (Pending)
 - [ ] Upload document with 2 personas → appears in both
 - [ ] Search from Persona A → finds shared doc with Persona A config

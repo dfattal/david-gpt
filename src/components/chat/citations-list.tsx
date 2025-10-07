@@ -28,27 +28,28 @@ export function CitationsList({ citations }: CitationsListProps) {
             <div
               key={citation.id}
               id={`citation-${citation.number}`}
-              className="text-sm flex items-start gap-2 scroll-mt-4"
+              className="text-sm flex items-start gap-2 scroll-mt-4 transition-colors duration-300 rounded px-2 py-1 -mx-2"
             >
               <span className="font-mono text-xs text-muted-foreground shrink-0 pt-0.5">
                 [{citation.number}]
               </span>
               <div className="flex-1 min-w-0">
-                <span className="font-medium text-foreground">
-                  {citation.docTitle || citation.docId}
-                </span>
-                <span className="text-muted-foreground">, §{citation.sectionPath}</span>
-                {citation.sourceUrl && (
+                {citation.sourceUrl ? (
                   <a
                     href={buildCitationUrl(citation.sourceUrl, citation.sectionPath)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="ml-2 inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                    className="font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline transition-colors inline-flex items-center gap-1"
                   >
-                    <span className="text-xs">View source</span>
+                    {citation.docTitle || citation.docId}
                     <ExternalLink className="w-3 h-3" />
                   </a>
+                ) : (
+                  <span className="font-medium text-foreground">
+                    {citation.docTitle || citation.docId}
+                  </span>
                 )}
+                <span className="text-muted-foreground">, §{citation.sectionPath}</span>
               </div>
             </div>
           ))}

@@ -8,6 +8,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import matter from 'gray-matter';
+import crypto from 'crypto';
 
 export async function PATCH(
   request: NextRequest,
@@ -103,6 +104,20 @@ export async function PATCH(
         console.warn('Failed to update storage file frontmatter:', uploadError);
         // Continue anyway - database is source of truth
       }
+
+      // Update content hash in document_files to keep sync
+      const newHash = crypto
+        .createHash('sha256')
+        .update(updatedMarkdown)
+        .digest('hex');
+
+      await supabase
+        .from('document_files')
+        .update({
+          content_hash: newHash,
+          file_size: new Blob([updatedMarkdown]).size,
+        })
+        .eq('doc_id', docId);
     }
 
     console.log(

@@ -395,9 +395,61 @@ Example: "The system uses diffractive gratings[^us10838134:background]..."
 
 ### 8.2 Storage Architecture
 
-- **Database**: `docs` table with `raw_content`, `ingestion_status`, `extraction_metadata`
-- **Storage**: `formatted-documents` bucket in Supabase Storage
-- **Tracking**: `document_files` table with content hashes
+David-GPT uses a **three-layer storage architecture** to ensure data integrity and consistency:
+
+1. **Primary Storage** (`docs` table):
+   - `raw_content`: Complete markdown document with frontmatter
+   - `ingestion_status`: Document lifecycle state (`extracted | ingested | failed`)
+   - `extraction_metadata`: Extraction method and timestamps
+   - `personas`: JSONB array of persona slugs
+   - `tags`, `summary`, `identifiers`, `dates`, `actors`: Structured metadata
+
+2. **File Storage** (`formatted-documents` bucket):
+   - Supabase Storage bucket containing physical markdown files
+   - Path format: `{persona_slug}/{doc_id}.md`
+   - Publicly accessible via signed URLs
+
+3. **Tracking Layer** (`document_files` table):
+   - `content_hash`: SHA-256 hash of file content for change detection
+   - `file_size`: Document size in bytes
+   - `storage_path`: Location in storage bucket
+   - Foreign key to `docs` table via `doc_id`
+
+**Synchronization Guarantees**:
+
+All three storage locations are automatically synchronized on document updates:
+
+- **Persona Reassignment** (`PATCH /api/admin/documents/[id]/personas`):
+  - Updates `docs.personas` array and `raw_content` frontmatter
+  - Recalculates SHA-256 hash and updates `document_files.content_hash`
+  - Uploads updated markdown to storage bucket
+  - All three layers stay in sync with identical content hashes
+
+- **Metadata Edits** (`PATCH /api/admin/documents/[id]/metadata`):
+  - Updates `docs` table fields (title, tags, summary, etc.)
+  - Updates `raw_content` frontmatter and inline sections (Key Terms, Also Known As)
+  - Recalculates content hash and syncs to `document_files`
+  - Uploads to storage bucket with upsert
+  - **Auto Re-ingestion Marking**: Edits to search-critical fields (`keyTerms`, `alsoKnownAs`, `tags`, `summary`) automatically change `ingestion_status` from `'ingested'` to `'extracted'` to trigger re-embedding
+
+- **Hash Verification**:
+  ```sql
+  -- Verify three-layer synchronization
+  SELECT
+    d.id,
+    encode(sha256(d.raw_content::bytea), 'hex') AS calculated_hash,
+    df.content_hash AS stored_hash,
+    (encode(sha256(d.raw_content::bytea), 'hex') = df.content_hash) AS hashes_match
+  FROM docs d
+  JOIN document_files df ON d.id = df.doc_id
+  WHERE d.id = 'doc_id_here';
+  ```
+
+**Benefits**:
+- **Data Integrity**: Cryptographic hashing detects content drift
+- **Storage Reliability**: Database is source of truth with storage as backup
+- **Search Accuracy**: Auto re-ingestion ensures embeddings reflect current metadata
+- **Audit Trail**: Content hash changes indicate document modifications
 
 ---
 

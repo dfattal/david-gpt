@@ -38,6 +38,7 @@ export function ChatInterface({
   const [citationMetadata, setCitationMetadata] = useState<Map<string, { sourceUrl?: string; docTitle?: string }>>(new Map());
   const [citationMetadataArray, setCitationMetadataArray] = useState<any[]>([]);
   const pendingConversationIdRef = useRef<string | null>(null);
+  const pendingCitationMetadataRef = useRef<any[]>([]);
 
   // AI SDK pattern: manage input state manually, use append
   const [input, setInput] = useState("");
@@ -62,6 +63,7 @@ export function ChatInterface({
           );
           setCitationMetadata(metadataMap);
           setCitationMetadataArray(metadata); // Store array for saving citations
+          pendingCitationMetadataRef.current = metadata; // Store in ref for onFinish
           console.log('📚 Citation metadata loaded:', metadata.length, 'documents');
         } catch (error) {
           console.error('Failed to parse citation metadata:', error);
@@ -75,6 +77,10 @@ export function ChatInterface({
 
       if (conversationId && message?.content) {
         try {
+          // Use ref instead of state to avoid timing issues
+          const citationMetadata = pendingCitationMetadataRef.current;
+          console.log('💾 Saving message with citation metadata:', citationMetadata?.length || 0, 'documents');
+
           await fetch('/api/messages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -82,9 +88,12 @@ export function ChatInterface({
               conversationId,
               role: 'assistant',
               content: message.content,
-              citationMetadata: citationMetadataArray.length > 0 ? citationMetadataArray : undefined,
+              citationMetadata: citationMetadata && citationMetadata.length > 0 ? citationMetadata : undefined,
             }),
           });
+
+          // Clear the ref after saving
+          pendingCitationMetadataRef.current = [];
         } catch (error) {
           console.error("Failed to save assistant message:", error);
         }
@@ -141,6 +150,24 @@ export function ChatInterface({
         const response = await fetch(`/api/conversations/${newConversationId}`);
         if (response.ok) {
           const { messages: conversationMessages } = await response.json();
+
+          // Extract citation metadata from the last assistant message
+          const lastAssistantMessage = conversationMessages
+            .filter((msg: any) => msg.role === 'assistant')
+            .pop();
+
+          if (lastAssistantMessage?.metadata?.citationMetadata) {
+            const metadata = lastAssistantMessage.metadata.citationMetadata;
+            const metadataMap = new Map(
+              metadata.map((item: any) => [
+                item.docRef,
+                { sourceUrl: item.sourceUrl, docTitle: item.docTitle }
+              ])
+            );
+            setCitationMetadata(metadataMap);
+            setCitationMetadataArray(metadata);
+            console.log('📚 Loaded citation metadata from saved message:', metadata.length, 'documents');
+          }
 
           // Convert database messages to chat hook format
           const formattedMessages = conversationMessages.map((msg: any) => ({

@@ -54,7 +54,10 @@ export async function POST(req: NextRequest) {
         role,
         content: content.trim(),
         turn_type: turnType || null,
-        response_mode: responseMode || null
+        response_mode: responseMode || null,
+        metadata: citationMetadata && citationMetadata.length > 0
+          ? { citationMetadata }
+          : {}
       })
       .select()
       .single()
