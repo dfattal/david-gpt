@@ -154,7 +154,7 @@ export function ChatInterface({
         if (response.ok) {
           const { messages: conversationMessages } = await response.json();
 
-          // Extract citation metadata from the last assistant message
+          // Extract citation metadata from the last assistant message for streaming
           const lastAssistantMessage = conversationMessages
             .filter((msg: any) => msg.role === 'assistant')
             .pop();
@@ -172,12 +172,20 @@ export function ChatInterface({
             console.log('📚 Loaded citation metadata from saved message:', metadata.length, 'documents');
           }
 
-          // Convert database messages to chat hook format
+          // Convert database messages to chat hook format with per-message citation metadata
           const formattedMessages = conversationMessages.map((msg: any) => ({
             id: msg.id,
             role: msg.role,
             content: msg.content,
             createdAt: new Date(msg.created_at),
+            citationMetadata: msg.metadata?.citationMetadata
+              ? new Map(
+                  msg.metadata.citationMetadata.map((item: any) => [
+                    item.docRef,
+                    { sourceUrl: item.sourceUrl, docTitle: item.docTitle }
+                  ])
+                )
+              : undefined,
           }));
 
           // Update messages when switching to a different conversation
@@ -444,7 +452,7 @@ export function ChatInterface({
                   (message) =>
                     message.role === "user" || message.role === "assistant"
                 )
-                .map((message) => (
+                .map((message: any) => (
                   <MessageBubble
                     key={message.id}
                     message={{
@@ -455,7 +463,9 @@ export function ChatInterface({
                     }}
                     user={user}
                     persona={message.role === "assistant" ? selectedPersona : undefined}
-                    citationMetadata={message.role === "assistant" ? citationMetadata : undefined}
+                    citationMetadata={message.role === "assistant"
+                      ? (message.citationMetadata || citationMetadata)
+                      : undefined}
                   />
                 ))}
 
