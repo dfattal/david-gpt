@@ -368,6 +368,110 @@ Example: "The system uses diffractive gratings[^us10838134:background]..."
 
 ---
 
+## 7.5 Persona Display in Chat UI
+
+### 7.5.1 Requirements
+
+Assistant messages must display the correct persona information dynamically based on the conversation context:
+
+- **Persona Name**: Display actual persona name (e.g., "Albert Einstein" not hardcoded "David Fattal")
+- **Persona Expertise**: Show persona-specific expertise description (from `personas.expertise` field)
+- **Persona Avatar**: Use persona-specific avatar image (from local avatars or Supabase Storage)
+- **Fallback Behavior**: Default to David Fattal if persona information unavailable
+
+### 7.5.2 Implementation
+
+**MessageBubble Component** (`src/components/chat/message-bubble.tsx`):
+- Accepts optional `persona` prop with persona details (`id`, `persona_id`, `name`, `expertise`, `avatar_url`)
+- Uses `getPersonaAvatar()` and `getPersonaInitials()` from avatar-utils
+- Dynamically renders persona name, expertise, and avatar for assistant messages
+
+**ChatInterface Component** (`src/components/chat/chat-interface.tsx`):
+- Passes `selectedPersona` to MessageBubble for all assistant messages
+- Maintains single persona per conversation (stored in `conversations.persona_id`)
+
+**Database Schema**:
+- `personas.name` - Display name (e.g., "David (Leia/Immersity)")
+- `personas.expertise` - Short description for UI display (e.g., "Expert Legal Advisor")
+- `personas.avatar_url` - Avatar image URL in Supabase Storage
+- `personas.persona_id` - Slug for local avatar fallback (e.g., "david", "legal")
+
+### 7.5.3 Multi-Turn Behavior
+
+**Same Persona**: All messages in conversation display same persona (multi-turn works)
+
+**Persona Switching**: User switching personas creates new conversation (clean separation of context)
+
+**Future Enhancement**: Per-message persona tracking for mid-conversation switching (deferred)
+
+---
+
+## 7.6 Conversation Filtering by Persona
+
+### 7.6.1 Requirements
+
+The conversation sidebar must filter conversations based on the currently selected persona:
+
+- **Persona-Based Filtering**: Only show conversations for the active persona
+- **Dynamic Title**: Update sidebar title to "Conversations with [Persona Name]"
+- **Empty State**: Persona-aware messaging when no conversations exist
+- **Backward Compatibility**: Handle old conversations with null persona_id gracefully
+
+### 7.6.2 Implementation
+
+**ConversationSidebar Component** (`src/components/chat/conversation-sidebar.tsx`):
+- Accepts `selectedPersona` prop from ChatLayout
+- Client-side filtering: `conversations.filter(c => !selectedPersona || c.persona_id === selectedPersona.id)`
+- Dynamic title rendering: `"Conversations" + (selectedPersona ? ` with ${selectedPersona.name}` : "")`
+- Persona-aware empty state: `"No conversations yet" + (selectedPersona ? ` with ${selectedPersona.name}` : "")`
+
+**ChatLayout Component** (`src/components/chat/chat-layout.tsx`):
+- Passes `selectedPersona` prop to ConversationSidebar
+- No API changes required (filtering happens client-side)
+
+**Database Schema**:
+- `conversations.persona_id` - Foreign key to personas.id (nullable for backward compatibility)
+- Populated on conversation creation when persona is selected
+
+### 7.6.3 Persona Assignment on Creation
+
+**Bug Fix** (Phase 16): Conversations were not saving persona_id correctly
+
+**Root Cause**: ChatInterface was using `selectedPersona?.slug` but PersonaOption interface has `persona_id` field
+
+**Fix Applied** (`src/components/chat/chat-interface.tsx`):
+```typescript
+// Before (Bug):
+personaSlug: selectedPersona?.slug
+
+// After (Fixed):
+personaSlug: selectedPersona?.persona_id
+```
+
+**API Flow** (`/api/conversations/route.ts`):
+1. Receives `personaSlug` from frontend
+2. Looks up persona UUID from slug: `SELECT id FROM personas WHERE slug = personaSlug`
+3. Stores UUID in `conversations.persona_id`
+
+### 7.6.4 Filtering Behavior
+
+**Active Persona Filter**:
+- Shows only conversations where `persona_id` matches selected persona's UUID
+- Conversations with null `persona_id` are hidden (pre-persona conversations)
+- Client-side filtering (no additional API calls)
+
+**Null Persona Handling**:
+- Old conversations with null persona_id gracefully hidden from filtered view
+- No data migration required
+- Future: Could add "All Conversations" toggle if needed
+
+**Performance**:
+- Client-side filtering (conversations already fetched)
+- Minimal re-renders (filter applied before map)
+- No additional database queries
+
+---
+
 ## 8. Admin Tools
 
 ### 8.1 Document Management (`/admin/rag`)

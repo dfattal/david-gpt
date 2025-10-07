@@ -44,6 +44,7 @@ import type { Conversation } from "@/lib/types";
 
 interface ConversationSidebarProps {
   currentConversation?: Conversation;
+  selectedPersona?: { id: string; persona_id: string; name: string } | null;
   onConversationSelect: (conversation: Conversation | null) => void;
   onNewConversation: () => void;
   onConversationUpdate?: (conversation: Conversation) => void;
@@ -58,7 +59,7 @@ export const ConversationSidebar = forwardRef<
   ConversationSidebarRef,
   ConversationSidebarProps
 >(function ConversationSidebar(
-  { currentConversation, onConversationSelect, onNewConversation, onConversationUpdate },
+  { currentConversation, selectedPersona, onConversationSelect, onNewConversation, onConversationUpdate },
   ref
 ) {
   const { user, signOut } = useAuth();
@@ -316,13 +317,21 @@ export const ConversationSidebar = forwardRef<
     router.push('/admin');
   };
 
+  // Filter conversations by selected persona
+  const filteredConversations = conversations.filter(
+    (conversation) =>
+      !selectedPersona || conversation.persona_id === selectedPersona.id
+  );
+
   return (
     <div className="w-72 sm:w-80 lg:w-96 border-r bg-background flex flex-col h-full">
       {/* Header */}
       <div className="px-4 pt-4 pb-4 space-y-4">
         <div className="flex items-center space-x-2">
           <MessageSquare className="w-5 h-5 text-primary" />
-          <h2 className="font-semibold text-lg">Conversations</h2>
+          <h2 className="font-semibold text-lg">
+            Conversations{selectedPersona ? ` with ${selectedPersona.name}` : ''}
+          </h2>
         </div>
 
         <Button
@@ -363,11 +372,13 @@ export const ConversationSidebar = forwardRef<
               Loading conversations...
             </p>
           </div>
-        ) : conversations.length === 0 ? (
+        ) : filteredConversations.length === 0 ? (
           <Card className="m-4 border-dashed">
             <CardContent className="p-6 text-center">
               <MessageSquare className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
-              <p className="text-sm font-medium mb-2">No conversations yet</p>
+              <p className="text-sm font-medium mb-2">
+                No conversations yet{selectedPersona ? ` with ${selectedPersona.name}` : ''}
+              </p>
               <p className="text-xs text-muted-foreground">
                 Start chatting to see your history here
               </p>
@@ -375,7 +386,7 @@ export const ConversationSidebar = forwardRef<
           </Card>
         ) : (
           <div className="space-y-0.5 py-2">
-            {conversations.map((conversation) => (
+            {filteredConversations.map((conversation) => (
               <div
                 key={conversation.id}
                 className={cn(

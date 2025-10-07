@@ -42,6 +42,9 @@ export function ChatInterface({
 
   // AI SDK pattern: manage input state manually, use append
   const [input, setInput] = useState("");
+
+  console.log('🎭 ChatInterface render - selectedPersona:', selectedPersona);
+
   const chatHook = useChat({
     api: "/api/chat",
     streamProtocol: "text", // Using text stream
@@ -236,7 +239,10 @@ export function ChatInterface({
       fetch("/api/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstMessage: messageContent }),
+        body: JSON.stringify({
+          firstMessage: messageContent,
+          personaSlug: selectedPersona?.persona_id,
+        }),
       })
         .then(async (response) => {
           if (response.ok) {
@@ -448,6 +454,7 @@ export function ChatInterface({
                       created_at: message.createdAt?.toISOString(),
                     }}
                     user={user}
+                    persona={message.role === "assistant" ? selectedPersona : undefined}
                     citationMetadata={message.role === "assistant" ? citationMetadata : undefined}
                   />
                 ))}

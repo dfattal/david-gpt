@@ -14,6 +14,7 @@ export interface UserProfile {
 export interface Conversation {
   id: string
   user_id: string
+  persona_id?: string
   title?: string
   last_message_at: string
   context_summary?: string

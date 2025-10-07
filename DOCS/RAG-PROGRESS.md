@@ -3,7 +3,7 @@
 **Project**: david-gpt Multi-Persona RAG System
 **Started**: 2025-09-29
 **Last Updated**: 2025-10-06
-**Status**: ✅ **Phase 14 COMPLETE** - Inline Persona Reassignment
+**Status**: ✅ **Phase 16 COMPLETE** - Persona-Based Conversation Filtering
 
 ---
 
@@ -47,12 +47,26 @@
 - **Frontend Updates**: All 4 admin upload components updated ✅
 - **Database Schema**: No changes needed (already JSONB array) ✅
 
-**Phase 14 (NEW)**: Inline Persona Reassignment ✅ **COMPLETE**
+**Phase 14**: Inline Persona Reassignment ✅ **COMPLETE**
 - **Inline Editor**: Click persona cell to open popover with multi-select ✅
 - **API Endpoint**: `PATCH /api/admin/documents/[id]/personas` ✅
 - **Full Sync**: Updates DB (docs.personas) + frontmatter (raw_content) + storage ✅
 - **Real-time UI**: Toast notifications and instant refresh ✅
 - **No Re-ingestion**: Persona changes don't require re-chunking ✅
+
+**Phase 15**: Dynamic Persona Display in Chat UI ✅ **COMPLETE**
+- **MessageBubble**: Dynamic persona name, expertise, and avatar display ✅
+- **Avatar Integration**: Uses existing avatar-utils functions ✅
+- **Expertise Field**: Leverages existing `personas.expertise` database column ✅
+- **Multi-Turn Support**: Same-persona conversations work (persona switching creates new conversation) ✅
+- **No Database Changes**: Used existing schema fields ✅
+
+**Phase 16 (NEW)**: Persona-Based Conversation Filtering ✅ **COMPLETE**
+- **Sidebar Filtering**: Client-side filtering by selected persona ✅
+- **Dynamic Title**: "Conversations with [Persona Name]" ✅
+- **Persona-Aware Empty State**: Contextual messaging when no conversations exist ✅
+- **Bug Fix**: Fixed persona assignment on conversation creation ✅
+- **Backward Compatible**: Handles null persona_id gracefully ✅
 
 ### 🔄 Post-MVP
 - **Phase 9**: E2E testing & performance optimization (Deferred)
@@ -1534,41 +1548,382 @@ Testing:
 #### E2E Tests (Deferred to Phase 14)
 - Playwright tests for complete workflows
 
-### **Remaining Work**
+---
 
-**Estimated Time**: 6-8 hours
+## Phase 15: Dynamic Persona Display in Chat UI ✅ COMPLETE
+**Date Started**: 2025-10-06
+**Date Completed**: 2025-10-06
+**Status**: ✅ **Production Ready**
 
-1. **Finish Formatter Dependencies** (1 hour)
-   - Complete `documentAssembler.ts`, `batchUrlProcessor.ts`, `pdfPipeline.ts`
+### **Goal**
+Display the correct persona name, avatar, and expertise in chat message bubbles instead of hardcoded "David Fattal - AI Assistant".
 
-2. **Update API Routes** (2-3 hours)
-   - 6 routes need persona array handling
-   - Add metadata PATCH route persona editing
+### **Problem Solved**
+**Before**: MessageBubble component hardcoded David's information
+- All assistant messages showed "David Fattal - AI Assistant"
+- Avatar always displayed `/David_pic_128.jpg`
+- Misleading when chatting with other personas (e.g., Albert)
+- No visual indication of which persona was responding
 
-3. **Update Workers** (1-2 hours)
-   - 3 worker input types and handlers
+**After**: Dynamic persona display based on conversation
+- Shows actual persona name (e.g., "Albert Einstein")
+- Displays persona-specific expertise (e.g., "Expert Legal Advisor")
+- Uses correct persona avatar from avatar-utils
+- Visual consistency with persona selection in header
 
-4. **Update Admin UI** (2-3 hours)
-   - Replace 4 dropdown selects with PersonaMultiSelect
-   - Add persona editor to DocumentMetadataEditor
+### **Implementation Status**
 
-5. **Documentation & Testing** (1 hour)
-   - Update RAG-PRD.md
-   - Manual testing of workflows
+#### ✅ **Backend (No Changes Needed)**
+- Persona information already available in `selectedPersona` prop
+- `personas.expertise` field already exists in database
+- Chat API already returns correct persona for conversations
+- Avatar utility functions already implemented
+
+#### ✅ **Frontend Components (Complete)**
+
+1. **MessageBubble Component** (`src/components/chat/message-bubble.tsx`)
+   - ✅ Added `Persona` interface with required fields
+   - ✅ Added `persona?: Persona` prop to MessageBubbleProps
+   - ✅ Imported `getPersonaAvatar()` and `getPersonaInitials()` from avatar-utils
+   - ✅ Replaced hardcoded values with dynamic variables:
+     - `personaName` from `persona?.name` (fallback: "David Fattal")
+     - `personaExpertise` from `persona?.expertise` (fallback: "AI Assistant")
+     - `avatarUrl` from `getPersonaAvatar(persona)` (fallback: "/David_pic_128.jpg")
+     - `initials` from `getPersonaInitials(persona)` (fallback: "DF")
+   - ✅ Updated React.memo comparison to include persona changes
+
+2. **ChatInterface Component** (`src/components/chat/chat-interface.tsx`)
+   - ✅ Updated MessageBubble usage to pass `persona` prop
+   - ✅ Only passes persona for assistant messages (not user messages)
+   - ✅ Uses existing `selectedPersona` state
+
+### **Database Schema**
+**No changes needed!** ✅
+- `personas.name` - Display name (e.g., "Albert Einstein")
+- `personas.expertise` - Short description (e.g., "Expert Legal Advisor")
+- `personas.avatar_url` - Avatar in Supabase Storage
+- `personas.persona_id` - Slug for local avatar fallback
+
+### **Multi-Turn Conversation Support**
+
+**Current Implementation**: ✅ Same-persona multi-turn works perfectly
+- Conversations have single `persona_id` foreign key
+- All messages in conversation use same persona
+- MessageBubble displays correct persona for entire conversation
+
+**Persona Switching Mid-Conversation**: New conversation created
+- Switching personas creates new conversation (clean separation)
+- Previous conversation preserved with original persona
+- Future enhancement: Track persona per message if needed
+
+### **Code Changes**
+
+#### **MessageBubble.tsx Changes**:
+```typescript
+// Before (Hardcoded):
+<Avatar className="w-10 h-10 ring-2 ring-background shadow-sm shrink-0 mt-1">
+  <AvatarImage src="/David_pic_128.jpg" alt="David Fattal" className="object-cover" />
+  <AvatarFallback>DF</AvatarFallback>
+</Avatar>
+<div className="mb-2">
+  <span className="text-sm font-medium text-foreground">David Fattal</span>
+  <span className="text-xs text-muted-foreground ml-2">AI Assistant</span>
+</div>
+
+// After (Dynamic):
+const avatarUrl = persona ? getPersonaAvatar(persona) : "/David_pic_128.jpg";
+const initials = persona ? getPersonaInitials(persona) : "DF";
+const personaName = persona?.name || "David Fattal";
+const personaExpertise = persona?.expertise || "AI Assistant";
+
+<Avatar className="w-10 h-10 ring-2 ring-background shadow-sm shrink-0 mt-1">
+  <AvatarImage src={avatarUrl} alt={personaName} className="object-cover" />
+  <AvatarFallback>{initials}</AvatarFallback>
+</Avatar>
+<div className="mb-2">
+  <span className="text-sm font-medium text-foreground">{personaName}</span>
+  <span className="text-xs text-muted-foreground ml-2">{personaExpertise}</span>
+</div>
+```
+
+#### **ChatInterface.tsx Changes**:
+```typescript
+// Before:
+<MessageBubble
+  key={message.id}
+  message={...}
+  user={user}
+  citationMetadata={...}
+/>
+
+// After:
+<MessageBubble
+  key={message.id}
+  message={...}
+  user={user}
+  persona={message.role === "assistant" ? selectedPersona : undefined}  // NEW
+  citationMetadata={...}
+/>
+```
+
+### **Benefits Achieved**
+
+✅ **Accurate Persona Display**
+- Shows correct persona name for each conversation
+- Displays persona expertise instead of generic "AI Assistant"
+- Uses persona-specific avatars
+
+✅ **No Database Changes**
+- Leveraged existing `expertise` field
+- Used existing avatar infrastructure
+- Zero schema migrations required
+
+✅ **Backward Compatible**
+- Fallbacks ensure existing conversations still work
+- No breaking changes to MessageBubble API
+- Gradual migration path
+
+✅ **User Experience**
+- Clear visual indication of which persona is responding
+- Consistent with persona selector in header
+- Professional display of persona expertise
+
+✅ **Code Quality**
+- Type-safe Persona interface
+- Reusable avatar utility functions
+- Updated React.memo for optimal re-rendering
+
+### **Future Enhancements** (Deferred)
+
+- [ ] Per-message persona tracking (for mid-conversation switching)
+- [ ] Persona change indicator in message stream
+- [ ] Smooth avatar transitions on persona change
+- [ ] Persona metadata in message history
+
+---
+
+---
+
+## Phase 16: Persona-Based Conversation Filtering ✅ COMPLETE
+**Date Started**: 2025-10-06
+**Date Completed**: 2025-10-06
+**Status**: ✅ **Production Ready**
+
+### **Goal**
+Filter conversations in the sidebar by selected persona, showing only conversations with the currently active persona.
+
+### **Problem Solved**
+**Before**: Sidebar showed all conversations regardless of active persona
+- Confusing when switching between personas
+- No visual indication of which conversations belong to which persona
+- Hard to find relevant conversation history
+- Generic "Conversations" title provided no context
+
+**After**: Dynamic persona-based filtering
+- Shows only conversations for currently selected persona
+- Title updates to "Conversations with [Persona Name]"
+- Empty state messaging is persona-aware
+- Clean separation of conversation history by persona
+
+### **Implementation Status**
+
+#### ✅ **Backend (Minimal Changes)**
+- Added `persona_id` field to Conversation type interface
+- No database changes needed (field already exists)
+- No API route changes required
+
+#### ✅ **Frontend Components (Complete)**
+
+1. **ConversationSidebar Component** (`src/components/chat/conversation-sidebar.tsx`)
+   - ✅ Added `selectedPersona` prop to interface
+   - ✅ Implemented client-side filtering: `conversations.filter(c => !selectedPersona || c.persona_id === selectedPersona.id)`
+   - ✅ Updated title to dynamic: `"Conversations" + (selectedPersona ? ` with ${selectedPersona.name}` : "")`
+   - ✅ Updated empty state messaging to be persona-aware
+   - ✅ Updated rendering to use `filteredConversations` array
+
+2. **ChatLayout Component** (`src/components/chat/chat-layout.tsx`)
+   - ✅ Passed `selectedPersona` prop to ConversationSidebar
+   - ✅ No other changes needed (persona state already managed)
+
+3. **Types Updated** (`src/lib/types.ts`)
+   - ✅ Added `persona_id?: string` to Conversation interface
+
+### **Bug Fix: Persona Assignment Not Saving**
+
+**Problem Discovered**: New conversations were created with `persona_id: null` instead of the selected persona's UUID.
+
+**Root Cause**: In `chat-interface.tsx` line 244, code was using `selectedPersona?.slug` but the PersonaOption interface doesn't have a `slug` field - it has `persona_id` which IS the slug.
+
+**Fix Applied**:
+```typescript
+// File: src/components/chat/chat-interface.tsx, Line 244
+// Before (Bug):
+body: JSON.stringify({
+  firstMessage: messageContent,
+  personaSlug: selectedPersona?.slug,  // PersonaOption has no 'slug' field
+}),
+
+// After (Fixed):
+body: JSON.stringify({
+  firstMessage: messageContent,
+  personaSlug: selectedPersona?.persona_id,  // Correct field name
+}),
+```
+
+**Verification**:
+- Created test conversation "Test filtering for David"
+- Verified database shows correct `persona_id`: `3dab1253-9ffd-40be-aa46-3b5907312259` (David's UUID)
+- Confirmed sidebar filtering works correctly
+
+### **Code Changes**
+
+#### **Conversation Type Update** (`types.ts`):
+```typescript
+export interface Conversation {
+  id: string
+  user_id: string
+  persona_id?: string  // NEW FIELD
+  title?: string
+  last_message_at: string
+  context_summary?: string
+  created_at: string
+  updated_at: string
+}
+```
+
+#### **ConversationSidebar Props Update**:
+```typescript
+interface ConversationSidebarProps {
+  currentConversation?: Conversation;
+  selectedPersona?: { id: string; persona_id: string; name: string } | null;  // NEW
+  onConversationSelect: (conversation: Conversation | null) => void;
+  onNewConversation: () => void;
+  onConversationUpdate?: (conversation: Conversation) => void;
+}
+```
+
+#### **Filtering Logic**:
+```typescript
+// Filter conversations by selected persona
+const filteredConversations = conversations.filter(
+  (conversation) =>
+    !selectedPersona || conversation.persona_id === selectedPersona.id
+);
+```
+
+#### **Dynamic Title**:
+```typescript
+<h2 className="font-semibold text-lg">
+  Conversations{selectedPersona ? ` with ${selectedPersona.name}` : ''}
+</h2>
+```
+
+#### **Persona-Aware Empty State**:
+```typescript
+<p className="text-sm font-medium mb-2">
+  No conversations yet{selectedPersona ? ` with ${selectedPersona.name}` : ''}
+</p>
+```
+
+### **Testing Results**
+
+#### ✅ Manual Testing Complete
+**Test Case**: Create conversation with David persona and verify filtering
+
+**Test Steps**:
+1. Selected David persona from selector
+2. Created new conversation: "Test filtering for David"
+3. Sent message to create conversation
+4. Checked database for `persona_id`
+5. Verified sidebar shows "Conversations with David"
+6. Verified only David conversations visible
+
+**Results**:
+- ✅ Conversation created with correct `persona_id`: `3dab1253-9ffd-40be-aa46-3b5907312259`
+- ✅ Sidebar title shows "Conversations with David"
+- ✅ Filtering logic working correctly
+- ✅ Old conversations (null persona_id) correctly hidden
+- ✅ Empty state messaging includes persona name
+
+**Database Verification**:
+```sql
+-- Verified conversation record:
+conversation_id: cae79ccb-4e82-4da6-bca8-2240c3e35320
+persona_uuid: 3dab1253-9ffd-40be-aa46-3b5907312259
+persona_slug: david
+persona_name: David
+```
+
+**Screenshots Captured**:
+- `phase16-david-filtered-conversations.png` - Initial filtered view
+- `phase16-filtering-complete-david.png` - Working implementation
+
+### **Benefits Achieved**
+
+✅ **Improved User Experience**
+- Clear visual separation of conversations by persona
+- Dynamic title provides context at a glance
+- Empty state messaging is helpful and contextual
+
+✅ **Conversation Organization**
+- Easy to find relevant conversation history
+- No confusion when switching personas
+- Clean mental model: one persona = one conversation list
+
+✅ **Backward Compatibility**
+- Old conversations with null persona_id gracefully hidden
+- No breaking changes to conversation data structure
+- Gradual migration path
+
+✅ **Performance**
+- Client-side filtering (no API changes)
+- Minimal re-renders (filter happens before map)
+- No additional database queries
+
+✅ **Data Integrity**
+- Bug fix ensures new conversations properly tagged
+- Persona assignment verified at database level
+- Consistent persona tracking across system
+
+### **Architecture Notes**
+
+**Filtering Approach**: Client-side
+- Conversations already fetched from API
+- Filter applied before rendering
+- No additional network overhead
+
+**Null Persona Handling**: Hide conversations with null persona_id
+- Backward compatible with pre-persona conversations
+- Clean separation (no mixed conversations in filtered view)
+- Future: Could add "All Conversations" view if needed
+
+**Persona State Management**:
+- `selectedPersona` prop flows from ChatLayout
+- Same persona used for filtering and message display
+- Consistent across entire chat experience
+
+### **Future Enhancements** (Deferred)
+
+- [ ] "All Conversations" toggle to show unfiltered list
+- [ ] Persona filter dropdown (view any persona's conversations)
+- [ ] Conversation count badge per persona
+- [ ] Multi-persona conversation support (assign conversation to multiple personas)
+- [ ] Conversation migration tool (assign persona to old conversations)
 
 ---
 
 ## Next Steps
 
-**Current Focus**: Phase 13 implementation - Multi-persona document sharing
+**Current Focus**: Phase 16 Complete
 
 **Priority**:
-1. ✅ Foundation layer (COMPLETE)
-2. 🔄 API routes and workers (IN PROGRESS)
-3. ⏳ Admin UI updates (NEXT)
-4. ⏳ Documentation updates (FINAL)
+1. ✅ Persona-based conversation filtering (COMPLETE)
+2. ✅ Dynamic title with persona name (COMPLETE)
+3. ✅ Bug fix: persona assignment on conversation creation (COMPLETE)
+4. ✅ Testing and verification (COMPLETE)
+5. ✅ Documentation (COMPLETE)
 
-**Post Phase 13**:
+**Post Phase 16**:
 - Phase 9: Comprehensive E2E testing & optimization (Deferred)
 - Phase 10 Completion: Extraction history, versioning, diff view (Deferred)
 - Quality monitoring dashboard (Deferred)

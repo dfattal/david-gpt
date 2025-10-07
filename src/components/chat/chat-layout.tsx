@@ -145,6 +145,7 @@ export function ChatLayout() {
         <ConversationSidebar
           ref={sidebarRef}
           currentConversation={currentConversation}
+          selectedPersona={selectedPersona}
           onConversationSelect={handleConversationSelect}
           onNewConversation={handleNewConversation}
           onConversationUpdate={handleConversationUpdate}
