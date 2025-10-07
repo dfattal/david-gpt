@@ -60,10 +60,24 @@ export async function POST(req: NextRequest) {
     const {
       title,
       firstMessage,
+      personaSlug,
     }: {
       title?: string;
       firstMessage?: string;
+      personaSlug?: string;
     } = await req.json();
+
+    // Get persona_id from slug if provided
+    let personaId: string | null = null;
+    if (personaSlug) {
+      const { data: persona } = await supabase
+        .from("personas")
+        .select("id")
+        .eq("slug", personaSlug)
+        .eq("is_active", true)
+        .single();
+      personaId = persona?.id || null;
+    }
 
     // Create new conversation with default "New Chat" title
     const { data: conversation, error } = await supabase
@@ -72,6 +86,7 @@ export async function POST(req: NextRequest) {
         user_id: user.id,
         title: title || "New Chat",
         last_message_at: new Date().toISOString(),
+        persona_id: personaId,
       })
       .select()
       .single();

@@ -11,9 +11,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { User } from "@supabase/supabase-js";
 import { parseCitations } from "@/lib/rag/citations/parser";
 import { CitationsList } from "./citations-list";
+import { getPersonaAvatar, getPersonaInitials } from "@/lib/avatar-utils";
 
 // Import KaTeX CSS
 import "katex/dist/katex.min.css";
+
+interface Persona {
+  id: string;
+  persona_id: string;
+  name: string;
+  expertise?: string;
+  avatar_url?: string;
+}
 
 interface MessageBubbleProps {
   message: {
@@ -23,6 +32,7 @@ interface MessageBubbleProps {
     created_at?: string;
   };
   user?: User | null;
+  persona?: Persona;
   isStreaming?: boolean;
   citationMetadata?: Map<string, { sourceUrl?: string; docTitle?: string }>;
 }
@@ -31,6 +41,7 @@ export const MessageBubble = React.memo(
   function MessageBubble({
     message,
     user,
+    persona,
     isStreaming = false,
     citationMetadata,
   }: MessageBubbleProps) {
@@ -118,28 +129,33 @@ export const MessageBubble = React.memo(
       );
     }
 
-    // Assistant messages: left-aligned with David's avatar and clean styling
+    // Assistant messages: left-aligned with persona avatar and clean styling
+    const avatarUrl = persona ? getPersonaAvatar(persona) : "/David_pic_128.jpg";
+    const initials = persona ? getPersonaInitials(persona) : "DF";
+    const personaName = persona?.name || "David Fattal";
+    const personaExpertise = persona?.expertise || "AI Assistant";
+
     return (
       <div className="flex w-full mb-6">
         <div className="flex items-start space-x-4 w-full">
           <Avatar className="w-10 h-10 ring-2 ring-background shadow-sm shrink-0 mt-1">
             <AvatarImage
-              src="/David_pic_128.jpg"
-              alt="David Fattal"
+              src={avatarUrl}
+              alt={personaName}
               className="object-cover"
             />
             <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm font-medium">
-              DF
+              {initials}
             </AvatarFallback>
           </Avatar>
 
           <div className="flex-1 min-w-0">
             <div className="mb-2">
               <span className="text-sm font-medium text-foreground">
-                David Fattal
+                {personaName}
               </span>
               <span className="text-xs text-muted-foreground ml-2">
-                AI Assistant
+                {personaExpertise}
               </span>
             </div>
 
@@ -337,12 +353,13 @@ export const MessageBubble = React.memo(
     );
   },
   (prevProps, nextProps) => {
-    // Only re-render if message content, streaming state, citation metadata, or user changes
+    // Only re-render if message content, streaming state, citation metadata, user, or persona changes
     return (
       prevProps.message.id === nextProps.message.id &&
       prevProps.message.content === nextProps.message.content &&
       prevProps.isStreaming === nextProps.isStreaming &&
       prevProps.user?.id === nextProps.user?.id &&
+      prevProps.persona?.id === nextProps.persona?.id &&
       prevProps.citationMetadata === nextProps.citationMetadata
     );
   }

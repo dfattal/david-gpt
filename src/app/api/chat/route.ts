@@ -175,7 +175,7 @@ ${result.text}
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { messages, conversationId, persona = 'david', useRag = true } = body;
+    const { messages, conversationId, personaId, useRag = true } = body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json(
@@ -195,6 +195,52 @@ export async function POST(req: NextRequest) {
 
     // Create Supabase client for RAG
     const supabase = await createClient();
+
+    // Determine persona to use (from body, conversation, or default to 'david')
+    let persona = 'david'; // default
+
+    console.log('🔍 Determining persona - personaId from body:', personaId, 'conversationId:', conversationId);
+
+    if (personaId) {
+      // PersonaId provided in body (could be UUID or slug)
+      // Try to use it as-is if it looks like a slug, otherwise look it up
+      const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(personaId);
+
+      if (looksLikeUuid) {
+        // It's a UUID - look up the persona_id slug
+        const { data: personaData } = await supabase
+          .from('personas')
+          .select('persona_id')
+          .eq('id', personaId)
+          .eq('is_active', true)
+          .single();
+
+        console.log('📋 Looked up persona by UUID:', personaId, '→', personaData);
+
+        if (personaData) {
+          persona = personaData.persona_id;
+        }
+      } else {
+        // It's already a slug - use it directly
+        console.log('📋 Using persona slug directly:', personaId);
+        persona = personaId;
+      }
+    } else if (conversationId) {
+      // Try to get persona from conversation
+      const { data: conversation } = await supabase
+        .from('conversations')
+        .select('personas(persona_id)')
+        .eq('id', conversationId)
+        .single();
+
+      console.log('💬 Got persona from conversation:', conversation);
+
+      if (conversation && conversation.personas) {
+        persona = (conversation.personas as any).persona_id || 'david';
+      }
+    }
+
+    console.log('✅ Final persona selected:', persona);
 
     // Step 1: Perform RAG search if enabled
     let ragContext = '';
