@@ -577,27 +577,29 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
           <DialogHeader>
             <DialogTitle>Ingest {selectedIds.size} Document{selectedIds.size !== 1 ? 's' : ''}?</DialogTitle>
             <DialogDescription>
-              This will create chunks and embeddings for:
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                {Array.from(selectedIds)
-                  .slice(0, 3)
-                  .map((id) => {
-                    const doc = documents.find((d) => d.id === id);
-                    return doc ? (
-                      <li key={id}>
-                        {doc.title} ({doc.persona_slug})
-                      </li>
-                    ) : null;
-                  })}
-                {selectedIds.size > 3 && (
-                  <li>... and {selectedIds.size - 3} more</li>
-                )}
-              </ul>
-              <p className="mt-3 text-sm text-muted-foreground">
-                Estimated processing time: ~{Math.ceil(selectedIds.size * 0.5)}-{selectedIds.size} minutes
-              </p>
+              This will create chunks and embeddings for the selected documents.
             </DialogDescription>
           </DialogHeader>
+          <div className="space-y-3">
+            <ul className="list-disc list-inside space-y-1">
+              {Array.from(selectedIds)
+                .slice(0, 3)
+                .map((id) => {
+                  const doc = documents.find((d) => d.id === id);
+                  return doc ? (
+                    <li key={id}>
+                      {doc.title} ({doc.persona_slug})
+                    </li>
+                  ) : null;
+                })}
+              {selectedIds.size > 3 && (
+                <li>... and {selectedIds.size - 3} more</li>
+              )}
+            </ul>
+            <p className="text-sm text-muted-foreground">
+              Estimated processing time: ~{Math.ceil(selectedIds.size * 0.5)}-{selectedIds.size} minutes
+            </p>
+          </div>
 
           {bulkIngestError && (
             <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-600">
@@ -626,27 +628,29 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
           <DialogHeader>
             <DialogTitle>Delete {selectedIds.size} Document{selectedIds.size !== 1 ? 's' : ''}?</DialogTitle>
             <DialogDescription>
-              This action cannot be undone. This will permanently delete:
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                {Array.from(selectedIds)
-                  .slice(0, 3)
-                  .map((id) => {
-                    const doc = documents.find((d) => d.id === id);
-                    return doc ? (
-                      <li key={id}>
-                        {doc.title}
-                      </li>
-                    ) : null;
-                  })}
-                {selectedIds.size > 3 && (
-                  <li>... and {selectedIds.size - 3} more</li>
-                )}
-              </ul>
-              <p className="mt-3 text-sm font-medium text-red-600">
-                All chunks, embeddings, and metadata will be permanently removed.
-              </p>
+              This action cannot be undone. This will permanently delete the selected documents.
             </DialogDescription>
           </DialogHeader>
+          <div className="space-y-3">
+            <ul className="list-disc list-inside space-y-1">
+              {Array.from(selectedIds)
+                .slice(0, 3)
+                .map((id) => {
+                  const doc = documents.find((d) => d.id === id);
+                  return doc ? (
+                    <li key={id}>
+                      {doc.title}
+                    </li>
+                  ) : null;
+                })}
+              {selectedIds.size > 3 && (
+                <li>... and {selectedIds.size - 3} more</li>
+              )}
+            </ul>
+            <p className="text-sm font-medium text-red-600">
+              All chunks, embeddings, and metadata will be permanently removed.
+            </p>
+          </div>
 
           {bulkDeleteError && (
             <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-600">
