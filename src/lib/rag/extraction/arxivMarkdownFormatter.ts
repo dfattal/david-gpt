@@ -63,36 +63,19 @@ function buildFrontmatter(paper: ArxivPaper, personaSlugs: string[]): string {
   lines.push(`personas:`);
   personaSlugs.forEach(slug => lines.push(`  - ${slug}`));
 
-  // Authors
-  if (paper.authors.length > 0) {
-    lines.push('authors:');
-    for (const author of paper.authors) {
-      if (author.affiliation) {
-        lines.push(`  - name: "${escapeYaml(author.name)}"`);
-        lines.push(`    affiliation: "${escapeYaml(author.affiliation)}"`);
-      } else {
-        lines.push(`  - "${escapeYaml(author.name)}"`);
-      }
-    }
-  }
-
   // Summary
   if (paper.metadata.summary) {
     lines.push(`summary: "${escapeYaml(paper.metadata.summary)}"`);
   }
 
-  // Source URL
-  lines.push(`source_url: "https://arxiv.org/abs/${paper.arxivId}"`);
-  lines.push(`html_url: "https://arxiv.org/html/${paper.arxivId}"`);
-
-  // Identifiers (structured)
+  // Identifiers (structured) - includes source_url
   lines.push(`identifiers:`);
   lines.push(`  arxiv_id: "${paper.arxivId}"`);
+  lines.push(`  source_url: "https://arxiv.org/abs/${paper.arxivId}"`);
+  lines.push(`  html_url: "https://arxiv.org/html/${paper.arxivId}"`);
   if (paper.metadata.identifiers.doi) {
     lines.push(`  doi: "${paper.metadata.identifiers.doi}"`);
   }
-  lines.push(`  abs_url: "https://arxiv.org/abs/${paper.arxivId}"`);
-  lines.push(`  html_url: "https://arxiv.org/html/${paper.arxivId}"`);
 
   // Dates (structured)
   if (paper.metadata.dates?.published || paper.metadata.dates?.updated) {

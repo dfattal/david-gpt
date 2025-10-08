@@ -99,23 +99,14 @@ function generateFrontmatter(
   lines.push(`type: patent`);
   lines.push(`personas: [${personaSlugs.join(', ')}]`);
 
-  // Dates
-  if (patent.metadata.dates?.publication) {
-    lines.push(`date: ${patent.metadata.dates.publication}`);
-  }
-
-  // Source URL (Google Patents link)
-  if (sourceUrl) {
-    lines.push(`source_url: ${sourceUrl}`);
-  }
-
   // Summary
   lines.push(`summary: ${summary}`);
 
-  // Identifiers
-  if (patent.metadata.identifiers) {
+  // Identifiers (includes source_url)
+  if (patent.metadata.identifiers || sourceUrl) {
     lines.push(`identifiers:`);
-    const ids = patent.metadata.identifiers;
+    const ids = patent.metadata.identifiers || {};
+    if (sourceUrl) lines.push(`  source_url: "${sourceUrl}"`);
     if (ids.patent_number) lines.push(`  patent_number: "${ids.patent_number}"`);
     if (ids.publication_number) lines.push(`  publication_number: "${ids.publication_number}"`);
     if (ids.application_number) lines.push(`  application_number: "${ids.application_number}"`);

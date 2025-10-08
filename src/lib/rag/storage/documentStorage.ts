@@ -85,6 +85,17 @@ export async function storeExtractedDocument(
       };
     }
 
+    // Extract date and source_url from structured fields (with fallback to old top-level fields)
+    const primaryDate = frontmatter.dates?.created ||
+                       frontmatter.dates?.published ||
+                       frontmatter.dates?.filing ||
+                       frontmatter.date ||
+                       null;
+
+    const primarySourceUrl = frontmatter.identifiers?.source_url ||
+                            frontmatter.source_url ||
+                            null;
+
     // Create or update docs record (status: 'extracted', not ingested yet)
     const { error: docsError } = await supabase.from('docs').upsert(
       {
@@ -92,8 +103,8 @@ export async function storeExtractedDocument(
         title: frontmatter.title || docId,
         type: frontmatter.type || 'document',
         personas: personaSlugs, // Store all assigned personas
-        date: frontmatter.date || null,
-        source_url: frontmatter.source_url || null,
+        date: primaryDate, // Extracted from structured dates or fallback
+        source_url: primarySourceUrl, // Extracted from structured identifiers or fallback
         tags: frontmatter.tags || [],
         summary: frontmatter.summary || null,
         license: frontmatter.license || null,

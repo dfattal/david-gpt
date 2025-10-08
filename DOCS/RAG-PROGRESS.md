@@ -223,6 +223,187 @@ Extracted documents had inconsistent metadata structure - some formatters used f
 ### **Solution Implemented**
 Standardized all three extraction formatters to consistently populate structured metadata in frontmatter:
 
+## Phase 8.3: Metadata Format Standardization (COMPLETE ✅)
+**Date**: 2025-10-08
+
+### **Problem Solved**
+The system had **three different frontmatter formats** across extraction pipelines:
+1. **Structured format** (RAG-PRD spec) - Used by `rawMarkdownFormatter.ts`
+2. **Hybrid format** - Used by `documentAssembler.ts`, `arxivMarkdownFormatter.ts`, `patentGeminiFormatter.ts`, `genericArticleFormatter.ts`
+3. **Legacy flat format** - Used in sample documentation
+
+This caused:
+- ❌ Metadata not displaying correctly in DocumentMetadataEditor
+- ❌ Confusion about where to find date and source_url
+- ❌ Potential bugs when code expected one format but got another
+
+### **Root Cause**
+DocumentMetadataEditor was looking for `frontmatter.source_url` and `frontmatter.date`, but new documents from batch markdown upload stored these in `frontmatter.identifiers.source_url` and `frontmatter.dates.created` (structured format per RAG-PRD spec).
+
+### **Solution Implemented**
+**Chose ONE format**: Fully structured format from RAG-PRD.md
+
+Updated 5 formatters to eliminate top-level `date` and `source_url` fields:
+1. **documentAssembler.ts** - Removed top-level date/source_url, moved to structured format
+2. **arxivMarkdownFormatter.ts** - Removed duplicates, consolidated into identifiers/dates/actors
+3. **patentGeminiFormatter.ts** - Moved date and source_url into structured format
+4. **genericArticleFormatter.ts** - Moved source_url and domain into identifiers block
+5. **sample-doc.md** - Updated example to use correct format
+
+### **Backward Compatibility Strategy**
+Implemented **dual storage pattern** to maintain compatibility:
+
+**Database Schema**:
+- **Top-level columns** (`date`, `source_url`) - For indexed queries, used by search functions
+- **Structured JSONB** (`identifiers`, `dates_structured`, `actors`) - Full metadata preservation
+
+**Storage Layer** (`documentStorage.ts`):
+```typescript
+// Extract from structured fields with fallback to old top-level
+const primaryDate = frontmatter.dates?.created ||
+                   frontmatter.dates?.published ||
+                   frontmatter.dates?.filing ||
+                   frontmatter.date ||
+                   null;
+
+const primarySourceUrl = frontmatter.identifiers?.source_url ||
+                        frontmatter.source_url ||
+                        null;
+
+// Store in BOTH locations for compatibility
+await supabase.from('docs').upsert({
+  date: primaryDate,              // Top-level for search
+  source_url: primarySourceUrl,   // Top-level for search
+  identifiers: frontmatter.identifiers || {},    // Structured
+  dates_structured: frontmatter.dates || {},     // Structured
+  actors: frontmatter.actors || [],
+  // ... other fields
+});
+```
+
+**UI Layer** (`DocumentMetadataEditor.tsx`):
+```typescript
+// Already has fallback support for both formats
+date: frontmatter.dates?.created || frontmatter.date || '',
+source_url: frontmatter.identifiers?.source_url || frontmatter.source_url || '',
+```
+
+### **Final Standardized Format**
+
+```yaml
+---
+id: doc-id
+title: "Document Title"
+type: article|patent|arxiv|press
+personas: [david, albert]
+tags: [tag1, tag2, tag3]
+summary: "One-sentence document summary"
+license: public|cc-by|proprietary|unknown
+identifiers:
+  source_url: "https://..."          # Primary source
+  document_id: "doc-id"              # Document identifier
+  arxiv_id: "2501.11841"             # For ArXiv papers
+  patent_number: "US10838134"        # For patents
+  doi: "10.48550/..."                # DOI if available
+  domain: "example.com"              # For articles
+dates:
+  created: "2025-08-19"              # Document creation
+  published: "2025-08-19"            # Publication date
+  updated: "2025-09-01"              # Last update
+  filing: "2024-01-01"               # Patent filing
+  granted: "2025-01-01"              # Patent grant
+actors:
+  - name: "Author Name"
+    role: "author|inventor|assignee"
+    affiliation: "Organization"      # Optional
+---
+
+**Key Terms**: term1, term2, term3
+**Also Known As**: Synonym, Acronym
+
+# Document Content
+...
+```
+
+### **Source URL Flow Documentation**
+Created comprehensive documentation of source_url extraction, storage, and retrieval:
+
+**DOCS/SOURCE-URL-FLOW.md** - Complete flow diagram showing:
+```
+Extraction (Gemini/URL/PDF) → Frontmatter (identifiers.source_url)
+  → Database (dual storage) → Search (top-level column)
+  → Citations (sourceUrl field) → Display (chat UI)
+```
+
+### **Files Modified**
+
+**Formatters** (5):
+- `src/lib/rag/extraction/documentAssembler.ts`
+- `src/lib/rag/extraction/arxivMarkdownFormatter.ts`
+- `src/lib/rag/extraction/patentGeminiFormatter.ts`
+- `src/lib/rag/extraction/genericArticleFormatter.ts`
+- `personas/sample-doc.md`
+
+**Storage Layer** (1):
+- `src/lib/rag/storage/documentStorage.ts`
+
+**Documentation** (2 new files):
+- `DOCS/SOURCE-URL-FLOW.md`
+- `DOCS/METADATA-STANDARDIZATION-SUMMARY.md`
+
+### **Testing Verification**
+
+**Database Check**:
+```sql
+SELECT id, title, source_url,
+       identifiers->>'source_url' as structured_source_url
+FROM docs LIMIT 5;
+```
+
+**Results**:
+- ✅ Old format docs (arxiv): Have `source_url` in top-level column
+- ✅ New format docs (thespatialshift): Have `source_url` in `identifiers` JSONB
+- ✅ Both work correctly in search and citations
+
+**Code Compatibility Check**:
+1. ✅ `documentStorage.ts` - Extracts from both formats with fallback
+2. ✅ `DocumentMetadataEditor.tsx` - Has fallback support
+3. ✅ Search functions - Read from top-level column (unchanged)
+4. ✅ Citation system - Uses search results (unchanged)
+
+### **Benefits Achieved**
+
+✅ **Single Format** - All new documents use the same structure
+✅ **Scalability** - Can add multiple dates/identifiers without schema changes
+✅ **Type Safety** - Clear what each field contains
+✅ **Backward Compatible** - Old documents still work
+✅ **Query Flexibility** - Can query specific metadata: `WHERE dates_structured->>'filing' > '2020-01-01'`
+✅ **RAG-PRD Compliance** - Matches official specification
+✅ **No Breaking Changes** - All existing functionality preserved
+
+### **Future Migration** (Optional)
+Old documents can be migrated to populate structured fields:
+```sql
+UPDATE docs
+SET
+  identifiers = jsonb_set(
+    COALESCE(identifiers, '{}'::jsonb),
+    '{source_url}',
+    to_jsonb(source_url)
+  ),
+  dates_structured = jsonb_set(
+    COALESCE(dates_structured, '{}'::jsonb),
+    '{created}',
+    to_jsonb(date::text)
+  )
+WHERE source_url IS NOT NULL
+  AND identifiers->>'source_url' IS NULL;
+```
+
+**Note**: This is optional - system works fine without migration.
+
+---
+
 #### **Updated Formatters**:
 
 1. **ArXiv Formatter** (`arxivMarkdownFormatter.ts`)

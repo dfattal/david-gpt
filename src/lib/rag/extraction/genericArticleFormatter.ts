@@ -59,34 +59,19 @@ function buildFrontmatter(article: GenericArticle, personaSlugs: string[]): stri
     lines.push(`title: "${escapeYaml(article.title)}"`);
   }
 
-  // Authors - split if Gemini returned comma-separated names
-  if (article.authors.length > 0) {
-    const normalizedAuthors = normalizeAuthors(article.authors);
-    lines.push('authors:');
-    for (const author of normalizedAuthors) {
-      if (author.affiliation) {
-        lines.push(`  - name: "${escapeYaml(author.name)}"`);
-        lines.push(`    affiliation: "${escapeYaml(author.affiliation)}"`);
-      } else {
-        lines.push(`  - "${escapeYaml(author.name)}"`);
-      }
-    }
-  }
-
   // Summary
   if (article.metadata.summary) {
     lines.push(`summary: "${escapeYaml(article.metadata.summary)}"`);
   }
 
-  // Source info
-  lines.push(`source_url: "${article.metadata.source_url}"`);
-  lines.push(`domain: "${article.metadata.domain}"`);
-
-  // Identifiers (structured)
+  // Identifiers (structured) - includes source_url and domain
   lines.push(`identifiers:`);
   lines.push(`  article_id: "${urlId}"`);
   if (article.metadata.source_url) {
-    lines.push(`  url: "${article.metadata.source_url}"`);
+    lines.push(`  source_url: "${article.metadata.source_url}"`);
+  }
+  if (article.metadata.domain) {
+    lines.push(`  domain: "${article.metadata.domain}"`);
   }
 
   // Dates (structured)

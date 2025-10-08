@@ -191,17 +191,6 @@ function generateFrontmatter(
   // Build frontmatter
   const lines = ['---', `id: ${id}`, `title: ${title}`, `type: ${docType}`, `personas: [${personaSlug}]`];
 
-  // Add date if available from metadata
-  if (webMetadata?.dates?.submitted || webMetadata?.dates?.filing || webMetadata?.dates?.granted) {
-    const date = webMetadata.dates.submitted || webMetadata.dates.filing || webMetadata.dates.granted;
-    lines.push(`date: ${date}`);
-  }
-
-  // Add source URL for arxiv
-  if (docType === 'arxiv' && webMetadata?.identifiers?.arxiv_id) {
-    lines.push(`source_url: https://arxiv.org/abs/${webMetadata.identifiers.arxiv_id}`);
-  }
-
   // Add summary (prefer global summary, then PDF subject, fallback to generic)
   if (globalSummary?.summary && globalSummary.summary !== 'Document summary not available') {
     lines.push(`summary: ${globalSummary.summary}`);
@@ -212,9 +201,16 @@ function generateFrontmatter(
   }
 
   // Add identifiers from web metadata
-  if (webMetadata?.identifiers && Object.keys(webMetadata.identifiers).length > 0) {
+  const identifiers = { ...(webMetadata?.identifiers || {}) };
+
+  // Ensure source_url is in identifiers for arxiv
+  if (docType === 'arxiv' && identifiers.arxiv_id && !identifiers.source_url) {
+    identifiers.source_url = `https://arxiv.org/abs/${identifiers.arxiv_id}`;
+  }
+
+  if (Object.keys(identifiers).length > 0) {
     lines.push('identifiers:');
-    for (const [key, value] of Object.entries(webMetadata.identifiers)) {
+    for (const [key, value] of Object.entries(identifiers)) {
       if (value) {
         lines.push(`  ${key}: "${value}"`);
       }

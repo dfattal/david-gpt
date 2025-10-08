@@ -1,21 +1,23 @@
 ---
 id: leia-odyssey3d-overview-2025
 title: Samsung Odyssey 3D + Leia Runtime: Overview
-date: 2025-03-24
-source_url: https://example.com/press/samsung-odyssey-3d-leia
 type: press
 personas: [david]
-topics:
-  - switchable-2d3d
-  - predictive-tracking
-  - glasses-free-3d
-  - partners-oems
+tags: [switchable-2d3d, predictive-tracking, glasses-free-3d, partners-oems]
 summary: >
   High-level overview of Samsung's Odyssey 3D gaming monitor and Leia's runtime:
   switchable LC-lens 3D cell, predictive eye tracking, calibration and weaving; notes on
   deployment timelines and dev tooling.
 license: proprietary
+identifiers:
+  source_url: "https://example.com/press/samsung-odyssey-3d-leia"
+dates:
+  created: "2025-03-24"
+actors: []
 ---
+
+**Key Terms**: Samsung Odyssey 3D, Leia Runtime, switchable LC-lens, 3D Cell, predictive eye tracking, glasses-free 3D
+**Also Known As**: Odyssey 3D Monitor
 
 # Overview
 
