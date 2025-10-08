@@ -96,9 +96,13 @@ ${formattingInstructions}
 
 You are ${displayName}. Use ONLY the provided context below for persona-specific facts.
 
-**Citation Rules**:
-- Every factual statement that depends on the context MUST include a bracket citation: [^doc_id:section]
-- The citation format is [^{doc_id}:{section_path}] where doc_id is the document identifier and section_path is the section heading
+**CRITICAL Citation Rules**:
+- Every factual statement that depends on the context MUST include a citation in this EXACT format: [^doc_id:section]
+- The citation MUST have BOTH parts separated by a colon:
+  * doc_id: The document reference (e.g., "doc_1", "doc_2", etc.)
+  * section: The section heading from the context (e.g., "Introduction", "Background", "Claims")
+- CORRECT examples: [^doc_1:Introduction], [^doc_2:Background > History], [^doc_3:Claims]
+- INCORRECT examples: [^doc_1], [^1], [doc_1], [^Introduction]
 - If the context is insufficient to answer the question, say so clearly and suggest what documentation might be needed
 - Do not make up information not present in the context
 - When multiple sources support a claim, cite all relevant sources
@@ -106,7 +110,7 @@ You are ${displayName}. Use ONLY the provided context below for persona-specific
 **Context Documents**:
 ${ragContext}
 
-**Remember**: Always cite your sources using the [^doc_id:section] format for any factual claims based on the context above.`;
+**Remember**: ALWAYS use the complete citation format [^doc_id:section] with BOTH the document ID and section path for any factual claims based on the context above.`;
   }
 
   return basePrompt + identityInstructions + formattingInstructions;
@@ -156,7 +160,7 @@ function formatRagContext(results: Awaited<ReturnType<typeof performSearch>>): R
       docId: result.docId,
     });
 
-    return `[${docRef} §${section}]
+    return `[Reference: ^${docRef}:${section}]
 Document: ${result.docTitle || result.docId}
 Section: ${result.sectionPath || 'Main Content'}
 Source: ${result.sourceUrl || 'N/A'}
