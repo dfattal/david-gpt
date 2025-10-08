@@ -7,4 +7,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
-export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey, {
+  cookieOptions: {
+    name: 'sb',
+    lifetime: 60 * 60 * 24 * 7, // 7 days
+    domain: undefined,
+    path: '/',
+    sameSite: 'lax',
+  },
+})

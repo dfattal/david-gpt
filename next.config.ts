@@ -54,11 +54,32 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: '/api/:path*',
+        // Disable caching for chat streaming endpoints
+        source: '/api/chat/:path*',
         headers: [
           {
             key: 'Cache-Control',
             value: 'no-store, must-revalidate',
+          },
+        ],
+      },
+      {
+        // Allow caching for auth endpoints (helps with session validation)
+        source: '/api/auth/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'private, max-age=0',
+          },
+        ],
+      },
+      {
+        // Default caching for other API endpoints
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'private, no-cache',
           },
         ],
       },
