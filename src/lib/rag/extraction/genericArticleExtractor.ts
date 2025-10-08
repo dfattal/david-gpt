@@ -1,7 +1,62 @@
 /**
  * Generic Article Extractor
  * Extracts content from any web URL using EXA MCP with Gemini fallback
+ * Automatically detects paywalls and skips EXA when appropriate
  */
+
+/**
+ * Known paywall domains that should skip EXA extraction
+ */
+const KNOWN_PAYWALL_DOMAINS = [
+  'forbes.com',
+  'wsj.com',
+  'nytimes.com',
+  'ft.com',
+  'economist.com',
+  'bloomberg.com',
+  'washingtonpost.com',
+  'wired.com',
+  'theatlantic.com',
+  'medium.com', // Medium has member-only articles
+];
+
+/**
+ * Check if a domain is known to have paywalls
+ */
+function isKnownPaywallDomain(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.replace(/^www\./, '');
+    return KNOWN_PAYWALL_DOMAINS.some(domain => hostname.includes(domain));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Detect paywall indicators in extracted content
+ */
+function hasPaywallIndicators(content: string, url: string): boolean {
+  const paywallKeywords = [
+    'subscribe to read',
+    'subscription required',
+    'become a member',
+    'sign up to continue reading',
+    'this article is for subscribers',
+    'premium content',
+    'members only',
+    'paywall',
+    'login to read more',
+    'register to continue',
+  ];
+
+  const lowerContent = content.toLowerCase();
+  const hasKeyword = paywallKeywords.some(keyword => lowerContent.includes(keyword));
+
+  // Check if content is suspiciously short (less than 1000 chars might indicate truncated content)
+  const isSuspiciouslyShort = content.length < 1000;
+
+  return hasKeyword || isSuspiciouslyShort;
+}
 
 export interface GenericArticle {
   title: string;
@@ -293,6 +348,7 @@ ${articleData.content}`;
 /**
  * Extract generic article from URL
  * Uses EXA API as primary method with Gemini as fallback
+ * Automatically detects paywalls and skips EXA when appropriate
  * Then enriches with Gemini for summary and key terms
  */
 export async function extractGenericArticle(
@@ -304,25 +360,46 @@ export async function extractGenericArticle(
   let articleData: Partial<GenericArticle>;
   let extractionMethod = 'exa';
 
-  try {
-    // Try EXA API first
-    articleData = await extractWithExa(url);
-    console.log(`  ✓ EXA extraction successful`);
-
-    // Enrich with Gemini (clean content, add summary/key terms)
-    articleData = await enrichWithGemini(articleData, geminiApiKey);
-  } catch (exaError) {
-    console.log(`  ⚠️  EXA failed: ${exaError instanceof Error ? exaError.message : 'Unknown error'}`);
-    console.log(`  ↻ Falling back to Gemini full extraction...`);
+  // Check if this is a known paywall domain
+  const isPaywallDomain = isKnownPaywallDomain(url);
+  if (isPaywallDomain) {
+    console.log(`  🚧 Known paywall domain detected, skipping EXA and using Gemini directly`);
 
     try {
-      // Fallback to Gemini (already includes summary/key terms)
       articleData = await extractWithGemini(url, geminiApiKey);
       extractionMethod = 'gemini';
       console.log(`  ✓ Gemini extraction successful`);
     } catch (geminiError) {
-      console.error(`  ✗ Gemini also failed: ${geminiError instanceof Error ? geminiError.message : 'Unknown error'}`);
-      throw new Error(`Both EXA and Gemini extraction failed for ${url}`);
+      console.error(`  ✗ Gemini extraction failed: ${geminiError instanceof Error ? geminiError.message : 'Unknown error'}`);
+      throw new Error(`Gemini extraction failed for ${url}`);
+    }
+  } else {
+    // Try EXA first for non-paywall domains
+    try {
+      articleData = await extractWithExa(url);
+      console.log(`  ✓ EXA extraction successful`);
+
+      // Check if extracted content has paywall indicators
+      if (hasPaywallIndicators(articleData.content || '', url)) {
+        console.log(`  🚧 Paywall indicators detected in EXA content, retrying with Gemini`);
+        throw new Error('Paywall detected in EXA content');
+      }
+
+      // Enrich with Gemini (clean content, add summary/key terms)
+      articleData = await enrichWithGemini(articleData, geminiApiKey);
+    } catch (exaError) {
+      console.log(`  ⚠️  EXA failed: ${exaError instanceof Error ? exaError.message : 'Unknown error'}`);
+      console.log(`  ↻ Falling back to Gemini full extraction...`);
+
+      try {
+        // Fallback to Gemini (already includes summary/key terms)
+        articleData = await extractWithGemini(url, geminiApiKey);
+        extractionMethod = 'gemini';
+        console.log(`  ✓ Gemini extraction successful`);
+      } catch (geminiError) {
+        console.error(`  ✗ Gemini also failed: ${geminiError instanceof Error ? geminiError.message : 'Unknown error'}`);
+        throw new Error(`Both EXA and Gemini extraction failed for ${url}`);
+      }
     }
   }
 
