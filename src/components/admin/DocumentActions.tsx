@@ -104,7 +104,7 @@ export function DocumentActions({
       }
 
       setShowReingestDialog(false);
-      onUpdated(document.id);
+      // Don't call onUpdated here - the job polling will handle the refresh when complete
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Reingest failed');
     } finally {

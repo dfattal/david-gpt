@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { DocumentPreviewModal } from '@/components/admin/DocumentPreviewModal';
 import { useJobStatus } from '@/hooks/useJobStatus';
+import { useBatchJobStatus } from '@/hooks/useBatchJobStatus';
 
 interface UrlExtractionProps {
   onSuccess?: () => void;
@@ -74,6 +75,7 @@ export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
   // Batch mode
   const [urlListContent, setUrlListContent] = useState('');
   const [batchResult, setBatchResult] = useState<BatchResult | null>(null);
+  const [batchJobIds, setBatchJobIds] = useState<string[]>([]);
 
   const [isExtracting, setIsExtracting] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -123,7 +125,7 @@ export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
     },
   });
 
-  // Update progress based on job status
+  // Update progress based on job status (single URL)
   useEffect(() => {
     if (currentJob?.progress) {
       const percent = currentJob.progress.total > 0
@@ -132,6 +134,81 @@ export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
       setProgress(percent);
     }
   }, [currentJob]);
+
+  // Batch job polling
+  const {
+    jobs: batchJobs,
+    overallProgress: batchProgress,
+    allComplete: batchAllComplete,
+    completedCount: batchCompletedCount,
+    failedCount: batchFailedCount,
+  } = useBatchJobStatus({
+    jobIds: batchJobIds,
+    pollInterval: 2000,
+    onAllComplete: (jobs) => {
+      setIsExtracting(false);
+
+      // Build results from completed jobs
+      const results: ExtractionResult[] = [];
+      const storedDocuments: Array<{
+        docId: string;
+        title: string;
+        storagePath: string;
+        url: string;
+        success: boolean;
+        error?: string;
+      }> = [];
+
+      for (const job of jobs) {
+        const url = (job as any).inputData?.url || 'Unknown URL';
+
+        if (job.status === 'completed' && job.resultData?.storedDocuments?.[0]) {
+          const doc = job.resultData.storedDocuments[0];
+          results.push({
+            url,
+            success: true,
+            docId: doc.docId,
+            title: doc.title,
+            storagePath: doc.storagePath,
+            filename: doc.title,
+          });
+          storedDocuments.push({
+            docId: doc.docId,
+            title: doc.title,
+            storagePath: doc.storagePath,
+            url,
+            success: true,
+          });
+        } else {
+          results.push({
+            url,
+            success: false,
+            error: job.error || 'Extraction failed',
+          });
+        }
+      }
+
+      setBatchResult({
+        results,
+        storedDocuments,
+        summary: {
+          total: jobs.length,
+          successful: results.filter(r => r.success).length,
+          failed: results.filter(r => !r.success).length,
+        },
+      });
+
+      // Call onSuccess after all jobs complete
+      onSuccess?.();
+    },
+  });
+
+  // Update batch progress
+  useEffect(() => {
+    if (batchJobIds.length > 0 && isExtracting) {
+      setProgress(batchProgress);
+    }
+  }, [batchProgress, batchJobIds.length, isExtracting]);
 
   // File drop for batch mode
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -241,7 +318,7 @@ export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
     return urls;
   };
 
-  // Handle batch URL extraction (client-side orchestrated)
+  // Handle batch URL extraction (async with job polling)
   const handleBatchExtraction = async () => {
     if (!urlListContent.trim()) return;
     if (personaSlugs.length === 0) return;
@@ -258,22 +335,14 @@ export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
         throw new Error('No valid URLs found in the list');
       }
 
-      const results: ExtractionResult[] = [];
-      const storedDocuments: Array<{
-        docId: string;
-        title: string;
-        storagePath: string;
-        url: string;
-        success: boolean;
-        error?: string;
-      }> = [];
+      const jobIds: string[] = [];
 
-      // Process each URL sequentially with rate limiting
+      // Queue all extraction jobs
       for (let i = 0; i < urlItems.length; i++) {
         const item = urlItems[i];
 
         try {
-          // Call single URL extraction API
+          // Call single URL extraction API to queue the job
           const response = await fetch('/api/admin/extract-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -287,73 +356,25 @@ export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
 
           const data = await response.json();
 
-          if (response.ok) {
-            results.push({
-              url: item.url,
-              success: true,
-              docId: data.docId,
-              title: data.title,
-              storagePath: data.storagePath,
-              filename: data.filename,
-              markdown: data.markdown,
-              stats: data.stats,
-            });
-
-            if (data.docId) {
-              storedDocuments.push({
-                docId: data.docId,
-                title: data.title,
-                storagePath: data.storagePath,
-                url: item.url,
-                success: true,
-              });
-            }
+          if (response.ok && data.jobId) {
+            jobIds.push(data.jobId);
           } else {
-            results.push({
-              url: item.url,
-              success: false,
-              error: data.error || 'Extraction failed',
-            });
+            console.error(`Failed to queue job for ${item.url}:`, data.error);
           }
         } catch (error) {
-          results.push({
-            url: item.url,
-            success: false,
-            error: error instanceof Error ? error.message : 'Network error',
-          });
+          console.error(`Error queueing job for ${item.url}:`, error);
         }
 
-        // Update progress
-        setProgress(Math.round(((i + 1) / urlItems.length) * 100));
-
-        // Rate limiting: 3-second delay between requests (except for last one)
-        if (i < urlItems.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 3000));
-        }
+        // Show queueing progress
+        setProgress(Math.round(((i + 1) / urlItems.length) * 50)); // 50% for queueing
       }
 
-      // Set final results
-      const successful = results.filter(r => r.success).length;
-      const failed = results.filter(r => !r.success).length;
-
-      setBatchResult({
-        results,
-        storedDocuments,
-        summary: {
-          total: urlItems.length,
-          successful,
-          failed,
-        },
-      });
-
-      // Call onSuccess callback if all extractions succeeded
-      if (failed === 0 && onSuccess) {
-        onSuccess();
-      }
+      // Start polling for job completion
+      setBatchJobIds(jobIds);
+      // Progress will continue from 50% to 100% as jobs complete (handled by useBatchJobStatus)
 
     } catch (error) {
       console.error('Batch extraction failed:', error);
-    } finally {
       setIsExtracting(false);
     }
   };
@@ -363,6 +384,7 @@ export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
     setSingleResult(null);
     setUrlListContent('');
     setBatchResult(null);
+    setBatchJobIds([]);
     setProgress(0);
     setShowPreviewModal(false);
     setPreviewDocId(null);
@@ -559,9 +581,16 @@ export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
             {isExtracting && (
               <div className="space-y-2">
                 <Progress value={progress} className="h-2" />
-                <p className="text-sm text-muted-foreground text-center">
-                  Processing batch... This may take a few minutes.
-                </p>
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <p>
+                    Processing batch... {batchCompletedCount + batchFailedCount} / {batchJobIds.length || '...'}
+                  </p>
+                  {batchJobIds.length > 0 && (
+                    <p>
+                      ✓ {batchCompletedCount} completed • ✗ {batchFailedCount} failed
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 

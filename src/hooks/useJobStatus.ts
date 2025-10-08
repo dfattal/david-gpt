@@ -69,6 +69,8 @@ export function useJobStatus({
 
     let intervalId: NodeJS.Timeout;
     let isMounted = true;
+    let hasCalledComplete = false;
+    let hasCalledError = false;
 
     const pollJob = async () => {
       try {
@@ -84,13 +86,19 @@ export function useJobStatus({
         if (jobData.status === 'completed') {
           clearInterval(intervalId);
           setIsLoading(false);
-          onComplete?.(jobData);
+          if (!hasCalledComplete) {
+            hasCalledComplete = true;
+            onComplete?.(jobData);
+          }
         } else if (jobData.status === 'failed') {
           clearInterval(intervalId);
           setIsLoading(false);
           const errorMsg = jobData.error || 'Job failed';
           setError(errorMsg);
-          onError?.(errorMsg);
+          if (!hasCalledError) {
+            hasCalledError = true;
+            onError?.(errorMsg);
+          }
         }
       } catch (err) {
         if (!isMounted) return;
@@ -98,7 +106,10 @@ export function useJobStatus({
         setError(errorMsg);
         setIsLoading(false);
         clearInterval(intervalId);
-        onError?.(errorMsg);
+        if (!hasCalledError) {
+          hasCalledError = true;
+          onError?.(errorMsg);
+        }
       }
     };
 
@@ -112,7 +123,7 @@ export function useJobStatus({
       isMounted = false;
       clearInterval(intervalId);
     };
-  }, [jobId, pollInterval, fetchJobStatus, onComplete, onError]);
+  }, [jobId, pollInterval, fetchJobStatus]);
 
   return { job, isLoading, error };
 }
