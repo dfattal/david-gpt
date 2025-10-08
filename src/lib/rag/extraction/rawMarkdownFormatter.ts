@@ -56,7 +56,7 @@ ${content.substring(0, 8000)} ${content.length > 8000 ? '\n...(truncated)' : ''}
 
 Extract the following in JSON format:
 {
-  "documentType": "technical_memo|spec|faq|blog|article|guide|other",
+  "documentType": "blog|press|spec|tech_memo|technical_memo|faq|slide|email|patent|release_notes|arxiv|technical_note|article|other",
   "keyTerms": ["term1", "term2", ...],  // 5-10 key technical terms, concepts, or technologies mentioned
   "alsoKnownAs": "alternative name or acronym if applicable, otherwise empty string",
   "summary": "one-sentence summary of the main topic",
@@ -64,6 +64,11 @@ Extract the following in JSON format:
   "detectedAuthors": ["author names if mentioned"] or [],
   "sourceUrl": "IMPORTANT: Extract the full URL from markdown link syntax like [text](URL) when you see patterns like 'Source: [...](...)', 'Original: [...](...)', or any explicit source attribution. Return the URL inside the parentheses. If no source URL found, return null"
 }
+
+IMPORTANT: The documentType MUST be one of the exact values listed above.
+- Use "article" for general content, biographies, profiles, or educational materials
+- Use "technical_note" or "technical_memo" for technical documentation
+- Use "other" only as a last resort
 
 Focus on:
 - Technical accuracy for key terms
@@ -121,6 +126,18 @@ Return ONLY the JSON, no other text.`;
     }
 
     console.log(`   ✓ Extracted metadata:`, metadata);
+
+    // Validate and normalize doc_type
+    const validDocTypes = [
+      'blog', 'press', 'spec', 'tech_memo', 'technical_memo', 'faq',
+      'slide', 'email', 'patent', 'release_notes', 'arxiv',
+      'technical_note', 'article', 'other'
+    ];
+
+    if (metadata.documentType && !validDocTypes.includes(metadata.documentType)) {
+      console.warn(`   ⚠️  Invalid doc_type "${metadata.documentType}" detected, defaulting to "article"`);
+      metadata.documentType = 'article';
+    }
 
     // Build frontmatter
     const frontmatter = buildFrontmatter({
