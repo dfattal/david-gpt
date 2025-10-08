@@ -366,9 +366,17 @@ export function DocumentMetadataEditor({
               <Input
                 type="date"
                 value={formData.date}
-                onChange={(e) =>
-                  setFormData({ ...formData, date: e.target.value })
-                }
+                onChange={(e) => {
+                  const newDate = e.target.value;
+                  setFormData({
+                    ...formData,
+                    date: newDate,
+                    dates: {
+                      ...formData.dates,
+                      created: newDate
+                    }
+                  });
+                }}
               />
             </div>
           </div>
@@ -378,9 +386,17 @@ export function DocumentMetadataEditor({
             <label className="text-sm font-medium block mb-2">Source URL</label>
             <Input
               value={formData.source_url}
-              onChange={(e) =>
-                setFormData({ ...formData, source_url: e.target.value })
-              }
+              onChange={(e) => {
+                const newUrl = e.target.value;
+                setFormData({
+                  ...formData,
+                  source_url: newUrl,
+                  identifiers: {
+                    ...formData.identifiers,
+                    source_url: newUrl
+                  }
+                });
+              }}
               placeholder="https://..."
             />
           </div>
