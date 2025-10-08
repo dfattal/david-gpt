@@ -134,8 +134,8 @@ export function DocumentMetadataEditor({
       setFormData({
         title: frontmatter.title || document.title,
         type: frontmatter.type || 'other',
-        date: frontmatter.date instanceof Date ? frontmatter.date.toISOString().split('T')[0] : (frontmatter.date || ''),
-        source_url: frontmatter.source_url || '',
+        date: frontmatter.dates?.created || frontmatter.dates?.published || (frontmatter.date instanceof Date ? frontmatter.date.toISOString().split('T')[0] : (frontmatter.date || '')),
+        source_url: frontmatter.identifiers?.source_url || frontmatter.source_url || '',
         tags: frontmatter.tags || document.tags || [],
         summary: frontmatter.summary || '',
         license: frontmatter.license || '',
@@ -148,7 +148,8 @@ export function DocumentMetadataEditor({
         actors: frontmatter.actors || [],
       });
     } catch (err) {
-      setError('Failed to parse document content');
+      console.error('Failed to parse document content:', err);
+      setError(`Failed to parse document content: ${err instanceof Error ? err.message : String(err)}`);
     }
   }, [document]);
 
