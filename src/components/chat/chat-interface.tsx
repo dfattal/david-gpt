@@ -53,11 +53,12 @@ export function ChatInterface({
       personaId: selectedPersona?.slug,
     },
     onResponse: async (response) => {
-      // Extract citation metadata from response headers
+      // Extract citation metadata from response headers (Base64 encoded)
       const metadataHeader = response.headers.get('X-Citation-Metadata');
       if (metadataHeader) {
+        const decodedMetadata = Buffer.from(metadataHeader, 'base64').toString('utf-8');
         try {
-          const metadata = JSON.parse(metadataHeader);
+          const metadata = JSON.parse(decodedMetadata);
           const metadataMap = new Map(
             metadata.map((item: any) => [
               item.docRef,

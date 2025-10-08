@@ -332,13 +332,14 @@ export async function POST(req: NextRequest) {
     // For now, we'll include it in a custom header on the text stream response
     const response = result.toTextStreamResponse();
 
-    // Add citation metadata as a custom header (JSON stringified)
+    // Add citation metadata as a custom header (JSON stringified and Base64 encoded to handle non-ASCII)
     if (citationMetadata && citationMetadata.size > 0) {
       const metadataArray = Array.from(citationMetadata.entries()).map(([docRef, meta]) => ({
         docRef,
         ...meta,
       }));
-      response.headers.set('X-Citation-Metadata', JSON.stringify(metadataArray));
+      const encodedMetadata = Buffer.from(JSON.stringify(metadataArray), 'utf-8').toString('base64');
+      response.headers.set('X-Citation-Metadata', encodedMetadata);
     }
 
     return response;

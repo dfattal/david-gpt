@@ -164,10 +164,11 @@ export const MessageBubble = React.memo(
               prose-strong:text-foreground prose-strong:font-semibold
               prose-code:text-foreground prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs
               prose-pre:bg-muted prose-pre:text-foreground prose-pre:border prose-pre:border-border
-              prose-p:leading-relaxed prose-p:mb-3 prose-p:text-sm
+              prose-p:leading-relaxed prose-p:mb-4 prose-p:text-sm
               prose-blockquote:border-l-primary prose-blockquote:bg-muted/30 prose-blockquote:px-4 prose-blockquote:py-2 prose-blockquote:my-4
               prose-a:text-primary prose-a:no-underline hover:prose-a:underline
-              prose-table:text-sm"
+              prose-table:text-sm
+              [&>p+ul]:mt-2 [&>p+ol]:mt-2"
             >
               <ReactMarkdown
                 remarkPlugins={[remarkGfm, remarkMath]}

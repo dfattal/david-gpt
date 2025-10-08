@@ -57,6 +57,7 @@ export function useActiveJobs({
     let intervalId: NodeJS.Timeout;
     let isMounted = true;
     let previousJobIds = new Set<string>();
+    let previousJobs: ActiveJob[] = [];
 
     const pollJobs = async () => {
       try {
@@ -75,7 +76,7 @@ export function useActiveJobs({
         if (completedJobIds.length > 0 && onJobComplete) {
           // Call onJobComplete for each completed job
           completedJobIds.forEach((jobId) => {
-            const completedJob = jobs.find((j) => j.id === jobId);
+            const completedJob = previousJobs.find((j) => j.id === jobId);
             if (completedJob) {
               onJobComplete(completedJob);
             }
@@ -85,6 +86,7 @@ export function useActiveJobs({
         setJobs(activeJobs);
         setError(null);
         previousJobIds = currentJobIds;
+        previousJobs = activeJobs;
       } catch (err) {
         if (!isMounted) return;
         const errorMsg =
@@ -107,7 +109,7 @@ export function useActiveJobs({
       isMounted = false;
       clearInterval(intervalId);
     };
-  }, [enabled, pollInterval, fetchActiveJobs, onJobComplete, jobs]);
+  }, [enabled, pollInterval, fetchActiveJobs, onJobComplete]);
 
   // Helper to get job status for a specific document
   const getJobForDocument = useCallback(
