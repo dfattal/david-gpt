@@ -99,10 +99,7 @@ export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
   };
 
   const handleUpload = async () => {
-    if (personaSlugs.length === 0) {
-      alert('Please select at least one persona');
-      return;
-    }
+    if (personaSlugs.length === 0) return;
 
     setIsUploading(true);
 

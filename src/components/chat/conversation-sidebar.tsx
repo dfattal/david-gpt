@@ -44,7 +44,7 @@ import type { Conversation } from "@/lib/types";
 
 interface ConversationSidebarProps {
   currentConversation?: Conversation;
-  selectedPersona?: { id: string; persona_id: string; name: string } | null;
+  selectedPersona?: { id: string; slug: string; name: string } | null;
   onConversationSelect: (conversation: Conversation | null) => void;
   onNewConversation: () => void;
   onConversationUpdate?: (conversation: Conversation) => void;
@@ -173,7 +173,7 @@ export const ConversationSidebar = forwardRef<
       }
 
       // Show success notification for title generation
-      addToast(`Title updated: "${title}"`, "success", 3000);
+      // addToast(`Title updated: "${title}"`, "success", 3000);
     },
     [addToast, currentConversation, onConversationUpdate]
   );

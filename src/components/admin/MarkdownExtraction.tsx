@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -68,6 +68,9 @@ export function MarkdownExtraction({ onSuccess }: MarkdownExtractionProps) {
     title: string;
     filename: string;
   }> | null>(null);
+
+  // Bulk ingest state
+  const [isIngestingAll, setIsIngestingAll] = useState(false);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const mdFiles = acceptedFiles.filter(f => f.name.toLowerCase().endsWith('.md'));
@@ -159,11 +162,7 @@ export function MarkdownExtraction({ onSuccess }: MarkdownExtractionProps) {
   // Handle single extraction
   const handleSingleExtraction = async () => {
     if (files.length === 0) return;
-
-    if (personaSlugs.length === 0) {
-      alert('Please select at least one persona');
-      return;
-    }
+    if (personaSlugs.length === 0) return;
     setIsExtracting(true);
     setFiles((prev) =>
       prev.map((f, i) => (i === 0 ? { ...f, status: 'extracting' as const } : f))
@@ -210,10 +209,7 @@ export function MarkdownExtraction({ onSuccess }: MarkdownExtractionProps) {
   // Handle batch extraction
   const handleBatchExtraction = async () => {
     if (files.length === 0) return;
-    if (personaSlugs.length === 0) {
-      alert('Please select at least one persona');
-      return;
-    }
+    if (personaSlugs.length === 0) return;
 
     setIsExtracting(true);
     setProgress(0);
@@ -239,8 +235,11 @@ export function MarkdownExtraction({ onSuccess }: MarkdownExtractionProps) {
       setBatchResults(data.results);
       setStoredDocuments(data.storedDocuments);
       setProgress(100);
+
+      // Trigger document list refresh
+      onSuccess?.();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Batch extraction failed');
+      console.error('Batch extraction failed:', error);
     } finally {
       setIsExtracting(false);
     }
@@ -272,6 +271,40 @@ export function MarkdownExtraction({ onSuccess }: MarkdownExtractionProps) {
     setPreviewDocId(docId);
     setPreviewTitle(title);
     setShowPreviewModal(true);
+  };
+
+  const handleIngestAll = async () => {
+    if (!storedDocuments || storedDocuments.length === 0) return;
+
+    setIsIngestingAll(true);
+
+    try {
+      const docIds = storedDocuments
+        .filter(doc => doc.docId)
+        .map(doc => doc.docId);
+
+      const response = await fetch('/api/admin/documents/bulk-reingest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ docIds }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Bulk ingestion failed');
+      }
+
+      // Reset and refresh
+      handleReset();
+      onSuccess?.();
+    } catch (error) {
+      console.error('Bulk ingestion failed:', error);
+    } finally {
+      setIsIngestingAll(false);
+    }
   };
 
   return (
@@ -515,9 +548,14 @@ export function MarkdownExtraction({ onSuccess }: MarkdownExtractionProps) {
             </div>
 
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={handleReset}>
+              <Button variant="outline" onClick={handleReset} disabled={isIngestingAll}>
                 Extract More
               </Button>
+              {storedDocuments && storedDocuments.length > 0 && (
+                <Button onClick={handleIngestAll} disabled={isIngestingAll}>
+                  {isIngestingAll ? 'Ingesting...' : `Ingest All (${storedDocuments.length})`}
+                </Button>
+              )}
             </div>
           </div>
         )}

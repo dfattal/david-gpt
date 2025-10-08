@@ -5,9 +5,11 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { DocumentActions } from '@/components/admin/DocumentActions';
 import { InlinePersonaEditor } from '@/components/admin/InlinePersonaEditor';
+import { JobStatusChip } from '@/components/admin/JobStatusChip';
+import { useActiveJobs } from '@/hooks/useActiveJobs';
 import {
   Select,
   SelectContent,
@@ -27,7 +29,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { FileText, Search } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
 
 interface Document {
   id: string;
@@ -54,11 +55,46 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  // Fetch documents function (extracted for reuse)
+  const fetchDocuments = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch('/api/admin/documents');
+      if (!response.ok) {
+        throw new Error('Failed to fetch documents');
+      }
+
+      const data = await response.json();
+      setDocuments(data.documents || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load documents');
+      setDocuments([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Active jobs polling (real-time progress UI)
+  const { jobs: activeJobs, getJobForDocument } = useActiveJobs({
+    pollInterval: 2000,
+    onJobComplete: useCallback(() => {
+      // Refresh document list when any job completes
+      fetchDocuments();
+    }, [fetchDocuments]),
+  });
+
   // Bulk ingestion state
   const [showBulkIngestDialog, setShowBulkIngestDialog] = useState(false);
   const [isBulkIngesting, setIsBulkIngesting] = useState(false);
   const [bulkIngestError, setBulkIngestError] = useState<string | null>(null);
   const [jobIds, setJobIds] = useState<string[]>([]);
+
+  // Bulk delete state
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
 
   // Filters
   const [personaFilter, setPersonaFilter] = useState<string>('all');
@@ -72,30 +108,10 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
   );
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  // Fetch documents
+  // Fetch documents on mount and when refreshTrigger changes
   useEffect(() => {
-    const fetchDocuments = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const response = await fetch('/api/admin/documents');
-        if (!response.ok) {
-          throw new Error('Failed to fetch documents');
-        }
-
-        const data = await response.json();
-        setDocuments(data.documents || []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load documents');
-        setDocuments([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchDocuments();
-  }, [refreshTrigger]);
+  }, [refreshTrigger, fetchDocuments]);
 
   // Apply filters and sorting
   useEffect(() => {
@@ -151,9 +167,25 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
     setDocuments((prev) => prev.filter((doc) => doc.id !== docId));
   };
 
-  const handleDocumentUpdated = () => {
-    // Trigger refresh after update
-    window.location.reload();
+  const handleDocumentUpdated = async (docId: string) => {
+    // Fetch only the updated document instead of reloading the entire list
+    try {
+      const response = await fetch(`/api/admin/documents/${docId}`);
+      if (!response.ok) {
+        console.error('Failed to fetch updated document');
+        return;
+      }
+
+      const data = await response.json();
+      const updatedDoc = data.document;
+
+      // Update the document in the list
+      setDocuments((prev) =>
+        prev.map((doc) => (doc.id === docId ? updatedDoc : doc))
+      );
+    } catch (error) {
+      console.error('Error fetching updated document:', error);
+    }
   };
 
   // Selection handlers
@@ -204,16 +236,49 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
       setShowBulkIngestDialog(false);
       clearSelection();
 
-      // Trigger refresh after a short delay to show updated status
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
+      // Refetch documents to show updated status
+      fetchDocuments();
     } catch (err) {
       setBulkIngestError(
         err instanceof Error ? err.message : 'Bulk ingestion failed'
       );
     } finally {
       setIsBulkIngesting(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      setIsBulkDeleting(true);
+      setBulkDeleteError(null);
+
+      const docIds = Array.from(selectedIds);
+
+      // Delete each document
+      const deletePromises = docIds.map(docId =>
+        fetch(`/api/admin/documents/${docId}`, {
+          method: 'DELETE',
+        })
+      );
+
+      const responses = await Promise.all(deletePromises);
+      const failures = responses.filter(r => !r.ok);
+
+      if (failures.length > 0) {
+        throw new Error(`Failed to delete ${failures.length} document(s)`);
+      }
+
+      setShowBulkDeleteDialog(false);
+      clearSelection();
+
+      // Remove deleted documents from the list
+      setDocuments(prev => prev.filter(doc => !selectedIds.has(doc.id)));
+    } catch (err) {
+      setBulkDeleteError(
+        err instanceof Error ? err.message : 'Bulk deletion failed'
+      );
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -312,6 +377,13 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={clearSelection}>
                 Deselect All
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setShowBulkDeleteDialog(true)}
+              >
+                Delete Selected ({selectedIds.size})
               </Button>
               <Button size="sm" onClick={() => setShowBulkIngestDialog(true)}>
                 Ingest Selected ({selectedIds.size})
@@ -434,8 +506,8 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
                         docId={doc.id}
                         currentPersonas={doc.personas}
                         onUpdate={() => {
-                          // Trigger a refresh of the document list
-                          window.location.reload();
+                          // Refetch documents to show updated personas
+                          fetchDocuments();
                         }}
                       />
                     </td>
@@ -450,10 +522,39 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
                         ? `${(doc.file_size / 1024).toFixed(1)} KB`
                         : '-'}
                     </td>
-                    <td className="p-4 text-sm text-muted-foreground">
-                      {formatDistanceToNow(new Date(doc.updated_at), {
-                        addSuffix: true,
-                      })}
+                    <td className="p-4">
+                      {(() => {
+                        const job = getJobForDocument(doc.id);
+                        if (job) {
+                          // Map job type to status display
+                          const status =
+                            job.jobType === 'reingest'
+                              ? 'ingesting'
+                              : job.jobType === 'pdf' ||
+                                  job.jobType === 'url_single' ||
+                                  job.jobType === 'url_batch' ||
+                                  job.jobType === 'markdown_single' ||
+                                  job.jobType === 'markdown_batch'
+                                ? 'extracting'
+                                : job.status === 'completed'
+                                  ? 'completed'
+                                  : job.status === 'failed'
+                                    ? 'failed'
+                                    : null;
+
+                          return (
+                            <JobStatusChip
+                              status={status as any}
+                              progress={job.progress}
+                              error={job.error}
+                            />
+                          );
+                        }
+                        // No active job - show normal timestamp
+                        return (
+                          <JobStatusChip status={null} timestamp={doc.updated_at} />
+                        );
+                      })()}
                     </td>
                     <td className="p-4">
                       <DocumentActions
@@ -514,6 +615,59 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
             </Button>
             <Button onClick={handleBulkIngest} disabled={isBulkIngesting}>
               {isBulkIngesting ? 'Starting Ingestion...' : 'Start Ingestion'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {selectedIds.size} Document{selectedIds.size !== 1 ? 's' : ''}?</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                {Array.from(selectedIds)
+                  .slice(0, 3)
+                  .map((id) => {
+                    const doc = documents.find((d) => d.id === id);
+                    return doc ? (
+                      <li key={id}>
+                        {doc.title}
+                      </li>
+                    ) : null;
+                  })}
+                {selectedIds.size > 3 && (
+                  <li>... and {selectedIds.size - 3} more</li>
+                )}
+              </ul>
+              <p className="mt-3 text-sm font-medium text-red-600">
+                All chunks, embeddings, and metadata will be permanently removed.
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+
+          {bulkDeleteError && (
+            <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-600">
+              {bulkDeleteError}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowBulkDeleteDialog(false)}
+              disabled={isBulkDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleBulkDelete}
+              disabled={isBulkDeleting}
+            >
+              {isBulkDeleting ? 'Deleting...' : 'Delete Forever'}
             </Button>
           </DialogFooter>
         </DialogContent>

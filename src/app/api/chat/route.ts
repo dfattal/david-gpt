@@ -18,7 +18,7 @@ async function getPersonaSystemPrompt(
   const { data: persona } = await supabase
     .from('personas')
     .select('content, metadata, slug, name, persona_type')
-    .eq('persona_id', personaId)
+    .eq('slug', personaId)
     .eq('is_active', true)
     .single();
 
@@ -207,10 +207,10 @@ export async function POST(req: NextRequest) {
       const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(personaId);
 
       if (looksLikeUuid) {
-        // It's a UUID - look up the persona_id slug
+        // It's a UUID - look up the slug
         const { data: personaData } = await supabase
           .from('personas')
-          .select('persona_id')
+          .select('slug')
           .eq('id', personaId)
           .eq('is_active', true)
           .single();

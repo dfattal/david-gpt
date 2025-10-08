@@ -5,7 +5,8 @@ import { addSSEConnection, removeSSEConnection } from "@/lib/sse-broadcaster";
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await createClient();
+    // Skip cache for SSE endpoints to ensure fresh auth state
+    const supabase = await createClient({ skipCache: true });
 
     // Get the authenticated user
     const {

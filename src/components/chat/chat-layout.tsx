@@ -63,7 +63,7 @@ export function ChatLayout() {
   // Auto-select David persona on initial load if no persona selected
   useEffect(() => {
     if (user && !selectedPersona && !personasLoading && personas.length > 0) {
-      const davidPersona = personas.find((p) => p.persona_id === "david");
+      const davidPersona = personas.find((p) => p.slug === "david");
       if (davidPersona) {
         setSelectedPersona(davidPersona);
       } else {
@@ -92,7 +92,7 @@ export function ChatLayout() {
     if (selectedPersona) {
       setCurrentConversation(null);
     }
-  }, [selectedPersona?.persona_id, setCurrentConversation]);
+  }, [selectedPersona?.slug, setCurrentConversation]);
 
   const handleConversationSelect = (conversation: Conversation | null) => {
     setCurrentConversation(conversation);

@@ -81,14 +81,16 @@ export async function POST(
 
   try {
     const formData = await request.formData();
-    const personaSlug = formData.get('personaSlug') as string;
+    const personaSlugsStr = formData.get('personaSlugs') as string;
 
-    if (!personaSlug) {
+    if (!personaSlugsStr) {
       return NextResponse.json(
         { success: false, error: 'Persona slug is required' },
         { status: 400 }
       );
     }
+
+    const personaSlugs: string[] = JSON.parse(personaSlugsStr);
 
     // Get Gemini API key
     const geminiApiKey = process.env.GEMINI_API_KEY;
@@ -123,7 +125,7 @@ export async function POST(
       files.map(async (file) => ({
         content: await file.text(),
         filename: file.name,
-        personaSlugs: [personaSlug],
+        personaSlugs: personaSlugs,
       }))
     );
 
@@ -146,7 +148,7 @@ export async function POST(
     const documentsToStore = successful
       .map((result, idx) => ({
         markdown: result.markdown!,
-        personaSlugs: [personaSlug],
+        personaSlugs: personaSlugs,
         filename: files[results.indexOf(result)].name,
         extractionMetadata: {
           documentType: result.stats?.documentType || 'article',

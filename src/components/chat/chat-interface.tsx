@@ -50,7 +50,7 @@ export function ChatInterface({
     streamProtocol: "text", // Using text stream
     body: {
       conversationId: conversation?.id,
-      personaId: selectedPersona?.persona_id,
+      personaId: selectedPersona?.slug,
     },
     onResponse: async (response) => {
       // Extract citation metadata from response headers
@@ -249,7 +249,7 @@ export function ChatInterface({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           firstMessage: messageContent,
-          personaSlug: selectedPersona?.persona_id,
+          personaSlug: selectedPersona?.slug,
         }),
       })
         .then(async (response) => {

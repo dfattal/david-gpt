@@ -125,9 +125,10 @@ export function useSSE({
       return;
     }
 
+    // Increase delay to ensure auth session is properly established on server
     const setupTimeout = setTimeout(() => {
       setupSSEConnection();
-    }, 50);
+    }, 500);
 
     return () => {
       clearTimeout(setupTimeout);

@@ -61,14 +61,16 @@ Extract the following in JSON format:
   "alsoKnownAs": "alternative name or acronym if applicable, otherwise empty string",
   "summary": "one-sentence summary of the main topic",
   "detectedDate": "YYYY-MM-DD if any date is mentioned, otherwise null",
-  "detectedAuthors": ["author names if mentioned"] or []
+  "detectedAuthors": ["author names if mentioned"] or [],
+  "sourceUrl": "IMPORTANT: Extract the full URL from markdown link syntax like [text](URL) when you see patterns like 'Source: [...](...)', 'Original: [...](...)', or any explicit source attribution. Return the URL inside the parentheses. If no source URL found, return null"
 }
 
 Focus on:
 - Technical accuracy for key terms
 - Finding synonyms/acronyms for alsoKnownAs
 - Concise, factual summary
-- Dates in ISO format
+- Dates in ISO format (convert any date format to YYYY-MM-DD)
+- **CRITICAL**: For sourceUrl, look for markdown links in lines starting with "Source:", "Original:", "Link:", etc. Extract the URL from inside the parentheses of markdown link syntax [text](URL)
 
 Return ONLY the JSON, no other text.`;
 
@@ -98,6 +100,25 @@ Return ONLY the JSON, no other text.`;
     const jsonMatch = geminiText.match(/```json\s*([\s\S]*?)\s*```/) ||
                       geminiText.match(/\{[\s\S]*\}/);
     const metadata = jsonMatch ? JSON.parse(jsonMatch[0].replace(/```json\s*|\s*```/g, '')) : {};
+
+    // Fallback: Extract source URL using regex if Gemini didn't find it
+    if (!metadata.sourceUrl) {
+      const sourceUrlPatterns = [
+        /\*Source:\s*\[([^\]]+)\]\(([^)]+)\)/i,  // *Source: [text](url)*
+        /Source:\s*\[([^\]]+)\]\(([^)]+)\)/i,    // Source: [text](url)
+        /Original:\s*\[([^\]]+)\]\(([^)]+)\)/i,   // Original: [text](url)
+        /Link:\s*\[([^\]]+)\]\(([^)]+)\)/i,       // Link: [text](url)
+      ];
+
+      for (const pattern of sourceUrlPatterns) {
+        const match = content.match(pattern);
+        if (match && match[2]) {
+          metadata.sourceUrl = match[2];
+          console.log(`   ✓ Fallback extracted source URL: ${metadata.sourceUrl}`);
+          break;
+        }
+      }
+    }
 
     console.log(`   ✓ Extracted metadata:`, metadata);
 
@@ -176,6 +197,9 @@ function buildFrontmatter(params: {
   lines.push(`identifiers:`);
   lines.push(`  document_id: "${id}"`);
   lines.push(`  filename: "${filename}"`);
+  if (metadata.sourceUrl) {
+    lines.push(`  source_url: "${metadata.sourceUrl}"`);
+  }
 
   // Dates (structured) - include if detected
   if (metadata.detectedDate) {

@@ -36,7 +36,7 @@ interface Document {
 interface DocumentActionsProps {
   document: Document & { raw_content?: string };
   onDeleted: (docId: string) => void;
-  onUpdated: () => void;
+  onUpdated: (docId: string) => void;
 }
 
 export function DocumentActions({
@@ -104,7 +104,7 @@ export function DocumentActions({
       }
 
       setShowReingestDialog(false);
-      onUpdated();
+      onUpdated(document.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Reingest failed');
     } finally {
@@ -174,7 +174,7 @@ export function DocumentActions({
           document={fullDocument}
           isOpen={showEditor}
           onClose={() => setShowEditor(false)}
-          onSuccess={onUpdated}
+          onSuccess={() => onUpdated(document.id)}
         />
       )}
 
@@ -216,16 +216,18 @@ export function DocumentActions({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Document?</DialogTitle>
-            <DialogDescription>
-              This will permanently delete &quot;{document.title}&quot; and all associated data:
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>{document.chunk_count || 0} chunks</li>
-                <li>Document metadata</li>
-                <li>Storage file</li>
-              </ul>
-              <p className="mt-3 font-medium text-red-600">
-                This action cannot be undone.
-              </p>
+            <DialogDescription asChild>
+              <div>
+                <p>This will permanently delete &quot;{document.title}&quot; and all associated data:</p>
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>{document.chunk_count || 0} chunks</li>
+                  <li>Document metadata</li>
+                  <li>Storage file</li>
+                </ul>
+                <p className="mt-3 font-medium text-red-600">
+                  This action cannot be undone.
+                </p>
+              </div>
             </DialogDescription>
           </DialogHeader>
 

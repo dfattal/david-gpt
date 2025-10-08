@@ -158,10 +158,7 @@ export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
   // Handle single URL extraction (async with job polling)
   const handleSingleExtraction = async () => {
     if (!singleUrl.trim()) return;
-    if (personaSlugs.length === 0) {
-      alert('Please select at least one persona');
-      return;
-    }
+    if (personaSlugs.length === 0) return;
 
     setIsExtracting(true);
     setSingleResult(null);
@@ -247,10 +244,7 @@ export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
   // Handle batch URL extraction (client-side orchestrated)
   const handleBatchExtraction = async () => {
     if (!urlListContent.trim()) return;
-    if (personaSlugs.length === 0) {
-      alert('Please select at least one persona');
-      return;
-    }
+    if (personaSlugs.length === 0) return;
 
     setIsExtracting(true);
     setBatchResult(null);
@@ -358,7 +352,7 @@ export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
       }
 
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Batch extraction failed');
+      console.error('Batch extraction failed:', error);
     } finally {
       setIsExtracting(false);
     }

@@ -6,10 +6,10 @@ let cachedClient: any = null;
 let lastCacheTime = 0;
 const CACHE_TTL = 60000; // 1 minute cache TTL
 
-export async function createClient() {
-  // Check if we have a cached client that's still valid
+export async function createClient(options?: { skipCache?: boolean }) {
+  // Check if we have a cached client that's still valid (skip caching if requested)
   const now = Date.now();
-  if (cachedClient && (now - lastCacheTime) < CACHE_TTL) {
+  if (!options?.skipCache && cachedClient && (now - lastCacheTime) < CACHE_TTL) {
     return cachedClient;
   }
 
@@ -49,9 +49,11 @@ export async function createClient() {
     }
   );
 
-  // Cache the client for reuse
-  cachedClient = client;
-  lastCacheTime = now;
+  // Cache the client for reuse (only if caching is enabled)
+  if (!options?.skipCache) {
+    cachedClient = client;
+    lastCacheTime = now;
+  }
 
   return client;
 }

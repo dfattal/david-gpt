@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -20,6 +20,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { X, Save, Zap, Eye, Code, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useJobStatus } from '@/hooks/useJobStatus';
+import yaml from 'js-yaml';
+import { useToast } from '@/hooks/use-toast';
 
 interface DocumentPreviewModalProps {
   isOpen: boolean;
@@ -53,6 +55,7 @@ export function DocumentPreviewModal({
   const [activeTab, setActiveTab] = useState<'preview' | 'source'>('preview');
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [ingestionProgress, setIngestionProgress] = useState<string>('');
+  const { toast } = useToast();
 
   // Poll job status for ingestion
   const { job: currentJob } = useJobStatus({
@@ -64,7 +67,11 @@ export function DocumentPreviewModal({
       setIngestionProgress('');
 
       if (job.resultData?.success) {
-        alert('Document ingested successfully!');
+        toast({
+          title: 'Success',
+          description: 'Document ingested successfully!',
+          variant: 'default',
+        });
         onIngestSuccess?.();
         onClose();
       }
@@ -73,7 +80,11 @@ export function DocumentPreviewModal({
       setIsIngesting(false);
       setCurrentJobId(null);
       setIngestionProgress('');
-      alert(`Ingestion failed: ${error}`);
+      toast({
+        title: 'Ingestion Failed',
+        description: error,
+        variant: 'destructive',
+      });
     },
   });
 
@@ -105,7 +116,11 @@ export function DocumentPreviewModal({
       setEditedContent(data.document.raw_content);
     } catch (error) {
       console.error('Error loading document:', error);
-      alert(error instanceof Error ? error.message : 'Failed to load document');
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to load document',
+        variant: 'destructive',
+      });
       onClose();
     } finally {
       setIsLoading(false);
@@ -141,10 +156,18 @@ export function DocumentPreviewModal({
 
       // Reload document to reflect changes
       await loadDocument();
-      alert('Changes saved successfully!');
+      toast({
+        title: 'Success',
+        description: 'Changes saved successfully!',
+        variant: 'default',
+      });
     } catch (error) {
       console.error('Error saving document:', error);
-      alert(error instanceof Error ? error.message : 'Failed to save changes');
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to save changes',
+        variant: 'destructive',
+      });
     } finally {
       setIsSaving(false);
     }
@@ -185,7 +208,11 @@ export function DocumentPreviewModal({
       setIsIngesting(false);
       setIngestionProgress('');
       console.error('Error ingesting document:', error);
-      alert(error instanceof Error ? error.message : 'Ingestion failed');
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Ingestion failed',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -204,14 +231,39 @@ export function DocumentPreviewModal({
         throw new Error(data.error || 'Failed to delete document');
       }
 
-      alert('Document deleted successfully');
+      toast({
+        title: 'Success',
+        description: 'Document deleted successfully',
+        variant: 'default',
+      });
       onIngestSuccess?.();
       onClose();
     } catch (error) {
       console.error('Error deleting document:', error);
-      alert(error instanceof Error ? error.message : 'Failed to delete document');
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to delete document',
+        variant: 'destructive',
+      });
     }
   };
+
+  // Parse frontmatter and content for better preview rendering
+  const parsedContent = React.useMemo(() => {
+    const frontmatterMatch = editedContent.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+    if (!frontmatterMatch) {
+      return { frontmatter: null, content: editedContent };
+    }
+
+    try {
+      const frontmatter = yaml.load(frontmatterMatch[1]) as any;
+      const content = frontmatterMatch[2];
+      return { frontmatter, content };
+    } catch (error) {
+      console.error('Error parsing frontmatter:', error);
+      return { frontmatter: null, content: editedContent };
+    }
+  }, [editedContent]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -257,8 +309,49 @@ export function DocumentPreviewModal({
               </TabsList>
 
               <TabsContent value="preview" className="mt-4">
-                <div className="border rounded-lg p-6 overflow-y-auto max-h-[calc(90vh-300px)] prose prose-sm dark:prose-invert max-w-none">
-                  <ReactMarkdown>{editedContent}</ReactMarkdown>
+                <div className="border rounded-lg p-6 overflow-y-auto max-h-[calc(90vh-300px)]">
+                  {/* Frontmatter Section */}
+                  {parsedContent.frontmatter && (
+                    <div className="mb-6 p-4 bg-muted/30 rounded-lg border-l-4 border-primary">
+                      <h3 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
+                        Document Metadata
+                      </h3>
+                      <dl className="space-y-2 text-sm">
+                        {Object.entries(parsedContent.frontmatter).map(([key, value]) => (
+                          <div key={key} className="grid grid-cols-4 gap-2">
+                            <dt className="font-medium text-muted-foreground capitalize col-span-1">
+                              {key.replace(/_/g, ' ')}:
+                            </dt>
+                            <dd className="col-span-3">
+                              {Array.isArray(value) ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {value.map((item, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="inline-block px-2 py-0.5 bg-primary/10 text-primary rounded text-xs"
+                                    >
+                                      {String(item)}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : typeof value === 'object' && value !== null ? (
+                                <pre className="text-xs bg-background/50 p-2 rounded overflow-x-auto">
+                                  {JSON.stringify(value, null, 2)}
+                                </pre>
+                              ) : (
+                                <span className="text-foreground">{String(value)}</span>
+                              )}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </div>
+                  )}
+
+                  {/* Content Section */}
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown>{parsedContent.content}</ReactMarkdown>
+                  </div>
                 </div>
               </TabsContent>
 

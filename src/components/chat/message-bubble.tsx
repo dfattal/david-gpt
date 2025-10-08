@@ -18,7 +18,7 @@ import "katex/dist/katex.min.css";
 
 interface Persona {
   id: string;
-  persona_id: string;
+  slug: string;
   name: string;
   expertise?: string;
   avatar_url?: string;

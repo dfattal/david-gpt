@@ -67,6 +67,21 @@ export interface Document {
   updated_at: string
 }
 
+// Active job tracking (for real-time progress UI)
+export interface ActiveJob {
+  id: string
+  jobType: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  progress: {
+    current: number
+    total: number
+    message: string
+  }
+  docId?: string // Document ID if available (from result_data or input_data)
+  createdAt: string
+  error?: string
+}
+
 // AI SDK types
 export interface ChatMessage {
   id: string

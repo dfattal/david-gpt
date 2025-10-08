@@ -3,21 +3,13 @@
  * Fetch all personas from database
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createOptimizedAdminClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const supabase = await createClient();
-
-  // Check authentication
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-  }
+  // Use service role client to bypass RLS and auth checks
+  // Personas list is public info (just slug + name)
+  const supabase = createOptimizedAdminClient();
 
   try {
     // Fetch all personas

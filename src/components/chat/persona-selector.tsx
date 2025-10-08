@@ -56,7 +56,7 @@ export function PersonaSelector({
 
   const getPersonaFallback = (persona: PersonaOption) => {
     if (!persona.name || typeof persona.name !== 'string') {
-      return persona.persona_id?.slice(0, 2).toUpperCase() || 'AI';
+      return persona.slug?.slice(0, 2).toUpperCase() || 'AI';
     }
     return persona.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
@@ -121,30 +121,30 @@ export function PersonaSelector({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
               {personas.map((persona) => (
                 <Card
-                  key={persona.persona_id}
+                  key={persona.slug}
                   className={cn(
                     "relative overflow-hidden transition-all duration-200 cursor-pointer group",
                     {
-                      "ring-2 ring-primary shadow-lg": selectedPersona?.persona_id === persona.persona_id,
+                      "ring-2 ring-primary shadow-lg": selectedPersona?.slug === persona.slug,
                       "hover:shadow-md hover:scale-[1.02]": persona.is_active,
                       "opacity-60 cursor-not-allowed": !persona.is_active,
-                      "bg-muted/20": hoveredPersona === persona.persona_id
+                      "bg-muted/20": hoveredPersona === persona.slug
                     }
                   )}
                   onClick={() => handlePersonaClick(persona)}
-                  onMouseEnter={() => setHoveredPersona(persona.persona_id)}
+                  onMouseEnter={() => setHoveredPersona(persona.slug)}
                   onMouseLeave={() => setHoveredPersona(null)}
                 >
                   {/* Background gradient */}
                   <div
                     className={cn(
                       "absolute inset-0 bg-gradient-to-br opacity-5",
-                      getPersonaTheme(persona.persona_id)
+                      getPersonaTheme(persona.slug)
                     )}
                   />
 
                   {/* Selection indicator */}
-                  {selectedPersona?.persona_id === persona.persona_id && (
+                  {selectedPersona?.slug === persona.slug && (
                     <div className="absolute top-3 right-3 w-6 h-6 bg-primary rounded-full flex items-center justify-center">
                       <Check className="w-4 h-4 text-primary-foreground" />
                     </div>
@@ -171,7 +171,7 @@ export function PersonaSelector({
                         <AvatarFallback
                           className={cn(
                             "text-white font-semibold bg-gradient-to-br",
-                            getPersonaTheme(persona.persona_id)
+                            getPersonaTheme(persona.slug)
                           )}
                         >
                           {getPersonaFallback(persona)}
@@ -248,7 +248,7 @@ export function PersonaSelector({
                     <AvatarFallback
                       className={cn(
                         "text-white text-xs bg-gradient-to-br",
-                        getPersonaTheme(selectedPersona.persona_id)
+                        getPersonaTheme(selectedPersona.slug)
                       )}
                     >
                       {getPersonaFallback(selectedPersona)}
