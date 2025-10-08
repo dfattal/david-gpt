@@ -218,7 +218,7 @@ export async function POST(req: NextRequest) {
         console.log('📋 Looked up persona by UUID:', personaId, '→', personaData);
 
         if (personaData) {
-          persona = personaData.persona_id;
+          persona = personaData.slug;
         }
       } else {
         // It's already a slug - use it directly
@@ -229,14 +229,14 @@ export async function POST(req: NextRequest) {
       // Try to get persona from conversation
       const { data: conversation } = await supabase
         .from('conversations')
-        .select('personas(persona_id)')
+        .select('personas(slug)')
         .eq('id', conversationId)
         .single();
 
       console.log('💬 Got persona from conversation:', conversation);
 
       if (conversation && conversation.personas) {
-        persona = (conversation.personas as any).persona_id || 'david';
+        persona = (conversation.personas as any).slug || 'david';
       }
     }
 

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 
 export interface PersonaData {
   id: string;
-  persona_id: string;
+  slug: string;
   metadata: {
     title: string;
     description: string;

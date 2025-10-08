@@ -11,7 +11,7 @@ export function getPersonaAvatar(persona: PersonaOption | null): string {
   }
 
   // Use local persona avatar images from /public/personas
-  const localAvatarPath = getLocalAvatarPath(persona.persona_id);
+  const localAvatarPath = getLocalAvatarPath(persona.slug);
   if (localAvatarPath) {
     return localAvatarPath;
   }
@@ -23,7 +23,7 @@ export function getPersonaAvatar(persona: PersonaOption | null): string {
 export function generateAvatarUrl(persona: PersonaOption): string {
   // Generate initials-based avatar with persona theme colors
   const initials = getPersonaInitials(persona);
-  const theme = getPersonaThemeColors(persona.persona_id);
+  const theme = getPersonaThemeColors(persona.slug);
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&size=128&background=${theme.bg}&color=${theme.text}&bold=true&format=svg`;
 }
 
@@ -45,7 +45,7 @@ export function generateDefaultAvatar(): string {
 
 export function getPersonaInitials(persona: PersonaOption): string {
   if (!persona.name || typeof persona.name !== 'string') {
-    return persona.persona_id?.slice(0, 2).toUpperCase() || 'AI';
+    return persona.slug?.slice(0, 2).toUpperCase() || 'AI';
   }
 
   return persona.name

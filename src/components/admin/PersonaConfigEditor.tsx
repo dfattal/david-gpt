@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -41,6 +42,7 @@ interface RouterConfig {
 interface PersonaConfig {
   slug: string;
   display_name: string;
+  expertise: string;
   version: string;
   last_updated: string;
   topics: Topic[];
@@ -297,6 +299,17 @@ export function PersonaConfigEditor({
                     }
                   />
                 </div>
+              </div>
+              <div>
+                <Label>Expertise</Label>
+                <Textarea
+                  value={config.expertise}
+                  onChange={(e) =>
+                    setConfig({ ...config, expertise: e.target.value })
+                  }
+                  placeholder="Short description of persona expertise for welcome screen display"
+                  rows={2}
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

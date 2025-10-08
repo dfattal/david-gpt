@@ -37,7 +37,7 @@ export async function GET(
     // Fetch persona config
     const { data: persona, error } = await supabase
       .from('personas')
-      .select('slug, name, config_json')
+      .select('slug, name, expertise, config_json, updated_at')
       .eq('slug', slug)
       .single();
 
@@ -53,9 +53,26 @@ export async function GET(
     }
 
     // Parse config_json if it's a string
-    const config = typeof persona.config_json === 'string'
+    const configJson = typeof persona.config_json === 'string'
       ? JSON.parse(persona.config_json)
-      : persona.config_json;
+      : (persona.config_json || {});
+
+    // Build form-compatible config object
+    const config = {
+      slug: persona.slug,
+      display_name: persona.name || '',
+      expertise: persona.expertise || '',
+      version: configJson.version || '1.0.0',
+      last_updated: configJson.last_updated || persona.updated_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+      topics: configJson.topics || [],
+      router: {
+        vector_threshold: configJson.router?.vector_threshold ?? 0.35,
+        bm25_keywords: configJson.router?.bm25_keywords ?? [],
+        bm25_keywords_min_hits: configJson.router?.bm25_keywords_min_hits ?? 1,
+        min_supporting_docs: configJson.router?.min_supporting_docs ?? 2,
+        fallback: configJson.router?.fallback ?? 'general',
+      },
+    };
 
     return NextResponse.json({
       success: true,
@@ -128,12 +145,23 @@ export async function PATCH(
       );
     }
 
+    // Build config_json from body (excluding DB-level fields)
+    const configJson = {
+      slug: body.slug,
+      display_name: body.display_name,
+      version: body.version,
+      last_updated: body.last_updated,
+      topics: body.topics,
+      router: body.router,
+    };
+
     // Update persona config in database
     const { data: updatedPersona, error: updateError } = await supabase
       .from('personas')
       .update({
         name: body.display_name,
-        config_json: body,
+        expertise: body.expertise || null,
+        config_json: configJson,
         updated_at: new Date().toISOString(),
       })
       .eq('slug', slug)

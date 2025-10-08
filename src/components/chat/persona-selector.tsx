@@ -14,7 +14,7 @@ import { useActivePersonas } from "@/hooks/use-personas";
 import { getPersonaAvatar } from "@/lib/avatar-utils";
 
 export interface PersonaOption {
-  persona_id: string;
+  slug: string;
   name: string;
   description: string;
   expertise_domains: string[];
