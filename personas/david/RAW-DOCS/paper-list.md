@@ -5,3 +5,10 @@
 - arxiv:2401.10891 | aka: Depth Anything paper
 - arxiv:2503.14489 | aka: SEVA paper
 - https://www.optica-opn.org/home/articles/volume_29/june_2018/features/volumetric_displays_turning_3-d_inside-out | volumetric displays, wave displays, holographic displays
+- https://www.nature.com/articles/nature11972 | aka: DLB paper, Diffractive Backlight paper
+- https://www.nature.com/articles/nature01086 | Indistinguishable Photons | aka: Indistinguishable Photons paper
+- https://www.nature.com/articles/nphoton.2010.116 | aka: dielectric grating reflector paper, nature photonics paper
+- https://www.nature.com/articles/420762a | aka: quantum cryptography nature paper
+- https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.92.037903 
+- https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.106.193901
+- https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.95.013904
