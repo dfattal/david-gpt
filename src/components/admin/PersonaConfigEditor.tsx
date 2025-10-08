@@ -64,6 +64,7 @@ export function PersonaConfigEditor({
   );
   const [config, setConfig] = useState<PersonaConfig | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingPersonas, setIsLoadingPersonas] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,6 +90,7 @@ export function PersonaConfigEditor({
 
   const loadPersonas = async () => {
     try {
+      setIsLoadingPersonas(true);
       const response = await fetch('/api/admin/personas');
       const data = await response.json();
 
@@ -99,6 +101,8 @@ export function PersonaConfigEditor({
       setPersonas(data.personas || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load personas');
+    } finally {
+      setIsLoadingPersonas(false);
     }
   };
 
@@ -252,9 +256,10 @@ export function PersonaConfigEditor({
           <Select
             value={selectedPersonaSlug || ''}
             onValueChange={setSelectedPersonaSlug}
+            disabled={isLoadingPersonas}
           >
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select a persona..." />
+              <SelectValue placeholder={isLoadingPersonas ? "Loading personas..." : "Select a persona..."} />
             </SelectTrigger>
             <SelectContent>
               {personas.map((persona) => (
