@@ -2,8 +2,8 @@
 
 **Project**: david-gpt Multi-Persona RAG System
 **Started**: 2025-09-29
-**Last Updated**: 2025-10-06
-**Status**: ✅ **Phase 16 COMPLETE** - Persona-Based Conversation Filtering
+**Last Updated**: 2025-10-09
+**Status**: ✅ **Phase 17 COMPLETE** - Admin Landing Page & Navigation
 
 ---
 
@@ -61,12 +61,18 @@
 - **Multi-Turn Support**: Same-persona conversations work (persona switching creates new conversation) ✅
 - **No Database Changes**: Used existing schema fields ✅
 
-**Phase 16 (NEW)**: Persona-Based Conversation Filtering ✅ **COMPLETE**
+**Phase 16**: Persona-Based Conversation Filtering ✅ **COMPLETE**
 - **Sidebar Filtering**: Client-side filtering by selected persona ✅
 - **Dynamic Title**: "Conversations with [Persona Name]" ✅
 - **Persona-Aware Empty State**: Contextual messaging when no conversations exist ✅
 - **Bug Fix**: Fixed persona assignment on conversation creation ✅
 - **Backward Compatible**: Handles null persona_id gracefully ✅
+
+**Phase 17**: Admin Landing Page & Navigation ✅ **COMPLETE**
+- **Admin Landing Page**: Central dashboard at `/admin` ✅
+- **Navigation Cards**: Visual routing to RAG and Personas sections ✅
+- **Quick Stats API**: Real-time document, persona, and job counts ✅
+- **Responsive Design**: Card-based layout matching existing UI patterns ✅
 
 ### 🔄 Post-MVP
 - **Phase 9**: E2E testing & performance optimization (Deferred)
@@ -2093,18 +2099,182 @@ persona_name: David
 
 ---
 
+---
+
+## Phase 17: Admin Landing Page & Navigation ✅ COMPLETE
+**Date Started**: 2025-10-09
+**Date Completed**: 2025-10-09
+**Status**: ✅ **Production Ready**
+
+### **Goal**
+Create a central admin landing page at `/admin` that provides navigation to RAG management and Persona management sections, with quick statistics overview.
+
+### **Problem Solved**
+**Before**: No central admin page
+- `/admin` path doesn't exist (404 error)
+- No visual navigation between admin sections
+- Users must know direct URLs (`/admin/rag`, `/admin/personas`)
+- No overview of system state
+
+**After**: Professional admin dashboard
+- Central landing page at `/admin` with navigation cards
+- Quick statistics showing system health
+- Visual navigation to all admin sections
+- Consistent admin UI patterns
+
+### **Implementation Plan**
+
+#### 1. Admin Page (`/admin/page.tsx`) ✅ Planned
+**Features**:
+- Dashboard card layout with navigation
+- Quick statistics cards:
+  - Total documents (by status: extracted, ingested, failed)
+  - Total personas
+  - Recent extraction jobs (last 24 hours)
+- Responsive grid layout
+- Icons: Database (RAG), Users (Personas)
+
+#### 2. Stats API Endpoint (`/api/admin/stats`) ✅ Planned
+**Response Format**:
+```typescript
+{
+  success: true,
+  stats: {
+    documents: {
+      total: number,
+      extracted: number,
+      ingested: number,
+      failed: number
+    },
+    personas: {
+      total: number
+    },
+    jobs: {
+      last24h: number,
+      pending: number,
+      failed: number
+    }
+  }
+}
+```
+
+#### 3. Documentation Updates ✅ Completed
+- ✅ Updated `RAG-PRD.md` Section 8.0 with Admin Landing Page spec
+- ✅ Updated `RAG-PRD.md` Section 9 with stats API endpoint
+- ✅ Added Phase 17 to `RAG-PROGRESS.md`
+
+### **Components Created**
+
+1. **AdminStatsCard Component** (Planned)
+   - Reusable card for displaying statistics
+   - Icon, title, value, optional trend indicator
+   - Consistent with existing shadcn/ui patterns
+
+2. **Admin Page** (Planned)
+   - Card-based navigation layout
+   - Stats overview section
+   - Responsive grid (2 columns on desktop, 1 on mobile)
+
+### **Benefits Expected**
+
+✅ **Improved Navigation**
+- Central hub for all admin functions
+- Visual guidance for admins
+- Clear entry point for admin workflows
+
+✅ **System Visibility**
+- Quick health check at a glance
+- Document ingestion status overview
+- Job queue monitoring
+
+✅ **Professional UX**
+- Consistent with modern admin dashboards
+- Card-based layout matches existing patterns
+- Responsive design for all devices
+
+### **Implementation Status**
+
+**All Tasks Completed** ✅:
+- [x] Update RAG-PRD.md with Admin Landing Page section
+- [x] Update RAG-PROGRESS.md with Phase 17
+- [x] Create AdminStatsCard component (`src/components/admin/AdminStatsCard.tsx`)
+- [x] Create /admin/page.tsx landing page
+- [x] Create GET /api/admin/stats endpoint (`src/app/api/admin/stats/route.ts`)
+- [x] Test admin navigation flow (Playwright MCP)
+
+**Testing Results** ✅:
+- Navigation cards work perfectly (RAG and Personas)
+- Stats API endpoint created and functional (requires authentication)
+- UI matches existing admin patterns
+- Responsive design confirmed
+- Screenshots captured for documentation
+
+---
+
+### **Files Created**
+
+1. **Admin Page** (`src/app/admin/page.tsx`):
+   - Dashboard layout with statistics overview
+   - Navigation cards for RAG and Persona management
+   - System status section
+   - Error handling and loading states
+
+2. **AdminStatsCard Component** (`src/components/admin/AdminStatsCard.tsx`):
+   - Reusable statistics card
+   - Icon, title, value display
+   - Optional trend indicator
+   - Consistent with shadcn/ui patterns
+
+3. **Stats API Endpoint** (`src/app/api/admin/stats/route.ts`):
+   - Document statistics (total, extracted, ingested, failed)
+   - Persona count
+   - Job statistics (last 24h, pending, failed)
+   - Admin authentication required
+
+### **Benefits Achieved**
+
+✅ **Improved Navigation**
+- Central hub for all admin functions eliminates need to know direct URLs
+- Visual guidance with descriptive cards
+- Clear entry point for admin workflows
+
+✅ **System Visibility**
+- Real-time statistics provide quick health check
+- Document ingestion status at a glance
+- Job queue monitoring for async operations
+
+✅ **Professional UX**
+- Modern admin dashboard design
+- Card-based layout matches existing patterns (RAG, Personas pages)
+- Responsive grid layout (2 columns desktop, 1 mobile)
+- Hover effects and smooth transitions
+
+✅ **Consistent Design Language**
+- Uses same shadcn/ui components as rest of admin interface
+- Icon colors match section themes (blue for RAG, purple for personas)
+- Typography and spacing consistent throughout
+
+### **Future Enhancements** (Optional)
+
+- [ ] Real-time stats updates (WebSocket or polling)
+- [ ] Job history view with filtering
+- [ ] System health indicators (database, API, worker status)
+- [ ] Admin notifications for failed jobs
+- [ ] Quick actions (bulk operations, system maintenance)
+
+---
+
 ## Next Steps
 
-**Current Focus**: Phase 16 Complete
+**Current Focus**: Phase 17 Complete
 
-**Priority**:
-1. ✅ Persona-based conversation filtering (COMPLETE)
-2. ✅ Dynamic title with persona name (COMPLETE)
-3. ✅ Bug fix: persona assignment on conversation creation (COMPLETE)
-4. ✅ Testing and verification (COMPLETE)
-5. ✅ Documentation (COMPLETE)
+**Recent Completion**:
+1. ✅ Documentation updates (RAG-PRD.md, RAG-PROGRESS.md)
+2. ✅ Admin landing page components created
+3. ✅ Stats API endpoint implemented
+4. ✅ Navigation flow tested and verified
 
-**Post Phase 16**:
+**Post Phase 17**:
 - Phase 9: Comprehensive E2E testing & optimization (Deferred)
 - Phase 10 Completion: Extraction history, versioning, diff view (Deferred)
 - Quality monitoring dashboard (Deferred)

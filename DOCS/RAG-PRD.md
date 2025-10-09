@@ -463,6 +463,53 @@ personaSlug: selectedPersona?.persona_id
 
 ## 8. Admin Tools
 
+### 8.0 Admin Landing Page (`/admin`)
+
+**Purpose**: Central dashboard and navigation hub for all administrative functions.
+
+**Location**: `/admin`
+
+**Features**:
+- **Dashboard Cards**: Visual navigation to primary admin sections
+  - RAG Management (`/admin/rag`)
+  - Persona Management (`/admin/personas`)
+- **Quick Statistics**: Real-time overview of system state
+  - Total documents (by ingestion status)
+  - Total personas
+  - Recent extraction jobs (last 24 hours)
+- **Recent Activity**: Latest extraction/ingestion jobs with status
+- **Responsive Design**: Card-based layout matching existing admin UI patterns
+
+**API Endpoints**:
+- `GET /api/admin/stats` - Dashboard statistics
+  ```typescript
+  Response: {
+    success: true,
+    stats: {
+      documents: {
+        total: number,
+        extracted: number,
+        ingested: number,
+        failed: number
+      },
+      personas: {
+        total: number
+      },
+      jobs: {
+        last24h: number,
+        pending: number,
+        failed: number
+      }
+    }
+  }
+  ```
+
+**User Workflow**:
+1. Navigate to `/admin`
+2. View quick stats and recent activity
+3. Click card to navigate to specific admin section
+4. Return to `/admin` for overview and navigation
+
 ### 8.1 Document Management (`/admin/rag`)
 
 **Tabs** (5 modes):
@@ -547,6 +594,9 @@ All three storage locations are automatically synchronized on document updates:
 ---
 
 ## 9. API Routes
+
+### Admin Dashboard
+- `GET /api/admin/stats` - Dashboard statistics (documents, personas, jobs)
 
 ### Document Management
 - `GET /api/admin/documents` - List with filters
