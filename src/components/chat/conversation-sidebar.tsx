@@ -27,6 +27,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { useSSE } from "./sse-hook";
 import { useToast } from "@/components/ui/toast";
 import { Spinner } from "@/components/ui/spinner";
+import { TypewriterText } from "@/components/ui/typewriter-text";
 import {
   Plus,
   MessageSquare,
@@ -53,6 +54,7 @@ interface ConversationSidebarProps {
 export interface ConversationSidebarRef {
   refreshConversations: () => void;
   setTitleGenerating: (conversationId: string, isGenerating: boolean) => void;
+  addConversation: (conversation: Conversation) => void;
 }
 
 export const ConversationSidebar = forwardRef<
@@ -68,6 +70,9 @@ export const ConversationSidebar = forwardRef<
   const [loading, setLoading] = useState(false);
   const [generatingTitles, setGeneratingTitles] = useState<Set<string>>(
     new Set()
+  );
+  const [typewriterTitles, setTypewriterTitles] = useState<Map<string, string>>(
+    new Map()
   );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
@@ -127,6 +132,16 @@ export const ConversationSidebar = forwardRef<
           return newSet;
         });
       },
+      addConversation: (conversation: Conversation) => {
+        setConversations((prev) => {
+          // Check if conversation already exists
+          if (prev.some((c) => c.id === conversation.id)) {
+            return prev;
+          }
+          // Add new conversation to the top of the list
+          return [conversation, ...prev];
+        });
+      },
     }),
     [fetchConversations]
   );
@@ -152,6 +167,14 @@ export const ConversationSidebar = forwardRef<
         return newSet;
       });
 
+      // Add to typewriter titles map to trigger animation
+      setTypewriterTitles((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(conversationId, title);
+        return newMap;
+      });
+
+      // Update conversations without refreshing the entire list
       setConversations((prev) => {
         const updated = prev.map((conv) =>
           conv.id === conversationId ? { ...conv, title: title } : conv
@@ -175,7 +198,7 @@ export const ConversationSidebar = forwardRef<
       // Show success notification for title generation
       // addToast(`Title updated: "${title}"`, "success", 3000);
     },
-    [addToast, currentConversation, onConversationUpdate]
+    [currentConversation, onConversationUpdate]
   );
 
   // Set up SSE connection with the new hook
@@ -450,7 +473,22 @@ export const ConversationSidebar = forwardRef<
                       ) : (
                         <>
                           <div className="text-sm font-medium truncate min-w-0 flex-1 overflow-hidden">
-                            {conversation.title || "New Chat"}
+                            {typewriterTitles.has(conversation.id) ? (
+                              <TypewriterText
+                                text={typewriterTitles.get(conversation.id) || conversation.title || "New Chat"}
+                                speed={30}
+                                onComplete={() => {
+                                  // Remove from typewriter titles after animation completes
+                                  setTypewriterTitles((prev) => {
+                                    const newMap = new Map(prev);
+                                    newMap.delete(conversation.id);
+                                    return newMap;
+                                  });
+                                }}
+                              />
+                            ) : (
+                              conversation.title || "New Chat"
+                            )}
                           </div>
                           {generatingTitles.has(conversation.id) && (
                             <Spinner size="sm" className="flex-shrink-0" />

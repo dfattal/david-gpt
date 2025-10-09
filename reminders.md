@@ -1,5 +1,6 @@
 # Reminders
 
--  Perhaps for a next phase but worth adding to progress doc is we will need frontend UI to add / edit persona and metadata and clarify
-  which / how they are modifying / boositng the RAG response
+- Evaluate getting rid of superfluous persona defined RAG thresholds since they are not used ?
+- Are we using persona.config.json anywhere ? if not can we get rid of it ? If yes, how is related to persona.md and to the RAG response ?
+- Admin function to ADD persona (via uploading persona.md -- maybe without the thresholds)
   

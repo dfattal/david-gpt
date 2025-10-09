@@ -30,6 +30,7 @@ export function ChatLayout() {
   const sidebarRef = useRef<{
     refreshConversations: () => void;
     setTitleGenerating: (conversationId: string, isGenerating: boolean) => void;
+    addConversation: (conversation: Conversation) => void;
   } | null>(null);
 
   const handleTitleUpdate = useCallback(
@@ -46,8 +47,7 @@ export function ChatLayout() {
         setCurrentConversation({ ...currentConversation, title });
       }
 
-      // Refresh the sidebar to show the updated title in the list
-      sidebarRef.current?.refreshConversations();
+      // No need to refresh - the sidebar will update via its own SSE handler
       sidebarRef.current?.setTitleGenerating(conversationId, false);
     },
     [currentConversation, setCurrentConversation]
@@ -104,8 +104,8 @@ export function ChatLayout() {
 
   const handleConversationUpdate = (conversation: Conversation) => {
     setCurrentConversation(conversation);
-    // Immediately refresh the sidebar to show the new conversation
-    sidebarRef.current?.refreshConversations();
+    // Add the new conversation to the sidebar without refreshing the entire list
+    sidebarRef.current?.addConversation(conversation);
     // Start title generation loading state for new conversations with "New Chat" title
     if (conversation.title === "New Chat") {
       sidebarRef.current?.setTitleGenerating(conversation.id, true);
