@@ -62,7 +62,7 @@ David-GPT is in active development with substantial functionality implemented:
 - **Chat Interface**: Streaming responses with inline, source-linked citations in the format `[^doc_id:section]`.
 - **Document Ingestion**: A pipeline to convert raw content (PDFs, URLs, text) into structured Markdown files with YAML frontmatter for the RAG knowledge base.
 - **Hybrid Search**: Combines semantic (embeddings) with keyword (BM25) search, followed by a re-ranking step.
-- **Smart Query Routing**: An initial "Router" step classifies queries to determine if they require RAG, can be answered from general knowledge, or are out-of-scope.
+- **Always-On RAG**: RAG is invoked for every query (no smart routing implemented - all queries hit the knowledge base).
 
 ### User Roles
 - **Admin**: Full corpus

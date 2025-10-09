@@ -104,7 +104,8 @@ export async function getVectorThreshold(
       ? JSON.parse(data.config_json)
       : data.config_json;
 
-    return config?.router?.vector_threshold || 0.35;
+    // Support both new (search) and old (router) config paths for backward compatibility
+    return config?.search?.vector_threshold ?? config?.router?.vector_threshold ?? 0.35;
   } catch (error) {
     console.warn('Error loading vector threshold:', error);
     return 0.35;

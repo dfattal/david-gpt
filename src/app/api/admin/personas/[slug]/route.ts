@@ -65,12 +65,8 @@ export async function GET(
       version: configJson.version || '1.0.0',
       last_updated: configJson.last_updated || persona.updated_at?.split('T')[0] || new Date().toISOString().split('T')[0],
       topics: configJson.topics || [],
-      router: {
-        vector_threshold: configJson.router?.vector_threshold ?? 0.35,
-        bm25_keywords: configJson.router?.bm25_keywords ?? [],
-        bm25_keywords_min_hits: configJson.router?.bm25_keywords_min_hits ?? 1,
-        min_supporting_docs: configJson.router?.min_supporting_docs ?? 2,
-        fallback: configJson.router?.fallback ?? 'general',
+      search: {
+        vector_threshold: configJson.search?.vector_threshold ?? configJson.router?.vector_threshold ?? 0.35,
       },
     };
 
@@ -152,7 +148,7 @@ export async function PATCH(
       version: body.version,
       last_updated: body.last_updated,
       topics: body.topics,
-      router: body.router,
+      search: body.search,
     };
 
     // Update persona config in database

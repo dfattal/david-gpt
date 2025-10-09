@@ -116,12 +116,8 @@ Free-form natural language describing the persona's expertise.
       "aliases": ["Immersity", "Neural Depth", "NeurD", "monocular depth estimation"]
     }
   ],
-  "router": {
-    "vector_threshold": 0.35,
-    "bm25_keywords": ["Leia", "Immersity", "3D Cell", "LC lens", "DLB"],
-    "bm25_keywords_min_hits": 1,
-    "min_supporting_docs": 2,
-    "fallback": "handoff"
+  "search": {
+    "vector_threshold": 0.35
   }
 }
 ```
@@ -130,16 +126,12 @@ Free-form natural language describing the persona's expertise.
 
 **Critical (Affects Retrieval)**:
 - `topics[]` - Topic objects with `id` and `aliases[]` for tag boosting (+7.5% default)
-- `router.vector_threshold` - Minimum cosine similarity for vector search (0.0-1.0)
-- `router.bm25_keywords` - Keywords for query routing decisions
-- `router.bm25_keywords_min_hits` - Minimum keyword matches required
-- `router.min_supporting_docs` - Minimum documents for valid RAG response
+- `search.vector_threshold` - Minimum cosine similarity for vector search (0.0-1.0, default: 0.35)
 
 **Informational (Metadata)**:
 - `slug` - Persona identifier (used for filtering)
 - `display_name` - UI display name
 - `version`, `last_updated` - Versioning info
-- `in_scope_examples`, `out_of_scope_examples` - Documentation/training data
 
 ### 4.3 Admin UI for Persona Configuration
 
@@ -147,12 +139,11 @@ Free-form natural language describing the persona's expertise.
 
 **Features**:
 - Select persona from dropdown (fetched from database)
-- **Search Sensitivity Presets** - User-friendly radio buttons instead of technical slider
-- Manage BM25 keywords with tag input
+- **Vector Search Threshold** - User-friendly presets for search sensitivity
 - Add/edit/remove topics and their aliases
 - Save changes directly to database (`personas.config_json`)
 
-**Search Sensitivity Presets** (replaces technical threshold slider):
+**Vector Search Threshold Presets**:
 - **Very Strict (0.50)** - Only nearly-exact semantic matches
 - **Strict (0.40)** - High relevance required
 - **Balanced (0.35)** - Good mix of precision and recall (recommended) ⭐ Default
@@ -164,9 +155,7 @@ Free-form natural language describing the persona's expertise.
 2. Click "Upload Documents" → Select "Persona Config" tab
 3. Choose persona from dropdown
 4. Edit configuration:
-   - Search Sensitivity (5 preset options with descriptions)
-   - BM25 Keywords (add/remove)
-   - Min Hits & Supporting Docs (number inputs)
+   - Vector Search Threshold (5 preset options with descriptions)
    - Topics & Aliases (nested editor)
 5. Click "Save Configuration"
 6. Changes take effect immediately on next RAG query

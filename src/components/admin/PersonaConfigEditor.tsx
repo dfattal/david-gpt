@@ -31,12 +31,8 @@ interface Topic {
   aliases: string[];
 }
 
-interface RouterConfig {
+interface SearchConfig {
   vector_threshold: number;
-  bm25_keywords: string[];
-  bm25_keywords_min_hits: number;
-  min_supporting_docs: number;
-  fallback: string;
 }
 
 interface PersonaConfig {
@@ -46,7 +42,7 @@ interface PersonaConfig {
   version: string;
   last_updated: string;
   topics: Topic[];
-  router: RouterConfig;
+  search: SearchConfig;
 }
 
 interface PersonaConfigEditorProps {
@@ -72,9 +68,6 @@ export function PersonaConfigEditor({
   const [newTopicId, setNewTopicId] = useState('');
   const [newTopicAlias, setNewTopicAlias] = useState('');
   const [editingTopicIndex, setEditingTopicIndex] = useState<number | null>(null);
-
-  // BM25 keyword editing state
-  const [newBm25Keyword, setNewBm25Keyword] = useState('');
 
   // Load personas list on mount
   useEffect(() => {
@@ -205,34 +198,6 @@ export function PersonaConfigEditor({
     setConfig({ ...config, topics: updatedTopics });
   };
 
-  // BM25 keyword management
-  const handleAddBm25Keyword = () => {
-    if (!newBm25Keyword.trim() || !config) return;
-
-    const currentKeywords = config.router?.bm25_keywords ?? [];
-    if (!currentKeywords.includes(newBm25Keyword.trim())) {
-      setConfig({
-        ...config,
-        router: {
-          ...config.router,
-          bm25_keywords: [...currentKeywords, newBm25Keyword.trim()],
-        },
-      });
-      setNewBm25Keyword('');
-    }
-  };
-
-  const handleRemoveBm25Keyword = (keyword: string) => {
-    if (!config) return;
-
-    setConfig({
-      ...config,
-      router: {
-        ...config.router,
-        bm25_keywords: (config.router?.bm25_keywords ?? []).filter((k) => k !== keyword),
-      },
-    });
-  };
 
   if (isLoading) {
     return (
@@ -352,9 +317,9 @@ export function PersonaConfigEditor({
               {/* Search Sensitivity */}
               <div>
                 <div className="mb-3">
-                  <Label className="text-base">Search Sensitivity</Label>
+                  <Label className="text-base">Vector Search Threshold</Label>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Choose how strictly to match search results
+                    Minimum similarity score (0-1) for vector search results
                   </p>
                 </div>
                 <div className="space-y-3">
@@ -365,7 +330,7 @@ export function PersonaConfigEditor({
                     { value: 0.25, label: 'Broad', description: 'Include tangentially related content' },
                     { value: 0.15, label: 'Very Broad', description: 'Cast a wide net, may include false positives' },
                   ].map((preset) => {
-                    const currentThreshold = config.router?.vector_threshold ?? 0.35;
+                    const currentThreshold = config.search?.vector_threshold ?? 0.35;
                     const isSelected = Math.abs(currentThreshold - preset.value) < 0.01;
 
                     return (
@@ -384,7 +349,7 @@ export function PersonaConfigEditor({
                           onChange={() =>
                             setConfig({
                               ...config,
-                              router: { ...config.router, vector_threshold: preset.value },
+                              search: { ...config.search, vector_threshold: preset.value },
                             })
                           }
                           className="mt-1"
@@ -408,89 +373,6 @@ export function PersonaConfigEditor({
                       </label>
                     );
                   })}
-                </div>
-              </div>
-
-              {/* BM25 Keywords */}
-              <div>
-                <Label>BM25 Keywords</Label>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Keywords used for query routing and lexical search
-                </p>
-                <div className="flex gap-2 mb-2">
-                  <Input
-                    value={newBm25Keyword}
-                    onChange={(e) => setNewBm25Keyword(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddBm25Keyword();
-                      }
-                    }}
-                    placeholder="Add keyword..."
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleAddBm25Keyword}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  {(config.router?.bm25_keywords ?? []).map((keyword) => (
-                    <span
-                      key={keyword}
-                      className="px-3 py-1 bg-primary/10 text-primary rounded flex items-center gap-2"
-                    >
-                      {keyword}
-                      <button
-                        onClick={() => handleRemoveBm25Keyword(keyword)}
-                        className="hover:text-primary/70"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Min Hits and Supporting Docs */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>BM25 Minimum Keyword Hits</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={config.router?.bm25_keywords_min_hits ?? 1}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        router: {
-                          ...config.router,
-                          bm25_keywords_min_hits: parseInt(e.target.value) || 1,
-                        },
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>Minimum Supporting Documents</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={config.router?.min_supporting_docs ?? 2}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        router: {
-                          ...config.router,
-                          min_supporting_docs: parseInt(e.target.value) || 2,
-                        },
-                      })
-                    }
-                  />
                 </div>
               </div>
             </CardContent>

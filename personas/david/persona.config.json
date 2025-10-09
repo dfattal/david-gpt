@@ -149,33 +149,7 @@
       ]
     }
   ],
-  "router": {
-    "vector_threshold": 0.35,
-    "bm25_keywords": [
-      "Leia",
-      "Immersity",
-      "NeurD",
-      "3D Cell",
-      "LC lens",
-      "DLB",
-      "parallax barrier",
-      "lentic*",
-      "OpenXR",
-      "GameBridge",
-      "weaving",
-      "crosstalk",
-      "calibration",
-      "Samsung",
-      "Acer",
-      "Lenovo",
-      "ZTE",
-      "BOE",
-      "Himax",
-      "Odyssey",
-      "SpatialLabs"
-    ],
-    "bm25_keywords_min_hits": 1,
-    "min_supporting_docs": 2,
-    "fallback": "handoff"
+  "search": {
+    "vector_threshold": 0.35
   }
 }
