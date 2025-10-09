@@ -5,7 +5,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { vectorSearch, getVectorThreshold } from './vectorSearch';
-import { bm25Search, getBM25MinScore } from './bm25Search';
+import { bm25Search } from './bm25Search';
 import { hybridSearch, FusedSearchResult } from './fusionSearch';
 
 export interface SearchOptions {
@@ -57,11 +57,10 @@ export async function performSearch(
   console.log(`\n=== RAG Search for: "${query}" (persona: ${personaSlug}) ===`);
 
   try {
-    // Load persona config for thresholds if not provided
+    // Load persona config for vector threshold if not provided
     const vectorThreshold = options.vectorThreshold ??
       await getVectorThreshold(personaSlug, supabase);
-    const bm25MinScore = options.bm25MinScore ??
-      await getBM25MinScore(personaSlug, supabase);
+    const bm25MinScore = options.bm25MinScore ?? 0.1;
 
     // Step 1: Perform vector search
     console.log('\n[1/3] Vector search...');

@@ -71,32 +71,3 @@ export async function bm25Search(
   }
 }
 
-/**
- * Get configurable min score from persona config
- */
-export async function getBM25MinScore(
-  personaSlug: string,
-  supabase: ReturnType<typeof createClient>
-): Promise<number> {
-  try {
-    const { data, error } = await supabase
-      .from('personas')
-      .select('config_json')
-      .eq('slug', personaSlug)
-      .single();
-
-    if (error || !data) {
-      console.warn(`Could not load persona config for ${personaSlug}, using default min score`);
-      return 0.1;
-    }
-
-    const config = typeof data.config_json === 'string'
-      ? JSON.parse(data.config_json)
-      : data.config_json;
-
-    return config?.retrieval?.bm25_min_score || 0.1;
-  } catch (error) {
-    console.warn('Error loading BM25 min score:', error);
-    return 0.1;
-  }
-}
