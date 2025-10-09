@@ -32,6 +32,14 @@ export interface Message {
   processing_time_ms?: number
   sources_used?: number
   created_at: string
+  rag_weight?: number
+  rag_weight_breakdown?: {
+    citation_density: number
+    context_utilization: number
+    token_overlap: number
+    search_quality: number
+  }
+  metadata?: any
 }
 
 export interface MessageCitation {

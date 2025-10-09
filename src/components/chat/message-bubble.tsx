@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { User } from "@supabase/supabase-js";
 import { parseCitations } from "@/lib/rag/citations/parser";
 import { CitationsList } from "./citations-list";
+import { RagWeightBadge } from "./rag-weight-badge";
 import { getPersonaAvatar, getPersonaInitials } from "@/lib/avatar-utils";
 
 // Import KaTeX CSS
@@ -30,6 +31,13 @@ interface MessageBubbleProps {
     role: "user" | "assistant";
     content: string;
     created_at?: string;
+    rag_weight?: number;
+    rag_weight_breakdown?: {
+      citation_density: number;
+      context_utilization: number;
+      token_overlap: number;
+      search_quality: number;
+    };
   };
   user?: User | null;
   persona?: Persona;
@@ -343,6 +351,16 @@ export const MessageBubble = React.memo(
                 <span className="inline-block w-0.5 h-4 ml-1 bg-current animate-pulse" />
               )}
             </div>
+
+            {/* RAG weight badge for assistant messages */}
+            {!isStreaming && message.rag_weight !== undefined && (
+              <div className="mt-3">
+                <RagWeightBadge
+                  ragWeight={message.rag_weight}
+                  ragWeightBreakdown={message.rag_weight_breakdown}
+                />
+              </div>
+            )}
 
             {/* Citations list for assistant messages with citations */}
             {!isStreaming && parsedContent.citations.length > 0 && (

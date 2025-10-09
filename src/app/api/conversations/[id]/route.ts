@@ -36,10 +36,10 @@ export async function GET(
       throw new AppError("Conversation not found", 404);
     }
 
-    // Fetch messages for this conversation (including metadata for citations)
+    // Fetch messages for this conversation (including metadata for citations and RAG weight)
     const { data: messages, error: msgError } = await supabase
       .from("messages")
-      .select("id, conversation_id, role, content, created_at, metadata")
+      .select("id, conversation_id, role, content, created_at, metadata, rag_weight, rag_weight_breakdown")
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: true });
 

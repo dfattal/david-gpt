@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { AppError, handleApiError } from '@/lib/utils'
 import { saveCitations, CitationMetadata } from '@/lib/rag/citations/saveCitations'
+import { calculateRagWeight } from '@/lib/rag/analytics/ragWeight'
+import { SearchResult } from '@/lib/rag/search'
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,7 +22,9 @@ export async function POST(req: NextRequest) {
       content,
       turnType,
       responseMode,
-      citationMetadata
+      citationMetadata,
+      ragContext,
+      searchResults
     }: {
       conversationId: string
       role: 'user' | 'assistant'
@@ -28,6 +32,8 @@ export async function POST(req: NextRequest) {
       turnType?: 'new-topic' | 'drill-down' | 'compare' | 'same-sources'
       responseMode?: 'FACT' | 'EXPLAIN' | 'CONFLICTS'
       citationMetadata?: CitationMetadata[]
+      ragContext?: string
+      searchResults?: SearchResult[]
     } = await req.json()
 
     if (!conversationId || !role || !content?.trim()) {
@@ -46,6 +52,24 @@ export async function POST(req: NextRequest) {
       throw new AppError('Conversation not found', 404)
     }
 
+    // Calculate RAG weight for assistant messages with citation metadata
+    let ragWeightData = null;
+    console.log(`🔍 Checking RAG weight calculation - role: ${role}, citationMetadata: ${citationMetadata?.length || 0}, ragContext: ${ragContext ? 'present' : 'missing'}, searchResults: ${searchResults?.length || 0}`);
+
+    if (role === 'assistant' && citationMetadata && citationMetadata.length > 0) {
+      console.log(`✅ Calculating RAG weight...`);
+      const ragWeightResult = calculateRagWeight(
+        content,
+        citationMetadata,
+        ragContext,
+        searchResults
+      );
+      ragWeightData = ragWeightResult;
+      console.log(`📊 RAG weight calculated: ${(ragWeightResult.rag_weight * 100).toFixed(0)}%`, ragWeightResult.breakdown);
+    } else {
+      console.log(`⚠️ Skipping RAG weight calculation - missing required data`);
+    }
+
     // Create the message
     const { data: message, error: msgError } = await supabase
       .from('messages')
@@ -55,6 +79,8 @@ export async function POST(req: NextRequest) {
         content: content.trim(),
         turn_type: turnType || null,
         response_mode: responseMode || null,
+        rag_weight: ragWeightData?.rag_weight || null,
+        rag_weight_breakdown: ragWeightData?.breakdown || {},
         metadata: citationMetadata && citationMetadata.length > 0
           ? { citationMetadata }
           : {}

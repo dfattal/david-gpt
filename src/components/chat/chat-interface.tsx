@@ -39,6 +39,8 @@ export function ChatInterface({
   const [citationMetadataArray, setCitationMetadataArray] = useState<any[]>([]);
   const pendingConversationIdRef = useRef<string | null>(null);
   const pendingCitationMetadataRef = useRef<any[]>([]);
+  const pendingRagContextRef = useRef<string | undefined>(undefined);
+  const pendingSearchResultsRef = useRef<any[] | undefined>(undefined);
   const [localConversation, setLocalConversation] = useState<Conversation | undefined>(conversation);
 
   // AI SDK pattern: manage input state manually, use append
@@ -74,6 +76,29 @@ export function ChatInterface({
           console.error('Failed to parse citation metadata:', error);
         }
       }
+
+      // Extract RAG context from response headers
+      const ragContextHeader = response.headers.get('X-RAG-Context');
+      if (ragContextHeader) {
+        try {
+          const ragContext = Buffer.from(ragContextHeader, 'base64').toString('utf-8');
+          pendingRagContextRef.current = ragContext;
+        } catch (error) {
+          console.error('Failed to parse RAG context:', error);
+        }
+      }
+
+      // Extract search results from response headers
+      const searchResultsHeader = response.headers.get('X-Search-Results');
+      if (searchResultsHeader) {
+        try {
+          const searchResults = JSON.parse(Buffer.from(searchResultsHeader, 'base64').toString('utf-8'));
+          pendingSearchResultsRef.current = searchResults;
+          console.log('🔍 Search results loaded:', searchResults.length, 'chunks');
+        } catch (error) {
+          console.error('Failed to parse search results:', error);
+        }
+      }
     },
     onFinish: async (message) => {
       // Save the assistant's response to the database
@@ -82,8 +107,10 @@ export function ChatInterface({
 
       if (conversationId && message?.content) {
         try {
-          // Use ref instead of state to avoid timing issues
+          // Use refs instead of state to avoid timing issues
           const citationMetadata = pendingCitationMetadataRef.current;
+          const ragContext = pendingRagContextRef.current;
+          const searchResults = pendingSearchResultsRef.current;
           console.log('💾 Saving message with citation metadata:', citationMetadata?.length || 0, 'documents');
 
           await fetch('/api/messages', {
@@ -94,11 +121,61 @@ export function ChatInterface({
               role: 'assistant',
               content: message.content,
               citationMetadata: citationMetadata && citationMetadata.length > 0 ? citationMetadata : undefined,
+              ragContext,
+              searchResults,
             }),
           });
 
-          // Clear the ref after saving
+          // Clear the refs after saving
           pendingCitationMetadataRef.current = [];
+          pendingRagContextRef.current = undefined;
+          pendingSearchResultsRef.current = undefined;
+
+          // Reload messages to get updated RAG weight from database
+          if (conversationId) {
+            const response = await fetch(`/api/conversations/${conversationId}`);
+            if (response.ok) {
+              const { messages: conversationMessages } = await response.json();
+
+              // Extract citation metadata from the last assistant message
+              const lastAssistantMessage = conversationMessages
+                .filter((msg: any) => msg.role === 'assistant')
+                .pop();
+
+              if (lastAssistantMessage?.metadata?.citationMetadata) {
+                const metadata = lastAssistantMessage.metadata.citationMetadata;
+                const metadataMap = new Map(
+                  metadata.map((item: any) => [
+                    item.docRef,
+                    { sourceUrl: item.sourceUrl, docTitle: item.docTitle }
+                  ])
+                );
+                setCitationMetadata(metadataMap);
+                setCitationMetadataArray(metadata);
+              }
+
+              // Convert database messages to chat hook format with RAG weight
+              const formattedMessages = conversationMessages.map((msg: any) => ({
+                id: msg.id,
+                role: msg.role,
+                content: msg.content,
+                createdAt: new Date(msg.created_at),
+                rag_weight: msg.rag_weight,
+                rag_weight_breakdown: msg.rag_weight_breakdown,
+                citationMetadata: msg.metadata?.citationMetadata
+                  ? new Map(
+                      msg.metadata.citationMetadata.map((item: any) => [
+                        item.docRef,
+                        { sourceUrl: item.sourceUrl, docTitle: item.docTitle }
+                      ])
+                    )
+                  : undefined,
+              }));
+
+              setMessages(formattedMessages);
+              console.log('✅ Reloaded messages with RAG weight after saving');
+            }
+          }
         } catch (error) {
           console.error("Failed to save assistant message:", error);
         }
@@ -185,6 +262,8 @@ export function ChatInterface({
             role: msg.role,
             content: msg.content,
             createdAt: new Date(msg.created_at),
+            rag_weight: msg.rag_weight,
+            rag_weight_breakdown: msg.rag_weight_breakdown,
             citationMetadata: msg.metadata?.citationMetadata
               ? new Map(
                   msg.metadata.citationMetadata.map((item: any) => [
@@ -467,6 +546,8 @@ export function ChatInterface({
                       role: message.role as "user" | "assistant",
                       content: message.content,
                       created_at: message.createdAt?.toISOString(),
+                      rag_weight: message.rag_weight,
+                      rag_weight_breakdown: message.rag_weight_breakdown,
                     }}
                     user={user}
                     persona={message.role === "assistant" ? selectedPersona : undefined}

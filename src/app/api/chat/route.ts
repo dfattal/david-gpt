@@ -250,6 +250,7 @@ export async function POST(req: NextRequest) {
     // Step 1: Perform RAG search if enabled
     let ragContext = '';
     let citationMetadata: RagContextData['metadata'] | null = null;
+    let searchResults: Awaited<ReturnType<typeof performSearch>> = [];
     if (useRag) {
       try {
         // Get the last user message as the query
@@ -287,7 +288,7 @@ export async function POST(req: NextRequest) {
           console.log(`\n🔍 RAG search triggered for query: "${searchQuery}"`);
 
           // Perform hybrid search with reformulated query and citation boosting
-          const searchResults = await performSearch(
+          searchResults = await performSearch(
             searchQuery,
             {
               personaSlug: persona,
@@ -343,6 +344,23 @@ export async function POST(req: NextRequest) {
       }));
       const encodedMetadata = Buffer.from(JSON.stringify(metadataArray), 'utf-8').toString('base64');
       response.headers.set('X-Citation-Metadata', encodedMetadata);
+    }
+
+    // Add RAG context and search results as custom headers for RAG weight calculation
+    if (ragContext) {
+      const encodedRagContext = Buffer.from(ragContext, 'utf-8').toString('base64');
+      response.headers.set('X-RAG-Context', encodedRagContext);
+    }
+    if (searchResults.length > 0) {
+      const searchResultsData = searchResults.map(r => ({
+        chunkId: r.chunkId,
+        docId: r.docId,
+        score: r.score,
+        vectorScore: r.vectorScore,
+        bm25Score: r.bm25Score,
+      }));
+      const encodedSearchResults = Buffer.from(JSON.stringify(searchResultsData), 'utf-8').toString('base64');
+      response.headers.set('X-Search-Results', encodedSearchResults);
     }
 
     return response;
