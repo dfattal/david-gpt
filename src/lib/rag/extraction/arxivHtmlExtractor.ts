@@ -81,6 +81,13 @@ IMPORTANT INSTRUCTIONS:
 8. Generate 8-12 key technical terms (focus on the paper's main contributions/topics)
 9. Generate a concise 1-2 sentence summary (under 200 chars, no line breaks)
 
+CRITICAL JSON REQUIREMENTS:
+- Escape all special characters in strings (use \\" for quotes, \\n for newlines)
+- Do NOT include any text outside the JSON object
+- Ensure all JSON strings are properly closed with quotes
+- Verify all commas and braces are balanced
+- Test that the JSON is valid before returning
+
 Return ONLY valid JSON in this exact format:
 {
   "title": "Paper title",
@@ -125,7 +132,42 @@ ${chunks[0]}`;
     throw new Error('No response from Gemini API');
   }
 
-  const paperData = JSON.parse(extractedText);
+  // Clean and parse JSON response (handle potential formatting issues)
+  let paperData;
+  try {
+    // Remove markdown code blocks if present
+    const cleanedText = extractedText
+      .replace(/^```json\s*/i, '')
+      .replace(/```\s*$/i, '')
+      .trim();
+
+    paperData = JSON.parse(cleanedText);
+  } catch (parseError) {
+    console.error('  ❌ JSON parsing failed:', parseError instanceof Error ? parseError.message : 'Unknown error');
+    console.error('  📄 Raw response (first 1000 chars):', extractedText.substring(0, 1000));
+    console.error('  📄 Raw response (last 500 chars):', extractedText.substring(extractedText.length - 500));
+
+    // Try to extract JSON from text if it's wrapped in other content
+    const jsonMatch = extractedText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        paperData = JSON.parse(jsonMatch[0]);
+        console.log('  ✓ Recovered JSON from wrapped content');
+      } catch (retryError) {
+        // Last resort: try to repair common JSON issues
+        const repairedJson = repairJsonString(jsonMatch[0]);
+        try {
+          paperData = JSON.parse(repairedJson);
+          console.log('  ✓ Recovered JSON after repair');
+        } catch (finalError) {
+          console.error('  ❌ All JSON repair attempts failed');
+          throw new Error(`Failed to parse Gemini JSON response after multiple attempts. Original error: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+        }
+      }
+    } else {
+      throw new Error(`Failed to parse Gemini JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+    }
+  }
 
   // Build structured response
   const paper: ArxivPaper = {
@@ -168,4 +210,30 @@ function chunkArxivHtml(html: string, maxChunkSize: number): string[] {
   // For now, just use first chunk (contains header, abstract, and most content)
   // Future: implement smart section-based chunking if needed
   return [html.substring(0, maxChunkSize)];
+}
+
+/**
+ * Attempt to repair common JSON string issues
+ */
+function repairJsonString(jsonStr: string): string {
+  let repaired = jsonStr;
+
+  // Fix unescaped quotes in strings (basic approach)
+  // This is a simple heuristic - won't work for all cases
+  repaired = repaired.replace(/([^\\])"([^",:}\]]*)":/g, '$1\\"$2":');
+
+  // Fix trailing commas in objects and arrays
+  repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
+
+  // Fix missing commas between properties (basic heuristic)
+  repaired = repaired.replace(/"\s+"/g, '", "');
+
+  // Ensure the JSON ends properly
+  const openBraces = (repaired.match(/\{/g) || []).length;
+  const closeBraces = (repaired.match(/\}/g) || []).length;
+  if (openBraces > closeBraces) {
+    repaired += '}'.repeat(openBraces - closeBraces);
+  }
+
+  return repaired;
 }

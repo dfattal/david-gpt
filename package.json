@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "NODE_NO_WARNINGS=1 next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "worker": "tsx src/lib/queue/workers/start-worker.ts",
+    "worker": "NODE_NO_WARNINGS=1 tsx src/lib/queue/workers/start-worker.ts",
     "test:performance": "tsx src/lib/rag/performance-test-suite.ts",
     "test:architecture": "tsx src/lib/rag/validate-architecture.ts",
     "test:quality": "tsx src/lib/rag/search-quality-validator.ts",
