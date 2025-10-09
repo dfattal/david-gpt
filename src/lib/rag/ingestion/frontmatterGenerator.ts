@@ -9,13 +9,23 @@ import matter from 'gray-matter';
 export interface DocumentMetadata {
   id: string;
   title: string;
-  date?: string;
-  source_url?: string;
+  date?: string; // Deprecated: use dates.created instead (kept for backward compatibility)
+  source_url?: string; // Deprecated: use identifiers.source_url instead (kept for backward compatibility)
   type?: 'blog' | 'press' | 'spec' | 'tech_memo' | 'faq' | 'slide' | 'email' | 'other';
   personas: string[];
   tags?: string[];
   summary?: string;
   license?: 'public' | 'cc-by' | 'proprietary' | 'unknown';
+  // Structured metadata (new format)
+  dates?: {
+    created?: string;
+    published?: string;
+    updated?: string;
+  };
+  identifiers?: {
+    source_url?: string;
+    [key: string]: string | undefined;
+  };
 }
 
 /**
@@ -154,12 +164,18 @@ export function generateFrontmatter(
     type: detectDocumentType(filename, content),
   };
 
-  // Optional fields
+  // Optional fields - use structured format
   const date = extractDate(filename, content);
-  if (date) metadata.date = date;
+  if (date) {
+    metadata.dates = { created: date };
+    metadata.date = date; // Keep for backward compatibility
+  }
 
   const sourceUrl = extractSourceUrl(content);
-  if (sourceUrl) metadata.source_url = sourceUrl;
+  if (sourceUrl) {
+    metadata.identifiers = { source_url: sourceUrl };
+    metadata.source_url = sourceUrl; // Keep for backward compatibility
+  }
 
   return metadata;
 }
@@ -220,9 +236,29 @@ export function formatFrontmatter(metadata: DocumentMetadata): string {
   lines.push(`title: "${title}"`);
 
   // Optional fields
-  if (metadata.date) lines.push(`date: ${metadata.date}`);
-  if (metadata.source_url) lines.push(`source_url: ${metadata.source_url}`);
   if (metadata.type) lines.push(`type: ${metadata.type}`);
+
+  // Structured dates (preferred format)
+  if (metadata.dates && Object.keys(metadata.dates).length > 0) {
+    lines.push('dates:');
+    if (metadata.dates.created) lines.push(`  created: "${metadata.dates.created}"`);
+    if (metadata.dates.published) lines.push(`  published: "${metadata.dates.published}"`);
+    if (metadata.dates.updated) lines.push(`  updated: "${metadata.dates.updated}"`);
+  } else if (metadata.date) {
+    // Fallback to old format for backward compatibility
+    lines.push(`date: ${metadata.date}`);
+  }
+
+  // Structured identifiers (preferred format)
+  if (metadata.identifiers && Object.keys(metadata.identifiers).length > 0) {
+    lines.push('identifiers:');
+    for (const [key, value] of Object.entries(metadata.identifiers)) {
+      if (value) lines.push(`  ${key}: "${value}"`);
+    }
+  } else if (metadata.source_url) {
+    // Fallback to old format for backward compatibility
+    lines.push(`source_url: ${metadata.source_url}`);
+  }
 
   // Arrays
   lines.push(`personas: [${metadata.personas.join(', ')}]`);

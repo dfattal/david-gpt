@@ -165,6 +165,18 @@ export class DatabaseIngestor {
         }
       }
 
+      // Extract primary date from structured dates (with fallback to old format)
+      const primaryDate = metadata.dates?.created ||
+                         metadata.dates?.published ||
+                         metadata.dates?.filing ||
+                         metadata.date ||
+                         null;
+
+      // Extract primary source_url from structured identifiers (with fallback to old format)
+      const primarySourceUrl = metadata.identifiers?.source_url ||
+                              metadata.source_url ||
+                              null;
+
       // Insert/update document record
       const { data: docRecord, error: docError } = await this.supabase
         .from('docs')
@@ -172,8 +184,8 @@ export class DatabaseIngestor {
           {
             id: metadata.id,
             title: metadata.title,
-            date: metadata.date || null,
-            source_url: metadata.source_url || null,
+            date: primaryDate, // Extracted from structured dates or fallback
+            source_url: primarySourceUrl, // Extracted from structured identifiers or fallback
             type: metadata.type || 'other',
             summary: metadata.summary || null,
             license: metadata.license || 'unknown',

@@ -93,11 +93,6 @@ function generateFrontmatter(
   // Personas
   lines.push(`personas: [${personaSlug}]`);
 
-  // Filing date
-  if (patent.metadata.dates?.filing) {
-    lines.push(`date: ${patent.metadata.dates.filing}`);
-  }
-
   // Summary
   if (globalSummary?.summary) {
     lines.push(`summary: ${globalSummary.summary}`);
