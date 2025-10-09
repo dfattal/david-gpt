@@ -39,6 +39,7 @@ export function ChatInterface({
   const [citationMetadataArray, setCitationMetadataArray] = useState<any[]>([]);
   const pendingConversationIdRef = useRef<string | null>(null);
   const pendingCitationMetadataRef = useRef<any[]>([]);
+  const [localConversation, setLocalConversation] = useState<Conversation | undefined>(conversation);
 
   // AI SDK pattern: manage input state manually, use append
   const [input, setInput] = useState("");
@@ -129,11 +130,16 @@ export function ChatInterface({
   // Destructure the hook result
   const { messages, isLoading, error, append, setMessages } = chatHook;
 
+  // Sync local conversation state with prop
+  useEffect(() => {
+    setLocalConversation(conversation);
+  }, [conversation]);
+
   // Load conversation messages when conversation changes
   useEffect(() => {
     const loadConversationMessages = async () => {
       const newConversationId = conversation?.id || null;
-      
+
       if (!newConversationId) {
         // Clear messages when no conversation is selected (new chat)
         setMessages([]);
@@ -335,14 +341,14 @@ export function ChatInterface({
             <div className="h-6 w-px bg-border" />
 
             <h2 className="font-semibold text-lg truncate">
-              {conversation ? (conversation.title || "New Chat") : "New Chat"}
+              {localConversation ? (localConversation.title || "New Chat") : "New Chat"}
             </h2>
           </div>
 
           <div className="flex items-center space-x-3">
-            {conversation && (
+            {localConversation && (
               <div className="text-xs text-muted-foreground">
-                {formatDate(conversation.created_at)}
+                {formatDate(localConversation.created_at)}
               </div>
             )}
           </div>
