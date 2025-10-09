@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ChatMessage } from "@/lib/types";
 import { performSearch } from "@/lib/rag/search";
 import { reformulateQuery } from "@/lib/rag/queryReformulation";
+import { createMathNormalizingStream } from "@/lib/rag/mathStreamProcessor";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -331,9 +332,7 @@ export async function POST(req: NextRequest) {
       maxTokens: 2000,
     });
 
-    // Return text stream response
-    // Note: Citation metadata will be available in the frontend via a separate mechanism
-    // For now, we'll include it in a custom header on the text stream response
+    // Step 5: Return text stream (math normalization temporarily disabled for debugging)
     const response = result.toTextStreamResponse();
 
     // Add citation metadata as a custom header (JSON stringified and Base64 encoded to handle non-ASCII)
