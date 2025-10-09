@@ -11,11 +11,10 @@ import { DocumentUpload } from '@/components/admin/DocumentUpload';
 import { PdfExtraction } from '@/components/admin/PdfExtraction';
 import { UrlExtraction } from '@/components/admin/UrlExtraction';
 import { MarkdownExtraction } from '@/components/admin/MarkdownExtraction';
-import { PersonaConfigEditor } from '@/components/admin/PersonaConfigEditor';
 import { Button } from '@/components/ui/button';
-import { Upload, RefreshCw, FileText, Link, FileEdit, Settings } from 'lucide-react';
+import { Upload, RefreshCw, FileText, Link, FileEdit } from 'lucide-react';
 
-type UploadMode = 'markdown-upload' | 'markdown-extract' | 'pdf' | 'url' | 'persona-config';
+type UploadMode = 'markdown-upload' | 'markdown-extract' | 'pdf' | 'url';
 
 export default function AdminRAGPage() {
   const [showUpload, setShowUpload] = useState(false);
@@ -102,17 +101,6 @@ export default function AdminRAGPage() {
                 <Upload className="h-4 w-4 inline mr-2" />
                 Formatted Markdown
               </button>
-              <button
-                onClick={() => setUploadMode('persona-config')}
-                className={`px-4 py-2 font-medium border-b-2 transition-colors ${
-                  uploadMode === 'persona-config'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Settings className="h-4 w-4 inline mr-2" />
-                Persona Config
-              </button>
             </div>
 
             {/* Upload Interface */}
@@ -122,8 +110,6 @@ export default function AdminRAGPage() {
               <PdfExtraction onSuccess={handleUploadSuccess} />
             ) : uploadMode === 'markdown-extract' ? (
               <MarkdownExtraction onSuccess={handleUploadSuccess} />
-            ) : uploadMode === 'persona-config' ? (
-              <PersonaConfigEditor onSuccess={handleUploadSuccess} />
             ) : (
               <DocumentUpload onSuccess={handleUploadSuccess} />
             )}

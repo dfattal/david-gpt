@@ -4,6 +4,9 @@
  *
  * PATCH /api/admin/personas/[slug]
  * Update a specific persona's configuration
+ *
+ * DELETE /api/admin/personas/[slug]
+ * Delete a persona
  */
 
 import { createClient } from '@/lib/supabase/server';
@@ -34,10 +37,10 @@ export async function GET(
   }
 
   try {
-    // Fetch persona config
+    // Fetch persona config (including content, persona_type, example_questions, avatar_url)
     const { data: persona, error } = await supabase
       .from('personas')
-      .select('slug, name, expertise, config_json, updated_at')
+      .select('slug, name, persona_type, expertise, content, example_questions, avatar_url, config_json, updated_at')
       .eq('slug', slug)
       .single();
 
@@ -57,11 +60,15 @@ export async function GET(
       ? JSON.parse(persona.config_json)
       : (persona.config_json || {});
 
-    // Build form-compatible config object
+    // Build comprehensive persona object
     const config = {
       slug: persona.slug,
       display_name: persona.name || '',
+      persona_type: persona.persona_type || 'fictional_character',
       expertise: persona.expertise || '',
+      content: persona.content || '',
+      example_questions: persona.example_questions || [],
+      avatar_url: persona.avatar_url || null,
       version: configJson.version || '1.0.0',
       last_updated: configJson.last_updated || persona.updated_at?.split('T')[0] || new Date().toISOString().split('T')[0],
       topics: configJson.topics || [],
@@ -125,16 +132,16 @@ export async function PATCH(
       );
     }
 
-    // Validate router config
-    if (!body.router || typeof body.router !== 'object') {
+    // Validate search config if provided
+    if (body.search && typeof body.search !== 'object') {
       return NextResponse.json(
-        { error: 'Missing or invalid router configuration' },
+        { error: 'Invalid search configuration' },
         { status: 400 }
       );
     }
 
     // Validate topics
-    if (!Array.isArray(body.topics)) {
+    if (body.topics && !Array.isArray(body.topics)) {
       return NextResponse.json(
         { error: 'Topics must be an array' },
         { status: 400 }
@@ -147,19 +154,39 @@ export async function PATCH(
       display_name: body.display_name,
       version: body.version,
       last_updated: body.last_updated,
-      topics: body.topics,
-      search: body.search,
+      topics: body.topics || [],
+      search: body.search || { vector_threshold: 0.35 },
     };
+
+    // Prepare update object with all fields
+    const updateData: any = {
+      name: body.display_name,
+      expertise: body.expertise || null,
+      config_json: configJson,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Add optional fields if provided
+    if (body.content !== undefined) {
+      updateData.content = body.content;
+    }
+
+    if (body.persona_type !== undefined) {
+      updateData.persona_type = body.persona_type;
+    }
+
+    if (body.example_questions !== undefined) {
+      updateData.example_questions = body.example_questions;
+    }
+
+    if (body.is_active !== undefined) {
+      updateData.is_active = body.is_active;
+    }
 
     // Update persona config in database
     const { data: updatedPersona, error: updateError } = await supabase
       .from('personas')
-      .update({
-        name: body.display_name,
-        expertise: body.expertise || null,
-        config_json: configJson,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('slug', slug)
       .select()
       .single();
@@ -177,6 +204,52 @@ export async function PATCH(
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : 'Failed to update persona config',
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE - Delete a persona
+ */
+export async function DELETE(
+  request: NextRequest,
+  context: RouteContext
+) {
+  const supabase = await createClient();
+  const { slug } = await context.params;
+
+  // Check authentication
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    // Delete persona from database
+    const { error: deleteError } = await supabase
+      .from('personas')
+      .delete()
+      .eq('slug', slug);
+
+    if (deleteError) {
+      throw deleteError;
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Persona ${slug} deleted successfully`,
+    });
+  } catch (error) {
+    console.error('Error deleting persona:', error);
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to delete persona',
       },
       { status: 500 }
     );
