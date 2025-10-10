@@ -60,7 +60,7 @@ export async function GET(
       ? JSON.parse(persona.config_json)
       : (persona.config_json || {});
 
-    // Build comprehensive persona object
+    // Build comprehensive persona object with frontmatter metadata
     const config = {
       slug: persona.slug,
       display_name: persona.name || '',
@@ -74,6 +74,15 @@ export async function GET(
       topics: configJson.topics || [],
       search: {
         vector_threshold: configJson.search?.vector_threshold ?? configJson.router?.vector_threshold ?? 0.35,
+      },
+      frontmatter: configJson.frontmatter || {
+        title: `${persona.name} - AI Assistant`,
+        version: configJson.version || '1.0.0',
+        last_updated: configJson.last_updated || persona.updated_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+        persona_id: persona.slug,
+        description: persona.expertise || '',
+        author: null,
+        tags: [],
       },
     };
 

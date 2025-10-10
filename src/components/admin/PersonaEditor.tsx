@@ -40,6 +40,15 @@ interface PersonaData {
     vector_threshold: number;
   };
   topics: Topic[];
+  frontmatter?: {
+    title: string;
+    version: string;
+    last_updated: string;
+    persona_id: string;
+    description: string;
+    author: string | null;
+    tags: string[];
+  };
 }
 
 interface PersonaEditorProps {
@@ -83,6 +92,7 @@ export function PersonaEditor({ personaSlug, onSave, onCancel }: PersonaEditorPr
         avatar_url: data.config.avatar_url || null,
         search: data.config.search,
         topics: data.config.topics,
+        frontmatter: data.config.frontmatter,
       });
     } catch (error) {
       toast({
@@ -618,7 +628,64 @@ export function PersonaEditor({ personaSlug, onSave, onCancel }: PersonaEditorPr
         </TabsContent>
 
         {/* Metadata Tab */}
-        <TabsContent value="metadata">
+        <TabsContent value="metadata" className="space-y-4">
+          {/* Frontmatter Metadata (Read-only) */}
+          {persona.frontmatter && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Persona Metadata</CardTitle>
+                <CardDescription>
+                  Informational metadata from persona configuration (read-only)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Title</Label>
+                    <p className="text-sm font-mono">{persona.frontmatter.title}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Version</Label>
+                    <p className="text-sm font-mono">{persona.frontmatter.version}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Last Updated</Label>
+                    <p className="text-sm font-mono">{persona.frontmatter.last_updated}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Persona ID</Label>
+                    <p className="text-sm font-mono">{persona.frontmatter.persona_id}</p>
+                  </div>
+                  {persona.frontmatter.author && (
+                    <div className="space-y-1 col-span-2">
+                      <Label className="text-xs text-muted-foreground">Author</Label>
+                      <p className="text-sm font-mono">{persona.frontmatter.author}</p>
+                    </div>
+                  )}
+                  <div className="space-y-1 col-span-2">
+                    <Label className="text-xs text-muted-foreground">Description</Label>
+                    <p className="text-sm">{persona.frontmatter.description}</p>
+                  </div>
+                  {persona.frontmatter.tags.length > 0 && (
+                    <div className="space-y-1 col-span-2">
+                      <Label className="text-xs text-muted-foreground">Tags</Label>
+                      <div className="flex flex-wrap gap-1">
+                        {persona.frontmatter.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="px-2 py-1 bg-secondary text-secondary-foreground text-xs rounded"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle>Example Questions</CardTitle>

@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     // Process system prompt sections
     const systemPrompt = processSystemPrompt(markdown, frontmatter);
 
-    // Build config_json
+    // Build config_json with frontmatter metadata
     const configJson = {
       slug: frontmatter.slug,
       display_name: frontmatter.name,
@@ -88,6 +88,15 @@ export async function POST(request: NextRequest) {
       topics,
       search: {
         vector_threshold: 0.35, // Default
+      },
+      frontmatter: {
+        title: parsed.data.title || `${frontmatter.name} - AI Assistant`,
+        version: frontmatter.version || '1.0.0',
+        last_updated: parsed.data.last_updated || new Date().toISOString().split('T')[0],
+        persona_id: frontmatter.slug,
+        description: parsed.data.description || frontmatter.expertise || '',
+        author: parsed.data.author || null,
+        tags: parsed.data.tags || [],
       },
     };
 
@@ -174,7 +183,7 @@ function extractTopicsFromMarkdown(markdown: string): Topic[] {
 }
 
 /**
- * Process markdown content into system prompt
+ * Process markdown content into system prompt (without frontmatter)
  */
 function processSystemPrompt(markdown: string, frontmatter: PersonaFrontmatter): string {
   const sections: string[] = [];
@@ -222,6 +231,6 @@ function processSystemPrompt(markdown: string, frontmatter: PersonaFrontmatter):
 
   sections.push(personaTypeInstructions);
 
-  // Combine all sections
+  // Combine all sections WITHOUT frontmatter
   return sections.join('\n\n---\n\n');
 }

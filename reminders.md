@@ -9,3 +9,4 @@
 
 - ✅ **Unified metadata editing UI** (2025-10-10) - FIXED: Created unified `DocumentMetadataModal` component that combines metadata editing, content preview, and ingestion features. Replaced `DocumentMetadataEditor` and `DocumentPreviewModal` with single 3-tab interface (Edit Metadata, Preview, Source). Now used consistently across all document workflows (admin/rag actions, URL extraction, PDF extraction, markdown extraction).
 - ✅ **EfficientDepth re-ingestion job stuck** (2025-10-10) - FIXED: Worker wasn't running. Created `./dev-worker.sh` script to manage worker lifecycle. Always start worker with `./dev-worker.sh start` when developing.
+are 

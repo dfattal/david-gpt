@@ -6,6 +6,7 @@ import { ChatMessage } from "@/lib/types";
 import { performSearch } from "@/lib/rag/search";
 import { reformulateQuery } from "@/lib/rag/queryReformulation";
 import { createMathNormalizingStream } from "@/lib/rag/mathStreamProcessor";
+import { stripFrontmatter } from "@/lib/rag/ingestion/markdownProcessor";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -28,7 +29,7 @@ async function getPersonaSystemPrompt(
   const personaType = persona?.persona_type || 'fictional_character';
 
   if (persona?.content) {
-    basePrompt = persona.content;
+    basePrompt = stripFrontmatter(persona.content);
   } else if (personaId === 'david') {
     // Fallback for 'david' persona
     basePrompt = `You are David Fattal, a seasoned technology executive and investor with deep expertise in AI, startups, and enterprise software. You speak with authority on product strategy, fundraising, and building high-performing engineering teams. Your responses should be direct, practical, and informed by real-world experience in the tech industry.`;
