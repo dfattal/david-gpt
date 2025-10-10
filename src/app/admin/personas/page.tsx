@@ -6,6 +6,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { PersonaList } from '@/components/admin/PersonaList';
 import { PersonaEditor } from '@/components/admin/PersonaEditor';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, ArrowLeft, Users, Plus } from 'lucide-react';
+import { Upload, ArrowLeft, Users, Plus, Home } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -89,6 +90,23 @@ export default function AdminPersonasPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto py-8 px-4 max-w-7xl">
+        {/* Breadcrumb Navigation */}
+        <div className="flex items-center gap-2 mb-6">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/">
+              <Home className="h-4 w-4 mr-2" />
+              Home
+            </Link>
+          </Button>
+          <span className="text-muted-foreground">/</span>
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/admin">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Admin Dashboard
+            </Link>
+          </Button>
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">

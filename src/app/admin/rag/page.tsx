@@ -6,13 +6,14 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { DocumentList } from '@/components/admin/DocumentList';
 import { DocumentUpload } from '@/components/admin/DocumentUpload';
 import { PdfExtraction } from '@/components/admin/PdfExtraction';
 import { UrlExtraction } from '@/components/admin/UrlExtraction';
 import { MarkdownExtraction } from '@/components/admin/MarkdownExtraction';
 import { Button } from '@/components/ui/button';
-import { Upload, RefreshCw, FileText, Link, FileEdit } from 'lucide-react';
+import { Upload, RefreshCw, FileText, Link as LinkIcon, FileEdit, ArrowLeft, Home } from 'lucide-react';
 
 type UploadMode = 'markdown-upload' | 'markdown-extract' | 'pdf' | 'url';
 
@@ -29,6 +30,23 @@ export default function AdminRAGPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto py-8 px-4 max-w-7xl">
+        {/* Breadcrumb Navigation */}
+        <div className="flex items-center gap-2 mb-6">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/">
+              <Home className="h-4 w-4 mr-2" />
+              Home
+            </Link>
+          </Button>
+          <span className="text-muted-foreground">/</span>
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/admin">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Admin Dashboard
+            </Link>
+          </Button>
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>

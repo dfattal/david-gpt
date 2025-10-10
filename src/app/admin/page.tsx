@@ -19,6 +19,7 @@ import {
   Clock,
   Activity,
   ArrowRight,
+  Home,
 } from 'lucide-react';
 
 interface AdminStats {
@@ -68,6 +69,16 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto py-8 px-4 max-w-7xl">
+        {/* Breadcrumb Navigation */}
+        <div className="mb-6">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/">
+              <Home className="h-4 w-4 mr-2" />
+              Back to Home
+            </Link>
+          </Button>
+        </div>
+
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold">Admin Dashboard</h1>

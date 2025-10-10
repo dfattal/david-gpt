@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
@@ -18,7 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { JobHistoryTable } from '@/components/admin/JobHistoryTable';
 import { JobDetailsModal } from '@/components/admin/JobDetailsModal';
-import { Filter, X } from 'lucide-react';
+import { Filter, X, Home, ArrowLeft } from 'lucide-react';
 
 interface Job {
   id: string;
@@ -133,6 +134,23 @@ export default function AdminJobsPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto py-8 px-4 max-w-7xl">
+        {/* Breadcrumb Navigation */}
+        <div className="flex items-center gap-2 mb-6">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/">
+              <Home className="h-4 w-4 mr-2" />
+              Home
+            </Link>
+          </Button>
+          <span className="text-muted-foreground">/</span>
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/admin">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Admin Dashboard
+            </Link>
+          </Button>
+        </div>
+
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold">Job History & Monitoring</h1>
