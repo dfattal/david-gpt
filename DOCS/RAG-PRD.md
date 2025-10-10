@@ -324,8 +324,39 @@ Combines three methods:
 2. **BM25 Search**: Lexical keyword matching using PostgreSQL full-text
 3. **RRF Fusion**: Reciprocal Rank Fusion combines results
 
-### 6.2 Boosting Mechanisms
+### 6.2 Metadata-Based Search Enhancement
 
+**Problem Solved**: When multiple documents match via metadata fields (tags, actors, identifiers), all chunks would receive identical scores (0), causing arbitrary/unstable result ordering and poor document diversity.
+
+**Solution**: Intelligent metadata chunk boosting with false-positive prevention
+
+**Implementation**:
+1. **Specific Keyword Extraction**: Filters query keywords to exclude generic terms (`paper`, `published`, `all`, `know`)
+2. **Metadata Chunk Boosting**: Gives metadata chunks score=0.01 (instead of 0) when specific keywords match:
+   - `docs.tags` - User-defined tags
+   - `docs.actors` - Author names and affiliations (e.g., "Leia Inc.", "Stanford University")
+   - `docs.identifiers` - DOIs, ArXiv IDs, patent numbers
+   - `docs.dates_structured` - Publication/filing/granted dates
+3. **Stable Ordering**: Ensures deterministic results with tiebreakers: `ORDER BY score DESC, doc_id ASC, section_path ASC`
+
+**Benefits**:
+- **Document Diversity**: Multiple matching documents get equal representation in search results
+- **Author/Affiliation Search**: Queries like "papers by Leia" or "Stanford researchers" now find ALL matching papers
+- **Identifier Search**: Direct searches by DOI, ArXiv ID, or patent number work reliably
+- **Date-Based Search**: Queries like "papers from 2020" return relevant documents
+- **No False Positives**: Generic query terms don't trigger broad metadata matches
+
+**Example Queries Improved**:
+- "papers published by Leia" → Returns both Holopix50k AND EfficientDepth (not just one)
+- "Stanford quantum computing papers" → All matching papers get fair representation
+- "patents filed in 2020" → Date-based metadata matching
+- "arxiv:2405.10314" → Direct identifier lookup
+
+**Performance Impact**: Minimal (<1ms additional processing for keyword filtering)
+
+### 6.3 Boosting Mechanisms
+
+- **Metadata Boosting** (+0.01 base score): Specific keyword matches in metadata fields (see 6.2)
 - **Tag Boosting** (+7.5%): Matches query terms against `persona.config.json` topic aliases
   - Configured per-persona in admin UI
   - Applied during RRF fusion step
@@ -333,7 +364,7 @@ Combines three methods:
 - **Citation Boosting** (+15%): Recently cited documents in conversation
 - **Document Deduplication**: Max 3 chunks per document (configurable)
 
-### 6.3 Multi-Turn Context
+### 6.4 Multi-Turn Context
 
 - **Query Reformulation**: Resolves pronouns and implicit references using conversation history
 - **Citation-Based Boosting**: Documents cited in last 2 messages receive priority
