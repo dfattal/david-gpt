@@ -135,7 +135,7 @@ export default function AdminPage() {
         ) : null}
 
         {/* Navigation Cards */}
-        <div className="grid gap-6 md:grid-cols-2 mb-8">
+        <div className="grid gap-6 md:grid-cols-3 mb-8">
           {/* RAG Management Card */}
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader>
@@ -208,6 +208,45 @@ export default function AdminPage() {
               <Button className="w-full" asChild>
                 <Link href="/admin/personas">
                   Manage Personas
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Job Queue Management Card */}
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-green-100 dark:bg-green-900 rounded-lg">
+                  <Activity className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <CardTitle>Job Queue Management</CardTitle>
+                  <CardDescription>
+                    View job history, monitor progress, and debug failures
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3 mb-4">
+                <div className="flex items-center gap-2 text-sm">
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                  <span>View complete job history with filtering</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                  <span>Track extraction and ingestion progress</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <XCircle className="h-4 w-4 text-muted-foreground" />
+                  <span>Debug failed jobs with detailed error logs</span>
+                </div>
+              </div>
+              <Button className="w-full" asChild>
+                <Link href="/admin/jobs">
+                  View Job History
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>

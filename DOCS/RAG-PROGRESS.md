@@ -3,7 +3,7 @@
 **Project**: david-gpt Multi-Persona RAG System
 **Started**: 2025-09-29
 **Last Updated**: 2025-10-09
-**Status**: ✅ **Phase 17 COMPLETE** - Admin Landing Page & Navigation
+**Status**: 🔄 **Phase 18 IN PROGRESS** - Job History & Monitoring Dashboard
 
 ---
 
@@ -73,6 +73,20 @@
 - **Navigation Cards**: Visual routing to RAG and Personas sections ✅
 - **Quick Stats API**: Real-time document, persona, and job counts ✅
 - **Responsive Design**: Card-based layout matching existing UI patterns ✅
+
+**Phase 17.1**: Bug Fixes & Terminology Corrections ✅ **COMPLETE**
+- **Ingestion Status Bug**: Fixed DatabaseIngestor not updating `ingestion_status` to 'ingested' ✅
+- **Terminology Fix**: Changed "Pending Extraction" to "Pending Ingestion" in admin UI ✅
+- **Data Migration**: Updated 2 stuck documents from 'extracted' to 'ingested' ✅
+- **Verification**: All 30 documents now correctly show 'ingested' status with chunks ✅
+
+**Phase 18**: Job History & Monitoring Dashboard 🔄 **IN PROGRESS**
+- **Jobs Navigation Card**: Add to `/admin` landing page (pending)
+- **Job History API**: GET /api/admin/jobs with filtering (pending)
+- **Job Details API**: GET /api/admin/jobs/[id] endpoint (pending)
+- **JobHistoryTable Component**: Reusable table with filters (pending)
+- **Admin Jobs Page**: `/admin/jobs` with full history view (pending)
+- **JobDetailsModal**: Detailed job information and logs (pending)
 
 ### 🔄 Post-MVP
 - **Phase 9**: E2E testing & performance optimization (Deferred)
@@ -2261,6 +2275,354 @@ Create a central admin landing page at `/admin` that provides navigation to RAG 
 - [ ] System health indicators (database, API, worker status)
 - [ ] Admin notifications for failed jobs
 - [ ] Quick actions (bulk operations, system maintenance)
+
+---
+
+## Phase 17.1: Bug Fixes & Terminology Corrections ✅ COMPLETE
+**Date**: 2025-10-09
+**Status**: ✅ **Production Ready**
+
+### **Problem Solved**
+
+**Issue #1: Documents Stuck in 'extracted' Status**
+- Documents had chunks in database but `ingestion_status` remained 'extracted'
+- Caused misleading admin UI statistics
+- Made it difficult to identify which documents actually needed ingestion
+
+**Issue #2: Misleading Terminology**
+- Admin UI showed "Pending Extraction" for documents already extracted
+- Should have shown "Pending Ingestion" (documents with markdown but no chunks)
+- Confused the document lifecycle terminology
+
+### **Root Causes**
+
+**Bug #1**: `DatabaseIngestor.ingestDocument()` in `src/lib/rag/ingestion/databaseIngestor.ts`
+- Created chunks and embeddings successfully
+- Never updated `ingestion_status` from 'extracted' to 'ingested'
+- Missing status update after line 333 (chunk insertion)
+
+**Bug #2**: Terminology in `src/app/admin/page.tsx`
+- Used "Pending Extraction" incorrectly
+- Document lifecycle: `null` → `extracted` (has markdown) → `ingested` (has chunks)
+- "Extracted" status means markdown exists, awaiting ingestion
+
+### **Fixes Applied**
+
+#### **Fix #1: DatabaseIngestor Status Update** ✅
+**File**: `src/lib/rag/ingestion/databaseIngestor.ts` (lines 336-344)
+
+```typescript
+// Update document status to 'ingested' after successful chunk insertion
+const { error: statusError } = await this.supabase
+  .from('docs')
+  .update({ ingestion_status: 'ingested' })
+  .eq('id', docRecord.id);
+
+if (statusError) {
+  console.warn(`  Warning: Failed to update ingestion status: ${statusError.message}`);
+}
+
+console.log(`  ✓ Document ingested successfully`);
+```
+
+**Impact**: Documents now correctly marked as 'ingested' after chunking completes
+
+#### **Fix #2: Admin UI Terminology** ✅
+**Files**: `src/app/admin/page.tsx` (lines 104, 237)
+
+```typescript
+// Line 104: Stats card description
+description={`${stats.documents.ingested} ingested, ${stats.documents.extracted} pending ingestion`}
+
+// Line 237: System status label
+<p className="text-sm font-medium">Pending Ingestion</p>
+```
+
+**Impact**: UI now accurately reflects document lifecycle states
+
+#### **Fix #3: Data Migration** ✅
+Updated 2 stuck documents via SQL:
+```sql
+UPDATE docs
+SET ingestion_status = 'ingested'
+WHERE id IN ('us10838134', 'thespatialshift')
+AND ingestion_status = 'extracted';
+```
+
+### **Verification Results**
+
+**Document Count Verification**:
+```sql
+SELECT
+  ingestion_status,
+  COUNT(*) as count,
+  AVG((SELECT COUNT(*) FROM chunks WHERE chunks.doc_id = docs.id)) as avg_chunks
+FROM docs
+GROUP BY ingestion_status;
+```
+
+**Results**:
+- ✅ All 30 documents now have `ingestion_status = 'ingested'`
+- ✅ Average 7.4 chunks per document
+- ✅ No documents stuck in 'extracted' status
+- ✅ Admin UI shows correct statistics
+
+**Admin UI Verification** (via screenshot):
+- ✅ "Total Documents: 30"
+- ✅ Description: "28 ingested, 2 pending ingestion"
+- ✅ Ingestion Rate: 93%
+- ✅ System Status: "Pending Ingestion: 2" (correct terminology)
+
+### **Benefits Achieved**
+
+✅ **Accurate Status Tracking**
+- Documents correctly marked after successful ingestion
+- Admin statistics reflect true system state
+- Easy to identify documents needing ingestion
+
+✅ **Clear Terminology**
+- "Pending Ingestion" accurately describes lifecycle state
+- Reduces confusion about document processing stages
+- Matches internal terminology (extracted → ingested)
+
+✅ **Data Integrity**
+- Fixed 2 stuck documents retroactively
+- Future ingestions will have correct status
+- No manual intervention needed going forward
+
+---
+
+## Phase 18: Job History & Monitoring Dashboard 🔄 IN PROGRESS
+**Date Started**: 2025-10-09
+**Status**: 🔄 **IN PROGRESS**
+
+### **Goal**
+Create a comprehensive job history and monitoring interface at `/admin/jobs` to track all extraction and ingestion operations, with detailed job information and filtering capabilities.
+
+### **Background**
+Phase 11 implemented async job queue (BullMQ + Redis) for extraction/ingestion operations. The `extraction_jobs` table tracks all jobs with full metadata, but there's no UI to view this history. Admins currently have no visibility into past jobs, failure reasons, or processing times.
+
+### **Problem Being Solved**
+
+**Current Limitations**:
+- No UI to view job history beyond last 24h stats
+- Can't investigate failed jobs or see error details
+- No filtering by job type, status, or date range
+- No visibility into job progress after leaving page
+- Job data exists in DB but is inaccessible to admins
+
+**After Phase 18**:
+- Complete job history table with filtering
+- Detailed job view with input/output/error data
+- Search by job type, status, date range
+- Click-through from admin dashboard stats
+- Persistent job monitoring and debugging
+
+### **Implementation Plan**
+
+#### **1. Jobs Navigation Card** (Admin Landing Page)
+**File**: `src/app/admin/page.tsx`
+
+**Changes**:
+- Add third navigation card for "Job Queue Management"
+- Icon: Activity (from lucide-react)
+- Description: "View job history, monitor progress, debug failures"
+- Link to `/admin/jobs`
+- Icon color: Green (consistent with Activity stat card)
+
+**Layout**: Insert after Persona Management card, before System Status section
+
+#### **2. Job History API Endpoints**
+
+**Endpoint 1**: `GET /api/admin/jobs` (List with filters)
+**File**: `src/app/api/admin/jobs/route.ts`
+
+**Query Parameters**:
+- `job_type`: Filter by type (url_single, pdf, markdown_single, etc.)
+- `status`: Filter by status (pending, processing, completed, failed)
+- `start_date`: Filter by created_at >= start_date
+- `end_date`: Filter by created_at <= end_date
+- `limit`: Pagination limit (default: 50)
+- `offset`: Pagination offset (default: 0)
+
+**Response**:
+```typescript
+{
+  success: true,
+  jobs: [
+    {
+      id: string,
+      job_type: string,
+      status: string,
+      created_at: string,
+      started_at: string | null,
+      completed_at: string | null,
+      progress: { current: number, total: number, message: string },
+      result_data: { docId?: string, title?: string },
+      error: string | null
+    }
+  ],
+  total: number,
+  hasMore: boolean
+}
+```
+
+**Endpoint 2**: `GET /api/admin/jobs/[id]` (Job details)
+**File**: `src/app/api/admin/jobs/[id]/route.ts`
+
+**Response**:
+```typescript
+{
+  success: true,
+  job: {
+    id: string,
+    job_type: string,
+    status: string,
+    progress: JSONB,
+    input_data: JSONB,   // Full input for re-run or debugging
+    result_data: JSONB,  // Full output (docId, metadata, etc.)
+    error: string | null,
+    created_at: string,
+    started_at: string | null,
+    completed_at: string | null,
+    user_id: string,
+    duration_ms: number  // Calculated field
+  }
+}
+```
+
+#### **3. JobHistoryTable Component**
+**File**: `src/components/admin/JobHistoryTable.tsx`
+
+**Features**:
+- Table columns: Job Type, Status, Created, Duration, Actions
+- Status badges (color-coded: green=completed, red=failed, blue=processing, gray=pending)
+- Job type icons (from lucide-react)
+- Click row to open JobDetailsModal
+- Pagination controls (Next/Previous, showing X-Y of Z)
+- Loading states with skeleton rows
+- Empty state with helpful message
+
+**Table Columns**:
+1. **Job Type** - Icon + label (e.g., "📄 PDF Extraction")
+2. **Status** - Badge with color coding
+3. **Created** - Relative time (e.g., "2 hours ago")
+4. **Duration** - Calculated from started_at to completed_at
+5. **Actions** - View details button
+
+#### **4. Admin Jobs Page**
+**File**: `src/app/admin/jobs/page.tsx`
+
+**Layout**:
+- Page header: "Job History & Monitoring"
+- Filter bar:
+  - Job Type dropdown (all, url_single, pdf, markdown_single, etc.)
+  - Status dropdown (all, pending, processing, completed, failed)
+  - Date range picker (last 24h, last 7d, last 30d, custom)
+  - Clear filters button
+- JobHistoryTable component
+- Pagination controls
+- Responsive design (stacks filters on mobile)
+
+**State Management**:
+- URL query parameters for filters (enables bookmarking filtered views)
+- Client-side pagination state
+- Loading/error states
+
+#### **5. JobDetailsModal Component**
+**File**: `src/components/admin/JobDetailsModal.tsx`
+
+**Sections**:
+1. **Job Info Card**:
+   - Job ID (copyable)
+   - Job Type
+   - Status badge
+   - Created/Started/Completed timestamps
+   - Duration
+   - User ID
+
+2. **Progress Card** (if applicable):
+   - Progress bar (current/total)
+   - Progress message
+   - Real-time updates if still processing
+
+3. **Input Data Card**:
+   - JSON viewer for `input_data`
+   - Formatted and syntax-highlighted
+   - Copyable
+
+4. **Result Data Card** (if completed):
+   - JSON viewer for `result_data`
+   - Link to document if `docId` exists
+   - Download button for formatted output
+
+5. **Error Card** (if failed):
+   - Error message
+   - Stack trace (if available)
+   - Troubleshooting hints
+
+**Actions**:
+- Close modal
+- Re-run job (if failed) - future enhancement
+- Download job data as JSON
+
+### **Database Schema**
+**No changes needed!** ✅
+
+Existing `extraction_jobs` table has all required fields:
+```sql
+CREATE TABLE extraction_jobs (
+  id UUID PRIMARY KEY,
+  job_type TEXT NOT NULL,
+  status TEXT NOT NULL,
+  progress JSONB,
+  input_data JSONB NOT NULL,
+  result_data JSONB,
+  error TEXT,
+  created_at TIMESTAMPTZ,
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  user_id UUID,
+  created_by UUID
+);
+```
+
+### **Benefits Expected**
+
+✅ **Operational Visibility**
+- Track all extraction/ingestion operations
+- Identify patterns in failures
+- Monitor processing times and bottlenecks
+
+✅ **Debugging Capability**
+- View exact input data for failed jobs
+- See full error messages and stack traces
+- Re-create failed scenarios for testing
+
+✅ **User Transparency**
+- Admins can check job status after leaving page
+- Historical record of all operations
+- Accountability and audit trail
+
+✅ **Performance Insights**
+- Identify slow job types
+- Track success/failure rates
+- Optimize based on data
+
+### **Implementation Status**
+
+**Current Task** (2025-10-09):
+- [x] Plan Phase 18 implementation
+- [x] Document in RAG-PROGRESS.md
+- [ ] Add Jobs navigation card to /admin landing page
+- [ ] Create GET /api/admin/jobs endpoint
+- [ ] Create GET /api/admin/jobs/[id] endpoint
+- [ ] Create JobHistoryTable component
+- [ ] Create /admin/jobs page
+- [ ] Create JobDetailsModal component
+- [ ] Test job history page in browser
+
+**Next Action**: Add Jobs navigation card to admin landing page
 
 ---
 
