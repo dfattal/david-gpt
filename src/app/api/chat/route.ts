@@ -149,7 +149,12 @@ function formatRagContext(results: Awaited<ReturnType<typeof performSearch>>): R
 
   const contextBlocks = results.map((result, index) => {
     const docRef = `doc_${index + 1}`;
-    const section = result.sectionPath || 'main';
+
+    // Normalize section path: use 'Main Content' if missing or identical to title
+    const docTitle = result.docTitle || result.docId;
+    const normalizedSection = (!result.sectionPath || result.sectionPath === docTitle)
+      ? 'Main Content'
+      : result.sectionPath;
 
     // Generate source URL from patent ID if missing
     const sourceUrl = result.sourceUrl || generatePatentUrl(result.docId);
@@ -157,13 +162,13 @@ function formatRagContext(results: Awaited<ReturnType<typeof performSearch>>): R
     // Store metadata for citation mapping
     metadata.set(docRef, {
       sourceUrl,
-      docTitle: result.docTitle || result.docId,
+      docTitle,
       docId: result.docId,
     });
 
-    return `[Reference: ^${docRef}:${section}]
-Document: ${result.docTitle || result.docId}
-Section: ${result.sectionPath || 'Main Content'}
+    return `[Reference: ^${docRef}:${normalizedSection}]
+Document: ${docTitle}
+Section: ${normalizedSection}
 Source: ${result.sourceUrl || 'N/A'}
 
 ${result.text}
