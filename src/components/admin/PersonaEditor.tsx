@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Save, X, Plus, Upload, User } from 'lucide-react';
+import { getPersonaAvatar, getLocalAvatarPath } from '@/lib/avatar-utils';
 
 interface Topic {
   id: string;
@@ -325,17 +326,25 @@ export function PersonaEditor({ personaSlug, onSave, onCancel }: PersonaEditorPr
                 <Label>Avatar Image</Label>
                 <div className="flex items-center gap-4">
                   <div className="flex-shrink-0">
-                    {persona.avatar_url ? (
-                      <img
-                        src={persona.avatar_url}
-                        alt={persona.name}
-                        className="w-24 h-24 rounded-full object-cover border-2 border-border"
-                      />
-                    ) : (
-                      <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center border-2 border-border">
-                        <User className="w-12 h-12 text-muted-foreground" />
-                      </div>
-                    )}
+                    <img
+                      src={getPersonaAvatar({
+                        slug: persona.slug,
+                        name: persona.name,
+                        avatar_url: persona.avatar_url,
+                        is_active: true,
+                        description: '',
+                        expertise_domains: []
+                      })}
+                      alt={persona.name}
+                      className="w-24 h-24 rounded-full object-cover border-2 border-border"
+                      onError={(e) => {
+                        // Fallback to local avatar or default if Supabase URL fails
+                        const localPath = getLocalAvatarPath(persona.slug);
+                        if (localPath && e.currentTarget.src !== localPath) {
+                          e.currentTarget.src = localPath;
+                        }
+                      }}
+                    />
                   </div>
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center gap-2">

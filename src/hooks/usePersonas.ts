@@ -20,12 +20,13 @@ export function usePersonas() {
   useEffect(() => {
     const fetchPersonas = async () => {
       try {
-        const response = await fetch('/api/personas');
+        // Use admin endpoint to fetch ALL personas (including inactive ones)
+        const response = await fetch('/api/admin/personas');
         if (!response.ok) {
           throw new Error('Failed to fetch personas');
         }
         const data = await response.json();
-        // Public API returns { personas: [...] } directly
+        // Admin API returns { success: true, personas: [...] }
         if (data.personas) {
           setPersonas(data.personas.map((p: any) => ({
             slug: p.slug,
@@ -50,7 +51,8 @@ export function usePersonas() {
   const mutate = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/personas');
+      // Use admin endpoint to fetch ALL personas (including inactive ones)
+      const response = await fetch('/api/admin/personas');
       if (!response.ok) {
         throw new Error('Failed to fetch personas');
       }

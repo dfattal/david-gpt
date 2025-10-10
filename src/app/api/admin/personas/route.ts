@@ -12,11 +12,11 @@ export async function GET() {
   const supabase = createOptimizedAdminClient();
 
   try {
-    // Fetch all personas
+    // Fetch all personas with all necessary fields for admin management
     const { data: personas, error } = await supabase
       .from('personas')
-      .select('slug, name')
-      .order('name');
+      .select('id, slug, name, persona_type, expertise, example_questions, metadata, is_active, updated_at')
+      .order('updated_at', { ascending: false });
 
     if (error) {
       throw error;
