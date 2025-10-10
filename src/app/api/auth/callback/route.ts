@@ -20,16 +20,19 @@ export async function GET(request: NextRequest) {
       if (session) {
         // Create or update user profile
         const { user } = session
+        // Set admin role for dfattal@gmail.com, everyone else gets member role
+        const role = user.email === 'dfattal@gmail.com' ? 'admin' : 'member'
+
         const { error: profileError } = await supabase
           .from('user_profiles')
           .upsert({
             id: user.id,
             email: user.email!,
             display_name: user.user_metadata?.full_name || user.email,
-            role: 'guest', // Default role, admin can upgrade
+            role: role,
             last_active_at: new Date().toISOString()
           })
-        
+
         if (profileError) {
           console.error('Profile creation error:', profileError)
         }

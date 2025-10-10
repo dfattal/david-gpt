@@ -77,10 +77,12 @@ export const ConversationSidebar = forwardRef<
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [renamingIds, setRenamingIds] = useState<Set<string>>(new Set());
+  const [userRole, setUserRole] = useState<string | null>(null);
   const { addToast } = useToast();
   const editInputRef = useRef<HTMLInputElement>(null);
 
   const isGuest = !user;
+  const isAdmin = userRole === 'admin';
 
   const fetchConversations = useCallback(async () => {
     if (!user) return;
@@ -156,6 +158,28 @@ export const ConversationSidebar = forwardRef<
       return () => clearTimeout(timer);
     }
   }, [user, fetchConversations]);
+
+  // Fetch user role
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (!user) {
+        setUserRole(null);
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/auth/user');
+        if (response.ok) {
+          const data = await response.json();
+          setUserRole(data.user?.role || null);
+        }
+      } catch (error) {
+        console.error('Failed to fetch user role:', error);
+      }
+    };
+
+    fetchUserRole();
+  }, [user]);
 
   // Handle SSE title updates
   const handleTitleUpdate = useCallback(
@@ -689,13 +713,18 @@ export const ConversationSidebar = forwardRef<
                 </div>
 
                 {/* Menu Items */}
-                <DropdownMenuItem 
-                  className="flex items-center space-x-3 py-3 cursor-pointer"
-                  onClick={handleAdminDashboard}
-                >
-                  <Shield className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm">Admin Dashboard</span>
-                </DropdownMenuItem>
+                {isAdmin && (
+                  <>
+                    <DropdownMenuItem
+                      className="flex items-center space-x-3 py-3 cursor-pointer"
+                      onClick={handleAdminDashboard}
+                    >
+                      <Shield className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm">Admin Dashboard</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
 
                 <DropdownMenuItem className="flex items-center space-x-3 py-3 cursor-pointer">
                   <Settings className="w-4 h-4 text-muted-foreground" />
