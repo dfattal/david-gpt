@@ -6,7 +6,7 @@
 'use client';
 
 import { useState } from 'react';
-import { DocumentMetadataEditor } from '@/components/admin/DocumentMetadataEditor';
+import { DocumentMetadataModal } from '@/components/admin/DocumentMetadataModal';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -170,11 +170,15 @@ export function DocumentActions({
 
       {/* Metadata Editor Dialog */}
       {fullDocument && (
-        <DocumentMetadataEditor
+        <DocumentMetadataModal
           document={fullDocument}
           isOpen={showEditor}
           onClose={() => setShowEditor(false)}
           onSuccess={() => onUpdated(document.id)}
+          showIngestButton={false}
+          showDeleteButton={false}
+          showExtractionStats={false}
+          defaultTab="edit"
         />
       )}
 

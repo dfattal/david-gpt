@@ -20,7 +20,7 @@ import {
   Eye,
   Loader2,
 } from 'lucide-react';
-import { DocumentPreviewModal } from '@/components/admin/DocumentPreviewModal';
+import { DocumentMetadataModal } from '@/components/admin/DocumentMetadataModal';
 import { useJobStatus } from '@/hooks/useJobStatus';
 import { useBatchJobStatus } from '@/hooks/useBatchJobStatus';
 
@@ -680,12 +680,15 @@ export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
 
       {/* Document Preview Modal */}
       {previewDocId && (
-        <DocumentPreviewModal
+        <DocumentMetadataModal
+          document={{ id: previewDocId, title: previewTitle, type: '', tags: [], raw_content: '' }}
           isOpen={showPreviewModal}
           onClose={handlePreviewClose}
-          docId={previewDocId}
-          initialTitle={previewTitle}
-          onIngestSuccess={handleIngestSuccess}
+          onSuccess={handleIngestSuccess}
+          showIngestButton={true}
+          showDeleteButton={true}
+          showExtractionStats={true}
+          defaultTab="preview"
         />
       )}
     </div>

@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { PersonaMultiSelect } from '@/components/ui/persona-multi-select';
 import { FileText, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import { DocumentPreviewModal } from '@/components/admin/DocumentPreviewModal';
+import { DocumentMetadataModal } from '@/components/admin/DocumentMetadataModal';
 import { useJobStatus } from '@/hooks/useJobStatus';
 
 interface PdfExtractionProps {
@@ -384,12 +384,15 @@ export function PdfExtraction({ onSuccess }: PdfExtractionProps) {
 
       {/* Document Preview Modal */}
       {previewDocId && (
-        <DocumentPreviewModal
+        <DocumentMetadataModal
+          document={{ id: previewDocId, title: previewTitle, type: '', tags: [], raw_content: '' }}
           isOpen={showPreviewModal}
           onClose={handlePreviewClose}
-          docId={previewDocId}
-          initialTitle={previewTitle}
-          onIngestSuccess={handleIngestSuccess}
+          onSuccess={handleIngestSuccess}
+          showIngestButton={true}
+          showDeleteButton={true}
+          showExtractionStats={true}
+          defaultTab="preview"
         />
       )}
     </div>
