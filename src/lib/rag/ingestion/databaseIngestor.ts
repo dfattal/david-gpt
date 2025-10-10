@@ -333,6 +333,16 @@ export class DatabaseIngestor {
         console.log(`  Inserted chunks: ${insertedCount}/${chunkRecords.length}`);
       }
 
+      // Update document status to 'ingested' after successful chunk insertion
+      const { error: statusError } = await this.supabase
+        .from('docs')
+        .update({ ingestion_status: 'ingested' })
+        .eq('id', docRecord.id);
+
+      if (statusError) {
+        console.warn(`  Warning: Failed to update ingestion status: ${statusError.message}`);
+      }
+
       console.log(`  ✓ Document ingested successfully`);
 
       return {

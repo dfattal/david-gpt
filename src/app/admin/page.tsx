@@ -101,7 +101,7 @@ export default function AdminPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
             <AdminStatsCard
               title="Total Documents"
-              description={`${stats.documents.ingested} ingested, ${stats.documents.extracted} pending`}
+              description={`${stats.documents.ingested} ingested, ${stats.documents.extracted} pending ingestion`}
               value={stats.documents.total}
               icon={FileText}
               iconColor="text-blue-600"
@@ -234,7 +234,7 @@ export default function AdminPage() {
                 <div className="flex items-center gap-3">
                   <Clock className="h-5 w-5 text-yellow-600" />
                   <div>
-                    <p className="text-sm font-medium">Pending Extraction</p>
+                    <p className="text-sm font-medium">Pending Ingestion</p>
                     <p className="text-2xl font-bold">{stats.documents.extracted}</p>
                   </div>
                 </div>
