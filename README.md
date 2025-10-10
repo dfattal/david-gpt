@@ -1,36 +1,170 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# David-GPT
 
-## Getting Started
+A multi-persona, citation-first RAG (Retrieval-Augmented Generation) platform built with Next.js. Allows different personas to answer questions using their own curated knowledge bases, with transparent citations and a sophisticated hybrid retrieval strategy.
 
-First, run the development server:
+## Quick Start
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+# Install dependencies
+pnpm install
+
+# Start the development server
 pnpm dev
-# or
-bun dev
+
+# Start the background worker (REQUIRED for document ingestion)
+./dev-worker.sh start
+
+# Check worker status
+./dev-worker.sh status
+
+# View worker logs
+./dev-worker.sh logs
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit [http://localhost:3000](http://localhost:3000) to see the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## ⚠️ Background Worker - IMPORTANT
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The application uses **BullMQ** for asynchronous job processing (document extraction, ingestion, etc.). **The worker MUST be running** for these jobs to be processed.
 
-## Learn More
+### Worker Commands
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+./dev-worker.sh start    # Start worker in background
+./dev-worker.sh stop     # Stop the worker
+./dev-worker.sh restart  # Restart the worker
+./dev-worker.sh status   # Check if running
+./dev-worker.sh logs     # Tail the logs
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### What Happens Without the Worker?
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- ❌ Document ingestion jobs will be queued but never processed
+- ❌ Re-ingestion requests will hang in "pending" status
+- ❌ Batch URL/PDF uploads won't complete
+- ✅ Chat functionality continues to work normally
 
-## Deploy on Vercel
+**ALWAYS start the worker when developing!**
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Production Deployment
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+For production, use a process manager like **PM2** or **systemd** to ensure the worker stays running:
+
+```bash
+# Using PM2
+pm2 start pnpm --name "david-gpt-worker" -- worker
+pm2 save
+pm2 startup  # Enable auto-start on boot
+
+# Using systemd (create /etc/systemd/system/david-gpt-worker.service)
+[Unit]
+Description=David-GPT Background Worker
+After=network.target redis.service
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/path/to/david-gpt
+Environment="NODE_ENV=production"
+ExecStart=/usr/bin/pnpm worker
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+## Architecture
+
+### Tech Stack
+- **Frontend**: Next.js 15 with App Router, React 19, TypeScript
+- **Styling**: Tailwind CSS 4
+- **Database**: Supabase (PostgreSQL with pgvector)
+- **AI**: Vercel AI SDK 5, OpenAI GPT-4
+- **Search**: Hybrid retrieval (embeddings + BM25) with Cohere reranking
+- **Authentication**: Supabase Auth with Google OAuth
+- **Job Queue**: BullMQ + Redis
+
+### Key Features
+- **Multi-Persona System**: Each persona has dedicated knowledge base
+- **Citation-First Responses**: All claims linked to source documents
+- **Hybrid Search**: Semantic + keyword search with reranking
+- **Async Processing**: Background workers for document ingestion
+- **Real-Time Progress**: SSE for job status updates
+
+## Development Scripts
+
+```bash
+pnpm dev              # Start Next.js dev server
+pnpm build            # Build for production
+pnpm start            # Start production server
+pnpm lint             # Run ESLint
+pnpm worker           # Run background worker (foreground)
+
+# Testing
+pnpm test:performance  # Performance tests
+pnpm test:quality      # Search quality tests
+pnpm test:search       # Hybrid search tests
+
+# Validation
+pnpm validate:docs     # Validate document format
+pnpm validate:personas # Validate persona configs
+
+# Document Processing
+pnpm process:docs      # Process documents
+pnpm ingest:db         # Ingest to database
+```
+
+## Environment Variables
+
+Create `.env.local` with:
+
+```bash
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+
+# OpenAI
+OPENAI_API_KEY=your_openai_api_key
+
+# Cohere (for reranking)
+COHERE_API_KEY=your_cohere_key
+
+# Redis (for job queue)
+REDIS_URL=redis://localhost:6379
+
+# App
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+## Project Structure
+
+```
+├── personas/               # Persona-specific assets
+│   └── <slug>/
+│       ├── persona.md      # Persona profile
+│       ├── persona.config.json
+│       └── RAG/            # Markdown docs for ingestion
+├── src/
+│   ├── app/               # Next.js App Router
+│   │   ├── api/           # API routes
+│   │   ├── admin/         # Admin interface
+│   │   └── auth/          # Authentication
+│   ├── components/        # React components
+│   ├── lib/
+│   │   ├── rag/           # RAG system
+│   │   ├── queue/         # Job queue (BullMQ)
+│   │   └── supabase/      # Supabase clients
+│   └── globals.css
+├── dev-worker.sh          # Worker management script
+└── package.json
+```
+
+## Documentation
+
+- [RAG PRD](DOCS/RAG-PRD.md) - Product requirements
+- [CLAUDE.md](CLAUDE.md) - Development guidance
+
+## License
+
+Private project - All rights reserved

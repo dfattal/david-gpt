@@ -44,3 +44,6 @@ next-env.d.ts
 /RAG-RAW-DOCS
 /my-corpus
 /Arxiv
+
+# Worker logs and PID files
+/logs/
