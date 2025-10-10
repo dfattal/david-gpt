@@ -83,7 +83,7 @@ export default function AdminRAGPage() {
                     : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
               >
-                <Link className="h-4 w-4 inline mr-2" />
+                <LinkIcon className="h-4 w-4 inline mr-2" />
                 URL Extraction
               </button>
               <button

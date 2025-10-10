@@ -63,25 +63,24 @@ export function PdfExtraction({ onSuccess }: PdfExtractionProps) {
       setIsExtracting(false);
       setCurrentJobId(null);
 
-      if (job.resultData?.success && job.resultData.docId) {
+      if (job.resultData?.success && job.resultData.storedDocuments && job.resultData.storedDocuments.length > 0) {
         const result = job.resultData;
+        const firstDoc = result.storedDocuments![0];
         setPdfFile({
           ...pdfFile!,
           status: 'success',
           result: {
             success: true,
-            docId: result.docId,
-            title: result.title,
-            storagePath: result.storagePath,
-            markdown: result.markdown,
+            docId: firstDoc.docId,
+            title: firstDoc.title,
+            storagePath: firstDoc.storagePath,
             stats: result.stats,
-            validation: result.validation,
           },
         });
 
         // Auto-open preview modal
-        setPreviewDocId(result.docId);
-        setPreviewTitle(result.title || pdfFile!.file.name);
+        setPreviewDocId(firstDoc.docId);
+        setPreviewTitle(firstDoc.title || pdfFile!.file.name);
         setShowPreviewModal(true);
       } else {
         onSuccess?.();

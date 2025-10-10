@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Format jobs for response (reduce payload size)
-    const formattedJobs = (jobs || []).map((job) => ({
+    const formattedJobs = (jobs || []).map((job: any) => ({
       id: job.id,
       job_type: job.job_type,
       status: job.status,

@@ -46,10 +46,9 @@ export async function POST(request: NextRequest) {
     const content = await file.text();
 
     // Parse frontmatter and content
-    const { data: frontmatter, content: markdown } = matter(content) as {
-      data: PersonaFrontmatter;
-      content: string;
-    };
+    const parsed = matter(content);
+    const frontmatter = parsed.data as PersonaFrontmatter;
+    const markdown = parsed.content;
 
     // Validate required frontmatter
     if (!frontmatter.slug || !frontmatter.name || !frontmatter.persona_type) {

@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
           content: `Generate a title for this content:\n\n${content.substring(0, 2000)}`
         }
       ],
-      maxTokens: 50,
+      maxOutputTokens: 50,
       temperature: 0.3
     });
 

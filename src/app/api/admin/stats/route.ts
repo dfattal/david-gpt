@@ -46,9 +46,9 @@ export async function GET(request: NextRequest) {
 
     const documentStats = {
       total: allDocs.length,
-      extracted: allDocs.filter((d) => d.ingestion_status === 'extracted').length,
-      ingested: allDocs.filter((d) => d.ingestion_status === 'ingested').length,
-      failed: allDocs.filter((d) => d.ingestion_status === 'failed').length,
+      extracted: allDocs.filter((d: any) => d.ingestion_status === 'extracted').length,
+      ingested: allDocs.filter((d: any) => d.ingestion_status === 'ingested').length,
+      failed: allDocs.filter((d: any) => d.ingestion_status === 'failed').length,
     };
 
     // Fetch persona count
@@ -93,8 +93,8 @@ export async function GET(request: NextRequest) {
 
     const jobStats = {
       last24h: recentJobs?.length || 0,
-      pending: recentJobs?.filter((j) => j.status === 'pending' || j.status === 'processing').length || 0,
-      failed: recentJobs?.filter((j) => j.status === 'failed').length || 0,
+      pending: recentJobs?.filter((j: any) => j.status === 'pending' || j.status === 'processing').length || 0,
+      failed: recentJobs?.filter((j: any) => j.status === 'failed').length || 0,
     };
 
     return NextResponse.json({

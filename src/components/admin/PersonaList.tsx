@@ -184,7 +184,7 @@ export function PersonaList({ onEdit, onRefresh }: PersonaListProps) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleToggleActive(persona.slug, persona.is_active)}
+                      onClick={() => handleToggleActive(persona.slug, persona.is_active || false)}
                     >
                       {persona.is_active ? (
                         <ToggleRight className="h-4 w-4" />

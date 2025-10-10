@@ -330,7 +330,7 @@ export async function POST(req: NextRequest) {
       model: openai("gpt-4o"),
       messages: coreMessages,
       temperature: 0.7,
-      maxTokens: 2000,
+      maxOutputTokens: 2000,
     });
 
     // Step 5: Return text stream (math normalization temporarily disabled for debugging)

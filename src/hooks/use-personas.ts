@@ -3,11 +3,22 @@ import { useQuery } from '@tanstack/react-query';
 export interface PersonaData {
   id: string;
   slug: string;
-  metadata: {
-    title: string;
-    description: string;
-  };
+  name: string;
+  description: string;
+  expertise_domains: string[];
+  expertise?: string;
+  example_questions?: string[];
+  avatar_url?: string;
   is_active: boolean;
+  metadata?: {
+    title?: string;
+    description?: string;
+  };
+  stats?: {
+    conversations: number;
+    documents: number;
+    last_active?: string;
+  };
 }
 
 // Simple personas hook that fetches from our API

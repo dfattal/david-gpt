@@ -62,9 +62,9 @@ export function ChatInterface({
         const decodedMetadata = Buffer.from(metadataHeader, 'base64').toString('utf-8');
         try {
           const metadata = JSON.parse(decodedMetadata);
-          const metadataMap = new Map(
+          const metadataMap = new Map<string, { sourceUrl?: string; docTitle?: string }>(
             metadata.map((item: any) => [
-              item.docRef,
+              item.docRef as string,
               { sourceUrl: item.sourceUrl, docTitle: item.docTitle }
             ])
           );
@@ -144,9 +144,9 @@ export function ChatInterface({
 
               if (lastAssistantMessage?.metadata?.citationMetadata) {
                 const metadata = lastAssistantMessage.metadata.citationMetadata;
-                const metadataMap = new Map(
+                const metadataMap = new Map<string, { sourceUrl?: string; docTitle?: string }>(
                   metadata.map((item: any) => [
-                    item.docRef,
+                    item.docRef as string,
                     { sourceUrl: item.sourceUrl, docTitle: item.docTitle }
                   ])
                 );
@@ -245,9 +245,9 @@ export function ChatInterface({
 
           if (lastAssistantMessage?.metadata?.citationMetadata) {
             const metadata = lastAssistantMessage.metadata.citationMetadata;
-            const metadataMap = new Map(
+            const metadataMap = new Map<string, { sourceUrl?: string; docTitle?: string }>(
               metadata.map((item: any) => [
-                item.docRef,
+                item.docRef as string,
                 { sourceUrl: item.sourceUrl, docTitle: item.docTitle }
               ])
             );

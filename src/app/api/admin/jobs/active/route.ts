@@ -53,7 +53,7 @@ export async function GET(): Promise<NextResponse> {
     }
 
     // Transform database records to ActiveJob format
-    const activeJobs: ActiveJob[] = (jobs || []).map((job) => {
+    const activeJobs: ActiveJob[] = (jobs || []).map((job: any) => {
       // Try to extract docId from result_data or input_data
       let docId: string | undefined;
 
