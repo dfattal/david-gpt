@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,7 +40,7 @@ interface Job {
   error: string | null;
 }
 
-export default function AdminJobsPage() {
+function AdminJobsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -278,5 +278,13 @@ export default function AdminJobsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AdminJobsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center">Loading...</div>}>
+      <AdminJobsContent />
+    </Suspense>
   );
 }
