@@ -135,6 +135,34 @@ export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
     }
   }, [currentJob]);
 
+  // Handle case where job completes while component is mounted but onComplete didn't fire
+  useEffect(() => {
+    if (currentJob?.status === 'completed' && isExtracting) {
+      console.log('Job completed, cleaning up stuck extracting state');
+      setIsExtracting(false);
+      setCurrentJobId(null);
+
+      if (currentJob.resultData?.success && currentJob.resultData.storedDocuments?.length) {
+        const doc = currentJob.resultData.storedDocuments[0];
+        setSingleResult({
+          url: singleUrl,
+          success: true,
+          docId: doc.docId,
+          title: doc.title,
+          storagePath: doc.storagePath,
+          filename: doc.title,
+        });
+
+        // Auto-open preview modal
+        setPreviewDocId(doc.docId);
+        setPreviewTitle(doc.title || 'Extracted Document');
+        setShowPreviewModal(true);
+      } else {
+        onSuccess?.();
+      }
+    }
+  }, [currentJob?.status, isExtracting, currentJob?.resultData, singleUrl, onSuccess]);
+
   // Batch job polling
   const {
     jobs: batchJobs,
@@ -476,14 +504,19 @@ export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
             </div>
 
             {/* Show progress message during extraction */}
-            {isExtracting && currentJob?.progress && (
+            {isExtracting && (
               <div className="p-4 rounded border bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
                   <p className="text-sm text-blue-800 dark:text-blue-200">
-                    {currentJob.progress.message}
+                    {currentJob?.progress?.message || 'Extracting...'}
                   </p>
                 </div>
+                {currentJob?.progress && currentJob.progress.total > 0 && (
+                  <div className="mt-2">
+                    <Progress value={(currentJob.progress.current / currentJob.progress.total) * 100} className="h-1" />
+                  </div>
+                )}
               </div>
             )}
 

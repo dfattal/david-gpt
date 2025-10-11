@@ -391,8 +391,9 @@ export function DocumentMetadataModal({
         variant: 'default',
       });
 
-      // Reload document to reflect changes
-      await loadDocument({ ...document, raw_content: '' });
+      // Notify parent of success and close modal
+      onSuccess();
+      onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save changes');
       toast({

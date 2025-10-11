@@ -56,8 +56,8 @@ export function useActiveJobs({
 
     let intervalId: NodeJS.Timeout;
     let isMounted = true;
-    let previousJobIds = new Set<string>();
-    let previousJobs: ActiveJob[] = [];
+    const previousJobIdsRef = { current: new Set<string>() };
+    const previousJobsRef = { current: [] as ActiveJob[] };
 
     const pollJobs = async () => {
       try {
@@ -68,7 +68,7 @@ export function useActiveJobs({
 
         // Detect completed jobs (jobs that were active but are now gone)
         const currentJobIds = new Set(activeJobs.map((j) => j.id));
-        const completedJobIds = Array.from(previousJobIds).filter(
+        const completedJobIds = Array.from(previousJobIdsRef.current).filter(
           (id) => !currentJobIds.has(id)
         );
 
@@ -76,7 +76,7 @@ export function useActiveJobs({
         if (completedJobIds.length > 0 && onJobComplete) {
           // Call onJobComplete for each completed job
           completedJobIds.forEach((jobId) => {
-            const completedJob = previousJobs.find((j) => j.id === jobId);
+            const completedJob = previousJobsRef.current.find((j) => j.id === jobId);
             if (completedJob) {
               onJobComplete(completedJob);
             }
@@ -85,8 +85,8 @@ export function useActiveJobs({
 
         setJobs(activeJobs);
         setError(null);
-        previousJobIds = currentJobIds;
-        previousJobs = activeJobs;
+        previousJobIdsRef.current = currentJobIds;
+        previousJobsRef.current = activeJobs;
       } catch (err) {
         if (!isMounted) return;
         const errorMsg =
