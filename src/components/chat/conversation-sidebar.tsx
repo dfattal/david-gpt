@@ -395,7 +395,7 @@ export const ConversationSidebar = forwardRef<
       <Separator className="mx-0" />
 
       {/* Conversations list */}
-      <ScrollArea className="flex-1 px-1">
+      <ScrollArea className="flex-1 px-1 max-w-full overflow-x-hidden">
         {isGuest ? (
           <Card className="m-4 border-dashed">
             <CardContent className="p-6 text-center">
@@ -432,12 +432,12 @@ export const ConversationSidebar = forwardRef<
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-0.5 py-2">
+          <div className="w-full space-y-0.5 py-2 overflow-hidden grid">
             {filteredConversations.map((conversation) => (
               <div
                 key={conversation.id}
                 className={cn(
-                  "group cursor-pointer transition-all duration-200 hover:bg-muted/50 rounded-lg mx-1 py-2 relative",
+                  "group cursor-pointer transition-all duration-200 hover:bg-muted/50 rounded-lg mx-1 py-2 relative min-w-0 grid",
                   currentConversation?.id === conversation.id &&
                     "bg-primary/10 text-primary"
                 )}
@@ -450,9 +450,9 @@ export const ConversationSidebar = forwardRef<
                   onConversationSelect(conversation);
                 }}
               >
-                <div className="flex items-start pr-10">
-                  <div className="flex-1 min-w-0 px-3 pr-1">
-                    <div className="flex items-center gap-2 mb-1">
+                <div className="grid grid-cols-[1fr_auto] items-start gap-2 min-w-0">
+                  <div className="flex-1 min-w-0 px-3 pr-1 overflow-hidden">
+                    <div className="flex items-center gap-2 mb-1 min-w-0">
                       {editingId === conversation.id ? (
                         <div className="flex items-center gap-1 min-w-0 flex-1">
                           <Input
@@ -496,7 +496,7 @@ export const ConversationSidebar = forwardRef<
                         </div>
                       ) : (
                         <>
-                          <div className="text-sm font-medium truncate min-w-0 flex-1 overflow-hidden">
+                          <div className="text-sm font-medium truncate overflow-hidden text-ellipsis whitespace-nowrap min-w-0 flex-1">
                             {typewriterTitles.has(conversation.id) ? (
                               <TypewriterText
                                 text={typewriterTitles.get(conversation.id) || conversation.title || "New Chat"}
@@ -532,7 +532,7 @@ export const ConversationSidebar = forwardRef<
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="absolute top-2 right-3 w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted"
+                        className="w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted self-start mt-0.5 mr-2"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <MoreVertical className="w-3 h-3" />
