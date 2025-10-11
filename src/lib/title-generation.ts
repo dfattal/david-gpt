@@ -1,6 +1,6 @@
 import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
-import { createClient } from "@/lib/supabase/server";
+import { createOptimizedAdminClient } from "@/lib/supabase/server";
 import { broadcastTitleUpdate } from "@/lib/sse-broadcaster";
 
 export async function generateConversationTitle(
@@ -29,7 +29,7 @@ export async function generateConversationTitle(
 
     // Update the conversation title in the database
     console.log(`💾 Updating conversation ${conversationId} with title: "${title}"`);
-    const supabase = await createClient();
+    const supabase = createOptimizedAdminClient();
     const { error: updateError } = await supabase
       .from("conversations")
       .update({ title })
