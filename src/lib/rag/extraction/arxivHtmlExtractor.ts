@@ -66,7 +66,7 @@ export async function extractArxivFromHtml(
   }
 
   // Extract using Gemini
-  console.log('  🤖 Extracting with Gemini 2.5 Pro...');
+  console.log('  🤖 Extracting with Gemini 2.5 Flash...');
 
   const prompt = `You are an academic paper extraction expert. Analyze this ${chunks.length > 1 ? 'chunk of an ' : ''}ArXiv HTML paper.
 
@@ -106,7 +106,7 @@ HTML to analyze:
 ${chunks[0]}`;
 
   const geminiResponse = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${geminiApiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -114,7 +114,7 @@ ${chunks[0]}`;
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.1,
-          maxOutputTokens: 65536,
+          maxOutputTokens: 32768, // Flash has lower max tokens than Pro
           responseMimeType: 'application/json'
         }
       })

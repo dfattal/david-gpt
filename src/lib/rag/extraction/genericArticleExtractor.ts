@@ -149,10 +149,10 @@ async function extractWithExa(url: string): Promise<Partial<GenericArticle>> {
 }
 
 /**
- * Extract article using Gemini MCP as fallback
+ * Extract article using Gemini as fallback
  */
 async function extractWithGemini(url: string, geminiApiKey: string): Promise<Partial<GenericArticle>> {
-  console.log('  🤖 Attempting Gemini extraction...');
+  console.log('  🤖 Attempting Gemini 2.5 Flash extraction...');
 
   const prompt = `You are an article extraction expert. Analyze this web URL and extract the complete article content.
 
@@ -180,7 +180,7 @@ Return ONLY valid JSON in this exact format:
 URL to analyze: ${url}`;
 
   const geminiResponse = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${geminiApiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -188,7 +188,7 @@ URL to analyze: ${url}`;
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.1,
-          maxOutputTokens: 65536,
+          maxOutputTokens: 32768, // Flash has lower max tokens than Pro
           responseMimeType: 'application/json'
         }
       })
