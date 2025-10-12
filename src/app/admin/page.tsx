@@ -20,6 +20,9 @@ import {
   Activity,
   ArrowRight,
   Home,
+  BarChart3,
+  TrendingUp,
+  AlertCircle,
 } from 'lucide-react';
 
 interface AdminStats {
@@ -146,7 +149,7 @@ export default function AdminPage() {
         ) : null}
 
         {/* Navigation Cards */}
-        <div className="grid gap-6 md:grid-cols-3 mb-8">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
           {/* RAG Management Card */}
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader>
@@ -258,6 +261,45 @@ export default function AdminPage() {
               <Button className="w-full" asChild>
                 <Link href="/admin/jobs">
                   View Job History
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* RAG Analytics Card */}
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-orange-100 dark:bg-orange-900 rounded-lg">
+                  <BarChart3 className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+                </div>
+                <div>
+                  <CardTitle>RAG Analytics</CardTitle>
+                  <CardDescription>
+                    Analyze RAG quality and identify knowledge gaps
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3 mb-4">
+                <div className="flex items-center gap-2 text-sm">
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  <span>Per-persona RAG performance metrics</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                  <span>Low RAG weight conversation analysis</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <span>AI-powered knowledge gap recommendations</span>
+                </div>
+              </div>
+              <Button className="w-full" asChild>
+                <Link href="/admin/analytics">
+                  View Analytics
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
