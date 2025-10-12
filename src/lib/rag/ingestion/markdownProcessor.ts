@@ -97,7 +97,7 @@ export function extractSections(content: string): MarkdownSection[] {
 
 /**
  * Build hierarchical section path from heading levels
- * Example: "Introduction > Background > Early Work"
+ * Example: "Background > Early Work" (skips root-level heading which is typically the document title)
  */
 export function buildSectionPath(
   sections: MarkdownSection[],
@@ -115,6 +115,13 @@ export function buildSectionPath(
       path.unshift(section.title);
       currentLevel = section.level;
     }
+  }
+
+  // Skip the root-level heading (typically the document title at level 1)
+  // This prevents duplication since the title is already displayed separately
+  const minLevel = Math.min(...sections.map(s => s.level));
+  if (path.length > 1 && sections[0].level === minLevel && path[0] === sections[0].title) {
+    path.shift();
   }
 
   return path.join(' > ');
