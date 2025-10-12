@@ -60,7 +60,6 @@ interface FormData {
   type: string;
   date: string;
   source_url: string;
-  tags: string[];
   summary: string;
   license: string;
   author: string;
@@ -97,7 +96,6 @@ export function DocumentMetadataModal({
     type: 'other',
     date: '',
     source_url: '',
-    tags: [],
     summary: '',
     license: '',
     author: '',
@@ -110,7 +108,6 @@ export function DocumentMetadataModal({
   });
 
   // Input states for adding items
-  const [tagInput, setTagInput] = useState('');
   const [keyTermInput, setKeyTermInput] = useState('');
   const [akaInput, setAkaInput] = useState('');
   const [identifierKey, setIdentifierKey] = useState('');
@@ -246,7 +243,6 @@ export function DocumentMetadataModal({
         type: frontmatter.type || 'other',
         date: toDateString(frontmatter.dates?.created || frontmatter.dates?.published || frontmatter.date),
         source_url: frontmatter.identifiers?.source_url || frontmatter.source_url || '',
-        tags: frontmatter.tags || doc.tags || [],
         summary: frontmatter.summary || '',
         license: frontmatter.license || '',
         author: frontmatter.author || '',
@@ -281,20 +277,17 @@ export function DocumentMetadataModal({
   }, [editedContent]);
 
   // Handler functions for adding/removing items
-  const handleAddTag = () => {
-    if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
-      setFormData({ ...formData, tags: [...formData.tags, tagInput.trim()] });
-      setTagInput('');
-    }
-  };
-
-  const handleRemoveTag = (tag: string) => {
-    setFormData({ ...formData, tags: formData.tags.filter((t) => t !== tag) });
-  };
-
   const handleAddKeyTerm = () => {
-    if (keyTermInput.trim() && !formData.keyTerms.includes(keyTermInput.trim())) {
-      setFormData({ ...formData, keyTerms: [...formData.keyTerms, keyTermInput.trim()] });
+    if (!keyTermInput.trim()) return;
+
+    // Split by comma and process each term
+    const newTerms = keyTermInput
+      .split(',')
+      .map(term => term.trim())
+      .filter(term => term && !formData.keyTerms.includes(term));
+
+    if (newTerms.length > 0) {
+      setFormData({ ...formData, keyTerms: [...formData.keyTerms, ...newTerms] });
       setKeyTermInput('');
     }
   };
@@ -304,8 +297,16 @@ export function DocumentMetadataModal({
   };
 
   const handleAddAKA = () => {
-    if (akaInput.trim() && !formData.alsoKnownAs.includes(akaInput.trim())) {
-      setFormData({ ...formData, alsoKnownAs: [...formData.alsoKnownAs, akaInput.trim()] });
+    if (!akaInput.trim()) return;
+
+    // Split by comma and process each alias
+    const newAliases = akaInput
+      .split(',')
+      .map(alias => alias.trim())
+      .filter(alias => alias && !formData.alsoKnownAs.includes(alias));
+
+    if (newAliases.length > 0) {
+      setFormData({ ...formData, alsoKnownAs: [...formData.alsoKnownAs, ...newAliases] });
       setAkaInput('');
     }
   };
@@ -604,32 +605,6 @@ export function DocumentMetadataModal({
                     />
                   </div>
 
-                  {/* Tags */}
-                  <div>
-                    <label className="text-sm font-medium block mb-2">Tags</label>
-                    <div className="flex gap-2 mb-2">
-                      <Input
-                        value={tagInput}
-                        onChange={(e) => setTagInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
-                        placeholder="Add tag..."
-                      />
-                      <Button type="button" onClick={handleAddTag} variant="outline">
-                        Add
-                      </Button>
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      {formData.tags.map((tag) => (
-                        <span key={tag} className="px-3 py-1 bg-primary/10 text-primary rounded flex items-center gap-2">
-                          {tag}
-                          <button onClick={() => handleRemoveTag(tag)} className="hover:text-primary/70">
-                            <X className="h-3 w-3" />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* Summary */}
                   <div>
                     <label className="text-sm font-medium block mb-2">
@@ -683,12 +658,13 @@ export function DocumentMetadataModal({
                   {/* Key Terms */}
                   <div>
                     <label className="text-sm font-medium block mb-2">Key Terms</label>
+                    <p className="text-xs text-muted-foreground mb-2">Comma-separated values supported (e.g., &quot;term1, term2, term3&quot;)</p>
                     <div className="flex gap-2 mb-2">
                       <Input
                         value={keyTermInput}
                         onChange={(e) => setKeyTermInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddKeyTerm())}
-                        placeholder="Add key term..."
+                        placeholder="Add key terms (comma-separated)..."
                       />
                       <Button type="button" onClick={handleAddKeyTerm} variant="outline">
                         Add
@@ -709,13 +685,13 @@ export function DocumentMetadataModal({
                   {/* Also Known As */}
                   <div>
                     <label className="text-sm font-medium block mb-2">Also Known As (Document Aliases)</label>
-                    <p className="text-xs text-muted-foreground mb-2">Alternative names or titles for this document</p>
+                    <p className="text-xs text-muted-foreground mb-2">Alternative names or titles for this document (comma-separated values supported)</p>
                     <div className="flex gap-2 mb-2">
                       <Input
                         value={akaInput}
                         onChange={(e) => setAkaInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddAKA())}
-                        placeholder="Add alias..."
+                        placeholder="Add aliases (comma-separated)..."
                       />
                       <Button type="button" onClick={handleAddAKA} variant="outline">
                         Add
