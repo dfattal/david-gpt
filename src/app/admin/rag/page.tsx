@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { DocumentList } from '@/components/admin/DocumentList';
@@ -19,7 +19,7 @@ import { Upload, RefreshCw, FileText, Link as LinkIcon, FileEdit, ArrowLeft, Hom
 
 type UploadMode = 'markdown-upload' | 'markdown-extract' | 'pdf' | 'url';
 
-export default function AdminRAGPage() {
+function AdminRAGContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -187,5 +187,13 @@ export default function AdminRAGPage() {
         />
       </div>
     </div>
+  );
+}
+
+export default function AdminRAGPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center">Loading...</div>}>
+      <AdminRAGContent />
+    </Suspense>
   );
 }

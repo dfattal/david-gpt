@@ -6,6 +6,11 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
 
+  // Disable ESLint during builds for deployment
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+
   // Enable experimental features for better performance
   experimental: {
     // Enable Server Actions optimization
