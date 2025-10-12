@@ -23,12 +23,16 @@ export async function GET(request: NextRequest) {
         // Set admin role for dfattal@gmail.com, everyone else gets member role
         const role = user.email === 'dfattal@gmail.com' ? 'admin' : 'member'
 
+        // Extract first name from full name, or fallback to email
+        const fullName = user.user_metadata?.full_name || user.user_metadata?.name
+        const displayName = fullName ? fullName.split(' ')[0] : user.email
+
         const { error: profileError } = await supabase
           .from('user_profiles')
           .upsert({
             id: user.id,
             email: user.email!,
-            display_name: user.user_metadata?.full_name || user.email,
+            display_name: displayName,
             role: role,
             last_active_at: new Date().toISOString()
           })

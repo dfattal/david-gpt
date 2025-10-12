@@ -3,9 +3,15 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
+import type { UserProfile } from "@/lib/types";
+
+interface ExtendedUser extends User {
+  display_name?: string;
+  role?: string;
+}
 
 interface AuthContextType {
-  user: User | null;
+  user: ExtendedUser | null;
   loading: boolean;
   signOut: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -28,16 +34,36 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<ExtendedUser | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const fetchUserProfile = async (authUser: User | null): Promise<ExtendedUser | null> => {
+    if (!authUser) return null;
+
+    try {
+      const response = await fetch('/api/auth/user');
+      if (response.ok) {
+        const { user: profileUser } = await response.json();
+        return {
+          ...authUser,
+          display_name: profileUser?.display_name,
+          role: profileUser?.role,
+        };
+      }
+    } catch (error) {
+      console.error('Failed to fetch user profile:', error);
+    }
+    return authUser;
+  };
 
   useEffect(() => {
     // Get initial session
     const getUser = async () => {
       const {
-        data: { user },
+        data: { user: authUser },
       } = await supabase.auth.getUser();
-      setUser(user);
+      const extendedUser = await fetchUserProfile(authUser);
+      setUser(extendedUser);
       setLoading(false);
     };
 
@@ -47,7 +73,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null);
+      const extendedUser = await fetchUserProfile(session?.user ?? null);
+      setUser(extendedUser);
       setLoading(false);
     });
 
