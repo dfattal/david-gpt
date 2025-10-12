@@ -184,6 +184,8 @@ export const ConversationSidebar = forwardRef<
   // Handle SSE title updates
   const handleTitleUpdate = useCallback(
     (conversationId: string, title: string) => {
+      console.log(`📡 SSE title update received for ${conversationId}: "${title}"`);
+
       // Remove from generating titles set
       setGeneratingTitles((prev) => {
         const newSet = new Set(prev);
@@ -224,6 +226,37 @@ export const ConversationSidebar = forwardRef<
     },
     [currentConversation, onConversationUpdate]
   );
+
+  // Poll for title updates if SSE is slow or missed the broadcast
+  useEffect(() => {
+    if (generatingTitles.size === 0) return;
+
+    console.log(`🔄 Setting up polling for ${generatingTitles.size} generating titles`);
+
+    // Poll every 3 seconds for conversations with generating titles
+    const pollInterval = setInterval(async () => {
+      console.log(`🔄 Polling for title updates on ${generatingTitles.size} conversations`);
+
+      for (const conversationId of generatingTitles) {
+        try {
+          const response = await fetch(`/api/conversations/${conversationId}`);
+          if (response.ok) {
+            const { conversation } = await response.json();
+
+            // If title changed from "New Chat", update it
+            if (conversation.title && conversation.title !== "New Chat") {
+              console.log(`✅ Poll found updated title for ${conversationId}: "${conversation.title}"`);
+              handleTitleUpdate(conversationId, conversation.title);
+            }
+          }
+        } catch (error) {
+          console.error(`Failed to poll conversation ${conversationId}:`, error);
+        }
+      }
+    }, 3000);
+
+    return () => clearInterval(pollInterval);
+  }, [generatingTitles, handleTitleUpdate]);
 
   // Set up SSE connection with the new hook
   useSSE({

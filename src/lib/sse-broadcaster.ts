@@ -65,16 +65,28 @@ export function broadcastTitleUpdate(userId: string, conversationId: string, tit
     timestamp: new Date().toISOString()
   });
 
-  // If no connections found, retry after a short delay
+  // If no connections found, retry multiple times with increasing delays
   if (!success) {
-    console.log(`📡 Retrying title broadcast in 2 seconds for user ${userId}`);
-    setTimeout(() => {
-      broadcastToUser(userId, {
-        type: 'title-update',
-        conversationId,
-        title,
-        timestamp: new Date().toISOString()
-      });
-    }, 2000);
+    console.log(`📡 SSE connection not ready, scheduling retries for user ${userId}`);
+
+    // Retry strategy: 1s, 2s, 4s, 6s (total 4 retries over 13 seconds)
+    const retryDelays = [1000, 2000, 4000, 6000];
+
+    retryDelays.forEach((delay) => {
+      setTimeout(() => {
+        const retrySuccess = broadcastToUser(userId, {
+          type: 'title-update',
+          conversationId,
+          title,
+          timestamp: new Date().toISOString()
+        });
+
+        if (retrySuccess) {
+          console.log(`✅ Title broadcast succeeded on retry after ${delay}ms`);
+        }
+      }, delay);
+    });
+  } else {
+    console.log(`✅ Title broadcast succeeded immediately for user ${userId}`);
   }
 }
