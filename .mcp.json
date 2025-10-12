@@ -35,14 +35,6 @@
         "mcp-remote",
         "https://mcp.exa.ai/mcp?exaApiKey=4cee82ba-f0e2-4d53-bb16-f6920696c862"
       ]
-    },
-    "postgresql": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-postgres",
-        "postgresql://postgres.mnjrwjtzfjfixdjrerke:DHwF2lmugjzL0S54@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
-      ]
     }
   }
 }
