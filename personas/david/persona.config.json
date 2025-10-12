@@ -33,12 +33,15 @@
     {
       "id": "switchable-2d3d",
       "aliases": [
-        "3D cell",
-        "switchable LC lens",
+        "3D cell (current)",
+        "switchable LC lens (current)",
+        "LC lens",
+        "liquid crystal lens",
         "parallax barrier",
         "lenticular",
-        "DLB",
-        "diffractive lightfield backlight"
+        "DLB (legacy)",
+        "diffractive lightfield backlight (legacy)",
+        "Dimenco"
       ]
     },
     {

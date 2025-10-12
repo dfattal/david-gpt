@@ -200,11 +200,6 @@ function buildFrontmatter(params: {
     `personas: [${personaSlugs.join(', ')}]`,
   ];
 
-  // Tags (from key terms)
-  if (metadata.keyTerms?.length > 0) {
-    lines.push(`tags: [${metadata.keyTerms.map((t: string) => `"${escapeYaml(t)}"`).join(', ')}]`);
-  }
-
   // Summary
   if (metadata.summary) {
     lines.push(`summary: "${escapeYaml(metadata.summary)}"`);

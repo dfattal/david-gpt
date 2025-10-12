@@ -13,7 +13,7 @@ export interface DocumentMetadata {
   source_url?: string; // Deprecated: use identifiers.source_url instead (kept for backward compatibility)
   type?: 'blog' | 'press' | 'spec' | 'tech_memo' | 'faq' | 'slide' | 'email' | 'other';
   personas: string[];
-  tags?: string[];
+  tags?: string[]; // Deprecated: tags are now auto-extracted from **Key Terms** and **Also Known As** in document body during ingestion
   summary?: string;
   license?: 'public' | 'cc-by' | 'proprietary' | 'unknown';
   // Structured metadata (new format)
@@ -262,9 +262,6 @@ export function formatFrontmatter(metadata: DocumentMetadata): string {
 
   // Arrays
   lines.push(`personas: [${metadata.personas.join(', ')}]`);
-  if (metadata.tags && metadata.tags.length > 0) {
-    lines.push(`tags: [${metadata.tags.join(', ')}]`);
-  }
 
   // Summary and license
   if (metadata.summary) {

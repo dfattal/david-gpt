@@ -105,7 +105,7 @@ export async function storeExtractedDocument(
         personas: personaSlugs, // Store all assigned personas
         date: primaryDate, // Extracted from structured dates or fallback
         source_url: primarySourceUrl, // Extracted from structured identifiers or fallback
-        tags: frontmatter.tags || [],
+        tags: [], // Tags are auto-extracted from Key Terms and Also Known As during ingestion
         summary: frontmatter.summary || null,
         license: frontmatter.license || null,
         identifiers: frontmatter.identifiers || {},

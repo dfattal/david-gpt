@@ -16,8 +16,8 @@ dates:
 actors: []
 ---
 
-**Key Terms**: Samsung Odyssey 3D, Leia Runtime, switchable LC-lens, 3D Cell, predictive eye tracking, glasses-free 3D
-**Also Known As**: Odyssey 3D Monitor
+**Key Terms**: Samsung Odyssey 3D, Leia Runtime, switchable LC-lens (current), 3D Cell (current), predictive eye tracking, glasses-free 3D
+**Also Known As**: Odyssey 3D Monitor, LC lens display
 
 # Overview
 

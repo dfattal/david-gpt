@@ -49,17 +49,17 @@ Each RAG document is a single Markdown file:
 ---
 id: unique-stable-slug              # auto-generated from filename
 title: Document Title               # extracted from first H1 or filename
-date: YYYY-MM-DD                   # optional
-source_url: https://original/source # optional
+date: YYYY-MM-DD                   # optional (deprecated: use dates.created instead)
+source_url: https://original/source # optional (deprecated: use identifiers.source_url instead)
 type: blog|press|spec|tech_memo|faq|slide|email|patent|arxiv # optional
 personas: [<slug>]                 # auto-set from folder location
-tags: [simple, string, tags]       # simplified from complex topics
 summary: "One-sentence abstract"   # manual curation
 license: public|cc-by|proprietary  # optional
 identifiers:                       # structured identifiers
   arxiv_id: "2501.11841"          # for ArXiv papers
   doi: "10.48550/..."             # when available
   patent_number: "US11281020"     # for patents
+  source_url: "https://..."       # canonical source URL
 dates:                             # structured dates
   submitted: "YYYY-MM-DD"         # ArXiv submission
   filing: "YYYY-MM-DD"            # patent filing
@@ -76,6 +76,15 @@ actors:                            # people/organizations
 …
 ```
 
+**IMPORTANT: Tags Convention**:
+- **DO NOT include `tags:` in frontmatter** - Tags are auto-extracted from **Key Terms** and **Also Known As** during ingestion
+- **Source of Truth**: The body sections (`**Key Terms**` and `**Also Known As**`) are the only place to define searchable terms
+- **Auto-Extraction**: During ingestion (`databaseIngestor.ts`), the system automatically:
+  1. Parses `**Key Terms**:` and `**Also Known As**:` from document body
+  2. Combines all terms into a deduplicated array
+  3. Stores in `docs.tags` JSONB column for fast keyword matching
+- **Why This Approach**: Eliminates redundancy between frontmatter and body, ensures single source of truth, simplifies document authoring
+
 **Purpose of Key Terms and Also Known As**:
 These fields are placed in the document body (not frontmatter) to become part of the chunked and indexed content. This serves two critical retrieval functions:
 
@@ -85,6 +94,21 @@ These fields are placed in the document body (not frontmatter) to become part of
 **Distinction**:
 - `Key Terms`: Broader "See Also" concepts - related technologies, foundational terms, and contextual vocabulary (e.g., for "neural depth": monocular depth, AI, 3D, light field)
 - `Also Known As`: Specific direct synonyms - acronyms, alternative names, and exact substitutes (e.g., for "Directional Light Backlight": DLB, diffractive backlighting)
+
+**Temporal Markers for Technology Evolution**:
+For documents discussing technologies or concepts that have evolved over time, use inline temporal markers in **Key Terms** and **Also Known As** sections to indicate temporal status:
+
+- `(current)` or `(current tech)` - Modern, actively-used technology
+- `(legacy)` or `(legacy tech)` - Older technology superseded by newer approaches
+- `(deprecated)` - No longer recommended or in use
+
+**Example - Display Technology Evolution**:
+```markdown
+**Key Terms**: LC lens (current), 3D Cell (current), DLB (legacy tech), switchable display, eye tracking
+**Also Known As**: Liquid Crystal Lens (current), Diffractive Lightfield Backlighting (legacy)
+```
+
+These inline temporal cues are embedded into chunks and indexed by both BM25 (lexical) and vector (semantic) search, enabling the system to provide contextually accurate answers to queries like "how do Leia displays work today?" vs "how did early Leia displays work?"
 
 Frontmatter is mostly auto-generated with minimal manual curation needed.
 
