@@ -466,12 +466,7 @@ export function ChatInterface({
                     </Avatar>
 
                     {/* Welcome Section */}
-                    <div className="space-y-3">
-                      {user?.display_name && (
-                        <h2 className="text-2xl font-semibold text-muted-foreground">
-                          Hi {user.display_name}!
-                        </h2>
-                      )}
+                    <div className="space-y-4">
                       <h1 className="text-4xl font-bold tracking-tight">
                         Chat with {selectedPersona.name}
                       </h1>
