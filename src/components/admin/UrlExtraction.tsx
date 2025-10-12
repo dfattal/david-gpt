@@ -26,6 +26,7 @@ import { useBatchJobStatus } from '@/hooks/useBatchJobStatus';
 
 interface UrlExtractionProps {
   onSuccess?: () => void;
+  defaultPersonaSlugs?: string[];
 }
 
 interface ExtractionResult {
@@ -63,9 +64,16 @@ interface BatchResult {
 
 type ExtractionMode = 'single' | 'batch';
 
-export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
+export function UrlExtraction({ onSuccess, defaultPersonaSlugs }: UrlExtractionProps) {
   const [mode, setMode] = useState<ExtractionMode>('single');
-  const [personaSlugs, setPersonaSlugs] = useState<string[]>([]);
+  const [personaSlugs, setPersonaSlugs] = useState<string[]>(defaultPersonaSlugs || []);
+
+  // Update persona slugs when defaults change
+  useEffect(() => {
+    if (defaultPersonaSlugs) {
+      setPersonaSlugs(defaultPersonaSlugs);
+    }
+  }, [defaultPersonaSlugs]);
 
   // Single URL mode
   const [singleUrl, setSingleUrl] = useState('');
@@ -447,15 +455,22 @@ export function UrlExtraction({ onSuccess }: UrlExtractionProps) {
           </p>
         </div>
 
-        {/* Persona Selection */}
-        <div>
-          <PersonaMultiSelect
-            selectedSlugs={personaSlugs}
-            onChange={setPersonaSlugs}
-            disabled={isExtracting}
-            label="Target Personas"
-          />
-        </div>
+        {/* Persona Selection - only show if no global persona is selected */}
+        {!defaultPersonaSlugs || defaultPersonaSlugs.length === 0 ? (
+          <div>
+            <PersonaMultiSelect
+              selectedSlugs={personaSlugs}
+              onChange={setPersonaSlugs}
+              disabled={isExtracting}
+              label="Target Personas"
+            />
+          </div>
+        ) : (
+          <div className="p-3 bg-primary/10 border border-primary/20 rounded text-sm">
+            <strong className="text-primary">Extracting to:</strong>{' '}
+            <span className="text-foreground">{defaultPersonaSlugs.join(', ')}</span>
+          </div>
+        )}
 
         {/* Mode Tabs */}
         <div className="flex gap-2 border-b">

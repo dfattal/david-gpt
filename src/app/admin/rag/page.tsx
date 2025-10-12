@@ -5,22 +5,50 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { DocumentList } from '@/components/admin/DocumentList';
 import { DocumentUpload } from '@/components/admin/DocumentUpload';
 import { PdfExtraction } from '@/components/admin/PdfExtraction';
 import { UrlExtraction } from '@/components/admin/UrlExtraction';
 import { MarkdownExtraction } from '@/components/admin/MarkdownExtraction';
+import { PersonaSelectorBar } from '@/components/admin/PersonaSelectorBar';
 import { Button } from '@/components/ui/button';
 import { Upload, RefreshCw, FileText, Link as LinkIcon, FileEdit, ArrowLeft, Home } from 'lucide-react';
 
 type UploadMode = 'markdown-upload' | 'markdown-extract' | 'pdf' | 'url';
 
 export default function AdminRAGPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [showUpload, setShowUpload] = useState(false);
   const [uploadMode, setUploadMode] = useState<UploadMode>('url');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [selectedPersona, setSelectedPersona] = useState<string | null>(null);
+
+  // Initialize persona from URL on mount
+  useEffect(() => {
+    const personaParam = searchParams.get('persona');
+    if (personaParam) {
+      setSelectedPersona(personaParam);
+    }
+  }, [searchParams]);
+
+  // Update URL when persona changes
+  const handlePersonaChange = (slug: string | null) => {
+    setSelectedPersona(slug);
+
+    // Update URL
+    const params = new URLSearchParams(searchParams.toString());
+    if (slug) {
+      params.set('persona', slug);
+    } else {
+      params.delete('persona');
+    }
+    router.push(`/admin/rag?${params.toString()}`, { scroll: false });
+  };
 
   const handleUploadSuccess = () => {
     setShowUpload(false);
@@ -29,6 +57,12 @@ export default function AdminRAGPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Persona Selector Bar */}
+      <PersonaSelectorBar
+        selectedSlug={selectedPersona}
+        onChange={handlePersonaChange}
+      />
+
       <div className="container mx-auto py-8 px-4 max-w-7xl">
         {/* Breadcrumb Navigation */}
         <div className="flex items-center gap-2 mb-6">
@@ -123,19 +157,34 @@ export default function AdminRAGPage() {
 
             {/* Upload Interface */}
             {uploadMode === 'url' ? (
-              <UrlExtraction onSuccess={handleUploadSuccess} />
+              <UrlExtraction
+                onSuccess={handleUploadSuccess}
+                defaultPersonaSlugs={selectedPersona ? [selectedPersona] : undefined}
+              />
             ) : uploadMode === 'pdf' ? (
-              <PdfExtraction onSuccess={handleUploadSuccess} />
+              <PdfExtraction
+                onSuccess={handleUploadSuccess}
+                defaultPersonaSlugs={selectedPersona ? [selectedPersona] : undefined}
+              />
             ) : uploadMode === 'markdown-extract' ? (
-              <MarkdownExtraction onSuccess={handleUploadSuccess} />
+              <MarkdownExtraction
+                onSuccess={handleUploadSuccess}
+                defaultPersonaSlugs={selectedPersona ? [selectedPersona] : undefined}
+              />
             ) : (
-              <DocumentUpload onSuccess={handleUploadSuccess} />
+              <DocumentUpload
+                onSuccess={handleUploadSuccess}
+                defaultPersonaSlugs={selectedPersona ? [selectedPersona] : undefined}
+              />
             )}
           </div>
         )}
 
         {/* Document List */}
-        <DocumentList refreshTrigger={refreshTrigger} />
+        <DocumentList
+          refreshTrigger={refreshTrigger}
+          defaultPersonaFilter={selectedPersona || undefined}
+        />
       </div>
     </div>
   );

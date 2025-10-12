@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -14,6 +14,7 @@ import { Upload, FileText, X, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface DocumentUploadProps {
   onSuccess: () => void;
+  defaultPersonaSlugs?: string[];
 }
 
 interface UploadFile {
@@ -23,10 +24,17 @@ interface UploadFile {
   documentId?: string;
 }
 
-export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
-  const [personaSlugs, setPersonaSlugs] = useState<string[]>([]);
+export function DocumentUpload({ onSuccess, defaultPersonaSlugs }: DocumentUploadProps) {
+  const [personaSlugs, setPersonaSlugs] = useState<string[]>(defaultPersonaSlugs || []);
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Update persona slugs when defaults change
+  useEffect(() => {
+    if (defaultPersonaSlugs) {
+      setPersonaSlugs(defaultPersonaSlugs);
+    }
+  }, [defaultPersonaSlugs]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const newFiles = acceptedFiles.map((file) => ({
@@ -132,15 +140,22 @@ export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
   return (
     <div className="border rounded-lg p-6 bg-card">
       <div className="space-y-6">
-        {/* Persona Selection */}
-        <div>
-          <PersonaMultiSelect
-            selectedSlugs={personaSlugs}
-            onChange={setPersonaSlugs}
-            disabled={isUploading}
-            label="Target Personas"
-          />
-        </div>
+        {/* Persona Selection - only show if no global persona is selected */}
+        {!defaultPersonaSlugs || defaultPersonaSlugs.length === 0 ? (
+          <div>
+            <PersonaMultiSelect
+              selectedSlugs={personaSlugs}
+              onChange={setPersonaSlugs}
+              disabled={isUploading}
+              label="Target Personas"
+            />
+          </div>
+        ) : (
+          <div className="p-3 bg-primary/10 border border-primary/20 rounded text-sm">
+            <strong className="text-primary">Uploading to:</strong>{' '}
+            <span className="text-foreground">{defaultPersonaSlugs.join(', ')}</span>
+          </div>
+        )}
 
         {/* Dropzone */}
         <div

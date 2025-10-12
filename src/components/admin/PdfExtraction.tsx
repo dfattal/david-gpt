@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -16,6 +16,7 @@ import { useJobStatus } from '@/hooks/useJobStatus';
 
 interface PdfExtractionProps {
   onSuccess?: () => void;
+  defaultPersonaSlugs?: string[];
 }
 
 interface ExtractionResult {
@@ -46,14 +47,21 @@ interface PdfFile {
   result?: ExtractionResult;
 }
 
-export function PdfExtraction({ onSuccess }: PdfExtractionProps) {
-  const [personaSlugs, setPersonaSlugs] = useState<string[]>([]);
+export function PdfExtraction({ onSuccess, defaultPersonaSlugs }: PdfExtractionProps) {
+  const [personaSlugs, setPersonaSlugs] = useState<string[]>(defaultPersonaSlugs || []);
   const [pdfFile, setPdfFile] = useState<PdfFile | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewDocId, setPreviewDocId] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState<string>('');
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+
+  // Update persona slugs when defaults change
+  useEffect(() => {
+    if (defaultPersonaSlugs) {
+      setPersonaSlugs(defaultPersonaSlugs);
+    }
+  }, [defaultPersonaSlugs]);
 
   // Job status polling
   const { job: currentJob } = useJobStatus({
@@ -181,15 +189,22 @@ export function PdfExtraction({ onSuccess }: PdfExtractionProps) {
           </p>
         </div>
 
-        {/* Persona Selection */}
-        <div>
-          <PersonaMultiSelect
-            selectedSlugs={personaSlugs}
-            onChange={setPersonaSlugs}
-            disabled={isExtracting}
-            label="Target Personas"
-          />
-        </div>
+        {/* Persona Selection - only show if no global persona is selected */}
+        {!defaultPersonaSlugs || defaultPersonaSlugs.length === 0 ? (
+          <div>
+            <PersonaMultiSelect
+              selectedSlugs={personaSlugs}
+              onChange={setPersonaSlugs}
+              disabled={isExtracting}
+              label="Target Personas"
+            />
+          </div>
+        ) : (
+          <div className="p-3 bg-primary/10 border border-primary/20 rounded text-sm">
+            <strong className="text-primary">Extracting to:</strong>{' '}
+            <span className="text-foreground">{defaultPersonaSlugs.join(', ')}</span>
+          </div>
+        )}
 
         {/* Dropzone */}
         {!pdfFile && (

@@ -44,9 +44,10 @@ interface Document {
 
 interface DocumentListProps {
   refreshTrigger: number;
+  defaultPersonaFilter?: string;
 }
 
-export function DocumentList({ refreshTrigger }: DocumentListProps) {
+export function DocumentList({ refreshTrigger, defaultPersonaFilter }: DocumentListProps) {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [filteredDocs, setFilteredDocs] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,10 +98,17 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
   const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
 
   // Filters
-  const [personaFilter, setPersonaFilter] = useState<string>('all');
+  const [personaFilter, setPersonaFilter] = useState<string>(defaultPersonaFilter || 'all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showNotIngested, setShowNotIngested] = useState(false);
+
+  // Update persona filter when default changes
+  useEffect(() => {
+    if (defaultPersonaFilter) {
+      setPersonaFilter(defaultPersonaFilter);
+    }
+  }, [defaultPersonaFilter]);
 
   // Sorting
   const [sortBy, setSortBy] = useState<'title' | 'updated_at' | 'chunk_count'>(
@@ -331,19 +339,30 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
           </div>
         </div>
 
-        <Select value={personaFilter} onValueChange={setPersonaFilter}>
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="Persona" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Personas</SelectItem>
-            {uniquePersonas.map((persona) => (
-              <SelectItem key={persona} value={persona}>
-                {persona}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="relative">
+          <Select
+            value={personaFilter}
+            onValueChange={setPersonaFilter}
+            disabled={!!defaultPersonaFilter}
+          >
+            <SelectTrigger className={`w-[150px] ${defaultPersonaFilter ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <SelectValue placeholder="Persona" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Personas</SelectItem>
+              {uniquePersonas.map((persona) => (
+                <SelectItem key={persona} value={persona}>
+                  {persona}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {defaultPersonaFilter && (
+            <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+              Global
+            </div>
+          )}
+        </div>
 
         <Select value={typeFilter} onValueChange={setTypeFilter}>
           <SelectTrigger className="w-[150px]">
