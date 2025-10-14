@@ -184,13 +184,14 @@ export async function POST(req: NextRequest) {
 
         citations.forEach((citation) => {
           const title = citation.docTitle || citation.docId;
+          const section = citation.sectionPath;
 
           if (citation.sourceUrl) {
-            // Create clickable link in Slack format: <URL|text>
-            sourcesLines.push(`${citation.number}. <${citation.sourceUrl}|${title}>`);
+            // Create clickable link in Slack format: <URL|text>, §section
+            sourcesLines.push(`${citation.number}. <${citation.sourceUrl}|${title}>, §${section}`);
           } else {
-            // No URL, just show the title
-            sourcesLines.push(`${citation.number}. ${title}`);
+            // No URL, just show the title and section
+            sourcesLines.push(`${citation.number}. ${title}, §${section}`);
           }
         });
 
