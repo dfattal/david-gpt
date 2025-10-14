@@ -56,32 +56,43 @@ export async function POST(req: NextRequest) {
         // Continue anyway - reaction is not critical
       }
 
-      // Trigger separate process handler (fire and forget)
+      // Trigger separate process handler
+      // We need to await the fetch to ensure Vercel doesn't terminate before the request is sent
       const processUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/slack/process`;
 
       console.log('[Slack Events] Triggering process handler:', processUrl);
 
-      fetch(processUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query,
-          channel: event.channel,
-          threadTs: event.thread_ts || event.ts,
-          messageTs: event.ts,
-        }),
-      })
-        .then((res) => {
-          console.log('[Slack Events] Process handler triggered successfully:', {
-            status: res.status,
-            ok: res.ok,
-          });
-        })
-        .catch((error) => {
-          console.error('[Slack Events] Failed to trigger process handler:', error);
+      try {
+        // Initiate the request but don't wait for the full response
+        // Use Promise.race to bail out after confirming the request started
+        const fetchPromise = fetch(processUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query,
+            channel: event.channel,
+            threadTs: event.thread_ts || event.ts,
+            messageTs: event.ts,
+          }),
         });
 
-      console.log('[Slack Events] Event acknowledged');
+        // Wait up to 500ms to ensure the HTTP request is sent
+        await Promise.race([
+          fetchPromise.then(res => {
+            console.log('[Slack Events] Process handler triggered successfully:', {
+              status: res.status,
+              ok: res.ok,
+            });
+          }),
+          new Promise(resolve => setTimeout(resolve, 500)),
+        ]);
+
+        console.log('[Slack Events] Event acknowledged');
+      } catch (error) {
+        console.error('[Slack Events] Failed to trigger process handler:', error);
+        // Continue anyway - we've acknowledged the Slack event
+      }
+
       return NextResponse.json({ ok: true });
     }
 
@@ -130,32 +141,41 @@ export async function POST(req: NextRequest) {
             console.error('[Slack Events] Failed to add reaction:', error);
           }
 
-          // Trigger separate process handler (fire and forget)
+          // Trigger separate process handler
           const processUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/slack/process`;
 
           console.log('[Slack Events] Triggering process handler for follow-up:', processUrl);
 
-          fetch(processUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              query,
-              channel: event.channel,
-              threadTs: event.thread_ts,
-              messageTs: event.ts,
-            }),
-          })
-            .then((res) => {
-              console.log('[Slack Events] Process handler triggered successfully:', {
-                status: res.status,
-                ok: res.ok,
-              });
-            })
-            .catch((error) => {
-              console.error('[Slack Events] Failed to trigger process handler:', error);
+          try {
+            // Initiate the request but don't wait for the full response
+            const fetchPromise = fetch(processUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                query,
+                channel: event.channel,
+                threadTs: event.thread_ts,
+                messageTs: event.ts,
+              }),
             });
 
-          console.log('[Slack Events] Follow-up event acknowledged');
+            // Wait up to 500ms to ensure the HTTP request is sent
+            await Promise.race([
+              fetchPromise.then(res => {
+                console.log('[Slack Events] Process handler triggered successfully:', {
+                  status: res.status,
+                  ok: res.ok,
+                });
+              }),
+              new Promise(resolve => setTimeout(resolve, 500)),
+            ]);
+
+            console.log('[Slack Events] Follow-up event acknowledged');
+          } catch (error) {
+            console.error('[Slack Events] Failed to trigger process handler:', error);
+            // Continue anyway - we've acknowledged the Slack event
+          }
+
           return NextResponse.json({ ok: true });
         } else {
           console.log('[Slack Events] Bot not active in thread, ignoring');
