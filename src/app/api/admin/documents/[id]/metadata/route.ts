@@ -23,6 +23,7 @@ interface MetadataUpdate {
   identifiers?: Record<string, string>; // Structured identifiers
   dates?: Record<string, string>; // Structured dates
   actors?: Array<{ name: string; role: string; affiliation?: string }>; // Actors with optional affiliation
+  raw_content?: string; // Direct raw markdown content (bypasses reconstruction)
 }
 
 interface UpdateResponse {
@@ -96,69 +97,94 @@ export async function PATCH(
       );
     }
 
-    // Parse current content
-    const currentContent = doc.raw_content;
-    const { data: currentMeta, content: bodyContent } = matter(currentContent);
+    // Determine the final content and metadata
+    let updatedContent: string;
+    let updatedMeta: any;
 
-    // Merge updates with current metadata
-    const updatedMeta = {
-      ...currentMeta,
-      ...(updates.title && { title: updates.title }),
-      ...(updates.type && { type: updates.type }),
-      ...(updates.date && { date: updates.date }),
-      ...(updates.source_url !== undefined && { source_url: updates.source_url }),
-      ...(updates.tags && { tags: updates.tags }),
-      ...(updates.summary && { summary: updates.summary }),
-      ...(updates.license && { license: updates.license }),
-      ...(updates.author && { author: updates.author }),
-      ...(updates.publisher && { publisher: updates.publisher }),
-      ...(updates.identifiers && { identifiers: updates.identifiers }),
-      ...(updates.dates && { dates: updates.dates }),
-      ...(updates.actors && { actors: updates.actors }),
-    };
+    // MODE 1: Direct raw content update (from Source tab)
+    if (updates.raw_content) {
+      console.log(`📝 Using direct raw_content for document ${id}`);
 
-    // Update Key Terms and Also Known As sections if provided
-    let updatedBody = bodyContent;
-
-    if (updates.keyTerms) {
-      // Update the inline **Key Terms**: format at the start of content
-      const keyTermsLine = `**Key Terms**: ${updates.keyTerms.join(', ')}`;
-
-      if (updatedBody.match(/^\*\*Key Terms\*\*:/m)) {
-        updatedBody = updatedBody.replace(
-          /^\*\*Key Terms\*\*:.*$/m,
-          keyTermsLine
+      try {
+        // Parse the raw content to extract metadata
+        const { data: parsedMeta, content: parsedBody } = matter(updates.raw_content);
+        updatedContent = updates.raw_content;
+        updatedMeta = parsedMeta;
+      } catch (error) {
+        console.error('Failed to parse raw_content:', error);
+        return NextResponse.json(
+          { success: false, error: 'Invalid markdown format: unable to parse frontmatter' },
+          { status: 400 }
         );
-      } else {
-        // Add at the beginning before Also Known As or any content
-        updatedBody = keyTermsLine + '\n' + updatedBody;
       }
     }
+    // MODE 2: Structured metadata update (from Edit Metadata tab)
+    else {
+      console.log(`🔧 Reconstructing content from structured fields for document ${id}`);
 
-    if (updates.alsoKnownAs) {
-      // Update the inline **Also Known As**: format - simple comma-separated list
-      const akaLine = `**Also Known As**: ${updates.alsoKnownAs.length > 0 ? updates.alsoKnownAs.join(', ') : ''}`;
+      const currentContent = doc.raw_content;
+      const { data: currentMeta, content: bodyContent } = matter(currentContent);
 
-      if (updatedBody.match(/^\*\*Also Known As\*\*:/m)) {
-        updatedBody = updatedBody.replace(
-          /^\*\*Also Known As\*\*:.*$/m,
-          akaLine
-        );
-      } else {
-        // Add after Key Terms if it exists, otherwise at the beginning
+      // Merge updates with current metadata
+      updatedMeta = {
+        ...currentMeta,
+        ...(updates.title && { title: updates.title }),
+        ...(updates.type && { type: updates.type }),
+        ...(updates.date && { date: updates.date }),
+        ...(updates.source_url !== undefined && { source_url: updates.source_url }),
+        ...(updates.tags && { tags: updates.tags }),
+        ...(updates.summary && { summary: updates.summary }),
+        ...(updates.license && { license: updates.license }),
+        ...(updates.author && { author: updates.author }),
+        ...(updates.publisher && { publisher: updates.publisher }),
+        ...(updates.identifiers && { identifiers: updates.identifiers }),
+        ...(updates.dates && { dates: updates.dates }),
+        ...(updates.actors && { actors: updates.actors }),
+      };
+
+      // Update Key Terms and Also Known As sections if provided
+      let updatedBody = bodyContent;
+
+      if (updates.keyTerms) {
+        // Update the inline **Key Terms**: format at the start of content
+        const keyTermsLine = `**Key Terms**: ${updates.keyTerms.join(', ')}`;
+
         if (updatedBody.match(/^\*\*Key Terms\*\*:/m)) {
           updatedBody = updatedBody.replace(
-            /(^\*\*Key Terms\*\*:.*$)/m,
-            `$1\n${akaLine}`
+            /^\*\*Key Terms\*\*:.*$/m,
+            keyTermsLine
           );
         } else {
-          updatedBody = akaLine + '\n' + updatedBody;
+          // Add at the beginning before Also Known As or any content
+          updatedBody = keyTermsLine + '\n' + updatedBody;
         }
       }
-    }
 
-    // Reconstruct markdown with updated frontmatter
-    const updatedContent = matter.stringify(updatedBody.trim(), updatedMeta);
+      if (updates.alsoKnownAs) {
+        // Update the inline **Also Known As**: format - simple comma-separated list
+        const akaLine = `**Also Known As**: ${updates.alsoKnownAs.length > 0 ? updates.alsoKnownAs.join(', ') : ''}`;
+
+        if (updatedBody.match(/^\*\*Also Known As\*\*:/m)) {
+          updatedBody = updatedBody.replace(
+            /^\*\*Also Known As\*\*:.*$/m,
+            akaLine
+          );
+        } else {
+          // Add after Key Terms if it exists, otherwise at the beginning
+          if (updatedBody.match(/^\*\*Key Terms\*\*:/m)) {
+            updatedBody = updatedBody.replace(
+              /(^\*\*Key Terms\*\*:.*$)/m,
+              `$1\n${akaLine}`
+            );
+          } else {
+            updatedBody = akaLine + '\n' + updatedBody;
+          }
+        }
+      }
+
+      // Reconstruct markdown with updated frontmatter
+      updatedContent = matter.stringify(updatedBody.trim(), updatedMeta);
+    }
 
     // Calculate new hash
     const newHash = crypto
@@ -168,6 +194,7 @@ export async function PATCH(
 
     // Check if search-critical fields changed (require re-ingestion)
     const needsReingestion =
+      updates.raw_content !== undefined || // Raw content change always requires re-ingestion
       updates.keyTerms !== undefined ||
       updates.alsoKnownAs !== undefined ||
       updates.tags !== undefined ||

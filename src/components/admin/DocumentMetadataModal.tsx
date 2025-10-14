@@ -88,6 +88,7 @@ export function DocumentMetadataModal({
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'edit' | 'preview' | 'source'>(defaultTab);
   const [editedContent, setEditedContent] = useState('');
+  const [lastParsedContent, setLastParsedContent] = useState(''); // Track last parsed content
   const { toast } = useToast();
 
   // Form state
@@ -183,6 +184,7 @@ export function DocumentMetadataModal({
 
       setDocument(doc);
       setEditedContent(doc.raw_content);
+      setLastParsedContent(doc.raw_content);
       parseDocumentContent(doc.raw_content, doc);
     } catch (err) {
       console.error('Error loading document:', err);
@@ -253,10 +255,108 @@ export function DocumentMetadataModal({
         dates: serializeDates(frontmatter.dates),
         actors: frontmatter.actors || [],
       });
+
+      // Update lastParsedContent to track what we just parsed
+      setLastParsedContent(content);
     } catch (err) {
       console.error('Failed to parse document content:', err);
       setError(`Failed to parse document content: ${err instanceof Error ? err.message : String(err)}`);
     }
+  };
+
+  // Handle tab changes - bidirectional sync between Source and Edit tabs
+  const handleTabChange = (newTab: 'edit' | 'preview' | 'source') => {
+    // DIRECTION 1: Source → Metadata
+    // If switching TO edit tab and editedContent has changed since last parse
+    if (newTab === 'edit' && editedContent !== lastParsedContent) {
+      console.log('🔄 Re-parsing source content for Edit Metadata tab');
+
+      try {
+        // Re-parse to update formData with any manual source edits
+        parseDocumentContent(editedContent, document!);
+
+        toast({
+          title: 'Metadata Refreshed',
+          description: 'Metadata fields updated from source changes',
+          variant: 'default',
+        });
+      } catch (err) {
+        console.error('Failed to re-parse content:', err);
+        toast({
+          title: 'Warning',
+          description: 'Could not parse source changes. Check YAML syntax.',
+          variant: 'destructive',
+        });
+      }
+    }
+
+    // DIRECTION 2: Metadata → Source
+    // If switching TO source tab, reconstruct markdown from formData
+    if (newTab === 'source' && activeTab !== 'source') {
+      console.log('🔄 Syncing Source tab with metadata changes');
+
+      try {
+        // Parse current edited content to get BOTH the body AND existing frontmatter
+        const { data: currentFrontmatter, content: bodyContent } = matter(editedContent);
+
+        // Update Key Terms and Also Known As in body
+        let updatedBody = bodyContent;
+
+        // Update Key Terms
+        if (formData.keyTerms.length > 0) {
+          const keyTermsLine = `**Key Terms**: ${formData.keyTerms.join(', ')}`;
+          if (updatedBody.match(/^\*\*Key Terms\*\*:/m)) {
+            updatedBody = updatedBody.replace(/^\*\*Key Terms\*\*:.*$/m, keyTermsLine);
+          } else {
+            updatedBody = keyTermsLine + '\n' + updatedBody;
+          }
+        }
+
+        // Update Also Known As
+        if (formData.alsoKnownAs.length > 0) {
+          const akaLine = `**Also Known As**: ${formData.alsoKnownAs.join(', ')}`;
+          if (updatedBody.match(/^\*\*Also Known As\*\*:/m)) {
+            updatedBody = updatedBody.replace(/^\*\*Also Known As\*\*:.*$/m, akaLine);
+          } else if (updatedBody.match(/^\*\*Key Terms\*\*:/m)) {
+            updatedBody = updatedBody.replace(/(^\*\*Key Terms\*\*:.*$)/m, `$1\n${akaLine}`);
+          } else {
+            updatedBody = akaLine + '\n' + updatedBody;
+          }
+        }
+
+        // Build frontmatter: Start with existing frontmatter to preserve id, personas, etc.
+        // Then overlay with formData updates
+        const frontmatter: any = {
+          ...currentFrontmatter, // Preserve ALL existing fields (including id, personas)
+          title: formData.title,
+          type: formData.type,
+          summary: formData.summary,
+        };
+
+        if (formData.date) frontmatter.date = formData.date;
+        if (formData.source_url) frontmatter.source_url = formData.source_url;
+        if (formData.license) frontmatter.license = formData.license;
+        if (formData.author) frontmatter.author = formData.author;
+        if (formData.publisher) frontmatter.publisher = formData.publisher;
+        if (Object.keys(formData.identifiers).length > 0) frontmatter.identifiers = formData.identifiers;
+        if (Object.keys(formData.dates).length > 0) frontmatter.dates = formData.dates;
+        if (formData.actors.length > 0) frontmatter.actors = formData.actors;
+
+        // Reconstruct the markdown with safe YAML formatting
+        // Use explicit options to ensure proper multiline string handling
+        const reconstructed = matter.stringify(updatedBody.trim(), frontmatter, {
+          // Ensure multiline strings use proper YAML folded scalar syntax
+          lineWidth: -1, // Disable line wrapping
+        });
+        setEditedContent(reconstructed);
+        setLastParsedContent(reconstructed); // Track the new synced version
+      } catch (error) {
+        console.error('Failed to sync source with metadata:', error);
+        // Keep existing editedContent on error
+      }
+    }
+
+    setActiveTab(newTab);
   };
 
   // Parse content for preview rendering
@@ -271,8 +371,17 @@ export function DocumentMetadataModal({
       const content = frontmatterMatch[2];
       return { frontmatter, content };
     } catch (error) {
-      console.error('Error parsing frontmatter:', error);
-      return { frontmatter: null, content: editedContent };
+      // YAML parsing failed - likely malformed frontmatter
+      console.error('Error parsing frontmatter for preview:', error);
+
+      // Return a safe fallback with error info
+      return {
+        frontmatter: {
+          _error: 'Invalid YAML syntax in frontmatter',
+          _details: error instanceof Error ? error.message : String(error),
+        },
+        content: frontmatterMatch[2] || editedContent,
+      };
     }
   }, [editedContent]);
 
@@ -374,10 +483,36 @@ export function DocumentMetadataModal({
       setIsSaving(true);
       setError(null);
 
+      // Determine what to send based on which tab is active
+      let payload: any;
+
+      if (activeTab === 'source') {
+        // Saving from Source tab - send raw content directly
+        console.log('💾 Saving raw content from Source tab');
+
+        // Validate the content has proper frontmatter before saving
+        try {
+          matter(editedContent);
+        } catch (parseError) {
+          throw new Error('Invalid markdown format: unable to parse frontmatter. Please check your YAML syntax.');
+        }
+
+        payload = {
+          raw_content: editedContent,
+        };
+
+        // Update lastParsedContent since we're saving this version
+        setLastParsedContent(editedContent);
+      } else {
+        // Saving from Edit Metadata tab - send structured fields
+        console.log('💾 Saving structured metadata from Edit tab');
+        payload = formData;
+      }
+
       const response = await fetch(`/api/admin/documents/${document.id}/metadata`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -388,7 +523,9 @@ export function DocumentMetadataModal({
 
       toast({
         title: 'Success',
-        description: 'Metadata saved successfully!',
+        description: activeTab === 'source'
+          ? 'Document source saved successfully!'
+          : 'Metadata saved successfully!',
         variant: 'default',
       });
 
@@ -514,7 +651,7 @@ export function DocumentMetadataModal({
           </div>
         ) : (
           <div className="flex-1 overflow-hidden">
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+            <Tabs value={activeTab} onValueChange={(v) => handleTabChange(v as any)}>
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="edit">
                   <Edit className="h-4 w-4 mr-2" />
@@ -822,8 +959,31 @@ export function DocumentMetadataModal({
               {/* Preview Tab */}
               <TabsContent value="preview" className="mt-4">
                 <div className="border rounded-lg p-6 overflow-y-auto max-h-[calc(90vh-300px)]">
+                  {/* YAML Error Warning */}
+                  {parsedContent.frontmatter?._error && (
+                    <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border-l-4 border-red-500">
+                      <h3 className="text-sm font-semibold text-red-700 dark:text-red-300 mb-2">
+                        ⚠️ YAML Parsing Error
+                      </h3>
+                      <p className="text-sm text-red-600 dark:text-red-400 mb-2">
+                        {parsedContent.frontmatter._error}
+                      </p>
+                      {parsedContent.frontmatter._details && (
+                        <details className="text-xs text-red-500 dark:text-red-400">
+                          <summary className="cursor-pointer font-medium">Error Details</summary>
+                          <pre className="mt-2 p-2 bg-red-100 dark:bg-red-900/40 rounded overflow-x-auto">
+                            {parsedContent.frontmatter._details}
+                          </pre>
+                        </details>
+                      )}
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+                        Switch to the <strong>Source</strong> tab to fix the YAML frontmatter syntax.
+                      </p>
+                    </div>
+                  )}
+
                   {/* Frontmatter Section */}
-                  {parsedContent.frontmatter && (
+                  {parsedContent.frontmatter && !parsedContent.frontmatter._error && (
                     <div className="mb-6 p-4 bg-muted/30 rounded-lg border-l-4 border-primary">
                       <h3 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
                         Document Metadata

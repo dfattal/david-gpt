@@ -101,8 +101,14 @@ export class DatabaseIngestor {
       // Parse frontmatter
       const { data: metadata, content: bodyContent } = matter(doc.content);
 
+      // DEBUG: Log parsed metadata
+      console.log(`📋 DEBUG DatabaseIngestor: Parsed metadata keys:`, Object.keys(metadata));
+      console.log(`📋 DEBUG DatabaseIngestor: id="${metadata.id}", title="${metadata.title}", personas=`, metadata.personas);
+
       // Validate required fields
       if (!metadata.id || !metadata.title || !metadata.personas) {
+        console.error(`❌ DEBUG: Validation failed! id=${!!metadata.id}, title=${!!metadata.title}, personas=${!!metadata.personas}`);
+        console.error(`❌ DEBUG: Full metadata:`, JSON.stringify(metadata, null, 2));
         throw new Error('Missing required frontmatter fields: id, title, personas');
       }
 

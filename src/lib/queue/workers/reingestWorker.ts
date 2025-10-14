@@ -68,6 +68,15 @@ export async function processReingest(
 
     console.log(`  ✓ Deleted existing chunks`);
 
+    // DEBUG: Log the raw_content to see what we're working with
+    console.log(`📋 DEBUG: Document raw_content length: ${doc.raw_content?.length || 0}`);
+    const frontmatterMatch = doc.raw_content?.match(/^---\n([\s\S]*?)\n---/);
+    if (frontmatterMatch) {
+      console.log(`📋 DEBUG: Frontmatter preview:\n${frontmatterMatch[1].substring(0, 300)}`);
+    } else {
+      console.log(`⚠️ DEBUG: No frontmatter found in raw_content!`);
+    }
+
     // Step 2: Chunking document
     await updateJobStatus(jobId, {
       progress: { current: 2, total: 6, message: 'Chunking document...' },
