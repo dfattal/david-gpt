@@ -12,6 +12,7 @@ import {
   getConversationHistory,
   storeMessage,
 } from '@/lib/slack';
+import { parseCitations } from '@/lib/rag/citations/parser';
 
 // Allow up to 60 seconds for this endpoint (requires Vercel Pro)
 export const maxDuration = 60;
@@ -161,28 +162,45 @@ export async function POST(req: NextRequest) {
 
     // Step 9: Post citations as a follow-up message if available
     if (citationMetadata.length > 0) {
-      console.log('[Slack Process] Posting citations message');
+      console.log('[Slack Process] Parsing citations from response');
 
-      // Build sources message with clickable links
-      const sourcesLines = ['📚 *Sources:*\n'];
-
-      citationMetadata.forEach((citation, index) => {
-        const num = index + 1;
-        const title = citation.docTitle || citation.docId;
-
-        if (citation.sourceUrl) {
-          // Create clickable link in Slack format: <URL|text>
-          sourcesLines.push(`${num}. <${citation.sourceUrl}|${title}>`);
-        } else {
-          // No URL, just show the title
-          sourcesLines.push(`${num}. ${title}`);
-        }
+      // Build context map from citation metadata
+      const contextMap = new Map<string, { sourceUrl?: string; docTitle?: string }>();
+      citationMetadata.forEach((meta) => {
+        contextMap.set(meta.docRef, {
+          sourceUrl: meta.sourceUrl,
+          docTitle: meta.docTitle,
+        });
       });
 
-      const sourcesMessage = sourcesLines.join('\n');
+      // Parse citations from the response to get only the ones actually referenced
+      const { citations } = parseCitations(fullResponse, contextMap);
 
-      await postMessage(slackClient, channel, sourcesMessage, threadTs);
-      console.log('[Slack Process] ✅ Posted citations message with', citationMetadata.length, 'sources');
+      if (citations.length > 0) {
+        console.log('[Slack Process] Posting citations message with', citations.length, 'sources');
+
+        // Build sources message with clickable links
+        const sourcesLines = ['📚 *Sources:*\n'];
+
+        citations.forEach((citation) => {
+          const title = citation.docTitle || citation.docId;
+
+          if (citation.sourceUrl) {
+            // Create clickable link in Slack format: <URL|text>
+            sourcesLines.push(`${citation.number}. <${citation.sourceUrl}|${title}>`);
+          } else {
+            // No URL, just show the title
+            sourcesLines.push(`${citation.number}. ${title}`);
+          }
+        });
+
+        const sourcesMessage = sourcesLines.join('\n');
+
+        await postMessage(slackClient, channel, sourcesMessage, threadTs);
+        console.log('[Slack Process] ✅ Posted citations message');
+      } else {
+        console.log('[Slack Process] No citations found in response, skipping sources message');
+      }
     }
 
     return NextResponse.json({ ok: true });
