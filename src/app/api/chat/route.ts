@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { openai } from "@ai-sdk/openai";
 import { streamText, CoreMessage } from "ai";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createOptimizedAdminClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
 import { ChatMessage } from "@/lib/types";
 import { performSearch } from "@/lib/rag/search";
 import { reformulateQuery } from "@/lib/rag/queryReformulation";
@@ -205,7 +206,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Create Supabase client for RAG
-    const supabase = await createClient();
+    // Check if request has authentication (cookies)
+    const cookieStore = await cookies();
+    const hasCookies = cookieStore.getAll().length > 0;
+
+    // Use service role client if no authentication (e.g., Slack bot calls)
+    // This bypasses RLS to allow RAG search to work
+    const supabase = hasCookies
+      ? await createClient()
+      : createOptimizedAdminClient();
 
     // Determine persona to use (from body, conversation, or default to 'david')
     let persona = 'david'; // default
