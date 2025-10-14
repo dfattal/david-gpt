@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    // Handle message events (for follow-ups in threads)
+    // Handle message events (for DMs and follow-ups in threads)
     if (body.type === 'event_callback' && body.event?.type === 'message') {
       const event = body.event;
 
@@ -112,7 +112,85 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
-      // Only respond if in a thread where bot has participated
+      // Handle DM messages (channel_type === 'im')
+      if (event.channel_type === 'im') {
+        console.log('[Slack Events] DM message received:', {
+          channel: event.channel,
+          thread_ts: event.thread_ts,
+          text: event.text?.substring(0, 100),
+        });
+
+        // Check if this is a thread reply or a new message
+        const isThreadReply = !!event.thread_ts;
+
+        if (isThreadReply) {
+          // Follow-up in a thread - check if bot is active
+          const isBotActive = await isBotThread(event.thread_ts, event.channel);
+
+          if (!isBotActive) {
+            console.log('[Slack Events] Bot not active in this DM thread, ignoring');
+            return NextResponse.json({ ok: true });
+          }
+
+          console.log('[Slack Events] DM thread follow-up, processing with context');
+        } else {
+          console.log('[Slack Events] New DM message, starting fresh conversation');
+        }
+
+        const query = event.text || '';
+
+        if (!query.trim()) {
+          console.log('[Slack Events] Empty query, ignoring');
+          return NextResponse.json({ ok: true });
+        }
+
+        // Add 👀 reaction immediately
+        try {
+          const slackClient = createSlackClient();
+          await addReaction(slackClient, event.channel, event.ts, 'eyes');
+          console.log('[Slack Events] Added eyes reaction');
+        } catch (error) {
+          console.error('[Slack Events] Failed to add reaction:', error);
+        }
+
+        // Trigger process handler
+        // For new messages, reply in a thread (using event.ts as thread_ts)
+        // For thread replies, continue in that thread (using event.thread_ts)
+        const processUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/slack/process`;
+
+        console.log('[Slack Events] Triggering process handler for DM:', processUrl);
+
+        try {
+          const fetchPromise = fetch(processUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query,
+              channel: event.channel,
+              threadTs: event.thread_ts || event.ts, // Use thread_ts if exists, otherwise create new thread
+              messageTs: event.ts,
+            }),
+          });
+
+          await Promise.race([
+            fetchPromise.then(res => {
+              console.log('[Slack Events] Process handler triggered successfully:', {
+                status: res.status,
+                ok: res.ok,
+              });
+            }),
+            new Promise(resolve => setTimeout(resolve, 500)),
+          ]);
+
+          console.log('[Slack Events] DM event acknowledged');
+        } catch (error) {
+          console.error('[Slack Events] Failed to trigger process handler:', error);
+        }
+
+        return NextResponse.json({ ok: true });
+      }
+
+      // Only respond if in a thread where bot has participated (for channels, not DMs)
       if (event.thread_ts) {
         console.log('[Slack Events] Message in thread received:', {
           channel: event.channel,
