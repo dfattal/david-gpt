@@ -126,8 +126,10 @@ export function convertMarkdownToSlack(markdown: string): string {
   text = text.replace(/__(.+?)__/g, '*$1*');
 
   // Step 4: Convert italic (*text* or _text_ -> _text_)
-  text = text.replace(/\*(.+?)\*/g, '_$1_');
-  text = text.replace(/_(.+?)_/g, '_$1_');
+  // Use negative lookahead/lookbehind to avoid matching ** (bold markers)
+  // This matches *text* but NOT **text**
+  text = text.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '_$1_');
+  // Underscore italic is already Slack-compatible, no conversion needed
 
   // Step 5: Inline code (`code` -> `code`) - already compatible
 
