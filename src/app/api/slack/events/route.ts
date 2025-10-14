@@ -70,9 +70,16 @@ export async function POST(req: NextRequest) {
           threadTs: event.thread_ts || event.ts,
           messageTs: event.ts,
         }),
-      }).catch((error) => {
-        console.error('[Slack Events] Failed to trigger process handler:', error);
-      });
+      })
+        .then((res) => {
+          console.log('[Slack Events] Process handler triggered successfully:', {
+            status: res.status,
+            ok: res.ok,
+          });
+        })
+        .catch((error) => {
+          console.error('[Slack Events] Failed to trigger process handler:', error);
+        });
 
       console.log('[Slack Events] Event acknowledged');
       return NextResponse.json({ ok: true });
