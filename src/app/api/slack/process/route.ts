@@ -4,7 +4,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createSlackClient, postMessage, convertMarkdownToSlack } from '@/lib/slack';
+import {
+  createSlackClient,
+  postMessage,
+  convertMarkdownToSlack,
+  getOrCreateConversation,
+  getConversationHistory,
+  storeMessage,
+} from '@/lib/slack';
 
 // Allow up to 60 seconds for this endpoint (requires Vercel Pro)
 export const maxDuration = 60;
@@ -33,11 +40,33 @@ export async function POST(req: NextRequest) {
       hasQuery: !!query,
     });
 
-    if (!query || !channel) {
-      throw new Error('Missing required fields: query or channel');
+    if (!query || !channel || !threadTs) {
+      throw new Error('Missing required fields: query, channel, or threadTs');
     }
 
-    // Call chat API with persona=david
+    // Step 1: Get or create conversation for this thread
+    console.log('[Slack Process] Getting conversation for thread');
+    const conversationId = await getOrCreateConversation(threadTs, channel, 'david');
+    console.log('[Slack Process] Conversation ID:', conversationId);
+
+    // Step 2: Retrieve conversation history
+    console.log('[Slack Process] Retrieving conversation history');
+    const history = await getConversationHistory(conversationId, 6);
+    console.log('[Slack Process] Retrieved history:', history.length, 'messages');
+
+    // Step 3: Build messages array with history + current query
+    const messages = [
+      ...history,
+      { role: 'user' as const, content: query },
+    ];
+
+    console.log('[Slack Process] Total messages for context:', messages.length);
+
+    // Step 4: Store user message
+    console.log('[Slack Process] Storing user message');
+    await storeMessage(conversationId, 'user', query);
+
+    // Step 5: Call chat API with conversation history
     const chatApiUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/chat`;
 
     console.log('[Slack Process] Calling chat API:', chatApiUrl);
@@ -46,7 +75,8 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        messages: [{ role: 'user', content: query }],
+        messages,
+        conversationId,
         personaId: 'david',
         useRag: true,
       }),
@@ -92,12 +122,16 @@ export async function POST(req: NextRequest) {
       throw new Error('Empty response from chat API');
     }
 
-    // Convert markdown to Slack mrkdwn format
+    // Step 6: Store assistant response
+    console.log('[Slack Process] Storing assistant message');
+    await storeMessage(conversationId, 'assistant', fullResponse);
+
+    // Step 7: Convert markdown to Slack mrkdwn format
     const slackFormattedResponse = convertMarkdownToSlack(fullResponse);
 
     console.log('[Slack Process] Converted markdown to Slack format');
 
-    // Post response to Slack
+    // Step 8: Post response to Slack
     console.log('[Slack Process] Creating Slack client');
     const slackClient = createSlackClient();
 
