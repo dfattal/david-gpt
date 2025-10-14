@@ -6,6 +6,12 @@
 
 import { encode } from 'gpt-tokenizer';
 import { extractSections, buildSectionPath, type MarkdownSection } from '../ingestion/markdownProcessor';
+import {
+  detectDocumentStructure,
+  isCriticalSection,
+  getMinTokensForSection,
+  type DocumentStructure,
+} from './documentStructure';
 
 export interface Chunk {
   text: string;
@@ -27,6 +33,8 @@ export interface DocumentMetadata {
   identifiers?: Record<string, string>; // patent_number, doi, arxiv_id, etc.
   dates?: Record<string, string>; // filing, publication, priority, expiration, etc.
   actors?: Array<{ name: string; role: string }>; // inventors, authors, assignees, etc.
+  abstract?: string; // Full abstract text for patents/papers
+  claims?: string[]; // Key patent claims
 }
 
 export interface ChunkConfig {
@@ -376,6 +384,19 @@ function generateMetadataChunk(
     parts.push(`\n${metadata.summary}`);
   }
 
+  // Add full abstract for patents/papers (improves semantic search)
+  if (metadata.abstract) {
+    parts.push(`\n**Abstract**\n${metadata.abstract}`);
+  }
+
+  // Add key claims for patents (critical for understanding novelty)
+  if (metadata.claims && metadata.claims.length > 0) {
+    parts.push(`\n**Key Claims**`);
+    metadata.claims.forEach((claim, idx) => {
+      parts.push(`${idx + 1}. ${claim}`);
+    });
+  }
+
   const text = parts.join('\n');
 
   return {
@@ -390,11 +411,13 @@ function generateMetadataChunk(
 /**
  * Merge small adjacent sections to reach minimum token count
  * This prevents creating too many tiny chunks from documents with many short sections
+ * Now structure-aware: respects critical sections from document structure
  */
 function mergeSections(
   sections: MarkdownSection[],
   minTokens: number,
-  counter: TokenCounter
+  counter: TokenCounter,
+  structure?: DocumentStructure
 ): MarkdownSection[] {
   if (sections.length === 0) return [];
 
@@ -405,20 +428,34 @@ function mergeSections(
     const section = sections[i];
     const sectionTokens = counter.count(section.content);
 
+    // Check if this section is critical (should not be merged)
+    const { isCritical: sectionIsCritical } = structure
+      ? isCriticalSection(section.title, structure)
+      : { isCritical: false };
+
+    // Get structure-aware minimum tokens for this section
+    const effectiveMinTokens = structure
+      ? getMinTokensForSection(section.title, structure, minTokens)
+      : minTokens;
+
     if (!currentMerge) {
       // Start a new merge group
       currentMerge = { ...section };
-    } else if (counter.count(currentMerge.content) + sectionTokens < minTokens) {
+    } else if (
+      !sectionIsCritical && // Never merge critical sections
+      counter.count(currentMerge.content) + sectionTokens < effectiveMinTokens &&
+      section.level >= currentMerge.level  // Only merge if new section is same level or child (higher level number)
+    ) {
       // Merge this section into the current group if both are small
       currentMerge.content += '\n\n' + section.content;
       currentMerge.endLine = section.endLine;
-      // Keep the highest level heading (smaller depth number)
-      if (section.depth < currentMerge.depth) {
-        currentMerge.heading = section.heading;
-        currentMerge.depth = section.depth;
+      // Keep the highest level heading (smaller level number)
+      if (section.level < currentMerge.level) {
+        currentMerge.title = section.title;
+        currentMerge.level = section.level;
       }
     } else {
-      // Current merge is large enough, save it and start new merge
+      // Current merge is large enough or new section is higher in hierarchy or is critical, save it and start new merge
       merged.push(currentMerge);
       currentMerge = { ...section };
     }
@@ -445,6 +482,22 @@ export function chunkDocument(
   const sections = extractSections(content);
   const allChunks: Chunk[] = [];
 
+  // Detect document structure (patent, paper, generic, etc.)
+  const docType = metadata?.type || 'generic';
+  const structure = detectDocumentStructure(docType, sections);
+
+  // Enhance metadata with detected structure information
+  if (metadata && structure) {
+    // Add abstract if detected (for better semantic search in metadata chunk)
+    if (structure.abstract && !metadata.abstract) {
+      metadata.abstract = structure.abstract;
+    }
+    // Add claims if detected (for patents)
+    if (structure.claims && !metadata.claims) {
+      metadata.claims = structure.claims;
+    }
+  }
+
   // Generate metadata chunk if metadata provided
   if (metadata) {
     const metadataChunk = generateMetadataChunk(metadata, counter);
@@ -452,7 +505,8 @@ export function chunkDocument(
   }
 
   // Merge small adjacent sections to avoid creating too many tiny chunks
-  const mergedSections = mergeSections(sections, finalConfig.targetMinTokens, counter);
+  // Now structure-aware: preserves critical sections (Abstract, Claims, Methods, etc.)
+  const mergedSections = mergeSections(sections, finalConfig.targetMinTokens, counter, structure);
 
   let previousChunkText: string | undefined;
 
