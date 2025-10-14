@@ -112,9 +112,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
-      // Handle DM messages (channel_type === 'im')
-      if (event.channel_type === 'im') {
-        console.log('[Slack Events] DM message received:', {
+      // Handle DM and Group DM messages (channel_type === 'im' or 'mpim')
+      if (event.channel_type === 'im' || event.channel_type === 'mpim') {
+        const dmType = event.channel_type === 'mpim' ? 'Group DM' : 'DM';
+        console.log(`[Slack Events] ${dmType} message received:`, {
           channel: event.channel,
           thread_ts: event.thread_ts,
           text: event.text?.substring(0, 100),
@@ -132,9 +133,9 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ ok: true });
           }
 
-          console.log('[Slack Events] DM thread follow-up, processing with context');
+          console.log(`[Slack Events] ${dmType} thread follow-up, processing with context`);
         } else {
-          console.log('[Slack Events] New DM message, starting fresh conversation');
+          console.log(`[Slack Events] New ${dmType} message, starting fresh conversation`);
         }
 
         const query = event.text || '';
@@ -158,7 +159,7 @@ export async function POST(req: NextRequest) {
         // For thread replies, continue in that thread (using event.thread_ts)
         const processUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/slack/process`;
 
-        console.log('[Slack Events] Triggering process handler for DM:', processUrl);
+        console.log(`[Slack Events] Triggering process handler for ${dmType}:`, processUrl);
 
         try {
           const fetchPromise = fetch(processUrl, {
@@ -182,7 +183,7 @@ export async function POST(req: NextRequest) {
             new Promise(resolve => setTimeout(resolve, 500)),
           ]);
 
-          console.log('[Slack Events] DM event acknowledged');
+          console.log(`[Slack Events] ${dmType} event acknowledged`);
         } catch (error) {
           console.error('[Slack Events] Failed to trigger process handler:', error);
         }
