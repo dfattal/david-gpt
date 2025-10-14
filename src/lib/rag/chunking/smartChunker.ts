@@ -321,6 +321,7 @@ function chunkSection(
 /**
  * Generate a metadata chunk from document metadata
  * This chunk helps with document identification and keyword matching
+ * NOTE: Summary, abstract, and claims are in the separate Summary chunk
  */
 function generateMetadataChunk(
   metadata: DocumentMetadata,
@@ -379,29 +380,60 @@ function generateMetadataChunk(
     parts.push(`- **Tags**: ${metadata.tags.join(', ')}`);
   }
 
-  // Add summary for context
+  const text = parts.join('\n');
+
+  return {
+    text,
+    sectionPath: 'Metadata',
+    tokenCount: counter.count(text),
+    startLine: 0,
+    endLine: 0,
+  };
+}
+
+/**
+ * Generate a summary chunk from document metadata
+ * This chunk contains the high-level overview: summary, abstract, and key claims
+ * Positioned as Chunk #2 (right after metadata) for optimal retrieval
+ */
+function generateSummaryChunk(
+  metadata: DocumentMetadata,
+  counter: TokenCounter
+): Chunk | null {
+  const parts: string[] = ['**Document Summary**\n'];
+  let hasContent = false;
+
+  // Add one-line summary if available
   if (metadata.summary) {
-    parts.push(`\n${metadata.summary}`);
+    parts.push(`**TL;DR**: ${metadata.summary}\n`);
+    hasContent = true;
   }
 
   // Add full abstract for patents/papers (improves semantic search)
   if (metadata.abstract) {
-    parts.push(`\n**Abstract**\n${metadata.abstract}`);
+    parts.push(`**Abstract**\n${metadata.abstract}\n`);
+    hasContent = true;
   }
 
   // Add key claims for patents (critical for understanding novelty)
   if (metadata.claims && metadata.claims.length > 0) {
-    parts.push(`\n**Key Claims**`);
+    parts.push(`**Key Claims**`);
     metadata.claims.forEach((claim, idx) => {
       parts.push(`${idx + 1}. ${claim}`);
     });
+    hasContent = true;
+  }
+
+  // Only create summary chunk if we have content
+  if (!hasContent) {
+    return null;
   }
 
   const text = parts.join('\n');
 
   return {
     text,
-    sectionPath: 'Metadata',
+    sectionPath: 'Summary',
     tokenCount: counter.count(text),
     startLine: 0,
     endLine: 0,
@@ -498,10 +530,16 @@ export function chunkDocument(
     }
   }
 
-  // Generate metadata chunk if metadata provided
+  // Generate metadata chunk if metadata provided (Chunk #1)
   if (metadata) {
     const metadataChunk = generateMetadataChunk(metadata, counter);
     allChunks.push(metadataChunk);
+
+    // Generate summary chunk if we have summary/abstract/claims (Chunk #2)
+    const summaryChunk = generateSummaryChunk(metadata, counter);
+    if (summaryChunk) {
+      allChunks.push(summaryChunk);
+    }
   }
 
   // Merge small adjacent sections to avoid creating too many tiny chunks
