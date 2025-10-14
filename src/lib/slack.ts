@@ -149,6 +149,9 @@ export function convertMarkdownToSlack(markdown: string): string {
   return text;
 }
 
+// System user ID for Slack bot conversations
+const SLACK_SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000001';
+
 /**
  * Get or create conversation for a Slack thread
  */
@@ -180,10 +183,11 @@ export async function getOrCreateConversation(
     .eq('is_active', true)
     .single();
 
-  // Create new conversation
+  // Create new conversation with system user
   const { data: newConversation, error } = await supabase
     .from('conversations')
     .insert({
+      user_id: SLACK_SYSTEM_USER_ID,
       slack_thread_ts: threadTs,
       slack_channel_id: channelId,
       persona_id: persona?.id || null,
