@@ -48,11 +48,34 @@ export async function postMessage(
   text: string,
   threadTs?: string
 ): Promise<void> {
-  await client.chat.postMessage({
-    channel,
-    text,
-    thread_ts: threadTs,
-  });
+  try {
+    console.log('[Slack] Posting message:', {
+      channel,
+      threadTs,
+      textLength: text.length,
+      textPreview: text.substring(0, 100),
+    });
+
+    const result = await client.chat.postMessage({
+      channel,
+      text,
+      thread_ts: threadTs,
+    });
+
+    console.log('[Slack] Message posted successfully:', {
+      ok: result.ok,
+      ts: result.ts,
+      channel: result.channel,
+    });
+  } catch (error) {
+    console.error('[Slack] Failed to post message:', error);
+    console.error('[Slack] Error details:', {
+      message: error instanceof Error ? error.message : String(error),
+      channel,
+      threadTs,
+    });
+    throw error;
+  }
 }
 
 /**
