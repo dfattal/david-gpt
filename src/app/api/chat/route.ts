@@ -14,9 +14,9 @@ export const maxDuration = 30;
 
 async function getPersonaSystemPrompt(
   personaId: string,
+  supabase: Awaited<ReturnType<typeof createClient>>,
   ragContext?: string
 ): Promise<string> {
-  const supabase = await createClient();
 
   const { data: persona } = await supabase
     .from('personas')
@@ -329,7 +329,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Step 2: Get persona system prompt (with RAG context if available)
-    const systemPrompt = await getPersonaSystemPrompt(persona, ragContext);
+    const systemPrompt = await getPersonaSystemPrompt(persona, supabase, ragContext);
 
     // Step 3: Prepare messages for OpenAI
     const coreMessages: CoreMessage[] = [
