@@ -96,6 +96,20 @@ export async function POST(req: NextRequest) {
 
     console.log('[Slack Process] Streaming response from chat API');
 
+    // Extract citation metadata from headers
+    const citationMetadataHeader = chatResponse.headers.get('X-Citation-Metadata');
+    let citationMetadata: Array<{ docRef: string; sourceUrl?: string; docTitle?: string; docId: string }> = [];
+
+    if (citationMetadataHeader) {
+      try {
+        const decoded = Buffer.from(citationMetadataHeader, 'base64').toString('utf-8');
+        citationMetadata = JSON.parse(decoded);
+        console.log('[Slack Process] Extracted citation metadata:', citationMetadata.length, 'citations');
+      } catch (error) {
+        console.warn('[Slack Process] Failed to parse citation metadata:', error);
+      }
+    }
+
     // Stream and buffer the response
     const reader = chatResponse.body?.getReader();
     if (!reader) {
@@ -144,6 +158,32 @@ export async function POST(req: NextRequest) {
     await postMessage(slackClient, channel, slackFormattedResponse, threadTs);
 
     console.log('[Slack Process] ✅ Successfully posted response to Slack');
+
+    // Step 9: Post citations as a follow-up message if available
+    if (citationMetadata.length > 0) {
+      console.log('[Slack Process] Posting citations message');
+
+      // Build sources message with clickable links
+      const sourcesLines = ['📚 *Sources:*\n'];
+
+      citationMetadata.forEach((citation, index) => {
+        const num = index + 1;
+        const title = citation.docTitle || citation.docId;
+
+        if (citation.sourceUrl) {
+          // Create clickable link in Slack format: <URL|text>
+          sourcesLines.push(`${num}. <${citation.sourceUrl}|${title}>`);
+        } else {
+          // No URL, just show the title
+          sourcesLines.push(`${num}. ${title}`);
+        }
+      });
+
+      const sourcesMessage = sourcesLines.join('\n');
+
+      await postMessage(slackClient, channel, sourcesMessage, threadTs);
+      console.log('[Slack Process] ✅ Posted citations message with', citationMetadata.length, 'sources');
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {

@@ -216,6 +216,8 @@ export async function POST(req: NextRequest) {
       ? await createClient()
       : createOptimizedAdminClient();
 
+    console.log('🔐 Supabase client type:', hasCookies ? 'authenticated (with cookies)' : 'service role (no cookies)');
+
     // Determine persona to use (from body, conversation, or default to 'david')
     let persona = 'david'; // default
 
@@ -318,6 +320,15 @@ export async function POST(req: NextRequest) {
             ragContext = ragData.context;
             citationMetadata = ragData.metadata;
             console.log(`✓ RAG context generated: ${searchResults.length} chunks`);
+
+            // Log top 3 chunk IDs and scores for debugging
+            console.log('📊 Top 3 chunks:', searchResults.slice(0, 3).map(r => ({
+              chunkId: r.chunkId.substring(0, 20),
+              docId: r.docId,
+              score: r.score.toFixed(4),
+              vectorScore: r.vectorScore?.toFixed(4),
+              bm25Score: r.bm25Score?.toFixed(4),
+            })));
           } else {
             console.log('ℹ No RAG results found, proceeding without context');
           }
