@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createSlackClient, postMessage } from '@/lib/slack';
+import { createSlackClient, postMessage, convertMarkdownToSlack } from '@/lib/slack';
 
 // Allow up to 60 seconds for this endpoint (requires Vercel Pro)
 export const maxDuration = 60;
@@ -92,6 +92,11 @@ export async function POST(req: NextRequest) {
       throw new Error('Empty response from chat API');
     }
 
+    // Convert markdown to Slack mrkdwn format
+    const slackFormattedResponse = convertMarkdownToSlack(fullResponse);
+
+    console.log('[Slack Process] Converted markdown to Slack format');
+
     // Post response to Slack
     console.log('[Slack Process] Creating Slack client');
     const slackClient = createSlackClient();
@@ -99,10 +104,10 @@ export async function POST(req: NextRequest) {
     console.log('[Slack Process] Posting message to Slack:', {
       channel,
       threadTs,
-      messageLength: fullResponse.length,
+      messageLength: slackFormattedResponse.length,
     });
 
-    await postMessage(slackClient, channel, fullResponse, threadTs);
+    await postMessage(slackClient, channel, slackFormattedResponse, threadTs);
 
     console.log('[Slack Process] ✅ Successfully posted response to Slack');
 

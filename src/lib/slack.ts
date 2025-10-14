@@ -88,3 +88,49 @@ export function parseMessageText(text: string): string {
 
   return cleanText;
 }
+
+/**
+ * Convert markdown to Slack mrkdwn format
+ * Slack doesn't support standard markdown, so we need to convert
+ */
+export function convertMarkdownToSlack(markdown: string): string {
+  let text = markdown;
+
+  // Convert headers (### Header -> *Header*)
+  text = text.replace(/^#{1,6}\s+(.+)$/gm, '*$1*');
+
+  // Convert bold (**text** or __text__ -> *text*)
+  text = text.replace(/\*\*(.+?)\*\*/g, '*$1*');
+  text = text.replace(/__(.+?)__/g, '*$1*');
+
+  // Convert italic (*text* or _text_ -> _text_)
+  text = text.replace(/\*(.+?)\*/g, '_$1_');
+  text = text.replace(/_(.+?)_/g, '_$1_');
+
+  // Convert inline code (`code` -> `code`) - already compatible
+
+  // Convert code blocks (```language\ncode\n``` -> ```code```)
+  text = text.replace(/```[\w]*\n([\s\S]*?)```/g, '```$1```');
+
+  // Convert bullet lists (- item or * item -> • item)
+  text = text.replace(/^[\-\*]\s+(.+)$/gm, '• $1');
+
+  // Convert numbered lists (1. item -> 1. item) - already compatible
+
+  // Convert blockquotes (> text -> text with indent)
+  text = text.replace(/^>\s+(.+)$/gm, '    $1');
+
+  // Convert citation links [^doc_1:section] to just superscript numbers
+  // This makes them less noisy in Slack
+  const citationMap = new Map<string, number>();
+  let citationCounter = 1;
+
+  text = text.replace(/\[\^([^\]]+)\]/g, (match, citation) => {
+    if (!citationMap.has(citation)) {
+      citationMap.set(citation, citationCounter++);
+    }
+    return `[${citationMap.get(citation)}]`;
+  });
+
+  return text;
+}
