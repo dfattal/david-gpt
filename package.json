@@ -32,7 +32,8 @@
     "ingest:db": "tsx scripts/ingest-to-db.ts",
     "migrate:rag-storage": "tsx scripts/migrate-rag-to-storage.ts",
     "mcp-server": "NODE_NO_WARNINGS=1 tsx src/mcp-server/index.ts",
-    "mcp-server:inspect": "npx @modelcontextprotocol/inspector tsx src/mcp-server/index.ts"
+    "mcp-server:inspect": "npx @modelcontextprotocol/inspector tsx src/mcp-server/index.ts",
+    "mcp-sse-server": "NODE_NO_WARNINGS=1 tsx src/mcp-server/sse-server.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.23",
@@ -71,6 +72,7 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.2",
     "drizzle-orm": "^0.44.5",
+    "express": "^5.1.0",
     "form-data": "^4.0.4",
     "glob": "^11.0.3",
     "gpt-tokenizer": "^3.0.1",
@@ -104,6 +106,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/express": "^5.0.3",
     "@types/node": "^20",
     "@types/pdf-parse": "^1.1.4",
     "@types/pg": "^8.15.5",
