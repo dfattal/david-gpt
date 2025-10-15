@@ -152,3 +152,17 @@ This project integrates with several MCP (Model Context Protocol) servers to enh
 - **Use cases**: PDF analysis, large document extraction, technical content processing, file writing operations, document analysis
 - **Advantages**: Full file system access, better performance than MCP, handles large files efficiently
 - **IMPORTANT**: gemini CLI will timeout after 2min so plan your tasks accordingly, break them down as needed
+
+### David-GPT MCP Server
+- **Expose RAG bot as MCP tools**: The David-GPT RAG bot is available as an MCP server for use with Claude Code, Cursor, and other MCP clients
+- **Available tools**:
+  - `new_conversation` - Start a new conversation with the RAG bot
+  - `reply_to_conversation` - Continue an existing conversation with full context
+  - `list_conversations` - List recent MCP conversations
+- **Multi-turn conversations**: Full context retention (last 6 messages) with citation-based boosting
+- **Running the server**: `pnpm mcp-server` (requires Next.js dev server running in background)
+- **Testing**: `pnpm mcp-server:inspect` to open MCP Inspector UI
+- **Configuration**: Already configured in `.cursor/mcp.json` as "david-gpt" server
+- **System user**: Uses dedicated MCP system user (UUID: `00000000-0000-0000-0000-000000000002`)
+- **Session tracking**: Conversations tracked via `mcp_session_id` column
+- **Documentation**: See `DOCS/MCP-SERVER.md` for complete usage guide

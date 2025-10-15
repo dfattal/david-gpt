@@ -362,8 +362,12 @@ export async function POST(req: NextRequest) {
     // Step 5: Return text stream (math normalization temporarily disabled for debugging)
     const response = result.toTextStreamResponse();
 
+    // Check if request is from MCP client (which can't handle large headers)
+    const isMcpClient = req.headers.get('X-MCP-Client') === 'true';
+
     // Add citation metadata as a custom header (JSON stringified and Base64 encoded to handle non-ASCII)
-    if (citationMetadata && citationMetadata.size > 0) {
+    // Skip for MCP clients to avoid header overflow errors (they still get inline citations)
+    if (citationMetadata && citationMetadata.size > 0 && !isMcpClient) {
       const metadataArray = Array.from(citationMetadata.entries()).map(([docRef, meta]) => ({
         docRef,
         ...meta,
@@ -373,20 +377,23 @@ export async function POST(req: NextRequest) {
     }
 
     // Add RAG context and search results as custom headers for RAG weight calculation
-    if (ragContext) {
-      const encodedRagContext = Buffer.from(ragContext, 'utf-8').toString('base64');
-      response.headers.set('X-RAG-Context', encodedRagContext);
-    }
-    if (searchResults.length > 0) {
-      const searchResultsData = searchResults.map(r => ({
-        chunkId: r.chunkId,
-        docId: r.docId,
-        score: r.score,
-        vectorScore: r.vectorScore,
-        bm25Score: r.bm25Score,
-      }));
-      const encodedSearchResults = Buffer.from(JSON.stringify(searchResultsData), 'utf-8').toString('base64');
-      response.headers.set('X-Search-Results', encodedSearchResults);
+    // Skip for MCP clients to avoid header overflow errors
+    if (!isMcpClient) {
+      if (ragContext) {
+        const encodedRagContext = Buffer.from(ragContext, 'utf-8').toString('base64');
+        response.headers.set('X-RAG-Context', encodedRagContext);
+      }
+      if (searchResults.length > 0) {
+        const searchResultsData = searchResults.map(r => ({
+          chunkId: r.chunkId,
+          docId: r.docId,
+          score: r.score,
+          vectorScore: r.vectorScore,
+          bm25Score: r.bm25Score,
+        }));
+        const encodedSearchResults = Buffer.from(JSON.stringify(searchResultsData), 'utf-8').toString('base64');
+        response.headers.set('X-Search-Results', encodedSearchResults);
+      }
     }
 
     return response;
