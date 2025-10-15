@@ -3,8 +3,6 @@
  * Handles chat API calls and streaming responses for MCP clients
  */
 
-import { logToFile } from './file-logger.js';
-
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -35,10 +33,10 @@ export async function callChatApi(
   personaSlug: string = 'david'
 ): Promise<ChatResponse> {
   // Log ALL environment variables related to URL construction
-  logToFile('[MCP Chat] === URL CONSTRUCTION DEBUG ===');
-  logToFile('[MCP Chat] NEXT_PUBLIC_APP_URL from env:', process.env.NEXT_PUBLIC_APP_URL);
-  logToFile('[MCP Chat] NEXT_PUBLIC_APP_URL type:', typeof process.env.NEXT_PUBLIC_APP_URL);
-  logToFile('[MCP Chat] NEXT_PUBLIC_APP_URL length:', process.env.NEXT_PUBLIC_APP_URL?.length);
+  console.error('[MCP Chat] === URL CONSTRUCTION DEBUG ===');
+  console.error('[MCP Chat] NEXT_PUBLIC_APP_URL from env:', process.env.NEXT_PUBLIC_APP_URL);
+  console.error('[MCP Chat] NEXT_PUBLIC_APP_URL type:', typeof process.env.NEXT_PUBLIC_APP_URL);
+  console.error('[MCP Chat] NEXT_PUBLIC_APP_URL length:', process.env.NEXT_PUBLIC_APP_URL?.length);
 
   // Determine chat API URL
   // Priority: explicit MCP env var > localhost default
@@ -47,42 +45,42 @@ export async function callChatApi(
 
   if (process.env.NEXT_PUBLIC_APP_URL) {
     const envUrl = process.env.NEXT_PUBLIC_APP_URL;
-    logToFile('[MCP Chat] envUrl value:', envUrl);
-    logToFile('[MCP Chat] envUrl includes localhost?', envUrl.includes('localhost'));
-    logToFile('[MCP Chat] envUrl includes 127.0.0.1?', envUrl.includes('127.0.0.1'));
+    console.error('[MCP Chat] envUrl value:', envUrl);
+    console.error('[MCP Chat] envUrl includes localhost?', envUrl.includes('localhost'));
+    console.error('[MCP Chat] envUrl includes 127.0.0.1?', envUrl.includes('127.0.0.1'));
 
     // Only use env var if it's localhost or explicitly configured for MCP
     if (envUrl.includes('localhost') || envUrl.includes('127.0.0.1')) {
       chatApiUrl = `${envUrl}/api/chat`;
-      logToFile('[MCP Chat] Constructed chatApiUrl:', chatApiUrl);
+      console.error('[MCP Chat] Constructed chatApiUrl:', chatApiUrl);
     } else {
-      logToFile('[MCP Chat] envUrl does not include localhost or 127.0.0.1, using default');
+      console.error('[MCP Chat] envUrl does not include localhost or 127.0.0.1, using default');
     }
   } else {
-    logToFile('[MCP Chat] NEXT_PUBLIC_APP_URL not set, using default localhost:3000');
+    console.error('[MCP Chat] NEXT_PUBLIC_APP_URL not set, using default localhost:3000');
   }
 
-  logToFile('[MCP Chat] Final chatApiUrl:', chatApiUrl);
-  logToFile('[MCP Chat] === END URL CONSTRUCTION DEBUG ===');
+  console.error('[MCP Chat] Final chatApiUrl:', chatApiUrl);
+  console.error('[MCP Chat] === END URL CONSTRUCTION DEBUG ===');
 
-  logToFile('[MCP Chat] Calling chat API:', chatApiUrl);
-  logToFile('[MCP Chat] Messages:', messages.length, 'Persona:', personaSlug);
-  logToFile('[MCP Chat] ENV NEXT_PUBLIC_APP_URL:', process.env.NEXT_PUBLIC_APP_URL);
+  console.error('[MCP Chat] Calling chat API:', chatApiUrl);
+  console.error('[MCP Chat] Messages:', messages.length, 'Persona:', personaSlug);
+  console.error('[MCP Chat] ENV NEXT_PUBLIC_APP_URL:', process.env.NEXT_PUBLIC_APP_URL);
 
   // Validate URL before fetch and inspect for hidden characters
   try {
     const validatedUrl = new URL(chatApiUrl);
-    logToFile('[MCP Chat] URL validated successfully:', validatedUrl.href);
+    console.error('[MCP Chat] URL validated successfully:', validatedUrl.href);
   } catch (urlError) {
-    logToFile('[MCP Chat] Invalid URL detected:', chatApiUrl);
-    logToFile('[MCP Chat] URL length:', chatApiUrl.length);
-    logToFile('[MCP Chat] URL character codes:');
+    console.error('[MCP Chat] Invalid URL detected:', chatApiUrl);
+    console.error('[MCP Chat] URL length:', chatApiUrl.length);
+    console.error('[MCP Chat] URL character codes:');
     for (let i = 0; i < chatApiUrl.length; i++) {
       const char = chatApiUrl[i];
       const code = chatApiUrl.charCodeAt(i);
-      logToFile(`  [${i}] '${char}' = ${code}${code < 32 || code > 126 ? ' ⚠️ NON-STANDARD' : ''}`);
+      console.error(`  [${i}] '${char}' = ${code}${code < 32 || code > 126 ? ' ⚠️ NON-STANDARD' : ''}`);
     }
-    logToFile('[MCP Chat] URL Error:', urlError);
+    console.error('[MCP Chat] URL Error:', urlError);
     throw new Error(`Invalid chat API URL: ${chatApiUrl}`);
   }
 
@@ -105,7 +103,7 @@ export async function callChatApi(
 
     if (!response.ok) {
       const errorText = await response.text();
-      logToFile('[MCP Chat] API error:', response.status, errorText);
+      console.error('[MCP Chat] API error:', response.status, errorText);
       throw new Error(`Chat API returned ${response.status}: ${errorText}`);
     }
 
@@ -117,10 +115,10 @@ export async function callChatApi(
       if (citationMetadataHeader) {
         const decoded = Buffer.from(citationMetadataHeader, 'base64').toString('utf-8');
         citations = JSON.parse(decoded);
-        logToFile('[MCP Chat] Extracted citation metadata:', citations.length, 'citations');
+        console.error('[MCP Chat] Extracted citation metadata:', citations.length, 'citations');
       }
     } catch (error) {
-      logToFile('[MCP Chat] Failed to extract citation metadata (headers may be too large):', error);
+      console.error('[MCP Chat] Failed to extract citation metadata (headers may be too large):', error);
       // Continue without citation metadata - the response text still has inline citations
     }
 
@@ -141,7 +139,7 @@ export async function callChatApi(
       fullResponse += chunk;
     }
 
-    logToFile('[MCP Chat] Response complete:', {
+    console.error('[MCP Chat] Response complete:', {
       length: fullResponse.length,
       preview: fullResponse.substring(0, 100),
       citations: citations.length,
@@ -156,11 +154,11 @@ export async function callChatApi(
       citations,
     };
   } catch (error) {
-    logToFile('[MCP Chat] Failed to call chat API:', error);
-    logToFile('[MCP Chat] Error type:', error instanceof Error ? error.constructor.name : typeof error);
-    logToFile('[MCP Chat] Error message:', error instanceof Error ? error.message : String(error));
-    logToFile('[MCP Chat] Chat API URL was:', chatApiUrl);
-    logToFile('[MCP Chat] NEXT_PUBLIC_APP_URL env:', process.env.NEXT_PUBLIC_APP_URL);
+    console.error('[MCP Chat] Failed to call chat API:', error);
+    console.error('[MCP Chat] Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('[MCP Chat] Error message:', error instanceof Error ? error.message : String(error));
+    console.error('[MCP Chat] Chat API URL was:', chatApiUrl);
+    console.error('[MCP Chat] NEXT_PUBLIC_APP_URL env:', process.env.NEXT_PUBLIC_APP_URL);
 
     // Re-throw with more context
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
