@@ -33,7 +33,8 @@
     "migrate:rag-storage": "tsx scripts/migrate-rag-to-storage.ts",
     "mcp-server": "NODE_NO_WARNINGS=1 tsx src/mcp-server/index.ts",
     "mcp-server:inspect": "npx @modelcontextprotocol/inspector tsx src/mcp-server/index.ts",
-    "mcp-sse-server": "NODE_NO_WARNINGS=1 tsx src/mcp-server/sse-server.ts"
+    "mcp-sse-server": "NODE_NO_WARNINGS=1 tsx src/mcp-server/sse-server.ts",
+    "mcp-sse-streaming": "NODE_NO_WARNINGS=1 tsx src/mcp-server/sse-streaming-server.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.23",
