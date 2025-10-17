@@ -359,30 +359,37 @@ function createMcpServer(sseResponse: express.Response): Server {
 app.get('/sse', async (req, res) => {
   console.error('[MCP SSE Streaming] New SSE connection');
 
-  // Set up SSE headers
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+  try {
+    // Set up SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
 
-  // Create MCP server with streaming support
-  const server = createMcpServer(res);
-  const transport = new SSEServerTransport('/message', res);
+    // Create MCP server with streaming support
+    const server = createMcpServer(res);
+    const transport = new SSEServerTransport('/message', req, res);
 
-  // Store session
-  const sessionId = `session-${Date.now()}`;
-  sessions.set(sessionId, { server, transport });
+    // Store session
+    const sessionId = `session-${Date.now()}`;
+    sessions.set(sessionId, { server, transport });
 
-  // Connect server to transport
-  await server.connect(transport);
+    // Connect server to transport
+    await server.connect(transport);
 
-  console.error('[MCP SSE Streaming] Client connected:', sessionId);
+    console.error('[MCP SSE Streaming] Client connected:', sessionId);
 
-  // Clean up on disconnect
-  req.on('close', () => {
-    console.error('[MCP SSE Streaming] Client disconnected:', sessionId);
-    sessions.delete(sessionId);
-  });
+    // Clean up on disconnect
+    req.on('close', () => {
+      console.error('[MCP SSE Streaming] Client disconnected:', sessionId);
+      sessions.delete(sessionId);
+    });
+  } catch (error) {
+    console.error('[MCP SSE Streaming] Connection error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to establish SSE connection', details: String(error) });
+    }
+  }
 });
 
 // Message endpoint for MCP clients to send requests

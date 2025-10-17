@@ -309,7 +309,7 @@ app.get('/sse', async (req, res) => {
 
     // Create MCP server and transport
     const server = createMcpServer();
-    const transport = new SSEServerTransport('/message', res);
+    const transport = new SSEServerTransport('/message', req, res);
 
     // Store session
     const sessionId = `session-${Date.now()}`;
