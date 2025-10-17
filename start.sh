@@ -9,8 +9,8 @@ echo "🚀 Starting service: $SERVICE_NAME"
 
 case "$SERVICE_NAME" in
   "mcp-server")
-    echo "📡 Starting MCP SSE Streaming Server..."
-    exec pnpm mcp-sse-streaming
+    echo "📡 Starting MCP SSE Server..."
+    exec pnpm mcp-sse-server
     ;;
   "david-gpt-worker")
     echo "⚙️ Starting Worker..."
