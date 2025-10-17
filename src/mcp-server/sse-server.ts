@@ -309,14 +309,14 @@ app.get('/sse', async (req, res) => {
 
     // Create MCP server and transport
     const server = createMcpServer();
-    const transport = new SSEServerTransport('/message', req, res);
+    const transport = new SSEServerTransport('/message', res);
 
-    // Store session
-    const sessionId = `session-${Date.now()}`;
-    sessions.set(sessionId, { server, transport });
-
-    // Connect server to transport
+    // Connect server to transport (this initializes transport.sessionId)
     await server.connect(transport);
+
+    // Store session using transport's auto-generated sessionId
+    const sessionId = transport.sessionId;
+    sessions.set(sessionId, { server, transport });
 
     console.error('[MCP SSE] Client connected:', sessionId);
 
@@ -335,15 +335,24 @@ app.get('/sse', async (req, res) => {
 
 // Message endpoint for MCP clients to send requests
 app.post('/message', async (req, res) => {
-  console.error('[MCP SSE] Received message:', req.body);
+  const sessionId = req.query.sessionId as string;
+  console.error('[MCP SSE] Received message for session:', sessionId);
 
   try {
-    // Handle incoming message
-    // The SSE transport will handle routing this to the appropriate handler
-    res.json({ status: 'ok' });
+    const session = sessions.get(sessionId);
+
+    if (!session) {
+      res.status(400).json({ error: 'No transport found for sessionId' });
+      return;
+    }
+
+    // Delegate message handling to the transport
+    await session.transport.handlePostMessage(req, res, req.body);
   } catch (error) {
     console.error('[MCP SSE] Message handling error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 });
 

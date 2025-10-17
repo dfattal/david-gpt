@@ -368,7 +368,7 @@ app.get('/sse', async (req, res) => {
 
     // Create MCP server with streaming support
     const server = createMcpServer(res);
-    const transport = new SSEServerTransport('/message', req, res);
+    const transport = new SSEServerTransport('/message', res);
 
     // Store session
     const sessionId = `session-${Date.now()}`;
