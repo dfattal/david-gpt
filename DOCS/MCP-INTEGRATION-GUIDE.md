@@ -8,6 +8,7 @@
 
 - [Overview](#overview)
 - [Quick Decision Matrix](#quick-decision-matrix)
+- [Remote Access for Third Parties](#remote-access-for-third-parties)
 - [Transport Protocols](#transport-protocols)
   - [1. stdio (Local)](#1-stdio-local)
   - [2. HTTP API](#2-http-api)
@@ -52,6 +53,81 @@ The David-GPT RAG system is accessible through **four different integration meth
 | **Claude.ai web (with streaming)** | SSE Streaming MCP | ✅ Yes |
 | **ChatGPT custom GPT** | HTTP API or SSE MCP | ✅ Yes |
 | **ChatGPT custom GPT (streaming)** | SSE Streaming MCP | ✅ Yes |
+
+---
+
+## Remote Access for Third Parties
+
+**Third parties can access David-GPT remotely using `mcp-remote`!**
+
+Your Railway SSE server is already compatible with `mcp-remote`, enabling external users to connect from Claude Code, Cursor, Windsurf, or Gemini CLI without any local setup.
+
+### Quick Setup for Third Parties
+
+Add this to `.mcp.json` or `.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "david-gpt": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp-server-production-6a46.up.railway.app/sse"
+      ]
+    }
+  }
+}
+```
+
+**Restart your IDE** and you're done! The MCP tools will be available immediately.
+
+### How It Works
+
+```
+User's Local Machine
+    ↓ stdio
+mcp-remote (runs locally via npx)
+    ↓ SSE over HTTPS
+David-GPT Railway Server
+    ↓ HTTP
+RAG System (Supabase + OpenAI)
+    ↓
+Cited Response
+```
+
+**Behind the scenes:**
+1. `mcp-remote` runs locally via `npx` (no installation needed)
+2. Translates stdio (standard input/output) to SSE (Server-Sent Events)
+3. Forwards requests to your Railway SSE endpoint
+4. Returns responses back through the stdio interface
+5. Works seamlessly with Claude Code, Cursor, Windsurf, Gemini CLI
+
+### What Third Parties Get
+
+- ✅ **Access to your knowledge base** (3D displays, Leia technology, AI, computer vision)
+- ✅ **Three MCP tools:** `new_conversation`, `reply_to_conversation`, `list_conversations`
+- ✅ **Cited responses** with source URLs and document references
+- ✅ **Multi-turn context** - Bot remembers conversation history (last 6 messages)
+- ✅ **No authentication required** (currently open access)
+- ✅ **No local setup** - Just add config and restart IDE
+
+### Security & Usage
+
+**Current Configuration:**
+- Open access (no API keys required)
+- HTTPS encrypted connections
+- Hosted on Railway (always-on)
+- Rate limiting: TBD
+
+**Future Enhancements:**
+- API key authentication
+- Usage quotas per user
+- Request rate limiting
+- OAuth support
+
+📚 **Complete Guide:** See [THIRD-PARTY-INTEGRATION.md](THIRD-PARTY-INTEGRATION.md) for detailed documentation, examples, and troubleshooting.
 
 ---
 
