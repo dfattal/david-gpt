@@ -5,7 +5,7 @@ HTTP API wrapper for the David-GPT MCP server functionality. This allows cloud-b
 ## Base URL
 
 - **Local Development**: `http://localhost:3000/api/mcp-bridge`
-- **Production**: `https://your-domain.vercel.app/api/mcp-bridge`
+- **Production**: `https://david-gpt-orpin.vercel.app/api/mcp-bridge`
 
 ## Authentication
 
