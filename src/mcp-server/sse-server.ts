@@ -301,29 +301,36 @@ function createMcpServer(): Server {
 app.get('/sse', async (req, res) => {
   console.error('[MCP SSE] New SSE connection');
 
-  // Set up SSE headers
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
+  try {
+    // Set up SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
 
-  // Create MCP server and transport
-  const server = createMcpServer();
-  const transport = new SSEServerTransport('/message', res);
+    // Create MCP server and transport
+    const server = createMcpServer();
+    const transport = new SSEServerTransport('/message', res);
 
-  // Store session
-  const sessionId = `session-${Date.now()}`;
-  sessions.set(sessionId, { server, transport });
+    // Store session
+    const sessionId = `session-${Date.now()}`;
+    sessions.set(sessionId, { server, transport });
 
-  // Connect server to transport
-  await server.connect(transport);
+    // Connect server to transport
+    await server.connect(transport);
 
-  console.error('[MCP SSE] Client connected:', sessionId);
+    console.error('[MCP SSE] Client connected:', sessionId);
 
-  // Clean up on disconnect
-  req.on('close', () => {
-    console.error('[MCP SSE] Client disconnected:', sessionId);
-    sessions.delete(sessionId);
-  });
+    // Clean up on disconnect
+    req.on('close', () => {
+      console.error('[MCP SSE] Client disconnected:', sessionId);
+      sessions.delete(sessionId);
+    });
+  } catch (error) {
+    console.error('[MCP SSE] Connection error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to establish SSE connection', details: String(error) });
+    }
+  }
 });
 
 // Message endpoint for MCP clients to send requests
