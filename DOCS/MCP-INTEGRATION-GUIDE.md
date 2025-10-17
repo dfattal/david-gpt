@@ -74,17 +74,25 @@ The David-GPT RAG system is accessible through **four different integration meth
     "david-gpt": {
       "type": "stdio",
       "command": "pnpm",
-      "args": ["mcp-server"],
-      "env": {
-        "NEXT_PUBLIC_SUPABASE_URL": "${NEXT_PUBLIC_SUPABASE_URL}",
-        "SUPABASE_SERVICE_ROLE_KEY": "${SUPABASE_SERVICE_ROLE_KEY}",
-        "OPENAI_API_KEY": "${OPENAI_API_KEY}",
-        "NEXT_PUBLIC_APP_URL": "http://localhost:3000"
-      }
+      "args": ["mcp-server"]
     }
   }
 }
 ```
+
+**Environment Setup:**
+
+Environment variables are automatically loaded from `.env.local` via dotenv when the MCP server starts:
+
+```bash
+# Required in .env.local:
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+OPENAI_API_KEY=sk-...
+NEXT_PUBLIC_APP_URL=http://localhost:3000  # Optional, defaults to http://127.0.0.1:3000
+```
+
+See `src/mcp-server/env.ts:6-70` for dotenv loading logic.
 
 #### Usage
 

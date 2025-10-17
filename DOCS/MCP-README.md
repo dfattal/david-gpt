@@ -44,7 +44,8 @@
 ```bash
 # Local Development (stdio)
 pnpm dev                    # Start Next.js
-# Use in Claude Code/Cursor - already configured in .cursor/mcp.json
+# Use in Claude Code/Cursor - already configured in .mcp.json
+# Environment variables loaded automatically from .env.local via dotenv
 
 # Programmatic Access (HTTP API)
 curl -X POST https://david-gpt-orpin.vercel.app/api/mcp-bridge \
