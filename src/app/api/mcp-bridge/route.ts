@@ -44,6 +44,20 @@ interface ListConversationsRequest {
 
 type MCPBridgeRequest = NewConversationRequest | ReplyToConversationRequest | ListConversationsRequest;
 
+// CORS headers for Claude AI and other clients
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: corsHeaders,
+  });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as MCPBridgeRequest;
@@ -58,7 +72,7 @@ export async function POST(req: NextRequest) {
         if (!message || typeof message !== 'string') {
           return NextResponse.json(
             { error: 'message must be a non-empty string' },
-            { status: 400 }
+            { status: 400, headers: corsHeaders }
           );
         }
 
@@ -98,7 +112,7 @@ export async function POST(req: NextRequest) {
           response: formattedResponse,
           citations: chatResponse.citations,
           citations_count: chatResponse.citations.length,
-        });
+        }, { headers: corsHeaders });
       }
 
       case 'reply_to_conversation': {
@@ -107,14 +121,14 @@ export async function POST(req: NextRequest) {
         if (!conversation_id || typeof conversation_id !== 'string') {
           return NextResponse.json(
             { error: 'conversation_id must be a valid UUID string' },
-            { status: 400 }
+            { status: 400, headers: corsHeaders }
           );
         }
 
         if (!message || typeof message !== 'string') {
           return NextResponse.json(
             { error: 'message must be a non-empty string' },
-            { status: 400 }
+            { status: 400, headers: corsHeaders }
           );
         }
 
@@ -146,7 +160,7 @@ export async function POST(req: NextRequest) {
           citations: chatResponse.citations,
           citations_count: chatResponse.citations.length,
           context_messages: history.length,
-        });
+        }, { headers: corsHeaders });
       }
 
       case 'list_conversations': {
@@ -167,13 +181,13 @@ export async function POST(req: NextRequest) {
             persona: c.persona_slug || 'david',
           })),
           count: conversations.length,
-        });
+        }, { headers: corsHeaders });
       }
 
       default:
         return NextResponse.json(
           { error: `Unknown action: ${action}` },
-          { status: 400 }
+          { status: 400, headers: corsHeaders }
         );
     }
   } catch (error) {
@@ -184,7 +198,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(
       { error: errorMessage },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
@@ -219,5 +233,5 @@ export async function GET() {
         persona: 'david',
       },
     },
-  });
+  }, { headers: corsHeaders });
 }
