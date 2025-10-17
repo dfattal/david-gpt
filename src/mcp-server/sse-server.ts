@@ -228,7 +228,7 @@ function createMcpServer(): McpServer {
 
 // SSE endpoint for MCP clients
 app.get('/sse', async (req, res) => {
-  console.error('[MCP SSE] New SSE connection');
+  console.error('[MCP SSE] New SSE connection - McpServer API v1.20.0');
 
   try {
     // Create MCP server and transport
