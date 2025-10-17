@@ -32,19 +32,26 @@ debugLog(`[ENV] envLocalPath exists: ${existsSync(envLocalPath)}`);
 debugLog(`[ENV] envPath: ${envPath}`);
 debugLog(`[ENV] envPath exists: ${existsSync(envPath)}`);
 
-// Store NEXT_PUBLIC_APP_URL if it was explicitly set by MCP client (and not a placeholder)
-const mcpAppUrl = process.env.NEXT_PUBLIC_APP_URL;
-const isMcpAppUrlPlaceholder = mcpAppUrl?.startsWith('${') && mcpAppUrl?.endsWith('}');
-debugLog(`[ENV] MCP client NEXT_PUBLIC_APP_URL: ${mcpAppUrl}`);
+// Detect if running on Railway (production)
+const isRailway = !!process.env.RAILWAY_ENVIRONMENT;
+debugLog(`[ENV] Running on Railway: ${isRailway}`);
+
+// Store NEXT_PUBLIC_APP_URL if it was explicitly set (Railway or MCP client)
+const existingAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+const isMcpAppUrlPlaceholder = existingAppUrl?.startsWith('${') && existingAppUrl?.endsWith('}');
+debugLog(`[ENV] Existing NEXT_PUBLIC_APP_URL: ${existingAppUrl}`);
 debugLog(`[ENV] Is placeholder: ${isMcpAppUrlPlaceholder}`);
 
 // Log environment BEFORE loading
 debugLog(`[ENV] BEFORE dotenv - NEXT_PUBLIC_SUPABASE_URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL}`);
 
 try {
-  // Load .env.local and OVERRIDE any placeholder values from MCP client
-  // This is necessary because Claude Code may set env vars to literal "${VAR_NAME}" strings
-  const result = dotenv.config({ path: envLocalPath, override: true });
+  // On Railway (production), don't override environment variables
+  // Locally, override to replace placeholder values from MCP client
+  const shouldOverride = !isRailway;
+  debugLog(`[ENV] Will override env vars: ${shouldOverride}`);
+
+  const result = dotenv.config({ path: envLocalPath, override: shouldOverride });
   if (result.error) {
     debugLog(`[ENV] .env.local load error: ${result.error.message}`);
   } else {
@@ -53,7 +60,8 @@ try {
   }
 } catch (error) {
   debugLog(`[ENV] Exception loading .env.local: ${error}`);
-  const result = dotenv.config({ path: envPath, override: true });
+  const shouldOverride = !isRailway;
+  const result = dotenv.config({ path: envPath, override: shouldOverride });
   if (result.error) {
     debugLog(`[ENV] .env load error: ${result.error.message}`);
   } else {
@@ -64,11 +72,8 @@ try {
 // Log environment AFTER loading
 debugLog(`[ENV] AFTER dotenv - NEXT_PUBLIC_SUPABASE_URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL}`);
 
-// Restore MCP client's NEXT_PUBLIC_APP_URL if it was set to a real value (not a placeholder)
-if (mcpAppUrl && !isMcpAppUrlPlaceholder) {
-  process.env.NEXT_PUBLIC_APP_URL = mcpAppUrl;
-  debugLog(`[ENV] Using MCP client APP_URL: ${mcpAppUrl}`);
-} else if (!process.env.NEXT_PUBLIC_APP_URL || isMcpAppUrlPlaceholder) {
+// Set NEXT_PUBLIC_APP_URL if not already set or if it's a placeholder
+if (!process.env.NEXT_PUBLIC_APP_URL || isMcpAppUrlPlaceholder) {
   // Default to localhost if not set or if it's a placeholder
   process.env.NEXT_PUBLIC_APP_URL = 'http://127.0.0.1:3000';
   debugLog('[ENV] Using default APP_URL: http://127.0.0.1:3000');
