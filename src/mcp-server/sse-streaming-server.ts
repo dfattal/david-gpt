@@ -10,8 +10,9 @@
 import './env.js';
 
 import express from 'express';
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { z } from 'zod';
 import {
   getOrCreateMcpConversation,
   getMcpConversationHistory,
@@ -56,11 +57,11 @@ app.use((req, res, next) => {
 });
 
 // Store active sessions
-const sessions = new Map<string, { server: Server; transport: SSEServerTransport }>();
+const sessions = new Map<string, { server: McpServer; transport: SSEServerTransport }>();
 
 // Initialize MCP Server with streaming support
-function createMcpServer(sseResponse: express.Response): Server {
-  const server = new Server(
+function createMcpServer(sseResponse: express.Response): McpServer {
+  const server = new McpServer(
     {
       name: 'david-gpt-rag-streaming',
       version: '1.0.0',
@@ -72,68 +73,8 @@ function createMcpServer(sseResponse: express.Response): Server {
     }
   );
 
-  // Define tools
-  server.setRequestHandler('tools/list', async () => ({
-    tools: [
-      {
-        name: 'new_conversation',
-        description:
-          'Start a new conversation with the David-GPT RAG bot. Returns a streaming cited response from the knowledge base about 3D displays, Leia technology, computer vision, AI, and related technical topics. Responses stream in real-time as they are generated.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            message: {
-              type: 'string',
-              description: 'Your initial message or question for the bot',
-            },
-            persona: {
-              type: 'string',
-              description: 'Persona to use for the conversation (default: "david")',
-              default: 'david',
-            },
-          },
-          required: ['message'],
-        },
-      },
-      {
-        name: 'reply_to_conversation',
-        description:
-          'Continue an existing conversation with the David-GPT RAG bot. Maintains context from previous messages (last 6 messages) and returns streaming cited responses from the knowledge base.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            conversation_id: {
-              type: 'string',
-              description: 'Conversation ID from new_conversation',
-            },
-            message: {
-              type: 'string',
-              description: 'Your follow-up message or question',
-            },
-          },
-          required: ['conversation_id', 'message'],
-        },
-      },
-      {
-        name: 'list_conversations',
-        description:
-          'List recent MCP conversations. Returns up to 10 most recent conversations with their IDs, titles, and last message timestamps.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            limit: {
-              type: 'number',
-              description: 'Maximum number of conversations to return (default: 10)',
-              default: 10,
-            },
-          },
-        },
-      },
-    ],
-  }));
-
   // Helper to send SSE progress events
-  function sendProgressEvent(type: 'start' | 'token' | 'citation' | 'complete', data: any) {
+  function sendProgressEvent(type: 'start' | 'token' | 'citation' | 'complete' | 'error', data: any) {
     const event = {
       type,
       timestamp: new Date().toISOString(),
@@ -145,129 +86,45 @@ function createMcpServer(sseResponse: express.Response): Server {
     sseResponse.write(`data: ${JSON.stringify(event)}\n\n`);
   }
 
-  // Tool call handlers with streaming
-  server.setRequestHandler('tools/call', async (request) => {
-    const { name, arguments: args } = request.params;
+  // Tool: new_conversation with streaming
+  server.tool(
+    'new_conversation',
+    'Start a new conversation with the David-GPT RAG bot. Returns a streaming cited response from the knowledge base about 3D displays, Leia technology, computer vision, AI, and related technical topics. Responses stream in real-time as they are generated.',
+    {
+      message: z.string().describe('Your initial message or question for the bot'),
+      persona: z.string().describe('Persona to use for the conversation').default('david').optional(),
+    },
+    async ({ message, persona = 'david' }) => {
+      console.error(`[MCP SSE Streaming] Tool called: new_conversation`);
 
-    console.error(`[MCP SSE Streaming] Tool called: ${name}`, args);
+      try {
+        // Generate unique session ID
+        const sessionId = `sse-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+        console.error(`[MCP SSE Streaming] Creating conversation, session: ${sessionId}`);
 
-    try {
-      switch (name) {
-        case 'new_conversation': {
-          const { message, persona = 'david' } = args as {
-            message: string;
-            persona?: string;
-          };
+        // Create conversation
+        const conversationId = await getOrCreateMcpConversation(sessionId, persona);
+        await storeMcpMessage(conversationId, 'user', message);
 
-          if (!message || typeof message !== 'string') {
-            throw new Error('message must be a non-empty string');
-          }
+        // Generate title
+        const title = generateConversationTitle(message);
+        await updateConversationTitle(conversationId, title);
 
-          // Generate unique session ID
-          const sessionId = `sse-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-          console.error(`[MCP SSE Streaming] Creating conversation, session: ${sessionId}`);
+        // Send start event
+        sendProgressEvent('start', {
+          conversation_id: conversationId,
+          session_id: sessionId,
+        });
 
-          // Create conversation
-          const conversationId = await getOrCreateMcpConversation(sessionId, persona);
-          await storeMcpMessage(conversationId, 'user', message);
+        // Stream the response
+        let fullResponse = '';
+        const citations: any[] = [];
 
-          // Generate title
-          const title = generateConversationTitle(message);
-          await updateConversationTitle(conversationId, title);
-
-          // Send start event
-          sendProgressEvent('start', {
-            conversation_id: conversationId,
-            session_id: sessionId,
-          });
-
-          // Stream the response
-          let fullResponse = '';
-          const citations: any[] = [];
-
-          await callChatApiStreaming(
-            [{ role: 'user', content: message }],
-            conversationId,
-            persona,
-            {
-              onToken: (token) => {
-                fullResponse += token;
-                // Send token event
-                sendProgressEvent('token', { token });
-              },
-              onCitation: (citation) => {
-                citations.push(citation);
-                // Send citation event
-                sendProgressEvent('citation', citation);
-              },
-              onComplete: async (response, cites) => {
-                // Store assistant response
-                await storeMcpMessage(conversationId, 'assistant', response);
-
-                // Format with citations
-                const formattedResponse = response + formatCitations(cites);
-
-                // Send complete event
-                sendProgressEvent('complete', {
-                  response: formattedResponse,
-                  citations_count: cites.length,
-                });
-              },
-            }
-          );
-
-          // Return final result
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(
-                  {
-                    conversation_id: conversationId,
-                    session_id: sessionId,
-                    response: fullResponse + formatCitations(citations),
-                    citations_count: citations.length,
-                    streaming: true,
-                  },
-                  null,
-                  2
-                ),
-              },
-            ],
-          };
-        }
-
-        case 'reply_to_conversation': {
-          const { conversation_id, message } = args as {
-            conversation_id: string;
-            message: string;
-          };
-
-          if (!conversation_id || typeof conversation_id !== 'string') {
-            throw new Error('conversation_id must be a valid UUID string');
-          }
-
-          if (!message || typeof message !== 'string') {
-            throw new Error('message must be a non-empty string');
-          }
-
-          console.error(`[MCP SSE Streaming] Replying to conversation: ${conversation_id}`);
-
-          // Get conversation history
-          const history = await getMcpConversationHistory(conversation_id, 6);
-          await storeMcpMessage(conversation_id, 'user', message);
-
-          // Send start event
-          sendProgressEvent('start', { conversation_id });
-
-          // Build messages with history
-          const messages = [...history, { role: 'user' as const, content: message }];
-
-          // Stream the response
-          let fullResponse = '';
-          const citations: any[] = [];
-
-          await callChatApiStreaming(messages, conversation_id, 'david', {
+        await callChatApiStreaming(
+          [{ role: 'user', content: message }],
+          conversationId,
+          persona,
+          {
             onToken: (token) => {
               fullResponse += token;
               sendProgressEvent('token', { token });
@@ -277,80 +134,150 @@ function createMcpServer(sseResponse: express.Response): Server {
               sendProgressEvent('citation', citation);
             },
             onComplete: async (response, cites) => {
-              await storeMcpMessage(conversation_id, 'assistant', response);
-
+              await storeMcpMessage(conversationId, 'assistant', response);
               const formattedResponse = response + formatCitations(cites);
-
               sendProgressEvent('complete', {
                 response: formattedResponse,
                 citations_count: cites.length,
-                context_messages: history.length,
               });
             },
-          });
+          }
+        );
 
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(
-                  {
-                    response: fullResponse + formatCitations(citations),
-                    citations_count: citations.length,
-                    context_messages: history.length,
-                    streaming: true,
-                  },
-                  null,
-                  2
-                ),
-              },
-            ],
-          };
-        }
-
-        case 'list_conversations': {
-          const { limit = 10 } = args as { limit?: number };
-
-          console.error(`[MCP SSE Streaming] Listing conversations, limit: ${limit}`);
-
-          const conversations = await listMcpConversations(limit);
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(
-                  {
-                    conversations: conversations.map((c) => ({
-                      conversation_id: c.id,
-                      session_id: c.mcp_session_id,
-                      title: c.title,
-                      last_message_at: c.last_message_at,
-                      persona: c.persona_slug || 'david',
-                    })),
-                    count: conversations.length,
-                  },
-                  null,
-                  2
-                ),
-              },
-            ],
-          };
-        }
-
-        default:
-          throw new Error(`Unknown tool: ${name}`);
+        // Return final result
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  conversation_id: conversationId,
+                  session_id: sessionId,
+                  response: fullResponse + formatCitations(citations),
+                  citations_count: citations.length,
+                  streaming: true,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        console.error(`[MCP SSE Streaming] Tool call failed:`, error);
+        sendProgressEvent('error', { error: String(error) });
+        throw error;
       }
-    } catch (error) {
-      console.error(`[MCP SSE Streaming] Tool call failed:`, error);
-
-      // Send error event
-      sseResponse.write(`event: error\n`);
-      sseResponse.write(`data: ${JSON.stringify({ error: String(error) })}\n\n`);
-
-      throw error;
     }
-  });
+  );
+
+  // Tool: reply_to_conversation with streaming
+  server.tool(
+    'reply_to_conversation',
+    'Continue an existing conversation with the David-GPT RAG bot. Maintains context from previous messages (last 6 messages) and returns streaming cited responses from the knowledge base.',
+    {
+      conversation_id: z.string().describe('Conversation ID from new_conversation'),
+      message: z.string().describe('Your follow-up message or question'),
+    },
+    async ({ conversation_id, message }) => {
+      console.error(`[MCP SSE Streaming] Tool called: reply_to_conversation`);
+      console.error(`[MCP SSE Streaming] Replying to conversation: ${conversation_id}`);
+
+      try {
+        // Get conversation history
+        const history = await getMcpConversationHistory(conversation_id, 6);
+        await storeMcpMessage(conversation_id, 'user', message);
+
+        // Send start event
+        sendProgressEvent('start', { conversation_id });
+
+        // Build messages with history
+        const messages = [...history, { role: 'user' as const, content: message }];
+
+        // Stream the response
+        let fullResponse = '';
+        const citations: any[] = [];
+
+        await callChatApiStreaming(messages, conversation_id, 'david', {
+          onToken: (token) => {
+            fullResponse += token;
+            sendProgressEvent('token', { token });
+          },
+          onCitation: (citation) => {
+            citations.push(citation);
+            sendProgressEvent('citation', citation);
+          },
+          onComplete: async (response, cites) => {
+            await storeMcpMessage(conversation_id, 'assistant', response);
+            const formattedResponse = response + formatCitations(cites);
+            sendProgressEvent('complete', {
+              response: formattedResponse,
+              citations_count: cites.length,
+              context_messages: history.length,
+            });
+          },
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  response: fullResponse + formatCitations(citations),
+                  citations_count: citations.length,
+                  context_messages: history.length,
+                  streaming: true,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        console.error(`[MCP SSE Streaming] Tool call failed:`, error);
+        sendProgressEvent('error', { error: String(error) });
+        throw error;
+      }
+    }
+  );
+
+  // Tool: list_conversations
+  server.tool(
+    'list_conversations',
+    'List recent MCP conversations. Returns up to 10 most recent conversations with their IDs, titles, and last message timestamps.',
+    {
+      limit: z.number().describe('Maximum number of conversations to return').default(10).optional(),
+    },
+    async ({ limit = 10 }) => {
+      console.error(`[MCP SSE Streaming] Tool called: list_conversations, limit: ${limit}`);
+
+      const conversations = await listMcpConversations(limit);
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                conversations: conversations.map((c) => ({
+                  conversation_id: c.id,
+                  session_id: c.mcp_session_id,
+                  title: c.title,
+                  last_message_at: c.last_message_at,
+                  persona: c.persona_slug || 'david',
+                })),
+                count: conversations.length,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    }
+  );
 
   return server;
 }
@@ -360,22 +287,17 @@ app.get('/sse', async (req, res) => {
   console.error('[MCP SSE Streaming] New SSE connection');
 
   try {
-    // Set up SSE headers
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
-
     // Create MCP server with streaming support
+    // Note: SSEServerTransport.start() (called by server.connect()) sets headers automatically
     const server = createMcpServer(res);
     const transport = new SSEServerTransport('/message', res);
 
-    // Store session
-    const sessionId = `session-${Date.now()}`;
-    sessions.set(sessionId, { server, transport });
-
-    // Connect server to transport
+    // Connect server to transport (this initializes transport.sessionId and sets headers)
     await server.connect(transport);
+
+    // Store session using transport's auto-generated sessionId
+    const sessionId = transport.sessionId;
+    sessions.set(sessionId, { server, transport });
 
     console.error('[MCP SSE Streaming] Client connected:', sessionId);
 
@@ -394,13 +316,24 @@ app.get('/sse', async (req, res) => {
 
 // Message endpoint for MCP clients to send requests
 app.post('/message', async (req, res) => {
-  console.error('[MCP SSE Streaming] Received message:', req.body);
+  const sessionId = req.query.sessionId as string;
+  console.error('[MCP SSE Streaming] Received message for session:', sessionId);
 
   try {
-    res.json({ status: 'ok' });
+    const session = sessions.get(sessionId);
+
+    if (!session) {
+      res.status(400).json({ error: 'No transport found for sessionId' });
+      return;
+    }
+
+    // Delegate message handling to the transport
+    await session.transport.handlePostMessage(req, res, req.body);
   } catch (error) {
     console.error('[MCP SSE Streaming] Message handling error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 });
 

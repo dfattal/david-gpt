@@ -12,8 +12,9 @@
 import './env.js';
 
 import express from 'express';
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { z } from 'zod';
 import {
   getOrCreateMcpConversation,
   getMcpConversationHistory,
@@ -57,11 +58,11 @@ app.use((req, res, next) => {
 });
 
 // Store active sessions
-const sessions = new Map<string, { server: Server; transport: SSEServerTransport }>();
+const sessions = new Map<string, { server: McpServer; transport: SSEServerTransport }>();
 
 // Initialize MCP Server
-function createMcpServer(): Server {
-  const server = new Server(
+function createMcpServer(): McpServer {
+  const server = new McpServer(
     {
       name: 'david-gpt-rag',
       version: '1.0.0',
@@ -73,226 +74,154 @@ function createMcpServer(): Server {
     }
   );
 
-  // Define tools
-  server.setRequestHandler('tools/list', async () => ({
-    tools: [
-      {
-        name: 'new_conversation',
-        description:
-          'Start a new conversation with the David-GPT RAG bot. Returns a cited response from the knowledge base about 3D displays, Leia technology, computer vision, AI, and related technical topics.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            message: {
-              type: 'string',
-              description: 'Your initial message or question for the bot',
-            },
-            persona: {
-              type: 'string',
-              description: 'Persona to use for the conversation (default: "david")',
-              default: 'david',
-            },
-          },
-          required: ['message'],
-        },
-      },
-      {
-        name: 'reply_to_conversation',
-        description:
-          'Continue an existing conversation with the David-GPT RAG bot. Maintains context from previous messages (last 6 messages) and returns cited responses from the knowledge base.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            conversation_id: {
-              type: 'string',
-              description: 'Conversation ID from new_conversation',
-            },
-            message: {
-              type: 'string',
-              description: 'Your follow-up message or question',
-            },
-          },
-          required: ['conversation_id', 'message'],
-        },
-      },
-      {
-        name: 'list_conversations',
-        description:
-          'List recent MCP conversations. Returns up to 10 most recent conversations with their IDs, titles, and last message timestamps.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            limit: {
-              type: 'number',
-              description: 'Maximum number of conversations to return (default: 10)',
-              default: 10,
-            },
-          },
-        },
-      },
-    ],
-  }));
+  // Tool: new_conversation
+  server.tool(
+    'new_conversation',
+    'Start a new conversation with the David-GPT RAG bot. Returns a cited response from the knowledge base about 3D displays, Leia technology, computer vision, AI, and related technical topics.',
+    {
+      message: z.string().describe('Your initial message or question for the bot'),
+      persona: z.string().describe('Persona to use for the conversation').default('david').optional(),
+    },
+    async ({ message, persona = 'david' }) => {
+      console.error(`[MCP SSE] Tool called: new_conversation`);
 
-  // Tool call handlers
-  server.setRequestHandler('tools/call', async (request) => {
-    const { name, arguments: args } = request.params;
+      // Generate unique session ID
+      const sessionId = `sse-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      console.error(`[MCP SSE] Creating conversation, session: ${sessionId}`);
 
-    console.error(`[MCP SSE] Tool called: ${name}`, args);
+      // Create conversation
+      const conversationId = await getOrCreateMcpConversation(sessionId, persona);
 
-    try {
-      switch (name) {
-        case 'new_conversation': {
-          const { message, persona = 'david' } = args as {
-            message: string;
-            persona?: string;
-          };
+      // Store user message
+      await storeMcpMessage(conversationId, 'user', message);
 
-          if (!message || typeof message !== 'string') {
-            throw new Error('message must be a non-empty string');
-          }
+      // Generate title
+      const title = generateConversationTitle(message);
+      await updateConversationTitle(conversationId, title);
 
-          // Generate unique session ID
-          const sessionId = `sse-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-          console.error(`[MCP SSE] Creating conversation, session: ${sessionId}`);
+      // Call chat API
+      const chatResponse = await callChatApi(
+        [{ role: 'user', content: message }],
+        conversationId,
+        persona
+      );
 
-          // Create conversation
-          const conversationId = await getOrCreateMcpConversation(sessionId, persona);
+      // Store assistant response
+      await storeMcpMessage(conversationId, 'assistant', chatResponse.content);
 
-          // Store user message
-          await storeMcpMessage(conversationId, 'user', message);
+      // Format response with citations
+      const formattedResponse =
+        chatResponse.content + formatCitations(chatResponse.citations);
 
-          // Generate title
-          const title = generateConversationTitle(message);
-          await updateConversationTitle(conversationId, title);
+      console.error(`[MCP SSE] Conversation created: ${conversationId}`);
 
-          // Call chat API
-          const chatResponse = await callChatApi(
-            [{ role: 'user', content: message }],
-            conversationId,
-            persona
-          );
-
-          // Store assistant response
-          await storeMcpMessage(conversationId, 'assistant', chatResponse.content);
-
-          // Format response with citations
-          const formattedResponse =
-            chatResponse.content + formatCitations(chatResponse.citations);
-
-          console.error(`[MCP SSE] Conversation created: ${conversationId}`);
-
-          return {
-            content: [
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
               {
-                type: 'text',
-                text: JSON.stringify(
-                  {
-                    conversation_id: conversationId,
-                    session_id: sessionId,
-                    response: formattedResponse,
-                    citations_count: chatResponse.citations.length,
-                  },
-                  null,
-                  2
-                ),
+                conversation_id: conversationId,
+                session_id: sessionId,
+                response: formattedResponse,
+                citations_count: chatResponse.citations.length,
               },
-            ],
-          };
-        }
-
-        case 'reply_to_conversation': {
-          const { conversation_id, message } = args as {
-            conversation_id: string;
-            message: string;
-          };
-
-          if (!conversation_id || typeof conversation_id !== 'string') {
-            throw new Error('conversation_id must be a valid UUID string');
-          }
-
-          if (!message || typeof message !== 'string') {
-            throw new Error('message must be a non-empty string');
-          }
-
-          console.error(`[MCP SSE] Replying to conversation: ${conversation_id}`);
-
-          // Get conversation history (last 6 messages)
-          const history = await getMcpConversationHistory(conversation_id, 6);
-
-          // Store user message
-          await storeMcpMessage(conversation_id, 'user', message);
-
-          // Build messages array with history
-          const messages = [...history, { role: 'user' as const, content: message }];
-
-          // Call chat API with context
-          const chatResponse = await callChatApi(messages, conversation_id, 'david');
-
-          // Store assistant response
-          await storeMcpMessage(conversation_id, 'assistant', chatResponse.content);
-
-          // Format response with citations
-          const formattedResponse =
-            chatResponse.content + formatCitations(chatResponse.citations);
-
-          console.error(`[MCP SSE] Reply completed`);
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(
-                  {
-                    response: formattedResponse,
-                    citations_count: chatResponse.citations.length,
-                    context_messages: history.length,
-                  },
-                  null,
-                  2
-                ),
-              },
-            ],
-          };
-        }
-
-        case 'list_conversations': {
-          const { limit = 10 } = args as { limit?: number };
-
-          console.error(`[MCP SSE] Listing conversations, limit: ${limit}`);
-
-          const conversations = await listMcpConversations(limit);
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(
-                  {
-                    conversations: conversations.map((c) => ({
-                      conversation_id: c.id,
-                      session_id: c.mcp_session_id,
-                      title: c.title,
-                      last_message_at: c.last_message_at,
-                      persona: c.persona_slug || 'david',
-                    })),
-                    count: conversations.length,
-                  },
-                  null,
-                  2
-                ),
-              },
-            ],
-          };
-        }
-
-        default:
-          throw new Error(`Unknown tool: ${name}`);
-      }
-    } catch (error) {
-      console.error(`[MCP SSE] Tool call failed:`, error);
-      throw error;
+              null,
+              2
+            ),
+          },
+        ],
+      };
     }
-  });
+  );
+
+  // Tool: reply_to_conversation
+  server.tool(
+    'reply_to_conversation',
+    'Continue an existing conversation with the David-GPT RAG bot. Maintains context from previous messages (last 6 messages) and returns cited responses from the knowledge base.',
+    {
+      conversation_id: z.string().describe('Conversation ID from new_conversation'),
+      message: z.string().describe('Your follow-up message or question'),
+    },
+    async ({ conversation_id, message }) => {
+      console.error(`[MCP SSE] Tool called: reply_to_conversation`);
+      console.error(`[MCP SSE] Replying to conversation: ${conversation_id}`);
+
+      // Get conversation history (last 6 messages)
+      const history = await getMcpConversationHistory(conversation_id, 6);
+
+      // Store user message
+      await storeMcpMessage(conversation_id, 'user', message);
+
+      // Build messages array with history
+      const messages = [...history, { role: 'user' as const, content: message }];
+
+      // Call chat API with context
+      const chatResponse = await callChatApi(messages, conversation_id, 'david');
+
+      // Store assistant response
+      await storeMcpMessage(conversation_id, 'assistant', chatResponse.content);
+
+      // Format response with citations
+      const formattedResponse =
+        chatResponse.content + formatCitations(chatResponse.citations);
+
+      console.error(`[MCP SSE] Reply completed`);
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                response: formattedResponse,
+                citations_count: chatResponse.citations.length,
+                context_messages: history.length,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    }
+  );
+
+  // Tool: list_conversations
+  server.tool(
+    'list_conversations',
+    'List recent MCP conversations. Returns up to 10 most recent conversations with their IDs, titles, and last message timestamps.',
+    {
+      limit: z.number().describe('Maximum number of conversations to return').default(10).optional(),
+    },
+    async ({ limit = 10 }) => {
+      console.error(`[MCP SSE] Tool called: list_conversations, limit: ${limit}`);
+
+      const conversations = await listMcpConversations(limit);
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                conversations: conversations.map((c) => ({
+                  conversation_id: c.id,
+                  session_id: c.mcp_session_id,
+                  title: c.title,
+                  last_message_at: c.last_message_at,
+                  persona: c.persona_slug || 'david',
+                })),
+                count: conversations.length,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    }
+  );
 
   return server;
 }
@@ -302,12 +231,8 @@ app.get('/sse', async (req, res) => {
   console.error('[MCP SSE] New SSE connection');
 
   try {
-    // Set up SSE headers
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-
     // Create MCP server and transport
+    // Note: SSEServerTransport.start() (called by server.connect()) sets headers automatically
     const server = createMcpServer();
     const transport = new SSEServerTransport('/message', res);
 
