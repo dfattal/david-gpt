@@ -24,14 +24,15 @@ export async function callChatApiStreaming(
   personaSlug: string = 'david',
   callbacks: StreamCallbacks = {}
 ): Promise<void> {
-  // Determine chat API URL
-  let chatApiUrl = 'http://localhost:3000/api/chat';
+  // Determine chat API URL from environment variable
+  let chatApiUrl = 'http://localhost:3000/api/chat'; // Fallback default
 
   if (process.env.NEXT_PUBLIC_APP_URL) {
     const envUrl = process.env.NEXT_PUBLIC_APP_URL;
-    if (envUrl.includes('localhost') || envUrl.includes('127.0.0.1') || envUrl.includes('vercel.app')) {
-      chatApiUrl = `${envUrl}/api/chat`;
-    }
+    console.error('[MCP Chat Streaming] Using NEXT_PUBLIC_APP_URL:', envUrl);
+    chatApiUrl = `${envUrl}/api/chat`;
+  } else {
+    console.error('[MCP Chat Streaming] NEXT_PUBLIC_APP_URL not set, using default localhost:3000');
   }
 
   console.error('[MCP Chat Streaming] Calling:', chatApiUrl);

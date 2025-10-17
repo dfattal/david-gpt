@@ -38,24 +38,13 @@ export async function callChatApi(
   console.error('[MCP Chat] NEXT_PUBLIC_APP_URL type:', typeof process.env.NEXT_PUBLIC_APP_URL);
   console.error('[MCP Chat] NEXT_PUBLIC_APP_URL length:', process.env.NEXT_PUBLIC_APP_URL?.length);
 
-  // Determine chat API URL
-  // Priority: explicit MCP env var > localhost default
-  // This ensures MCP server always uses localhost unless explicitly configured otherwise
-  let chatApiUrl = 'http://localhost:3000/api/chat';
+  // Determine chat API URL from environment variable
+  let chatApiUrl = 'http://localhost:3000/api/chat'; // Fallback default
 
   if (process.env.NEXT_PUBLIC_APP_URL) {
     const envUrl = process.env.NEXT_PUBLIC_APP_URL;
-    console.error('[MCP Chat] envUrl value:', envUrl);
-    console.error('[MCP Chat] envUrl includes localhost?', envUrl.includes('localhost'));
-    console.error('[MCP Chat] envUrl includes 127.0.0.1?', envUrl.includes('127.0.0.1'));
-
-    // Only use env var if it's localhost or explicitly configured for MCP
-    if (envUrl.includes('localhost') || envUrl.includes('127.0.0.1')) {
-      chatApiUrl = `${envUrl}/api/chat`;
-      console.error('[MCP Chat] Constructed chatApiUrl:', chatApiUrl);
-    } else {
-      console.error('[MCP Chat] envUrl does not include localhost or 127.0.0.1, using default');
-    }
+    console.error('[MCP Chat] Using NEXT_PUBLIC_APP_URL:', envUrl);
+    chatApiUrl = `${envUrl}/api/chat`;
   } else {
     console.error('[MCP Chat] NEXT_PUBLIC_APP_URL not set, using default localhost:3000');
   }
