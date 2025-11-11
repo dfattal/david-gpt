@@ -16,6 +16,7 @@ interface UploadResponse {
     title: string;
     storage_path: string;
   };
+  jobId?: string;
   error?: string;
 }
 
@@ -158,8 +159,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
     }
 
     // Queue ingestion job for background processing
+    let jobId: string | undefined;
     try {
-      const jobId = await createExtractionJob({
+      jobId = await createExtractionJob({
         jobType: 'markdown_single',
         inputData: {
           storagePath,
@@ -193,6 +195,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
         title: doc?.title || docId,
         storage_path: storagePath,
       },
+      jobId, // Include job ID for UI to poll status
     });
   } catch (error) {
     console.error('Error in POST /api/admin/documents/upload:', error);
