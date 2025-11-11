@@ -91,3 +91,6 @@ process.on('SIGTERM', async () => {
 console.log('✅ Unified worker started (concurrency: 3)');
 console.log('   Supports: markdown_single, url_single, url_batch, pdf, reingest');
 console.log('Press Ctrl+C to stop');
+
+// Keep process alive - worker runs indefinitely until SIGTERM/SIGINT
+process.stdin.resume();
