@@ -5,7 +5,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { DatabaseIngestor } from '@/lib/rag/ingestion/databaseIngestor';
+import { getQueue } from '@/lib/queue/jobQueue';
 import matter from 'gray-matter';
 import crypto from 'crypto';
 
@@ -157,26 +157,24 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
       );
     }
 
-    // Trigger ingestion pipeline
+    // Queue ingestion job for background processing
     try {
-      const ingestor = new DatabaseIngestor(supabase, process.env.OPENAI_API_KEY);
-      const result = await ingestor.ingestDocument(
-        {
-          filePath: file.name,
+      const queue = getQueue();
+      const job = await queue.add('markdown_single', {
+        inputData: {
+          storagePath,
           content,
+          personaSlug: personaSlugs[0],
+          userId: user.id,
+          docId,
         },
-        true // overwrite if exists
-      );
-
-      if (result.error) {
-        throw new Error(result.error);
-      }
+      });
 
       console.log(
-        `✅ Successfully ingested document: ${docId} (${result.chunksCreated} chunks, $${result.cost.toFixed(4)})`
+        `✅ Document uploaded and queued for processing: ${docId} (Job ID: ${job.id})`
       );
-    } catch (ingestError) {
-      console.error('Ingestion error:', ingestError);
+    } catch (queueError) {
+      console.error('Failed to queue ingestion job:', queueError);
       // Don't fail the upload, but log the error
       // The document is uploaded, admin can manually trigger re-ingestion
     }
