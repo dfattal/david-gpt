@@ -65,6 +65,11 @@ const worker = new Worker(queue.name, processJob, {
   removeOnFail: { count: 100 },
 });
 
+// Handle worker errors
+worker.on('error', (err) => {
+  console.error('❌ Worker error:', err);
+});
+
 worker.on('completed', (job) => {
   console.log(`✅ Worker completed job ${job.id}`);
 });
@@ -93,4 +98,8 @@ console.log('   Supports: markdown_single, url_single, url_batch, pdf, reingest'
 console.log('Press Ctrl+C to stop');
 
 // Keep process alive - worker runs indefinitely until SIGTERM/SIGINT
-process.stdin.resume();
+// Use setInterval instead of stdin.resume() for better compatibility
+setInterval(() => {
+  // Heartbeat every 30 seconds
+  console.log(`💓 Worker alive - waiting for jobs...`);
+}, 30000);
