@@ -19,9 +19,10 @@ interface DocumentUploadProps {
 
 interface UploadFile {
   file: File;
-  status: 'pending' | 'uploading' | 'success' | 'error';
+  status: 'pending' | 'uploading' | 'queued' | 'processing' | 'success' | 'error';
   error?: string;
   documentId?: string;
+  jobId?: string;
 }
 
 export function DocumentUpload({ onSuccess, defaultPersonaSlugs }: DocumentUploadProps) {
@@ -57,6 +58,100 @@ export function DocumentUpload({ onSuccess, defaultPersonaSlugs }: DocumentUploa
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Poll job status
+  const pollJobStatus = async (jobId: string, index: number) => {
+    const maxAttempts = 60; // 60 attempts = 60 seconds max
+    let attempts = 0;
+
+    const poll = async () => {
+      if (attempts >= maxAttempts) {
+        setFiles((prev) =>
+          prev.map((f, i) =>
+            i === index
+              ? {
+                  ...f,
+                  status: 'error' as const,
+                  error: 'Job timeout - check job history for status',
+                }
+              : f
+          )
+        );
+        return;
+      }
+
+      attempts++;
+
+      try {
+        const response = await fetch(`/api/admin/jobs/${jobId}`);
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          throw new Error('Failed to fetch job status');
+        }
+
+        const job = data.job;
+
+        // Update status based on job status
+        if (job.status === 'completed') {
+          setFiles((prev) =>
+            prev.map((f, i) =>
+              i === index ? { ...f, status: 'success' as const } : f
+            )
+          );
+        } else if (job.status === 'failed') {
+          setFiles((prev) =>
+            prev.map((f, i) =>
+              i === index
+                ? {
+                    ...f,
+                    status: 'error' as const,
+                    error: job.error || 'Job failed',
+                  }
+                : f
+            )
+          );
+        } else if (job.status === 'processing') {
+          setFiles((prev) =>
+            prev.map((f, i) =>
+              i === index ? { ...f, status: 'processing' as const } : f
+            )
+          );
+          // Continue polling
+          setTimeout(poll, 1000);
+        } else {
+          // Still pending/queued
+          setFiles((prev) =>
+            prev.map((f, i) =>
+              i === index ? { ...f, status: 'queued' as const } : f
+            )
+          );
+          // Continue polling
+          setTimeout(poll, 1000);
+        }
+      } catch (error) {
+        // On error, retry a few times before giving up
+        if (attempts < 5) {
+          setTimeout(poll, 1000);
+        } else {
+          setFiles((prev) =>
+            prev.map((f, i) =>
+              i === index
+                ? {
+                    ...f,
+                    status: 'error' as const,
+                    error: 'Failed to track job status',
+                  }
+                : f
+            )
+          );
+        }
+      }
+    };
+
+    // Start polling
+    poll();
+  };
+
   const uploadFile = async (uploadFile: UploadFile, index: number) => {
     const formData = new FormData();
     formData.append('file', uploadFile.file);
@@ -80,17 +175,31 @@ export function DocumentUpload({ onSuccess, defaultPersonaSlugs }: DocumentUploa
         throw new Error(data.error || 'Upload failed');
       }
 
+      // Update with job ID and set to queued status
       setFiles((prev) =>
         prev.map((f, i) =>
           i === index
             ? {
                 ...f,
-                status: 'success' as const,
+                status: 'queued' as const,
                 documentId: data.document.id,
+                jobId: data.jobId,
               }
             : f
         )
       );
+
+      // Start polling job status if jobId is available
+      if (data.jobId) {
+        pollJobStatus(data.jobId, index);
+      } else {
+        // No jobId means job wasn't queued properly, mark as success anyway
+        setFiles((prev) =>
+          prev.map((f, i) =>
+            i === index ? { ...f, status: 'success' as const } : f
+          )
+        );
+      }
     } catch (error) {
       setFiles((prev) =>
         prev.map((f, i) =>
@@ -134,6 +243,8 @@ export function DocumentUpload({ onSuccess, defaultPersonaSlugs }: DocumentUploa
   const successCount = files.filter((f) => f.status === 'success').length;
   const errorCount = files.filter((f) => f.status === 'error').length;
   const uploadingCount = files.filter((f) => f.status === 'uploading').length;
+  const queuedCount = files.filter((f) => f.status === 'queued').length;
+  const processingCount = files.filter((f) => f.status === 'processing').length;
   const progress =
     files.length > 0 ? ((successCount + errorCount) / files.length) * 100 : 0;
 
@@ -206,6 +317,16 @@ export function DocumentUpload({ onSuccess, defaultPersonaSlugs }: DocumentUploa
                     ⟳ {uploadingCount} uploading
                   </span>
                 )}
+                {queuedCount > 0 && (
+                  <span className="text-yellow-600 mr-3">
+                    ⋯ {queuedCount} queued
+                  </span>
+                )}
+                {processingCount > 0 && (
+                  <span className="text-purple-600 mr-3">
+                    ⚙ {processingCount} processing
+                  </span>
+                )}
               </div>
             </div>
 
@@ -244,8 +365,18 @@ export function DocumentUpload({ onSuccess, defaultPersonaSlugs }: DocumentUploa
                   {uploadFile.status === 'error' && (
                     <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
                   )}
-                  {uploadFile.status === 'uploading' && (
-                    <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  {(uploadFile.status === 'uploading' ||
+                    uploadFile.status === 'queued' ||
+                    uploadFile.status === 'processing') && (
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      {uploadFile.status === 'queued' && (
+                        <span className="text-xs text-yellow-600">Queued</span>
+                      )}
+                      {uploadFile.status === 'processing' && (
+                        <span className="text-xs text-purple-600">Processing</span>
+                      )}
+                    </div>
                   )}
                   {uploadFile.status === 'pending' && !isUploading && (
                     <button
