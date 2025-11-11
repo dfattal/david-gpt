@@ -34,7 +34,9 @@
     "mcp-server": "NODE_NO_WARNINGS=1 tsx src/mcp-server/index.ts",
     "mcp-server:inspect": "npx @modelcontextprotocol/inspector tsx src/mcp-server/index.ts",
     "mcp-sse-server": "NODE_NO_WARNINGS=1 tsx src/mcp-server/sse-server.ts",
-    "mcp-sse-streaming": "NODE_NO_WARNINGS=1 tsx src/mcp-server/sse-streaming-server.ts"
+    "mcp-sse-streaming": "NODE_NO_WARNINGS=1 tsx src/mcp-server/sse-streaming-server.ts",
+    "check:worker": "tsx scripts/check-worker-health.ts",
+    "clean:queue": "tsx scripts/clean-stuck-jobs.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.23",

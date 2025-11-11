@@ -5,7 +5,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { getQueue } from '@/lib/queue/jobQueue';
+import { createExtractionJob } from '@/lib/queue/jobQueue';
 import matter from 'gray-matter';
 import crypto from 'crypto';
 
@@ -159,19 +159,19 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
 
     // Queue ingestion job for background processing
     try {
-      const queue = getQueue();
-      const job = await queue.add('markdown_single', {
+      const jobId = await createExtractionJob({
+        jobType: 'markdown_single',
         inputData: {
           storagePath,
           content,
           personaSlug: personaSlugs[0],
-          userId: user.id,
           docId,
         },
+        userId: user.id,
       });
 
       console.log(
-        `✅ Document uploaded and queued for processing: ${docId} (Job ID: ${job.id})`
+        `✅ Document uploaded and queued for processing: ${docId} (Job ID: ${jobId})`
       );
     } catch (queueError) {
       console.error('Failed to queue ingestion job:', queueError);
