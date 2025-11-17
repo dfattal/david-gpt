@@ -54,7 +54,8 @@ export function useJobStatus({
         throw new Error('Failed to fetch job status');
       }
       const data = await response.json();
-      return data as JobStatus;
+      // API returns { success: true, job: {...} }
+      return data.job as JobStatus;
     } catch (err) {
       throw err;
     }
