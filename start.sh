@@ -13,8 +13,8 @@ case "$SERVICE_NAME" in
     exec pnpm mcp-sse-server
     ;;
   "david-gpt-worker")
-    echo "⚙️ Starting Worker..."
-    exec pnpm worker
+    echo "⚙️ Starting On-Demand Worker..."
+    exec pnpm worker:on-demand
     ;;
   *)
     echo "❓ Unknown service: $SERVICE_NAME"

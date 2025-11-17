@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "worker": "NODE_NO_WARNINGS=1 tsx src/lib/queue/workers/start-worker.ts",
+    "worker:on-demand": "NODE_NO_WARNINGS=1 tsx src/lib/queue/workers/start-worker-on-demand.ts",
     "test:performance": "tsx src/lib/rag/performance-test-suite.ts",
     "test:architecture": "tsx src/lib/rag/validate-architecture.ts",
     "test:quality": "tsx src/lib/rag/search-quality-validator.ts",

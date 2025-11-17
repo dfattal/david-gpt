@@ -70,6 +70,38 @@ export function getQueueEvents(): QueueEvents {
 }
 
 /**
+ * Trigger Railway worker deployment via webhook
+ * This starts the on-demand worker to process the queued job
+ */
+async function triggerWorkerDeployment(): Promise<void> {
+  const webhookUrl = process.env.RAILWAY_WORKER_WEBHOOK_URL;
+
+  if (!webhookUrl) {
+    console.log('⚠️ RAILWAY_WORKER_WEBHOOK_URL not configured - worker must be started manually');
+    return;
+  }
+
+  try {
+    console.log('🔔 Triggering Railway worker deployment...');
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (response.ok) {
+      console.log('✅ Worker deployment triggered successfully');
+    } else {
+      console.warn(`⚠️ Worker deployment trigger failed: ${response.status} ${response.statusText}`);
+    }
+  } catch (error) {
+    console.warn('⚠️ Failed to trigger worker deployment:', error);
+    // Don't throw - job is still queued and will be processed when worker runs
+  }
+}
+
+/**
  * Create a new extraction job
  */
 export async function createExtractionJob(params: CreateJobParams): Promise<string> {
@@ -110,6 +142,12 @@ export async function createExtractionJob(params: CreateJobParams): Promise<stri
   );
 
   console.log(`✅ Job ${job.id} created and queued (type: ${jobType})`);
+
+  // Trigger Railway worker deployment (on-demand mode)
+  // This is async and non-blocking - we don't wait for it
+  triggerWorkerDeployment().catch((err) => {
+    console.warn('⚠️ Worker deployment trigger error:', err);
+  });
 
   return job.id;
 }
