@@ -63,6 +63,16 @@ const worker = new Worker(queue.name, processJob, {
   concurrency: 3, // Process 3 jobs concurrently
   removeOnComplete: { count: 100 },
   removeOnFail: { count: 100 },
+  settings: {
+    // Optimize for Upstash free tier (500k commands/month)
+    // Check for stalled jobs every 60 seconds instead of default 30s
+    stalledInterval: 60000,
+    // Lock jobs for 5 minutes (plenty of time for document processing)
+    lockDuration: 300000,
+    // Maximum wait time when checking for jobs (reduces polling frequency)
+    // This means worker will wait up to 30 seconds before checking again
+    drainDelay: 30,
+  },
 });
 
 // Handle worker errors
