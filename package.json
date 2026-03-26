@@ -87,7 +87,7 @@
     "katex": "^0.16.22",
     "lucide-react": "^0.542.0",
     "mammoth": "^1.11.0",
-    "next": "15.5.2",
+    "next": "15.5.9",
     "node-fetch": "^3.3.2",
     "openai": "^5.17.0",
     "pdf-parse": "^1.1.1",
